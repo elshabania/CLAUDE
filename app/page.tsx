@@ -27,8 +27,10 @@ import {
 
 type ViewMode = "drawing" | "network" | "simulation" | "simulation3d";
 
+// User-facing categories. 'centerline' is omitted because the source PDFs
+// don't draw centerlines as a layer; the simulation network derives them
+// internally from paired curbs.
 const ALL_CATEGORIES: RoadCategory[] = [
-  "centerline",
   "edge",
   "lane",
   "curb",

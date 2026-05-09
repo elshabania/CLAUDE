@@ -362,11 +362,19 @@ export function detectFromPdf(
  * considered joinable when their endpoints are within `endpointTol` of each
  * other AND the bearing of the first ending segment matches (within
  * `angleTolDeg`) the bearing of the second segment leaving the join point.
- * Iterates per group until no more merges are possible.
  *
- * Implementation uses an endpoint spatial-hash to keep matching cheap on
- * groups with tens of thousands of segments (Road Lane_Main has ~44k).
+ * Performance budget: huge layers (Survey_EXI_LANE has 51k stripes,
+ * Road Lane_Main 44k) can blow up an iterative O(N x rounds) outer loop, so:
+ *   - Skip groups larger than `MAX_STITCH_GROUP` entirely. Fragmented
+ *     lane stripes still render; they just stay as individual stripes.
+ *   - Use a queue-based algorithm: only re-check segments that were
+ *     touched in the previous round, not all N every round.
+ *   - Cap merged polyline length so a runaway chain can't grow without
+ *     bound (would also kill render performance later).
  */
+const MAX_STITCH_GROUP = 8000;
+const MAX_MERGED_POINTS = 4000;
+
 function stitchSegmentsByGroup(
   segments: DrawingSegment[],
   diag: number
@@ -376,8 +384,6 @@ function stitchSegmentsByGroup(
   const angleTolDeg = 12;
   const cell = Math.max(endpointTol * 2, 1);
 
-  // Bucket segment indices by group id; stitch each group independently so
-  // we never accidentally merge across categories.
   const byGroup = new Map<string, number[]>();
   for (let i = 0; i < segments.length; i++) {
     const arr = byGroup.get(segments[i].groupId) ?? [];
@@ -386,7 +392,6 @@ function stitchSegmentsByGroup(
   }
 
   const dropped = new Set<number>();
-  // Mutable copy of points / length per index so we can chain merges.
   const segCopy: { points: number[]; length: number }[] = segments.map((s) => ({
     points: s.points.slice(),
     length: s.length,
@@ -398,98 +403,120 @@ function stitchSegmentsByGroup(
     x1: number,
     y1: number
   ): number => ((Math.atan2(x1 - x0, y1 - y0) * 180) / Math.PI + 360) % 360;
-  const angleDiff = (a: number, b: number) => {
-    const d = Math.abs(((a - b + 540) % 360) - 180);
-    return d;
-  };
+  const angleDiff = (a: number, b: number) => Math.abs(((a - b + 540) % 360) - 180);
 
   for (const [, indices] of byGroup) {
     if (indices.length < 2) continue;
-    // For huge groups, capping iterations keeps a degenerate worst case
-    // (every segment chains to every other) from blowing up.
-    const safety = indices.length * 4;
-    let merges = 0;
+    if (indices.length > MAX_STITCH_GROUP) continue;
 
-    // Spatial hash keyed by cell containing each segment's start/end point.
     type EndRef = { idx: number; end: 0 | 1 };
     const grid = new Map<string, EndRef[]>();
+    const cellKey = (x: number, y: number) =>
+      `${Math.floor(x / cell)}_${Math.floor(y / cell)}`;
     const addEnd = (i: number, end: 0 | 1) => {
       const pts = segCopy[i].points;
       const x = end === 0 ? pts[0] : pts[pts.length - 2];
       const y = end === 0 ? pts[1] : pts[pts.length - 1];
-      const k = `${Math.floor(x / cell)}_${Math.floor(y / cell)}`;
+      const k = cellKey(x, y);
       const arr = grid.get(k) ?? [];
       arr.push({ idx: i, end });
       grid.set(k, arr);
+    };
+    const removeEnd = (i: number, end: 0 | 1, prevX: number, prevY: number) => {
+      const k = cellKey(prevX, prevY);
+      const arr = grid.get(k);
+      if (!arr) return;
+      const j = arr.findIndex((r) => r.idx === i && r.end === end);
+      if (j >= 0) arr.splice(j, 1);
     };
     for (const i of indices) {
       addEnd(i, 0);
       addEnd(i, 1);
     }
 
-    let changed = true;
-    while (changed && merges < safety) {
-      changed = false;
-      for (const i of indices) {
-        if (dropped.has(i)) continue;
-        const a = segCopy[i];
-        if (a.points.length < 4) continue;
+    // Queue-based: start with all indices; only re-enqueue an index that was
+    // just modified (its tail moved, so it might chain to a new neighbour).
+    const queue: number[] = indices.slice();
+    const safetyCap = indices.length * 4;
+    let mergesDone = 0;
 
-        // Try to extend at the tail of this segment.
-        const tx = a.points[a.points.length - 2];
-        const ty = a.points[a.points.length - 1];
-        const taBearing = bearingFromTo(
-          a.points[a.points.length - 4],
-          a.points[a.points.length - 3],
-          tx,
-          ty
-        );
-        const cx = Math.floor(tx / cell);
-        const cy = Math.floor(ty / cell);
-        let best: { j: number; reverse: boolean; d: number } | null = null;
-        for (let dx = -1; dx <= 1; dx++) {
-          for (let dy = -1; dy <= 1; dy++) {
-            const refs = grid.get(`${cx + dx}_${cy + dy}`);
-            if (!refs) continue;
-            for (const ref of refs) {
-              if (ref.idx === i || dropped.has(ref.idx)) continue;
-              const b = segCopy[ref.idx];
-              const bx = ref.end === 0 ? b.points[0] : b.points[b.points.length - 2];
-              const by = ref.end === 0 ? b.points[1] : b.points[b.points.length - 1];
-              const d = Math.hypot(bx - tx, by - ty);
-              if (d > endpointTol) continue;
-              const bBearing =
-                ref.end === 0
-                  ? bearingFromTo(b.points[0], b.points[1], b.points[2], b.points[3])
-                  : bearingFromTo(
-                      b.points[b.points.length - 2],
-                      b.points[b.points.length - 1],
-                      b.points[b.points.length - 4],
-                      b.points[b.points.length - 3]
-                    );
-              if (angleDiff(taBearing, bBearing) > angleTolDeg) continue;
-              if (!best || d < best.d) {
-                best = { j: ref.idx, reverse: ref.end === 1, d };
-              }
-            }
+    while (queue.length > 0 && mergesDone < safetyCap) {
+      const i = queue.pop()!;
+      if (dropped.has(i)) continue;
+      const a = segCopy[i];
+      if (a.points.length < 4) continue;
+      if (a.points.length > MAX_MERGED_POINTS) continue;
+
+      const tx = a.points[a.points.length - 2];
+      const ty = a.points[a.points.length - 1];
+      const taBearing = bearingFromTo(
+        a.points[a.points.length - 4],
+        a.points[a.points.length - 3],
+        tx,
+        ty
+      );
+      const cx = Math.floor(tx / cell);
+      const cy = Math.floor(ty / cell);
+      let best: { j: number; reverse: boolean; d: number } | null = null;
+      for (let dx = -1; dx <= 1; dx++) {
+        for (let dy = -1; dy <= 1; dy++) {
+          const refs = grid.get(`${cx + dx}_${cy + dy}`);
+          if (!refs) continue;
+          for (const ref of refs) {
+            if (ref.idx === i || dropped.has(ref.idx)) continue;
+            const b = segCopy[ref.idx];
+            if (b.points.length < 4) continue;
+            const bx = ref.end === 0 ? b.points[0] : b.points[b.points.length - 2];
+            const by = ref.end === 0 ? b.points[1] : b.points[b.points.length - 1];
+            const d = Math.hypot(bx - tx, by - ty);
+            if (d > endpointTol) continue;
+            const bBearing =
+              ref.end === 0
+                ? bearingFromTo(b.points[0], b.points[1], b.points[2], b.points[3])
+                : bearingFromTo(
+                    b.points[b.points.length - 2],
+                    b.points[b.points.length - 1],
+                    b.points[b.points.length - 4],
+                    b.points[b.points.length - 3]
+                  );
+            if (angleDiff(taBearing, bBearing) > angleTolDeg) continue;
+            if (!best || d < best.d) best = { j: ref.idx, reverse: ref.end === 1, d };
           }
         }
-        if (!best) continue;
-        const b = segCopy[best.j];
-        const bPts = best.reverse ? reverseFlat(b.points) : b.points;
-        // Concatenate, dropping the duplicated mid point.
-        const merged = a.points.slice(0, a.points.length - 2).concat(bPts);
-        if (merged.length < 4) continue;
-        a.points = merged;
-        a.length = a.length + b.length + best.d;
-        dropped.add(best.j);
-        merges += 1;
-        changed = true;
       }
+      if (!best) continue;
+      const b = segCopy[best.j];
+      const bPts = best.reverse ? reverseFlat(b.points) : b.points;
+      const merged = a.points.slice(0, a.points.length - 2).concat(bPts);
+      if (merged.length < 4 || merged.length > MAX_MERGED_POINTS) continue;
+
+      // Update grid: remove a's old tail, b's used end and free end.
+      removeEnd(i, 1, tx, ty);
+      const bUsedEnd: 0 | 1 = best.reverse ? 1 : 0;
+      const bFreeEnd: 0 | 1 = best.reverse ? 0 : 1;
+      const bUsedX = bUsedEnd === 0 ? b.points[0] : b.points[b.points.length - 2];
+      const bUsedY = bUsedEnd === 0 ? b.points[1] : b.points[b.points.length - 1];
+      const bFreeX = bFreeEnd === 0 ? b.points[0] : b.points[b.points.length - 2];
+      const bFreeY = bFreeEnd === 0 ? b.points[1] : b.points[b.points.length - 1];
+      removeEnd(best.j, bUsedEnd, bUsedX, bUsedY);
+      removeEnd(best.j, bFreeEnd, bFreeX, bFreeY);
+
+      a.points = merged;
+      a.length = a.length + b.length + best.d;
+      dropped.add(best.j);
+      // Re-add a's NEW tail to the grid so it can chain again.
+      const newTx = a.points[a.points.length - 2];
+      const newTy = a.points[a.points.length - 1];
+      const k = cellKey(newTx, newTy);
+      const arr = grid.get(k) ?? [];
+      arr.push({ idx: i, end: 1 });
+      grid.set(k, arr);
+
+      mergesDone += 1;
+      queue.push(i);
     }
   }
 
-  // Emit non-dropped segments with their (possibly merged) points.
   const out: DrawingSegment[] = [];
   for (let i = 0; i < segments.length; i++) {
     if (dropped.has(i)) continue;
@@ -570,22 +597,15 @@ const PDF_LAYER_PATTERNS: { category: RoadCategory; patterns: RegExp[] }[] = [
       /edge.?of.?pavement/i,
     ],
   },
-  // Right-of-way and median lines.
-  {
-    category: "centerline",
-    patterns: [
-      /(?:^|[^a-z])row(?:[^a-z]|$)/i,
-      /road\s*proposed\s*row/i,
-      /center.?line/i,
-      /centre.?line/i,
-      /\bmedian\b/i,
-    ],
-  },
-  // Boundary layers (legal, planning, master plan extents).
+  // Boundary layers - legal/planning extents AND right-of-way (ROW).
+  // ROW used to be tagged 'centerline' but the source PDF has no
+  // centerlines drawn; ROW is a corridor boundary, so it belongs here.
   {
     category: "boundary",
     patterns: [
       /(affection|cluster|development|plot|drone|rta)\s*boundary/i,
+      /(?:^|[^a-z])row(?:[^a-z]|$)/i,
+      /road\s*proposed\s*row/i,
       /\bboundary\b/i,
       /\baffection\b/i,
       /(?:^|[^a-z])plot(?:[^a-z]|$)/i,
@@ -663,16 +683,15 @@ function classifyByColor(
 ): RoadCategory {
   const isGray = Math.abs(r - g) < 15 && Math.abs(g - b) < 15;
 
-  // Bright magenta/purple → centerline / median markings.
-  if (r > 150 && b > 120 && g < 100) return "centerline";
-  // Strong green (g dominant over r and b) → boundary / property line.
-  // The earlier rule fired on neutral grays because gray has g > 160 too.
+  // Bright magenta/purple historically meant the road-edge layer in this
+  // CMP plan family. With layer names available it's classified by name;
+  // colour fallback keeps it as edge so unnamed magenta polylines still
+  // belong to the curb cluster (the user-facing 'centerline' label is
+  // gone - the source PDF has no centerlines drawn).
+  if (r > 150 && b > 120 && g < 100) return "edge";
   if (!isGray && g > 160 && r < 120 && b < 120) return "boundary";
-  // Cyan / blue strokes → utility lines, ignore for road geometry.
   if (!isGray && b > 180 && r < 150) return "other";
-  // Dark grey filled regions → buildings or asphalt fills.
   if (isFilled && r < 80 && g < 80 && b < 80) return "building";
-  // Mid grey strokes → kerbs / road edges.
   if (isGray && r < 200 && r > 60) return "edge";
   return "other";
 }
