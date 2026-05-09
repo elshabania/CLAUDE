@@ -33,6 +33,72 @@ export async function extractPdfPathsInBrowser(file: File): Promise<ExtractedPat
   return walkPdfDocument(pdfjs.OPS as unknown as PdfjsLikeOps, doc);
 }
 
+export interface PdfTextItem {
+  text: string;
+  /** Anchor x (PDF user units, y-up). */
+  x: number;
+  /** Anchor y. */
+  y: number;
+  fontSize: number;
+  width: number;
+  height: number;
+  /** Page number this item came from (1-based). */
+  page: number;
+}
+
+/**
+ * Pull positioned text items from every page via pdfjs's `getTextContent`
+ * API. Each item carries its CAD-space anchor and approximate size so we can
+ * match it against extracted polygons later (e.g. a "Residential" label sat
+ * inside a building footprint identifies that polygon as a building).
+ */
+export async function extractPdfTextItemsInBrowser(
+  file: File
+): Promise<PdfTextItem[]> {
+  const pdfjs = await loadPdfjs();
+  const data = await file.arrayBuffer();
+  const doc = await pdfjs.getDocument({
+    data: new Uint8Array(data),
+    isEvalSupported: false,
+    disableFontFace: true,
+  }).promise;
+
+  const items: PdfTextItem[] = [];
+  for (let pageNum = 1; pageNum <= doc.numPages; pageNum++) {
+    const page = await doc.getPage(pageNum);
+    const content = await page.getTextContent();
+    for (const raw of content.items) {
+      if (
+        !raw ||
+        typeof raw !== "object" ||
+        !("str" in raw) ||
+        !("transform" in raw)
+      ) {
+        continue;
+      }
+      const item = raw as {
+        str: string;
+        transform: number[];
+        width: number;
+        height: number;
+      };
+      const text = item.str.trim();
+      if (!text) continue;
+      const t = item.transform;
+      items.push({
+        text,
+        x: t[4],
+        y: t[5],
+        fontSize: Math.hypot(t[0], t[1]),
+        width: item.width,
+        height: item.height,
+        page: pageNum,
+      });
+    }
+  }
+  return items;
+}
+
 /**
  * Render page 1 of the PDF as a raster image (data URL). Used as a fallback
  * preview when vector extraction returns nothing - typically because the PDF

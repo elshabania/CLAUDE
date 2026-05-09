@@ -2,7 +2,37 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ParsedDrawing, RoadCategory } from "@/lib/road-detect";
-import type { RoadNetwork } from "@/lib/road-network";
+import type { RoadNetwork, BuildingType } from "@/lib/road-network";
+
+const BUILDING_TYPE_FILL: Record<BuildingType, string> = {
+  residential: "rgba(74, 222, 128, 0.20)",
+  commercial: "rgba(56, 189, 248, 0.22)",
+  retail: "rgba(167, 139, 250, 0.22)",
+  office: "rgba(96, 165, 250, 0.22)",
+  school: "rgba(251, 191, 36, 0.22)",
+  mosque: "rgba(45, 212, 191, 0.22)",
+  hospital: "rgba(248, 113, 113, 0.22)",
+  civic: "rgba(244, 114, 182, 0.22)",
+  industrial: "rgba(120, 113, 108, 0.28)",
+  parking: "rgba(148, 163, 184, 0.18)",
+  amenity: "rgba(232, 121, 249, 0.22)",
+  other: "rgba(148, 163, 184, 0.22)",
+};
+
+const BUILDING_TYPE_STROKE: Record<BuildingType, string> = {
+  residential: "rgba(74, 222, 128, 0.55)",
+  commercial: "rgba(56, 189, 248, 0.55)",
+  retail: "rgba(167, 139, 250, 0.55)",
+  office: "rgba(96, 165, 250, 0.55)",
+  school: "rgba(251, 191, 36, 0.55)",
+  mosque: "rgba(45, 212, 191, 0.55)",
+  hospital: "rgba(248, 113, 113, 0.55)",
+  civic: "rgba(244, 114, 182, 0.55)",
+  industrial: "rgba(168, 162, 158, 0.55)",
+  parking: "rgba(148, 163, 184, 0.45)",
+  amenity: "rgba(232, 121, 249, 0.55)",
+  other: "rgba(148, 163, 184, 0.45)",
+};
 
 const ROAD_CATEGORIES: RoadCategory[] = [
   "centerline",
@@ -105,13 +135,14 @@ export function NetworkViewer({
     const px = (x: number) => x * scale + tx;
     const py = (y: number) => -y * scale + ty;
 
-    // Building footprints: filled translucent grey, faint outline.
-    ctx.fillStyle = "rgba(148, 163, 184, 0.22)";
-    ctx.strokeStyle = "rgba(148, 163, 184, 0.45)";
-    ctx.lineWidth = 0.5;
+    // Building footprints: filled per type; faint outline.
+    ctx.lineWidth = 0.6;
     for (const b of network.buildings) {
       const pts = b.points;
-      if (pts.length < 6) continue; // degenerate
+      if (pts.length < 6) continue;
+      const type = b.buildingType ?? "other";
+      ctx.fillStyle = BUILDING_TYPE_FILL[type];
+      ctx.strokeStyle = BUILDING_TYPE_STROKE[type];
       ctx.beginPath();
       for (let i = 0; i < pts.length; i += 2) {
         if (i === 0) ctx.moveTo(px(pts[i]), py(pts[i + 1]));
@@ -120,6 +151,24 @@ export function NetworkViewer({
       ctx.closePath();
       ctx.fill();
       ctx.stroke();
+    }
+
+    // Building labels (only when zoom is sufficient to render legibly).
+    if (transform.scale >= 0.5) {
+      ctx.fillStyle = "#e2e8f0";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.font = "10px ui-sans-serif, system-ui";
+      for (const b of network.buildings) {
+        if (!b.label) continue;
+        const c = polygonCentroid(b.points);
+        if (!c) continue;
+        const widthPx = polygonAabbWidth(b.points) * transform.scale;
+        if (widthPx < 24) continue; // too small at this zoom
+        const label = truncateForWidth(b.label, ctx, Math.max(widthPx - 6, 20));
+        if (!label) continue;
+        ctx.fillText(label, px(c.x), py(c.y));
+      }
     }
 
     ctx.lineCap = "round";
@@ -242,6 +291,65 @@ export function NetworkViewer({
       <NetworkLegend stats={stats} />
     </div>
   );
+}
+
+function polygonCentroid(points: number[]): { x: number; y: number } | null {
+  if (points.length < 6) return null;
+  let cx = 0;
+  let cy = 0;
+  let area = 0;
+  const n = points.length;
+  for (let i = 0; i < n; i += 2) {
+    const j = (i + 2) % n;
+    const cross = points[i] * points[j + 1] - points[j] * points[i + 1];
+    area += cross;
+    cx += (points[i] + points[j]) * cross;
+    cy += (points[i + 1] + points[j + 1]) * cross;
+  }
+  area /= 2;
+  if (Math.abs(area) < 1e-3) {
+    // Degenerate ring: fall back to AABB centroid.
+    let mnx = Infinity,
+      mny = Infinity,
+      mxx = -Infinity,
+      mxy = -Infinity;
+    for (let i = 0; i < n; i += 2) {
+      const x = points[i],
+        y = points[i + 1];
+      if (x < mnx) mnx = x;
+      if (y < mny) mny = y;
+      if (x > mxx) mxx = x;
+      if (y > mxy) mxy = y;
+    }
+    return { x: (mnx + mxx) / 2, y: (mny + mxy) / 2 };
+  }
+  return { x: cx / (6 * area), y: cy / (6 * area) };
+}
+
+function polygonAabbWidth(points: number[]): number {
+  let mnx = Infinity,
+    mxx = -Infinity;
+  for (let i = 0; i < points.length; i += 2) {
+    if (points[i] < mnx) mnx = points[i];
+    if (points[i] > mxx) mxx = points[i];
+  }
+  return mxx - mnx;
+}
+
+function truncateForWidth(
+  text: string,
+  ctx: CanvasRenderingContext2D,
+  maxWidth: number
+): string {
+  if (ctx.measureText(text).width <= maxWidth) return text;
+  let lo = 0;
+  let hi = text.length;
+  while (lo < hi) {
+    const mid = ((lo + hi) >> 1) + 1;
+    if (ctx.measureText(text.slice(0, mid) + "…").width <= maxWidth) lo = mid;
+    else hi = mid - 1;
+  }
+  return lo > 0 ? text.slice(0, lo) + "…" : "";
 }
 
 function NetworkLegend({

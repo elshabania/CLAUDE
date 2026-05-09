@@ -33,12 +33,22 @@ export interface DrawingGroup {
   lineWidth?: number;
 }
 
+export interface DrawingTextItem {
+  text: string;
+  x: number;
+  y: number;
+  fontSize: number;
+  width: number;
+  height: number;
+}
+
 export interface ParsedDrawing {
   source: "dxf" | "pdf";
   bounds: { minX: number; minY: number; maxX: number; maxY: number };
   segments: DrawingSegment[];
   groups: DrawingGroup[];
   entityCount: number;
+  texts: DrawingTextItem[];
 }
 
 const LAYER_PATTERNS: { category: RoadCategory; patterns: RegExp[] }[] = [
@@ -154,6 +164,7 @@ export function detectFromDxf(dxf: Dxf): ParsedDrawing {
     segments,
     groups: Array.from(groupMap.values()).sort((a, b) => b.count - a.count),
     entityCount: dxf.entities.length,
+    texts: [],
   };
 }
 
@@ -173,6 +184,7 @@ export interface PdfDetectOptions {
 
 export function detectFromPdf(
   paths: ExtractedPath[],
+  texts: DrawingTextItem[] = [],
   opts: PdfDetectOptions = {}
 ): ParsedDrawing {
   const minSegmentLength = opts.minSegmentLength ?? 5;
@@ -274,6 +286,7 @@ export function detectFromPdf(
     segments,
     groups: Array.from(groupMap.values()).sort((a, b) => b.count - a.count),
     entityCount: paths.length,
+    texts,
   };
 }
 

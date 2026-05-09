@@ -6,6 +6,7 @@ import { NetworkViewer } from "@/components/NetworkViewer";
 import { detectFromPdf, type ParsedDrawing, type RoadCategory } from "@/lib/road-detect";
 import {
   extractPdfPathsInBrowser,
+  extractPdfTextItemsInBrowser,
   renderPdfPagePreview,
 } from "@/lib/pdf-extract-client";
 import { buildRoadNetwork } from "@/lib/road-network";
@@ -94,8 +95,14 @@ export default function Page() {
     const isPdf = file.name.toLowerCase().endsWith(".pdf");
     try {
       if (isPdf) {
-        const paths = await extractPdfPathsInBrowser(file);
-        const drawing = detectFromPdf(paths);
+        // Run path + text extraction in parallel - both go through the same
+        // worker but pdfjs queues them so the cost is roughly additive on
+        // smaller PDFs and amortises on larger ones.
+        const [paths, texts] = await Promise.all([
+          extractPdfPathsInBrowser(file),
+          extractPdfTextItemsInBrowser(file).catch(() => []),
+        ]);
+        const drawing = detectFromPdf(paths, texts);
         setResult({ filename: file.name, drawing });
         if (drawing.segments.length === 0) {
           setWarning(

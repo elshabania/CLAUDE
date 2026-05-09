@@ -25,10 +25,28 @@ export interface NetworkLink {
   bearing: number;
 }
 
+export type BuildingType =
+  | "residential"
+  | "commercial"
+  | "retail"
+  | "office"
+  | "school"
+  | "mosque"
+  | "hospital"
+  | "civic"
+  | "industrial"
+  | "parking"
+  | "amenity"
+  | "other";
+
 export interface BuildingFootprint {
   id: string;
   points: number[];
   area: number;
+  /** Concatenated text labels found inside the polygon, if any. */
+  label?: string;
+  /** Best-guess building category derived from `label`. */
+  buildingType?: BuildingType;
 }
 
 export interface RoadNetwork {
@@ -244,11 +262,12 @@ export function buildRoadNetwork(
     node.isJunction = node.links.length >= 3;
   }
 
-  const buildings: BuildingFootprint[] = buildingSegs.map((s, i) => ({
+  const rawBuildings: BuildingFootprint[] = buildingSegs.map((s, i) => ({
     id: `b${i}`,
     points: s.points,
     area: polygonArea(s.points),
   }));
+  const buildings = assignLabels(rawBuildings, drawing.texts ?? []);
 
   const nodeArr = Array.from(nodes.values());
   return {
@@ -331,6 +350,98 @@ function reverseFlat(points: number[]): number[] {
     out[i + 1] = points[points.length - 1 - i];
   }
   return out;
+}
+
+/** Even-odd point-in-polygon test on a flat point array. */
+function pointInPolygon(x: number, y: number, points: number[]): boolean {
+  let inside = false;
+  const n = points.length;
+  for (let i = 0, j = n - 2; i < n; j = i, i += 2) {
+    const xi = points[i],
+      yi = points[i + 1];
+    const xj = points[j],
+      yj = points[j + 1];
+    const intersect =
+      yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi || 1e-9) + xi;
+    if (intersect) inside = !inside;
+  }
+  return inside;
+}
+
+const BUILDING_TYPE_PATTERNS: { type: BuildingType; patterns: RegExp[] }[] = [
+  { type: "residential", patterns: [/residen/i, /apart/i, /villa/i, /housing/i, /dwell/i, /town\s*hous/i] },
+  { type: "retail", patterns: [/retail/i, /\bshop/i, /store/i, /mall/i, /super.?market/i] },
+  { type: "commercial", patterns: [/commerc/i, /\bmixed[-\s]?use\b/i] },
+  { type: "office", patterns: [/office/i, /admin/i, /headquarters/i, /\bhq\b/i] },
+  { type: "school", patterns: [/school/i, /kinder|nursery/i, /college/i, /universit/i, /educat/i] },
+  { type: "mosque", patterns: [/mosque/i, /masjid/i, /prayer/i, /jam(?:e|i'?a)/i] },
+  { type: "hospital", patterns: [/hospital/i, /clinic/i, /medic/i, /health.?cent/i] },
+  { type: "civic", patterns: [/civic/i, /community/i, /municip/i, /\bgov(?:ernment)?\b/i, /police/i, /fire\s*stat/i, /library/i] },
+  { type: "industrial", patterns: [/industrial/i, /warehouse/i, /factory/i, /workshop/i] },
+  { type: "parking", patterns: [/park(?:ing)?/i, /\bcar.?park\b/i, /\bgarage\b/i] },
+  { type: "amenity", patterns: [/amenity|amenities/i, /club|gym|spa/i, /restaurant|cafe|café/i, /hotel/i, /retail|leisure/i] },
+];
+
+function classifyBuildingLabel(label: string): BuildingType {
+  for (const { type, patterns } of BUILDING_TYPE_PATTERNS) {
+    if (patterns.some((p) => p.test(label))) return type;
+  }
+  return "other";
+}
+
+/**
+ * For each building polygon, gather every text item whose anchor lies inside
+ * the polygon. The combined string becomes the building label, and the
+ * label is mapped to a building type via simple regex classification.
+ */
+function assignLabels(
+  buildings: BuildingFootprint[],
+  texts: { text: string; x: number; y: number }[]
+): BuildingFootprint[] {
+  if (texts.length === 0) return buildings;
+
+  // Bucket buildings by AABB for fast lookup.
+  const aabbs: { id: string; minX: number; minY: number; maxX: number; maxY: number }[] = [];
+  const labelMap = new Map<string, string[]>();
+  for (const b of buildings) {
+    let mnx = Infinity,
+      mny = Infinity,
+      mxx = -Infinity,
+      mxy = -Infinity;
+    for (let i = 0; i < b.points.length; i += 2) {
+      const x = b.points[i];
+      const y = b.points[i + 1];
+      if (x < mnx) mnx = x;
+      if (y < mny) mny = y;
+      if (x > mxx) mxx = x;
+      if (y > mxy) mxy = y;
+    }
+    aabbs.push({ id: b.id, minX: mnx, minY: mny, maxX: mxx, maxY: mxy });
+  }
+
+  for (const t of texts) {
+    for (const a of aabbs) {
+      if (t.x < a.minX || t.x > a.maxX || t.y < a.minY || t.y > a.maxY) continue;
+      const b = buildings.find((bb) => bb.id === a.id);
+      if (!b) continue;
+      if (!pointInPolygon(t.x, t.y, b.points)) continue;
+      const arr = labelMap.get(a.id) ?? [];
+      arr.push(t.text);
+      labelMap.set(a.id, arr);
+      break; // attach text to one building only.
+    }
+  }
+
+  return buildings.map((b) => {
+    const lines = labelMap.get(b.id);
+    if (!lines || lines.length === 0) return b;
+    const label = lines.join(" ").replace(/\s+/g, " ").trim();
+    return {
+      ...b,
+      label,
+      buildingType: classifyBuildingLabel(label),
+    };
+  });
 }
 
 /**
