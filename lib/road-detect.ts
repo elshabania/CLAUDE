@@ -329,44 +329,45 @@ export function detectFromPdf(
     }
   }
 
-  // Aggressive simplification: per-category caps to keep memory bounded
-  // even for very dense layers (Survey_EXI_LANE = 51k stripes etc.). When
-  // a category is over its cap we keep the longest segments first so the
-  // visual structure of the road network is preserved. Curbs ('edge') get
-  // the largest cap because the centerline derivation needs them dense.
+  // Stitch end-to-end collinear segments inside each group FIRST. This is
+  // the right order: AutoCAD splits long lane stripes into many short
+  // dash-segments, and the user wants the stripes preserved as continuous
+  // polylines. Rejoining them turns the 44k Road Lane_Main fragments into
+  // a few hundred long polylines with the same visual content but a
+  // fraction of the memory / draw-call cost.
+  const stitched0 = stitchSegmentsByGroup(segments, diag);
+
+  // After stitching, apply per-category caps as a final safety net for
+  // truly noisy layers (annotations, dimensions, "other" buckets). Road
+  // categories get caps high enough that stitching alone is what bounds
+  // their cost. When a category is over its cap we keep the longest
+  // polylines first so visual structure is preserved.
   const PER_CAT_CAP: Record<RoadCategory, number> = {
-    edge: 12000,
-    curb: 12000,
-    lane: 6000,
-    centerline: 4000,
-    boundary: 3000,
-    shoulder: 2000,
-    building: 5000,
-    other: 3000,
+    edge: 50000,
+    curb: 50000,
+    lane: 50000,
+    centerline: 20000,
+    boundary: 4000,
+    shoulder: 4000,
+    building: 8000,
+    other: 4000,
   };
   const byCat = new Map<RoadCategory, DrawingSegment[]>();
-  for (const s of segments) {
+  for (const s of stitched0) {
     const arr = byCat.get(s.category) ?? [];
     arr.push(s);
     byCat.set(s.category, arr);
   }
-  const capped: DrawingSegment[] = [];
+  const stitched: DrawingSegment[] = [];
   for (const [cat, arr] of byCat) {
-    const cap = PER_CAT_CAP[cat] ?? 3000;
+    const cap = PER_CAT_CAP[cat] ?? 4000;
     if (arr.length <= cap) {
-      capped.push(...arr);
+      stitched.push(...arr);
       continue;
     }
-    // Keep the longest segments (highest signal-to-noise) first.
     arr.sort((a, b) => b.length - a.length);
-    capped.push(...arr.slice(0, cap));
+    stitched.push(...arr.slice(0, cap));
   }
-
-  // Stitch end-to-end collinear segments inside each group. AutoCAD-exported
-  // PDFs split anything with a slight bend (or a dashed linetype) into many
-  // tiny separate polylines; rejoining them dramatically reduces clutter
-  // and makes lane stripes / kerbs read as continuous painted lines.
-  const stitched = stitchSegmentsByGroup(capped, diag);
   // Recompute group counts / total length to reflect the merged segments.
   for (const g of groupMap.values()) {
     g.count = 0;
@@ -396,17 +397,19 @@ export function detectFromPdf(
  * other AND the bearing of the first ending segment matches (within
  * `angleTolDeg`) the bearing of the second segment leaving the join point.
  *
- * Performance budget: huge layers (Survey_EXI_LANE has 51k stripes,
- * Road Lane_Main 44k) can blow up an iterative O(N x rounds) outer loop, so:
- *   - Skip groups larger than `MAX_STITCH_GROUP` entirely. Fragmented
- *     lane stripes still render; they just stay as individual stripes.
- *   - Use a queue-based algorithm: only re-check segments that were
- *     touched in the previous round, not all N every round.
- *   - Cap merged polyline length so a runaway chain can't grow without
- *     bound (would also kill render performance later).
+ * Designed to handle dense lane layers (Survey_EXI_LANE has 51k stripes,
+ * Road Lane_Main 44k). Keeps cost ~linear in successful merges by:
+ *   - Spatial-hashing segment endpoints so neighbour lookup is O(k) per
+ *     merge (k ~ small, depends on local density).
+ *   - Queue-based outer loop: only re-enqueue indices that were just
+ *     extended (their tail moved, so they might chain to a new neighbour).
+ *     We never iterate all N indices every round.
+ *   - Incremental grid maintenance: removeEnd / addEnd keep the spatial
+ *     hash in sync as merges happen so subsequent lookups stay correct.
+ *   - Per-polyline point cap so a degenerate chain can't grow without
+ *     bound and tank render performance later.
  */
-const MAX_STITCH_GROUP = 8000;
-const MAX_MERGED_POINTS = 4000;
+const MAX_MERGED_POINTS = 6000;
 
 function stitchSegmentsByGroup(
   segments: DrawingSegment[],
@@ -440,7 +443,6 @@ function stitchSegmentsByGroup(
 
   for (const [, indices] of byGroup) {
     if (indices.length < 2) continue;
-    if (indices.length > MAX_STITCH_GROUP) continue;
 
     type EndRef = { idx: number; end: 0 | 1 };
     const grid = new Map<string, EndRef[]>();
