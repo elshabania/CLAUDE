@@ -233,7 +233,6 @@ export function detectFromPdf(
       const flat = flatPoints(sub);
       if (flat.length < 4) return;
       const length = flatLength(flat);
-      if (length < minSegmentLength) return;
 
       let bxMin = Infinity,
         byMin = Infinity,
@@ -248,9 +247,16 @@ export function detectFromPdf(
         if (y > byMax) byMax = y;
       }
       if (path.isFilled && !path.isStroked) {
+        // Filled paths are the main source of text-glyph noise; apply both
+        // the area and length cutoffs to drop sub-character glyphs.
         const area = (bxMax - bxMin) * (byMax - byMin);
         if (area < minFilledArea) return;
+        if (length < minSegmentLength) return;
       }
+      // Stroked paths (lane stripes, kerbs, give-way lines) often come in
+      // dashes that are well under the length cutoff at A1-page scales.
+      // Apply only a token cutoff (collapse degenerate near-zero strokes).
+      if (length < 0.5) return;
 
       if (bxMin < minX) minX = bxMin;
       if (byMin < minY) minY = byMin;
