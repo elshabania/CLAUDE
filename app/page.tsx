@@ -1,11 +1,15 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { CadViewer, CATEGORY_COLORS } from "@/components/CadViewer";
-import { NetworkViewer } from "@/components/NetworkViewer";
-import { SimulationViewer } from "@/components/SimulationViewer";
 import { Simulation3DViewer } from "@/components/Simulation3DViewer";
 import { JunctionPanel } from "@/components/JunctionPanel";
+import { AppHeader } from "@/components/AppHeader";
+import { NetworkSummaryCard } from "@/components/NetworkSummaryCard";
+import { JunctionTabsStrip } from "@/components/JunctionTabsStrip";
+import { BottomNav, type DashTab } from "@/components/BottomNav";
+import { PhasingView } from "@/components/PhasingView";
+import { AiOptView } from "@/components/AiOptView";
+import { InterchgView } from "@/components/InterchgView";
 import { detectFromPdf, type ParsedDrawing, type RoadCategory } from "@/lib/road-detect";
 import {
   extractPdfPathsInBrowser,
@@ -15,7 +19,6 @@ import {
 import {
   buildRoadNetwork,
   classifyJunctionApproaches,
-  type RoadNetwork,
 } from "@/lib/road-network";
 import {
   analyzeJunction,
@@ -25,86 +28,36 @@ import {
   type JunctionResult,
 } from "@/lib/hcm";
 
-type ViewMode = "drawing" | "network" | "simulation" | "simulation3d";
-
-// User-facing categories. 'centerline' is omitted because the source PDFs
-// don't draw centerlines as a layer; the simulation network derives them
-// internally from paired curbs.
-const ALL_CATEGORIES: RoadCategory[] = [
-  "edge",
-  "lane",
-  "curb",
-  "shoulder",
-  "boundary",
-  "building",
-  "other",
-];
-
 interface ParseResponse {
   filename: string;
   drawing: ParsedDrawing;
-}
-
-function rgbCss(c?: [number, number, number]) {
-  if (!c) return "transparent";
-  return `rgb(${Math.round(c[0] * 255)}, ${Math.round(c[1] * 255)}, ${Math.round(c[2] * 255)})`;
 }
 
 export default function Page() {
   const [status, setStatus] = useState<"idle" | "loading" | "error">("idle");
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<ParseResponse | null>(null);
-  const [visibleGroups, setVisibleGroups] = useState<Record<string, boolean>>({});
   const [groupCategory, setGroupCategory] = useState<Record<string, RoadCategory>>({});
-  const [view, setView] = useState<ViewMode>("drawing");
-  const [showJunctions, setShowJunctions] = useState(true);
+  const [tab, setTab] = useState<DashTab>("network");
+  const [selectedJunctionId, setSelectedJunctionId] = useState<string | null>(null);
+  const [junctionInputs, setJunctionInputs] = useState<Record<string, JunctionInputs>>({});
+  const [warning, setWarning] = useState<string | null>(null);
   const [rasterPreview, setRasterPreview] = useState<{
     dataUrl: string;
     width: number;
     height: number;
   } | null>(null);
-  const [warning, setWarning] = useState<string | null>(null);
-  const [selectedJunctionId, setSelectedJunctionId] = useState<string | null>(null);
-  const [junctionInputs, setJunctionInputs] = useState<Record<string, JunctionInputs>>({});
   const inputRef = useRef<HTMLInputElement | null>(null);
 
-  // Reset visibility/categories whenever a new file is loaded.
   useEffect(() => {
     if (!result) return;
-    const v: Record<string, boolean> = {};
     const c: Record<string, RoadCategory> = {};
-    for (const g of result.drawing.groups) {
-      v[g.id] = true;
-      c[g.id] = g.category;
-    }
-    setVisibleGroups(v);
+    for (const g of result.drawing.groups) c[g.id] = g.category;
     setGroupCategory(c);
   }, [result]);
 
-  const stats = useMemo(() => {
-    if (!result) return null;
-    const byCategory = new Map<RoadCategory, { count: number; length: number }>();
-    for (const s of result.drawing.segments) {
-      const cat = groupCategory[s.groupId] ?? s.category;
-      const e = byCategory.get(cat) ?? { count: 0, length: 0 };
-      e.count += 1;
-      e.length += s.length;
-      byCategory.set(cat, e);
-    }
-    return ALL_CATEGORIES.map((c) => ({
-      category: c,
-      count: byCategory.get(c)?.count ?? 0,
-      length: byCategory.get(c)?.length ?? 0,
-    })).filter((s) => s.count > 0);
-  }, [result, groupCategory]);
-
-  // Build the road network whenever drawing or category overrides change.
-  // Skip when only the Drawing tab is being viewed since the network builder
-  // is the more expensive step. Wrapped in try/catch so a build failure on
-  // a pathological drawing surfaces as an error instead of taking the page
-  // down with it.
   const network = useMemo(() => {
-    if (!result || view === "drawing") return null;
+    if (!result) return null;
     try {
       return buildRoadNetwork(result.drawing, groupCategory);
     } catch (err) {
@@ -112,14 +65,9 @@ export default function Page() {
       console.error("buildRoadNetwork failed:", err);
       return null;
     }
-  }, [result, groupCategory, view]);
+  }, [result, groupCategory]);
 
-  const networkReady = !!network;
-
-  // Seed default junction inputs whenever new junctions appear so HCM LOS
-  // is computable from the moment the user opens a simulation tab. The
-  // seeded inputs use the per-cardinal approach detection so directions that
-  // don't actually have a connecting link get zero lanes / volumes.
+  // Seed default junction inputs when new junctions appear.
   useEffect(() => {
     if (!network) return;
     setJunctionInputs((prev) => {
@@ -145,10 +93,15 @@ export default function Page() {
       }
       return changed ? next : prev;
     });
+    // Auto-select the first junction.
+    if (!selectedJunctionId && network.junctions.length > 0) {
+      setSelectedJunctionId(network.junctions[0].id);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [network]);
 
   const junctionResults = useMemo(() => {
-    if (!network) return undefined;
+    if (!network) return {};
     const out: Record<string, JunctionResult> = {};
     for (const j of network.junctions) {
       const inputs = junctionInputs[j.id];
@@ -158,12 +111,20 @@ export default function Page() {
     return out;
   }, [network, junctionInputs]);
 
+  const selectedJunctionIndex =
+    network && selectedJunctionId
+      ? network.junctions.findIndex((j) => j.id === selectedJunctionId)
+      : -1;
   const selectedInputs = selectedJunctionId
     ? junctionInputs[selectedJunctionId]
     : undefined;
   const selectedResult = selectedJunctionId
-    ? junctionResults?.[selectedJunctionId]
+    ? junctionResults[selectedJunctionId]
     : undefined;
+  const setSelectedInputs = (next: JunctionInputs) => {
+    if (!selectedJunctionId) return;
+    setJunctionInputs((m) => ({ ...m, [selectedJunctionId]: next }));
+  };
 
   async function handleFile(file: File) {
     setStatus("loading");
@@ -173,9 +134,6 @@ export default function Page() {
     const isPdf = file.name.toLowerCase().endsWith(".pdf");
     try {
       if (isPdf) {
-        // Run path + text extraction in parallel - both go through the same
-        // worker but pdfjs queues them so the cost is roughly additive on
-        // smaller PDFs and amortises on larger ones.
         const [paths, texts] = await Promise.all([
           extractPdfPathsInBrowser(file),
           extractPdfTextItemsInBrowser(file).catch(() => []),
@@ -184,14 +142,13 @@ export default function Page() {
         setResult({ filename: file.name, drawing });
         if (drawing.segments.length === 0) {
           setWarning(
-            "No vector geometry found in this PDF. The file is likely an 'optimized' / image-flattened export — try uploading the original CAD-exported PDF (or the source DXF/DWG) to extract roads."
+            "No vector geometry found. The file is likely an 'optimized' / image-flattened export — upload the original CAD-exported PDF."
           );
-          // Still render a raster preview so the user can see the file content.
           try {
             const preview = await renderPdfPagePreview(file);
             if (preview) setRasterPreview(preview);
           } catch {
-            // ignore preview failure - warning is enough.
+            // ignore preview failure.
           }
         }
         setStatus("idle");
@@ -208,7 +165,7 @@ export default function Page() {
       } catch {
         setError(
           res.status === 413
-            ? "File too large for the deployed server. Run locally with `npm run dev` or use a smaller file."
+            ? "File too large for the deployed server."
             : `Server returned ${res.status}: ${text.slice(0, 200)}`
         );
         setStatus("error");
@@ -229,9 +186,6 @@ export default function Page() {
     }
   }
 
-  // Auto-load the bundled CMP layout PDF on first mount so the app has
-  // something to show without an upload step. The fetch is no-op'd if a
-  // result is already in state (e.g. user already uploaded).
   const autoLoadedRef = useRef(false);
   useEffect(() => {
     if (autoLoadedRef.current) return;
@@ -248,7 +202,6 @@ export default function Page() {
         });
         await handleFile(file);
       } catch (err) {
-        // Bundled file isn't available - user can still upload manually.
         if (err instanceof Error) {
           // eslint-disable-next-line no-console
           console.warn("default PDF load failed:", err.message);
@@ -260,542 +213,229 @@ export default function Page() {
   }, []);
 
   return (
-    <main style={{ display: "flex", height: "100vh", width: "100vw" }}>
-      <aside
-        style={{
-          width: 360,
-          padding: 20,
-          borderRight: "1px solid #1e293b",
-          overflowY: "auto",
-          flexShrink: 0,
+    <main
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        height: "100vh",
+        width: "100vw",
+        background: "#070b14",
+        color: "#e2e8f0",
+        overflow: "hidden",
+      }}
+    >
+      <input
+        ref={inputRef}
+        type="file"
+        accept=".dxf,.dwg,.pdf"
+        style={{ display: "none" }}
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          if (f) void handleFile(f);
         }}
-      >
-        <h1 style={{ margin: "0 0 4px", fontSize: 20 }}>Road CAD Viewer</h1>
-        <p style={{ margin: "0 0 20px", color: "#94a3b8", fontSize: 13 }}>
-          Upload a PDF, DXF or DWG drawing. Switch to the Network tab to derive a
-          junction-level model and run HCM analysis on each intersection.
-        </p>
+      />
 
-        <input
-          ref={inputRef}
-          type="file"
-          accept=".dxf,.dwg,.pdf"
-          style={{ display: "none" }}
-          onChange={(e) => {
-            const f = e.target.files?.[0];
-            if (f) void handleFile(f);
-          }}
-        />
-        <button
-          onClick={() => inputRef.current?.click()}
-          disabled={status === "loading"}
-          style={{
-            width: "100%",
-            padding: "10px 14px",
-            background: "#2563eb",
-            color: "white",
-            border: 0,
-            borderRadius: 6,
-            cursor: "pointer",
-            opacity: status === "loading" ? 0.6 : 1,
-          }}
-        >
-          {status === "loading" ? "Parsing…" : "Choose PDF / DXF / DWG"}
-        </button>
+      <AppHeader
+        filename={result?.filename ?? null}
+        results={junctionResults}
+        onUpload={() => inputRef.current?.click()}
+      />
 
-        {error && (
-          <div
-            style={{
-              marginTop: 16,
-              padding: 12,
-              background: "#7f1d1d",
-              color: "#fee2e2",
-              borderRadius: 6,
-              fontSize: 13,
-              whiteSpace: "pre-wrap",
-            }}
-          >
-            {error}
-          </div>
-        )}
-
-        {warning && (
-          <div
-            style={{
-              marginTop: 16,
-              padding: 12,
-              background: "#78350f",
-              color: "#fde68a",
-              borderRadius: 6,
-              fontSize: 12,
-              lineHeight: 1.4,
-            }}
-          >
-            <strong style={{ display: "block", marginBottom: 4 }}>
-              No vector roads found
-            </strong>
-            {warning}
-          </div>
-        )}
-
-        {result && stats && (
-          <>
-            <h2 style={{ fontSize: 14, marginTop: 24, marginBottom: 4, color: "#cbd5e1" }}>
-              {result.filename}
-            </h2>
-            <div style={{ fontSize: 12, color: "#94a3b8", marginBottom: 16 }}>
-              {result.drawing.entityCount} entities · {result.drawing.segments.length}{" "}
-              segments · {result.drawing.groups.length}{" "}
-              {result.drawing.groups.some((g) => g.layer)
-                ? "PDF layers"
-                : result.drawing.source === "pdf"
-                ? "colour groups"
-                : "layers"}
-            </div>
-
-            <h3 style={{ fontSize: 13, color: "#cbd5e1", margin: "16px 0 8px" }}>
-              Category totals
-            </h3>
-            {stats.map((s) => (
-              <div
-                key={s.category}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 8,
-                  fontSize: 12,
-                  padding: "2px 0",
-                }}
-              >
-                <span
-                  style={{
-                    width: 10,
-                    height: 10,
-                    background: CATEGORY_COLORS[s.category],
-                    borderRadius: 2,
-                  }}
-                />
-                <span style={{ flex: 1, textTransform: "capitalize" }}>{s.category}</span>
-                <span style={{ color: "#64748b", fontVariantNumeric: "tabular-nums" }}>
-                  {s.count} · {s.length.toFixed(0)}
-                </span>
-              </div>
-            ))}
-
-            <h3 style={{ fontSize: 13, color: "#cbd5e1", margin: "20px 0 8px" }}>
-              {result.drawing.groups.some((g) => g.layer)
-                ? "PDF layers"
-                : result.drawing.source === "pdf"
-                ? "Colour groups"
-                : "Layers"}
-            </h3>
-            <div style={{ fontSize: 12, color: "#94a3b8" }}>
-              {result.drawing.groups.map((g) => (
-                <div
-                  key={g.id}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 6,
-                    padding: "4px 0",
-                    borderBottom: "1px solid #1e293b",
-                  }}
-                >
-                  <input
-                    type="checkbox"
-                    checked={visibleGroups[g.id] ?? true}
-                    onChange={(e) =>
-                      setVisibleGroups((v) => ({ ...v, [g.id]: e.target.checked }))
-                    }
-                  />
-                  {g.color && (
-                    <span
-                      title={g.label}
-                      style={{
-                        width: 14,
-                        height: 14,
-                        background: rgbCss(g.color),
-                        border: "1px solid #334155",
-                        borderRadius: 2,
-                        flexShrink: 0,
-                      }}
-                    />
-                  )}
-                  <span
-                    style={{
-                      flex: 1,
-                      whiteSpace: "nowrap",
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                    }}
-                    title={`${g.label} · ${g.count} segments · ${g.totalLength.toFixed(0)} units`}
-                  >
-                    {g.label}
-                  </span>
-                  <select
-                    value={groupCategory[g.id] ?? g.category}
-                    onChange={(e) =>
-                      setGroupCategory((c) => ({
-                        ...c,
-                        [g.id]: e.target.value as RoadCategory,
-                      }))
-                    }
-                    style={{
-                      background: "#0f172a",
-                      color: "#e2e8f0",
-                      border: "1px solid #334155",
-                      borderRadius: 4,
-                      fontSize: 11,
-                      padding: "2px 4px",
-                    }}
-                  >
-                    {ALL_CATEGORIES.map((c) => (
-                      <option key={c} value={c}>
-                        {c}
-                      </option>
-                    ))}
-                  </select>
-                  <span
-                    style={{
-                      color: "#64748b",
-                      fontVariantNumeric: "tabular-nums",
-                      minWidth: 28,
-                      textAlign: "right",
-                    }}
-                  >
-                    {g.count}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </>
-        )}
-      </aside>
-
-      <section
+      {/* Top: 3D scene area */}
+      <div
         style={{
           flex: 1,
           position: "relative",
-          display: "flex",
-          flexDirection: "column",
-          minWidth: 0,
+          minHeight: 280,
+          background: "#070b14",
+          borderBottom: "1px solid #1e293b",
         }}
       >
-        {result && (
-          <div
-            style={{
-              display: "flex",
-              gap: 4,
-              padding: "8px 12px",
-              borderBottom: "1px solid #1e293b",
-              background: "#0b1220",
-            }}
-          >
-            <TabButton
-              active={view === "drawing"}
-              onClick={() => setView("drawing")}
-            >
-              Drawing
-            </TabButton>
-            <TabButton
-              active={view === "network"}
-              onClick={() => setView("network")}
-            >
-              Network
-            </TabButton>
-            <TabButton
-              active={view === "simulation"}
-              onClick={() => setView("simulation")}
-            >
-              Simulation
-            </TabButton>
-            <TabButton
-              active={view === "simulation3d"}
-              onClick={() => setView("simulation3d")}
-            >
-              3D Sim
-            </TabButton>
-            {view === "network" && network && (
-              <div
-                style={{
-                  marginLeft: "auto",
-                  alignSelf: "center",
-                  fontSize: 11,
-                  color: "#94a3b8",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 12,
-                }}
-              >
-                <label
-                  style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: 6,
-                    cursor: "pointer",
-                  }}
-                >
-                  <input
-                    type="checkbox"
-                    checked={showJunctions}
-                    onChange={(e) => setShowJunctions(e.target.checked)}
-                  />
-                  Show junctions
-                </label>
-                <span>
-                  {network.junctions.length} junctions · {network.links.length} links
-                </span>
-              </div>
-            )}
-          </div>
+        {network && network.links.length > 0 && (
+          <Simulation3DViewer
+            drawing={result!.drawing}
+            groupCategory={groupCategory}
+            network={network}
+            junctionResults={junctionResults}
+            selectedJunctionId={selectedJunctionId}
+            onSelectJunction={setSelectedJunctionId}
+          />
         )}
+        {(!network || network.links.length === 0) && (
+          <SceneEmptyState
+            status={status}
+            error={error}
+            warning={warning}
+            rasterPreview={rasterPreview}
+          />
+        )}
+        {network && (
+          <NetworkSummaryCard
+            results={junctionResults}
+            junctionCount={network.junctions.length}
+          />
+        )}
+      </div>
 
-        <div style={{ flex: 1, position: "relative", display: "flex", minHeight: 0 }}>
-          {!result && (
-            <div
-              style={{
-                flex: 1,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                color: "#475569",
-                fontSize: 14,
-              }}
-            >
-              Upload a drawing to begin
-            </div>
-          )}
+      {/* Junction tabs */}
+      {network && (
+        <JunctionTabsStrip
+          junctions={network.junctions}
+          results={junctionResults}
+          selectedId={selectedJunctionId}
+          onSelect={setSelectedJunctionId}
+        />
+      )}
 
-          {result && view === "drawing" && (
-            <div style={{ flex: 1, position: "relative", minWidth: 0 }}>
-              {result.drawing.segments.length > 0 ? (
-                <CadViewer
-                  drawing={result.drawing}
-                  visibleGroups={visibleGroups}
-                  groupCategory={groupCategory}
-                />
-              ) : rasterPreview ? (
-                <RasterPreview preview={rasterPreview} />
-              ) : (
-                <EmptyState
-                  title="No vector geometry"
-                  body="The file uploaded successfully but contains no extractable vector paths. Upload a CAD-exported PDF (vectors preserved) or a DXF/DWG."
-                />
-              )}
-            </div>
-          )}
+      {/* Tab content */}
+      <div
+        style={{
+          height: tab === "network" ? 0 : 320,
+          overflowY: "auto",
+          background: "#070b14",
+          transition: "height 220ms ease",
+          flexShrink: 0,
+        }}
+      >
+        {tab === "movements" && selectedJunctionId && selectedInputs && selectedResult && (
+          <JunctionPanelInline
+            junctionLabel={`Junction ${selectedJunctionIndex + 1}`}
+            inputs={selectedInputs}
+            result={selectedResult}
+            onChange={setSelectedInputs}
+          />
+        )}
+        {tab === "phasing" && selectedInputs && selectedResult && (
+          <PhasingView
+            inputs={selectedInputs}
+            result={selectedResult}
+            onChange={setSelectedInputs}
+          />
+        )}
+        {tab === "ai" && selectedJunctionId && selectedInputs && selectedResult && (
+          <AiOptView
+            junctionLabel={`J${selectedJunctionIndex + 1} · Junction ${selectedJunctionId}`}
+            inputs={selectedInputs}
+            result={selectedResult}
+            onApply={setSelectedInputs}
+          />
+        )}
+        {tab === "interchg" && selectedInputs && (
+          <InterchgView inputs={selectedInputs} onChange={setSelectedInputs} />
+        )}
+        {tab !== "network" && (!selectedInputs || !selectedResult) && (
+          <NoSelection />
+        )}
+      </div>
 
-          {result && view === "network" && network && (
-            <div style={{ flex: 1, position: "relative", minWidth: 0 }}>
-              {result.drawing.segments.length === 0 ? (
-                <EmptyState
-                  title="No road geometry"
-                  body="This file has no vector roads to render. Try uploading the original CAD-exported PDF or a DXF."
-                />
-              ) : (
-                <NetworkViewer
-                  drawing={result.drawing}
-                  groupCategory={groupCategory}
-                  network={network}
-                  showJunctions={showJunctions}
-                />
-              )}
-            </div>
-          )}
-
-          {result && view === "simulation" && network && (
-            <SimulationLayout
-              network={network}
-              selectedJunctionId={selectedJunctionId}
-              selectedInputs={selectedInputs}
-              selectedResult={selectedResult}
-              onChangeInputs={(next) =>
-                setJunctionInputs((m) => ({ ...m, [selectedJunctionId!]: next }))
-              }
-              onClose={() => setSelectedJunctionId(null)}
-            >
-              {network.links.length === 0 ? (
-                <EmptyState
-                  title="No drivable network"
-                  body="Switch to the Network tab and confirm that at least one cluster is classified as 'centerline'. The simulator drives vehicles along centerline links."
-                />
-              ) : (
-                <SimulationViewer
-                  drawing={result.drawing}
-                  groupCategory={groupCategory}
-                  network={network}
-                />
-              )}
-            </SimulationLayout>
-          )}
-
-          {result && view === "simulation3d" && network && (
-            <SimulationLayout
-              network={network}
-              selectedJunctionId={selectedJunctionId}
-              selectedInputs={selectedInputs}
-              selectedResult={selectedResult}
-              onChangeInputs={(next) =>
-                setJunctionInputs((m) => ({ ...m, [selectedJunctionId!]: next }))
-              }
-              onClose={() => setSelectedJunctionId(null)}
-            >
-              {network.links.length === 0 ? (
-                <EmptyState
-                  title="No drivable network"
-                  body="Switch to the Network tab and confirm that at least one cluster is classified as 'centerline'."
-                />
-              ) : (
-                <Simulation3DViewer
-                  drawing={result.drawing}
-                  groupCategory={groupCategory}
-                  network={network}
-                  junctionResults={junctionResults}
-                  selectedJunctionId={selectedJunctionId}
-                  onSelectJunction={setSelectedJunctionId}
-                />
-              )}
-            </SimulationLayout>
-          )}
-
-          {!networkReady && result && view !== "drawing" && (
-            <EmptyState
-              title="Building network…"
-              body="Computing nodes, links and building clusters from the drawing."
-            />
-          )}
-        </div>
-      </section>
+      <BottomNav active={tab} onChange={setTab} />
     </main>
   );
 }
 
-function EmptyState({ title, body }: { title: string; body: string }) {
+/** Inlined bottom-sheet variant of JunctionPanel - no close button, no
+ *  position: absolute, sized to the bottom drawer. */
+function JunctionPanelInline(props: {
+  junctionLabel: string;
+  inputs: JunctionInputs;
+  result: JunctionResult;
+  onChange: (next: JunctionInputs) => void;
+}) {
+  return (
+    <div style={{ padding: "0 0 16px 0" }}>
+      <JunctionPanel
+        junctionLabel={props.junctionLabel}
+        inputs={props.inputs}
+        result={props.result}
+        onChange={props.onChange}
+        onClose={() => {
+          /* no-op in dashboard mode */
+        }}
+      />
+    </div>
+  );
+}
+
+function SceneEmptyState({
+  status,
+  error,
+  warning,
+  rasterPreview,
+}: {
+  status: "idle" | "loading" | "error";
+  error: string | null;
+  warning: string | null;
+  rasterPreview: { dataUrl: string; width: number; height: number } | null;
+}) {
   return (
     <div
       style={{
         position: "absolute",
         inset: 0,
         display: "flex",
-        flexDirection: "column",
         alignItems: "center",
         justifyContent: "center",
+        flexDirection: "column",
         textAlign: "center",
         padding: 32,
         color: "#94a3b8",
       }}
     >
-      <div style={{ fontSize: 16, color: "#cbd5e1", marginBottom: 8 }}>{title}</div>
-      <div style={{ fontSize: 13, maxWidth: 480, lineHeight: 1.5 }}>{body}</div>
+      {status === "loading" && (
+        <div style={{ fontSize: 13 }}>Loading the master plan…</div>
+      )}
+      {status === "error" && error && (
+        <div
+          style={{
+            background: "#7f1d1d",
+            color: "#fee2e2",
+            padding: 12,
+            borderRadius: 6,
+            maxWidth: 480,
+          }}
+        >
+          {error}
+        </div>
+      )}
+      {warning && (
+        <div
+          style={{
+            color: "#fde68a",
+            fontSize: 12,
+            maxWidth: 480,
+            marginTop: 12,
+          }}
+        >
+          {warning}
+        </div>
+      )}
+      {rasterPreview && (
+        <img
+          src={rasterPreview.dataUrl}
+          alt="PDF preview"
+          style={{
+            maxWidth: "60%",
+            marginTop: 12,
+            border: "1px solid #1e293b",
+            borderRadius: 6,
+          }}
+        />
+      )}
     </div>
   );
 }
 
-function RasterPreview({
-  preview,
-}: {
-  preview: { dataUrl: string; width: number; height: number };
-}) {
+function NoSelection() {
   return (
     <div
       style={{
-        position: "absolute",
-        inset: 0,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        background: "#0f172a",
-        overflow: "hidden",
-      }}
-    >
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src={preview.dataUrl}
-        alt="PDF page raster preview"
-        style={{
-          maxWidth: "100%",
-          maxHeight: "100%",
-          objectFit: "contain",
-          background: "#fff",
-        }}
-      />
-      <div
-        style={{
-          position: "absolute",
-          left: 12,
-          bottom: 12,
-          padding: "6px 10px",
-          background: "rgba(15, 23, 42, 0.85)",
-          color: "#fde68a",
-          fontSize: 11,
-          borderRadius: 6,
-          border: "1px solid #78350f",
-        }}
-      >
-        Raster preview only — no vectors to extract
-      </div>
-    </div>
-  );
-}
-
-function SimulationLayout({
-  network,
-  selectedJunctionId,
-  selectedInputs,
-  selectedResult,
-  onChangeInputs,
-  onClose,
-  children,
-}: {
-  network: RoadNetwork;
-  selectedJunctionId: string | null;
-  selectedInputs?: JunctionInputs;
-  selectedResult?: JunctionResult;
-  onChangeInputs: (next: JunctionInputs) => void;
-  onClose: () => void;
-  children: React.ReactNode;
-}) {
-  void network;
-  return (
-    <>
-      <div style={{ flex: 1, position: "relative", minWidth: 0 }}>{children}</div>
-      {selectedJunctionId && selectedInputs && selectedResult && (
-        <JunctionPanel
-          junctionLabel={`Junction ${selectedJunctionId}`}
-          inputs={selectedInputs}
-          result={selectedResult}
-          onChange={onChangeInputs}
-          onClose={onClose}
-        />
-      )}
-    </>
-  );
-}
-
-function TabButton({
-  active,
-  onClick,
-  children,
-}: {
-  active: boolean;
-  onClick: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      style={{
-        background: active ? "#1e293b" : "transparent",
-        color: active ? "#fbbf24" : "#94a3b8",
-        border: 0,
-        borderRadius: 6,
-        padding: "6px 14px",
+        padding: 24,
+        textAlign: "center",
+        color: "#64748b",
         fontSize: 12,
-        fontWeight: 600,
-        cursor: "pointer",
       }}
     >
-      {children}
-    </button>
+      Select a junction in the strip above to inspect its analysis.
+    </div>
   );
 }
