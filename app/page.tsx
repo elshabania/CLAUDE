@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { CadViewer, CATEGORY_COLORS } from "@/components/CadViewer";
 import { NetworkViewer } from "@/components/NetworkViewer";
 import { SimulationViewer } from "@/components/SimulationViewer";
+import { Simulation3DViewer } from "@/components/Simulation3DViewer";
 import { detectFromPdf, type ParsedDrawing, type RoadCategory } from "@/lib/road-detect";
 import {
   extractPdfPathsInBrowser,
@@ -12,7 +13,7 @@ import {
 } from "@/lib/pdf-extract-client";
 import { buildRoadNetwork } from "@/lib/road-network";
 
-type ViewMode = "drawing" | "network" | "simulation";
+type ViewMode = "drawing" | "network" | "simulation" | "simulation3d";
 
 const ALL_CATEGORIES: RoadCategory[] = [
   "centerline",
@@ -89,6 +90,8 @@ export default function Page() {
     return buildRoadNetwork(result.drawing, groupCategory);
   }, [result, groupCategory, view]);
 
+  const networkReady = !!network;
+
   async function handleFile(file: File) {
     setStatus("loading");
     setError(null);
@@ -152,6 +155,36 @@ export default function Page() {
       setStatus("error");
     }
   }
+
+  // Auto-load the bundled CMP layout PDF on first mount so the app has
+  // something to show without an upload step. The fetch is no-op'd if a
+  // result is already in state (e.g. user already uploaded).
+  const autoLoadedRef = useRef(false);
+  useEffect(() => {
+    if (autoLoadedRef.current) return;
+    autoLoadedRef.current = true;
+    if (result) return;
+    void (async () => {
+      try {
+        setStatus("loading");
+        const res = await fetch("/sample-cmp-layout.pdf");
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const blob = await res.blob();
+        const file = new File([blob], "WSPTRA_Prime_CMPRoad_Layout.pdf", {
+          type: "application/pdf",
+        });
+        await handleFile(file);
+      } catch (err) {
+        // Bundled file isn't available - user can still upload manually.
+        if (err instanceof Error) {
+          // eslint-disable-next-line no-console
+          console.warn("default PDF load failed:", err.message);
+        }
+        setStatus("idle");
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <main style={{ display: "flex", height: "100vh", width: "100vw" }}>
@@ -403,6 +436,12 @@ export default function Page() {
             >
               Simulation
             </TabButton>
+            <TabButton
+              active={view === "simulation3d"}
+              onClick={() => setView("simulation3d")}
+            >
+              3D Sim
+            </TabButton>
             {view === "network" && network && (
               <div
                 style={{
@@ -506,6 +545,30 @@ export default function Page() {
                 />
               )}
             </div>
+          )}
+
+          {result && view === "simulation3d" && network && (
+            <div style={{ flex: 1, position: "relative", minWidth: 0 }}>
+              {network.links.length === 0 ? (
+                <EmptyState
+                  title="No drivable network"
+                  body="Switch to the Network tab and confirm that at least one cluster is classified as 'centerline'."
+                />
+              ) : (
+                <Simulation3DViewer
+                  drawing={result.drawing}
+                  groupCategory={groupCategory}
+                  network={network}
+                />
+              )}
+            </div>
+          )}
+
+          {!networkReady && result && view !== "drawing" && (
+            <EmptyState
+              title="Building network…"
+              body="Computing nodes, links and building clusters from the drawing."
+            />
           )}
         </div>
       </section>
