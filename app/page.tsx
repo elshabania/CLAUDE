@@ -5,7 +5,10 @@ import { CadViewer, CATEGORY_COLORS } from "@/components/CadViewer";
 import { NetworkViewer } from "@/components/NetworkViewer";
 import { JunctionPanel } from "@/components/JunctionPanel";
 import { detectFromPdf, type ParsedDrawing, type RoadCategory } from "@/lib/road-detect";
-import { extractPdfPathsInBrowser } from "@/lib/pdf-extract-client";
+import {
+  extractPdfPathsInBrowser,
+  renderPdfPagePreview,
+} from "@/lib/pdf-extract-client";
 import { buildRoadNetwork, classifyJunctionApproaches } from "@/lib/road-network";
 import {
   analyzeJunction,
@@ -47,6 +50,12 @@ export default function Page() {
   const [view, setView] = useState<ViewMode>("drawing");
   const [selectedJunctionId, setSelectedJunctionId] = useState<string | null>(null);
   const [junctionInputs, setJunctionInputs] = useState<Record<string, JunctionInputs>>({});
+  const [rasterPreview, setRasterPreview] = useState<{
+    dataUrl: string;
+    width: number;
+    height: number;
+  } | null>(null);
+  const [warning, setWarning] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
 
   // Reset visibility/categories whenever a new file is loaded.
@@ -132,12 +141,26 @@ export default function Page() {
   async function handleFile(file: File) {
     setStatus("loading");
     setError(null);
+    setWarning(null);
+    setRasterPreview(null);
     const isPdf = file.name.toLowerCase().endsWith(".pdf");
     try {
       if (isPdf) {
         const paths = await extractPdfPathsInBrowser(file);
         const drawing = detectFromPdf(paths);
         setResult({ filename: file.name, drawing });
+        if (drawing.segments.length === 0) {
+          setWarning(
+            "No vector geometry found in this PDF. The file is likely an 'optimized' / image-flattened export — try uploading the original CAD-exported PDF (or the source DXF/DWG) to extract roads."
+          );
+          // Still render a raster preview so the user can see the file content.
+          try {
+            const preview = await renderPdfPagePreview(file);
+            if (preview) setRasterPreview(preview);
+          } catch {
+            // ignore preview failure - warning is enough.
+          }
+        }
         setStatus("idle");
         return;
       }
@@ -237,6 +260,25 @@ export default function Page() {
             }}
           >
             {error}
+          </div>
+        )}
+
+        {warning && (
+          <div
+            style={{
+              marginTop: 16,
+              padding: 12,
+              background: "#78350f",
+              color: "#fde68a",
+              borderRadius: 6,
+              fontSize: 12,
+              lineHeight: 1.4,
+            }}
+          >
+            <strong style={{ display: "block", marginBottom: 4 }}>
+              No vector roads found
+            </strong>
+            {warning}
           </div>
         )}
 
@@ -429,16 +471,36 @@ export default function Page() {
           )}
 
           {result && view === "drawing" && (
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <CadViewer
-                drawing={result.drawing}
-                visibleGroups={visibleGroups}
-                groupCategory={groupCategory}
-              />
+            <div style={{ flex: 1, position: "relative", minWidth: 0 }}>
+              {result.drawing.segments.length > 0 ? (
+                <CadViewer
+                  drawing={result.drawing}
+                  visibleGroups={visibleGroups}
+                  groupCategory={groupCategory}
+                />
+              ) : rasterPreview ? (
+                <RasterPreview preview={rasterPreview} />
+              ) : (
+                <EmptyState
+                  title="No vector geometry"
+                  body="The file uploaded successfully but contains no extractable vector paths. Upload a CAD-exported PDF (vectors preserved) or a DXF/DWG."
+                />
+              )}
             </div>
           )}
 
-          {result && view === "network" && network && (
+          {result && view === "network" && network && network.junctions.length === 0 && (
+            <EmptyState
+              title="No junctions detected"
+              body={
+                result.drawing.segments.length === 0
+                  ? "This file has no vector roads to build a network from. Try uploading the original CAD-exported PDF or a DXF."
+                  : "No nodes meet the degree-≥-3 junction threshold. Use the sidebar to relabel another colour cluster as 'centerline' (e.g. road edges if centerlines are missing) and the network will rebuild."
+              }
+            />
+          )}
+
+          {result && view === "network" && network && network.junctions.length > 0 && (
             <>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <NetworkViewer
@@ -464,6 +526,74 @@ export default function Page() {
         </div>
       </section>
     </main>
+  );
+}
+
+function EmptyState({ title, body }: { title: string; body: string }) {
+  return (
+    <div
+      style={{
+        position: "absolute",
+        inset: 0,
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        textAlign: "center",
+        padding: 32,
+        color: "#94a3b8",
+      }}
+    >
+      <div style={{ fontSize: 16, color: "#cbd5e1", marginBottom: 8 }}>{title}</div>
+      <div style={{ fontSize: 13, maxWidth: 480, lineHeight: 1.5 }}>{body}</div>
+    </div>
+  );
+}
+
+function RasterPreview({
+  preview,
+}: {
+  preview: { dataUrl: string; width: number; height: number };
+}) {
+  return (
+    <div
+      style={{
+        position: "absolute",
+        inset: 0,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        background: "#0f172a",
+        overflow: "hidden",
+      }}
+    >
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={preview.dataUrl}
+        alt="PDF page raster preview"
+        style={{
+          maxWidth: "100%",
+          maxHeight: "100%",
+          objectFit: "contain",
+          background: "#fff",
+        }}
+      />
+      <div
+        style={{
+          position: "absolute",
+          left: 12,
+          bottom: 12,
+          padding: "6px 10px",
+          background: "rgba(15, 23, 42, 0.85)",
+          color: "#fde68a",
+          fontSize: 11,
+          borderRadius: 6,
+          border: "1px solid #78350f",
+        }}
+      >
+        Raster preview only — no vectors to extract
+      </div>
+    </div>
   );
 }
 

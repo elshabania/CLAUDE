@@ -27,44 +27,59 @@ const CATEGORY_WIDTH: Record<RoadCategory, number> = {
 
 interface Props {
   drawing: ParsedDrawing;
-  /** Visibility per group (PDF: by colour cluster, DXF: by layer name). */
   visibleGroups: Record<string, boolean>;
-  /** Override the category for a group (used by user re-labelling). */
   groupCategory: Record<string, RoadCategory>;
 }
 
 export function CadViewer({ drawing, visibleGroups, groupCategory }: Props) {
+  const containerRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [transform, setTransform] = useState({ scale: 1, tx: 0, ty: 0 });
+  const [size, setSize] = useState({ width: 800, height: 600 });
   const dragRef = useRef<{ x: number; y: number; tx: number; ty: number } | null>(null);
 
+  // Track the container's actual rendered size and the device pixel ratio so
+  // the canvas backing buffer matches what the user sees - independent of any
+  // flex-chain quirks above us.
   useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
+    const container = containerRef.current;
+    if (!container || typeof ResizeObserver === "undefined") return;
+    const update = () => {
+      const w = Math.max(container.clientWidth, 100);
+      const h = Math.max(container.clientHeight, 100);
+      setSize({ width: w, height: h });
+    };
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(container);
+    return () => ro.disconnect();
+  }, []);
+
+  // Fit-to-view whenever drawing changes or the viewport resizes.
+  useEffect(() => {
     const { minX, minY, maxX, maxY } = drawing.bounds;
     const w = Math.max(maxX - minX, 1);
     const h = Math.max(maxY - minY, 1);
-    const scale = Math.min(canvas.width / w, canvas.height / h) * 0.9;
-    const tx = canvas.width / 2 - ((minX + maxX) / 2) * scale;
-    const ty = canvas.height / 2 + ((minY + maxY) / 2) * scale;
+    const scale = Math.min(size.width / w, size.height / h) * 0.9;
+    const tx = size.width / 2 - ((minX + maxX) / 2) * scale;
+    const ty = size.height / 2 + ((minY + maxY) / 2) * scale;
     setTransform({ scale, tx, ty });
-  }, [drawing]);
+  }, [drawing, size.width, size.height]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
+    const dpr = typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1;
+    canvas.width = Math.round(size.width * dpr);
+    canvas.height = Math.round(size.height * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
     ctx.fillStyle = "#0f172a";
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillRect(0, 0, size.width, size.height);
 
     const { scale, tx, ty } = transform;
-    const project = (x: number, y: number) => ({
-      px: x * scale + tx,
-      py: -y * scale + ty,
-    });
-
     for (const seg of drawing.segments) {
       if (visibleGroups[seg.groupId] === false) continue;
       const cat = groupCategory[seg.groupId] ?? seg.category;
@@ -73,14 +88,15 @@ export function CadViewer({ drawing, visibleGroups, groupCategory }: Props) {
       ctx.beginPath();
       const pts = seg.points;
       for (let i = 0; i < pts.length; i += 2) {
-        const { px, py } = project(pts[i], pts[i + 1]);
+        const px = pts[i] * scale + tx;
+        const py = -pts[i + 1] * scale + ty;
         if (i === 0) ctx.moveTo(px, py);
         else ctx.lineTo(px, py);
       }
       if (seg.closed) ctx.closePath();
       ctx.stroke();
     }
-  }, [drawing, transform, visibleGroups, groupCategory]);
+  }, [drawing, transform, visibleGroups, groupCategory, size.width, size.height]);
 
   const onPointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
     e.currentTarget.setPointerCapture(e.pointerId);
@@ -106,30 +122,36 @@ export function CadViewer({ drawing, visibleGroups, groupCategory }: Props) {
     const mx = e.clientX - rect.left;
     const my = e.clientY - rect.top;
     const factor = e.deltaY < 0 ? 1.15 : 1 / 1.15;
-    setTransform((t) => {
-      const newScale = t.scale * factor;
-      const newTx = mx - (mx - t.tx) * factor;
-      const newTy = my - (my - t.ty) * factor;
-      return { scale: newScale, tx: newTx, ty: newTy };
-    });
+    setTransform((t) => ({
+      scale: t.scale * factor,
+      tx: mx - (mx - t.tx) * factor,
+      ty: my - (my - t.ty) * factor,
+    }));
   };
 
   return (
-    <canvas
-      ref={canvasRef}
-      width={1400}
-      height={900}
-      onPointerDown={onPointerDown}
-      onPointerMove={onPointerMove}
-      onPointerUp={onPointerUp}
-      onWheel={onWheel}
+    <div
+      ref={containerRef}
       style={{
-        width: "100%",
-        height: "100%",
-        display: "block",
-        cursor: dragRef.current ? "grabbing" : "grab",
-        touchAction: "none",
+        position: "absolute",
+        inset: 0,
+        background: "#0f172a",
       }}
-    />
+    >
+      <canvas
+        ref={canvasRef}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        onWheel={onWheel}
+        style={{
+          width: `${size.width}px`,
+          height: `${size.height}px`,
+          display: "block",
+          cursor: dragRef.current ? "grabbing" : "grab",
+          touchAction: "none",
+        }}
+      />
+    </div>
   );
 }
