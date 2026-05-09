@@ -334,66 +334,71 @@ export function detectFromPdf(
 }
 
 const PDF_LAYER_PATTERNS: { category: RoadCategory; patterns: RegExp[] }[] = [
-  // Lane-related layers: lane bodies, lane direction, lane markings, parking
-  // marks, give-way / stop / no-crossing lines, arrows, cycle tracks, ped
-  // crossings. Anything that is "stuff drawn on top of the road body".
+  // Lane markings, parking marks, give-way / stop / no-crossing lines, arrows,
+  // cycle tracks, ped crossings - i.e. anything painted on top of the road.
+  // CAD layer names use underscores ("Road Lane_Main", "Lane_Direction 1"),
+  // so word-boundary anchors don't work; we match on substring instead.
   {
     category: "lane",
     patterns: [
-      /\blane\b/i,
-      /\bcycle.?track\b/i,
-      /\bcrossing\b/i,
-      /\bgiveway\b/i,
-      /\bgive\s*way\b/i,
-      /\bstop\s*line\b/i,
-      /\bno.?crossing\b/i,
-      /\bdrop.?kerb.?marking\b/i,
+      /road\s*lane/i,
+      /lane[_\s-]?(main|direction|mark|line)/i,
+      /road\s*mark/i,
+      /road\s*pedestrian/i,
+      /road\s*crossing/i,
+      /road\s*give\s*way/i,
+      /giveway/i,
+      /road\s*no\s*crossing/i,
+      /cycle[\s_-]*track/i,
+      /survey[_\s.][a-z]*[_\s.]lane/i,
+      /survey[_\s.][a-z]*[_\s.]arrow/i,
+      /survey[_\s.][a-z]*[_\s.]marking/i,
+      /drop\s*kerb\s*mark/i,
       /\barrow\b/i,
-      /\broad.?mark\b/i,
-      /\bparking\b/i,
-      /\bcrosswalk\b/i,
+      /\bstop\s*line\b/i,
       /\bzebra\b/i,
+      /\bcrosswalk\b/i,
+      /lane[_\s-]?direction/i,
     ],
   },
-  // Solid kerb / road-edge layers.
+  // Curbs / kerbs / road edges (the purple lines in the user's screenshot).
   {
     category: "edge",
     patterns: [
-      /\bkerb\b/i,
+      /road\s*edge/i,
+      /edge[_\s-]*kerb/i,
+      /(?<!drop[_\s-]*)kerb(?![_\s-]*mark)/i,
       /\bcurb\b/i,
-      /\broad.?edge\b/i,
-      /\bedge.?of.?pavement\b/i,
+      /survey[_\s.][a-z]*[_\s.]kerb/i,
+      /road\s*flush/i,
+      /(?<!marking[_\s-]*)drop\s*kerb(?!\s*mark)/i,
       /\beop\b/i,
-      /\broad.?flush\b/i,
-      /\bdrop.?kerb\b/i,
+      /edge.?of.?pavement/i,
     ],
   },
-  // Right-of-way / road centerline / median.
+  // Right-of-way and median lines.
   {
     category: "centerline",
     patterns: [
-      /\brow\b/i,
-      /\bcenter.?line\b/i,
-      /\bcentre.?line\b/i,
+      /(?:^|[^a-z])row(?:[^a-z]|$)/i,
+      /road\s*proposed\s*row/i,
+      /center.?line/i,
+      /centre.?line/i,
       /\bmedian\b/i,
-      /\b\/cl\/\b/i,
     ],
   },
   // Boundary layers (legal, planning, master plan extents).
   {
     category: "boundary",
     patterns: [
+      /(affection|cluster|development|plot|drone|rta)\s*boundary/i,
       /\bboundary\b/i,
-      /\bplot\b/i,
       /\baffection\b/i,
-      /\bcluster\s*boundary\b/i,
-      /\baffected\b/i,
+      /(?:^|[^a-z])plot(?:[^a-z]|$)/i,
     ],
   },
-  // Building footprints - detected by land-use layer naming. The villa,
-  // townhouse and mixed-use patterns are placed first and use loose
-  // matching (any layer containing the word) so they always win over
-  // accidental partial matches in other rules.
+  // Building footprints - villa / townhouse / mixed-use are pinned to win
+  // unconditionally; the rest is the standard land-use vocabulary.
   {
     category: "building",
     patterns: [
@@ -401,8 +406,8 @@ const PDF_LAYER_PATTERNS: { category: RoadCategory; patterns: RegExp[] }[] = [
       /townhouse/i,
       /town[\s_-]*hous/i,
       /town[\s_-]*home/i,
-      /\bth\b/i,
-      /resi[_\s\-]?(?:villa|town|h\b|dential)?/i,
+      /(?:^|[^a-z])th(?:[^a-z]|$)/i,
+      /resi[_\s-]?(?:villa|town|h\b|dential)?/i,
       /residential/i,
       /apart/i,
       /\bhotel\b/i,

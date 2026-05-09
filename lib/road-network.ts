@@ -3,6 +3,7 @@ import type {
   RoadCategory,
   DrawingSegment,
 } from "@/lib/road-detect";
+import { deriveCenterlinesFromCurbs } from "@/lib/centerline-derivation";
 
 export interface NetworkNode {
   id: string;
@@ -12,6 +13,9 @@ export interface NetworkNode {
   links: string[];
   /** True if this node is a junction (degree >= 3 OR an external boundary endpoint). */
   isJunction: boolean;
+  /** Polygon (closed flat point array) of the junction's footprint when it
+   *  was derived from a closed curb region (e.g. roundabout). */
+  region?: number[];
 }
 
 export interface NetworkLink {
@@ -23,6 +27,8 @@ export interface NetworkLink {
   length: number;
   /** Bearing in degrees, 0 = north, 90 = east, measured from fromNode to toNode. */
   bearing: number;
+  /** Pavement width in source units, when available (derived from paired curbs). */
+  width?: number;
 }
 
 export type BuildingType =
@@ -70,6 +76,14 @@ export interface BuildNetworkOptions {
   skipStitching?: boolean;
   /** Bearing tolerance for collinear merge, in degrees. */
   stitchAngleToleranceDeg?: number;
+  /**
+   * Derive centerlines from paired curb segments instead of using
+   * pre-classified centerlines. Default: true when the drawing has more
+   * curb (`edge`) segments than centerline ones.
+   */
+  deriveCenterlines?: boolean;
+  /** Maximum road width as fraction of bounds diagonal (for derivation). */
+  maxRoadWidthFraction?: number;
 }
 
 const DEFAULT_ROAD: RoadCategory[] = ["centerline"];
@@ -100,12 +114,14 @@ export function buildRoadNetwork(
   const segCat = (s: DrawingSegment): RoadCategory =>
     groupCategoryOverrides[s.groupId] ?? s.category;
 
-  const roadSegs: DrawingSegment[] = [];
+  const preClassifiedRoads: DrawingSegment[] = [];
+  const curbSegs: DrawingSegment[] = [];
   const buildingSegs: DrawingSegment[] = [];
   for (const s of drawing.segments) {
     const cat = segCat(s);
-    if (roadSet.has(cat)) roadSegs.push(s);
-    else if (buildingSet.has(cat) && s.closed) buildingSegs.push(s);
+    if (roadSet.has(cat)) preClassifiedRoads.push(s);
+    else if (cat === "edge" || cat === "curb") curbSegs.push(s);
+    if (buildingSet.has(cat) && s.closed) buildingSegs.push(s);
   }
 
   let minX = Infinity,
@@ -122,7 +138,8 @@ export function buildRoadNetwork(
       if (y > maxY) maxY = y;
     }
   };
-  roadSegs.forEach(visit);
+  preClassifiedRoads.forEach(visit);
+  curbSegs.forEach(visit);
   buildingSegs.forEach(visit);
   if (!isFinite(minX)) {
     minX = 0;
@@ -132,10 +149,80 @@ export function buildRoadNetwork(
   }
 
   const diag = Math.hypot(maxX - minX, maxY - minY) || 1;
-  // Default 1.5% snap so the gap between dashed centerline segments closes
-  // before graph construction. Drop it back via opts if a finer drawing
-  // collapses real intersections.
+
+  // Decide whether to derive centerlines from paired curbs or use the
+  // pre-classified centerline segments. Auto-mode picks derivation when the
+  // PDF has substantially more curbs than centerlines.
+  const shouldDerive =
+    opts.deriveCenterlines ??
+    (curbSegs.length > preClassifiedRoads.length * 2 && curbSegs.length >= 50);
+
+  type RoadSeg = { points: number[]; length: number; width?: number };
+  let roadSegs: RoadSeg[];
+  if (shouldDerive && curbSegs.length > 0) {
+    const maxRoadWidth = diag * (opts.maxRoadWidthFraction ?? 0.025);
+    const sampleStep = Math.max(diag * 0.0025, 1);
+    const derived = deriveCenterlinesFromCurbs(curbSegs, {
+      maxRoadWidth,
+      sampleStep,
+      parallelCos: 0.85,
+      perpCos: 0.4,
+      minPoints: 3,
+    });
+    roadSegs = derived.map((d) => ({
+      points: d.points,
+      length: d.length,
+      width: d.width,
+    }));
+  } else {
+    roadSegs = preClassifiedRoads.map((s) => ({
+      points: s.points,
+      length: s.length,
+    }));
+  }
+
+  // Default 1.5% snap so derived centerline endpoints meeting at the same
+  // junction collapse into one node.
   const tolerance = diag * (opts.snapTolerance ?? 0.015);
+
+  // Detect junction regions from closed curb polygons (typically roundabouts
+  // and signalised junction boxes). We bound by area so we ignore both the
+  // tiny dash-loops and the page outline.
+  const minRegionArea = Math.pow(diag * 0.005, 2);
+  const maxRegionArea = Math.pow(diag * 0.15, 2);
+  const regions: { id: string; cx: number; cy: number; polygon: number[]; aabb: { minX: number; minY: number; maxX: number; maxY: number } }[] = [];
+  for (const c of curbSegs) {
+    if (!c.closed) continue;
+    if (c.points.length < 8) continue;
+    const a = polygonArea(c.points);
+    if (a < minRegionArea || a > maxRegionArea) continue;
+    let cx = 0,
+      cy = 0;
+    let count = 0;
+    let mnx = Infinity,
+      mny = Infinity,
+      mxx = -Infinity,
+      mxy = -Infinity;
+    for (let i = 0; i < c.points.length; i += 2) {
+      const x = c.points[i];
+      const y = c.points[i + 1];
+      cx += x;
+      cy += y;
+      count += 1;
+      if (x < mnx) mnx = x;
+      if (y < mny) mny = y;
+      if (x > mxx) mxx = x;
+      if (y > mxy) mxy = y;
+    }
+    if (count === 0) continue;
+    regions.push({
+      id: `j${regions.length}`,
+      cx: cx / count,
+      cy: cy / count,
+      polygon: c.points,
+      aabb: { minX: mnx, minY: mny, maxX: mxx, maxY: mxy },
+    });
+  }
   const cell = Math.max(tolerance, 1e-6);
 
   // Spatial hash on a grid with cell = tolerance. We search the 3x3 cell
@@ -146,7 +233,36 @@ export function buildRoadNetwork(
   const cellKey = (x: number, y: number) =>
     `${Math.round(x / cell)}_${Math.round(y / cell)}`;
 
+  // Pre-create one node per junction region; findOrCreate snaps to it when
+  // an endpoint falls inside or close to the region's footprint.
+  for (const r of regions) {
+    nodes.set(r.id, {
+      id: r.id,
+      x: r.cx,
+      y: r.cy,
+      links: [],
+      isJunction: true,
+      region: r.polygon,
+    });
+  }
+
+  function findRegion(x: number, y: number): string | null {
+    for (const r of regions) {
+      if (
+        x < r.aabb.minX - tolerance ||
+        x > r.aabb.maxX + tolerance ||
+        y < r.aabb.minY - tolerance ||
+        y > r.aabb.maxY + tolerance
+      )
+        continue;
+      if (pointInPolygon(x, y, r.polygon)) return r.id;
+    }
+    return null;
+  }
+
   function findOrCreate(x: number, y: number): string {
+    const regionId = findRegion(x, y);
+    if (regionId) return regionId;
     const cx = Math.round(x / cell);
     const cy = Math.round(y / cell);
     let best: { id: string; d: number } | null = null;
@@ -194,6 +310,7 @@ export function buildRoadNetwork(
       points: seg.points,
       length: seg.length,
       bearing,
+      width: seg.width,
     });
   }
 
@@ -261,6 +378,9 @@ export function buildRoadNetwork(
   }
 
   for (const node of nodes.values()) {
+    // Region-derived nodes (roundabouts / signal boxes) stay flagged as
+    // junctions regardless of how many links happen to touch them.
+    if (node.region) continue;
     node.isJunction = node.links.length >= 3;
   }
 
@@ -340,6 +460,16 @@ function mergeAtNode(
     merged[merged.length - 2],
     merged[merged.length - 1]
   );
+  // Average the two links' widths weighted by their length so a long
+  // wide segment doesn't get diluted by a short narrow one (and vice versa).
+  let mergedWidth: number | undefined;
+  if (a.width != null || b.width != null) {
+    const aw = a.width != null ? a.width * a.length : 0;
+    const bw = b.width != null ? b.width * b.length : 0;
+    const aL = a.width != null ? a.length : 0;
+    const bL = b.width != null ? b.length : 0;
+    if (aL + bL > 0) mergedWidth = (aw + bw) / (aL + bL);
+  }
   return {
     id: `m${mergedLinkCounter++}`,
     fromNode,
@@ -347,6 +477,7 @@ function mergeAtNode(
     points: merged,
     length,
     bearing,
+    width: mergedWidth,
   };
 }
 

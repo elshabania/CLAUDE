@@ -182,7 +182,7 @@ export function Simulation3DViewer({ drawing, groupCategory, network }: Props) {
     const vehicleGroup = new THREE.Group();
     scene.add(vehicleGroup);
 
-    addRoads(roadsGroup, drawing, groupCategory, worldTransform);
+    addRoads(roadsGroup, drawing, groupCategory, network, worldTransform);
     addBuildings(buildingsGroup, network, worldTransform);
 
     sceneRef.current = {
@@ -352,45 +352,173 @@ interface WorldTransform {
   span: number;
 }
 
+/**
+ * Asphalt mesh for a single link: build a triangulated ribbon of
+ * (link.width or fallback) units around the link's polyline. Uses average
+ * tangent at each interior point so the ribbon tracks curves smoothly.
+ */
+function buildLinkRibbon(
+  link: { points: number[]; width?: number },
+  fallbackWidth: number,
+  wt: WorldTransform,
+  yLevel: number
+): THREE.BufferGeometry | null {
+  const pts = link.points;
+  if (pts.length < 4) return null;
+  const halfW = ((link.width ?? fallbackWidth) * wt.scale) / 2;
+
+  const verts: number[] = [];
+  const indices: number[] = [];
+  for (let i = 0; i < pts.length; i += 2) {
+    let tx: number, ty: number;
+    if (i === 0) {
+      tx = pts[2] - pts[0];
+      ty = pts[3] - pts[1];
+    } else if (i === pts.length - 2) {
+      tx = pts[i] - pts[i - 2];
+      ty = pts[i + 1] - pts[i - 1];
+    } else {
+      tx = pts[i + 2] - pts[i - 2];
+      ty = pts[i + 3] - pts[i - 1];
+    }
+    const m = Math.hypot(tx, ty) || 1;
+    tx /= m;
+    ty /= m;
+    // Right-hand normal in source coords (y-up): rotate tangent -90° = (ty, -tx).
+    const nx = ty;
+    const ny = -tx;
+    const x = pts[i];
+    const y = pts[i + 1];
+    const [lwx, lwz] = wt.project(x - nx * (halfW / wt.scale), y - ny * (halfW / wt.scale));
+    const [rwx, rwz] = wt.project(x + nx * (halfW / wt.scale), y + ny * (halfW / wt.scale));
+    verts.push(lwx, yLevel, lwz);
+    verts.push(rwx, yLevel, rwz);
+  }
+  const ringCount = verts.length / 6; // 2 verts per ring, 3 components each
+  for (let i = 0; i < ringCount - 1; i++) {
+    const a = i * 2;
+    const b = i * 2 + 1;
+    const c = (i + 1) * 2;
+    const d = (i + 1) * 2 + 1;
+    indices.push(a, c, b, b, c, d);
+  }
+  const geom = new THREE.BufferGeometry();
+  geom.setAttribute("position", new THREE.Float32BufferAttribute(verts, 3));
+  geom.setIndex(indices);
+  geom.computeVertexNormals();
+  return geom;
+}
+
+function buildJunctionRegionGeom(
+  polygon: number[],
+  wt: WorldTransform,
+  yLevel: number
+): THREE.BufferGeometry | null {
+  if (polygon.length < 6) return null;
+  const shape = new THREE.Shape();
+  const [x0, z0] = wt.project(polygon[0], polygon[1]);
+  shape.moveTo(x0, z0);
+  for (let i = 2; i < polygon.length; i += 2) {
+    const [x, z] = wt.project(polygon[i], polygon[i + 1]);
+    shape.lineTo(x, z);
+  }
+  const geom = new THREE.ShapeGeometry(shape);
+  // ShapeGeometry sits on the XY plane; rotate so it lies on XZ at yLevel.
+  geom.rotateX(-Math.PI / 2);
+  geom.translate(0, yLevel, 0);
+  return geom;
+}
+
 function addRoads(
   group: THREE.Group,
   drawing: ParsedDrawing,
   groupCategory: Record<string, RoadCategory>,
+  network: RoadNetwork,
   wt: WorldTransform
 ) {
-  // Stroke-based render: each road category becomes a single LineSegments
-  // mesh built from all its polyline segments. Cheap and avoids creating
-  // hundreds of materials.
-  const buckets: Partial<Record<RoadCategory, number[]>> = {};
+  // 1. Asphalt: one mesh per link, sized by its derived width. Default to a
+  //    reasonable fraction of the drawing diagonal when the network builder
+  //    couldn't compute a width.
+  const meanWidth =
+    network.links.reduce((acc, l) => acc + (l.width ?? 0), 0) /
+      Math.max(1, network.links.filter((l) => l.width).length) ||
+    wt.span * 0.005;
+
+  const asphaltMat = new THREE.MeshStandardMaterial({
+    color: 0x1f2937,
+    roughness: 0.92,
+    metalness: 0.0,
+  });
+
+  for (const link of network.links) {
+    const geom = buildLinkRibbon(link, meanWidth, wt, 0.005);
+    if (geom) group.add(new THREE.Mesh(geom, asphaltMat));
+  }
+
+  // Junction regions: render the closed curb polygon as a flat asphalt slab
+  // raised just above the link ribbons so it covers the seams cleanly.
+  for (const node of network.junctions) {
+    if (!node.region) continue;
+    const geom = buildJunctionRegionGeom(node.region, wt, 0.012);
+    if (geom) group.add(new THREE.Mesh(geom, asphaltMat));
+  }
+
+  // 2. Lane markings as thin LineSegments above the asphalt.
+  const laneVerts: number[] = [];
+  const centerVerts: number[] = [];
   for (const seg of drawing.segments) {
     const cat = groupCategory[seg.groupId] ?? seg.category;
-    if (cat === "boundary" || cat === "building" || cat === "other") continue;
-    if (!buckets[cat]) buckets[cat] = [];
-    const arr = buckets[cat]!;
+    if (cat !== "lane" && cat !== "centerline") continue;
+    const target = cat === "centerline" ? centerVerts : laneVerts;
     const pts = seg.points;
     for (let i = 2; i < pts.length; i += 2) {
       const [x1, z1] = wt.project(pts[i - 2], pts[i - 1]);
       const [x2, z2] = wt.project(pts[i], pts[i + 1]);
-      arr.push(x1, 0.02, z1, x2, 0.02, z2);
+      target.push(x1, 0.06, z1, x2, 0.06, z2);
     }
   }
-  const colors: Partial<Record<RoadCategory, number>> = {
-    edge: 0xcbd5e1,
-    curb: 0xe2e8f0,
-    lane: 0x64748b,
-    centerline: 0xfbbf24,
-    shoulder: 0x475569,
-  };
-  for (const [cat, arr] of Object.entries(buckets)) {
-    if (!arr || arr.length === 0) continue;
-    const geom = new THREE.BufferGeometry();
-    geom.setAttribute("position", new THREE.Float32BufferAttribute(arr, 3));
-    const mat = new THREE.LineBasicMaterial({
-      color: colors[cat as RoadCategory] ?? 0x64748b,
-      transparent: true,
-      opacity: cat === "lane" || cat === "centerline" ? 0.85 : 0.95,
-    });
-    group.add(new THREE.LineSegments(geom, mat));
+  if (laneVerts.length > 0) {
+    const g = new THREE.BufferGeometry();
+    g.setAttribute("position", new THREE.Float32BufferAttribute(laneVerts, 3));
+    group.add(
+      new THREE.LineSegments(
+        g,
+        new THREE.LineBasicMaterial({ color: 0xe2e8f0, transparent: true, opacity: 0.85 })
+      )
+    );
+  }
+  if (centerVerts.length > 0) {
+    const g = new THREE.BufferGeometry();
+    g.setAttribute("position", new THREE.Float32BufferAttribute(centerVerts, 3));
+    group.add(
+      new THREE.LineSegments(
+        g,
+        new THREE.LineBasicMaterial({ color: 0xfbbf24, transparent: true, opacity: 0.85 })
+      )
+    );
+  }
+
+  // 3. Curbs as light-grey lines along the asphalt edges.
+  const curbVerts: number[] = [];
+  for (const seg of drawing.segments) {
+    const cat = groupCategory[seg.groupId] ?? seg.category;
+    if (cat !== "edge" && cat !== "curb") continue;
+    const pts = seg.points;
+    for (let i = 2; i < pts.length; i += 2) {
+      const [x1, z1] = wt.project(pts[i - 2], pts[i - 1]);
+      const [x2, z2] = wt.project(pts[i], pts[i + 1]);
+      curbVerts.push(x1, 0.04, z1, x2, 0.04, z2);
+    }
+  }
+  if (curbVerts.length > 0) {
+    const g = new THREE.BufferGeometry();
+    g.setAttribute("position", new THREE.Float32BufferAttribute(curbVerts, 3));
+    group.add(
+      new THREE.LineSegments(
+        g,
+        new THREE.LineBasicMaterial({ color: 0x94a3b8, transparent: true, opacity: 0.85 })
+      )
+    );
   }
 }
 
@@ -440,11 +568,24 @@ function syncVehicles(
 ) {
   void scene;
   if (!state) return;
-  // Add or remove meshes to match vehicle count.
+
+  // Pick a vehicle size from the typical road width if we have one. Real
+  // proportions: car ~4.5m long, ~1.8m wide, ~1.5m tall on a ~3.5m lane.
+  let medianWorldWidth = 0;
+  const widths: number[] = [];
+  for (const link of network.links) if (link.width) widths.push(link.width * wt.scale);
+  if (widths.length > 0) {
+    widths.sort((a, b) => a - b);
+    medianWorldWidth = widths[Math.floor(widths.length / 2)];
+  } else {
+    medianWorldWidth = wt.span * 0.01;
+  }
+  const laneW = medianWorldWidth / 2; // assume 2 lanes per road
+  const carLength = laneW * 1.4;
+  const carWidth = laneW * 0.55;
+  const carHeight = laneW * 0.42;
+
   while (meshes.length < state.vehicles.length) {
-    const carWidth = wt.span * 0.0035;
-    const carLength = wt.span * 0.007;
-    const carHeight = wt.span * 0.0025;
     const v = state.vehicles[meshes.length];
     const geom = new THREE.BoxGeometry(carLength, carHeight, carWidth);
     const mat = new THREE.MeshStandardMaterial({
@@ -465,7 +606,6 @@ function syncVehicles(
   }
 
   const linksById = new Map(network.links.map((l) => [l.id, l]));
-  const carHeight = wt.span * 0.0025;
   for (let i = 0; i < state.vehicles.length; i++) {
     const v = state.vehicles[i];
     const link = linksById.get(v.linkId);
@@ -476,16 +616,16 @@ function syncVehicles(
     const tan = tangentOnLink(link, arc, v.s);
     const fx = v.dir === 1 ? tan.dx : -tan.dx;
     const fy = v.dir === 1 ? tan.dy : -tan.dy;
-    // Right-hand normal (right-side driving) in world XY space.
+    // Right-hand normal in world XY space (right-side driving).
     const rx = fy;
     const ry = -fx;
-    const offX = pos.x + rx * v.laneOffset;
-    const offY = pos.y + ry * v.laneOffset;
+    // Offset to the right of centerline by half a lane width so opposing
+    // flows take the two lanes of a 2-lane road instead of overlapping.
+    const linkLaneOffset = link.width != null ? link.width / 4 : v.laneOffset;
+    const offX = pos.x + rx * linkLaneOffset;
+    const offY = pos.y + ry * linkLaneOffset;
     const [wx, wz] = wt.project(offX, offY);
-    mesh.position.set(wx, carHeight / 2 + 0.05, wz);
-    // Heading: 3D world has x east, z south (we flipped y -> -z). Forward
-    // direction in world = (fx, -fy). We rotate the box around y so its +x
-    // aligns with that forward.
+    mesh.position.set(wx, carHeight / 2 + 0.06, wz);
     const heading = Math.atan2(-fy, fx);
     mesh.rotation.set(0, heading, 0);
   }
