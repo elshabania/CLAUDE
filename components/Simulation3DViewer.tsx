@@ -627,32 +627,61 @@ function addRoads(
     ws.sort((a, b) => a - b);
     return ws[Math.floor(ws.length / 2)];
   })();
-  const edgeBandHalfWidth = medianWidth * 0.45;
-  const laneBandHalfWidth = medianWidth * 0.4;
+  // Asphalt fallback: ONLY curb segments thicken into wide grey bands.
+  // Lane markings are paint, not body, so they're rendered separately as
+  // line decorations on top. Wide edge bands fully overlap to form a
+  // continuous asphalt area.
+  const edgeBandHalfWidth = medianWidth * 0.55;
 
   const edgeVerts: number[] = [];
   const edgeIndices: number[] = [];
-  const laneVerts: number[] = [];
-  const laneIndices: number[] = [];
-  const stripeVerts: number[] = [];
+  const stripeWhiteVerts: number[] = [];
+  const stripeYellowVerts: number[] = [];
+  const stopLineVerts: number[] = [];
+  const zebraVerts: number[] = [];
   let edgeBase = 0;
-  let laneBase = 0;
+
   for (const seg of drawing.segments) {
     const cat = groupCategory[seg.groupId] ?? seg.category;
     const pts = seg.points;
     if (pts.length < 4) continue;
     if (cat === "edge" || cat === "curb") {
       edgeBase = pushBandStrip(pts, edgeBandHalfWidth, wt, 0.003, edgeVerts, edgeIndices, edgeBase);
-    } else if (cat === "lane") {
-      laneBase = pushBandStrip(pts, laneBandHalfWidth, wt, 0.0035, laneVerts, laneIndices, laneBase);
-      // Also a thin white stripe on top of the asphalt to read as paint.
-      for (let i = 2; i < pts.length; i += 2) {
-        const [x1, z1] = wt.project(pts[i - 2], pts[i - 1]);
-        const [x2, z2] = wt.project(pts[i], pts[i + 1]);
-        stripeVerts.push(x1, 0.012, z1, x2, 0.012, z2);
-      }
+      continue;
+    }
+    if (cat !== "lane") continue;
+
+    const layer = (seg.layer ?? "").toLowerCase();
+    // Specialised paint per CAD layer:
+    //  - Pedestrian crossings render as bold white zebra stripes (one
+    //    polyline per stripe in the source PDF).
+    //  - Stop / give-way lines render as a single thick white line.
+    //  - Direction-indicator stripes (median markings, "Lane_Direction X")
+    //    render as yellow paint.
+    //  - Everything else (Road Lane_Main, Survey_EXI_LANE, etc.) renders
+    //    as thin white dashed lane-separator paint.
+    let bucket: number[];
+    let yLevel: number;
+    if (layer.includes("pedestrian crossing") || layer.includes("crosswalk") || layer.includes("zebra")) {
+      bucket = zebraVerts;
+      yLevel = 0.014;
+    } else if (layer.includes("stop line") || layer.includes("giveway") || layer.includes("give way")) {
+      bucket = stopLineVerts;
+      yLevel = 0.015;
+    } else if (layer.includes("direction") || layer.includes("median") || layer.includes("yellow")) {
+      bucket = stripeYellowVerts;
+      yLevel = 0.013;
+    } else {
+      bucket = stripeWhiteVerts;
+      yLevel = 0.012;
+    }
+    for (let i = 2; i < pts.length; i += 2) {
+      const [x1, z1] = wt.project(pts[i - 2], pts[i - 1]);
+      const [x2, z2] = wt.project(pts[i], pts[i + 1]);
+      bucket.push(x1, yLevel, z1, x2, yLevel, z2);
     }
   }
+
   if (edgeIndices.length > 0) {
     const g = new THREE.BufferGeometry();
     g.setAttribute("position", new THREE.Float32BufferAttribute(edgeVerts, 3));
@@ -669,36 +698,25 @@ function addRoads(
       )
     );
   }
-  if (laneIndices.length > 0) {
+
+  const addLines = (verts: number[], color: number, opacity: number) => {
+    if (verts.length === 0) return;
     const g = new THREE.BufferGeometry();
-    g.setAttribute("position", new THREE.Float32BufferAttribute(laneVerts, 3));
-    g.setIndex(laneIndices);
-    g.computeVertexNormals();
-    group.add(
-      new THREE.Mesh(
-        g,
-        new THREE.MeshStandardMaterial({
-          color: ASPHALT_BASE_COLOR,
-          roughness: 0.92,
-          metalness: 0,
-        })
-      )
-    );
-  }
-  if (stripeVerts.length > 0) {
-    const g = new THREE.BufferGeometry();
-    g.setAttribute("position", new THREE.Float32BufferAttribute(stripeVerts, 3));
+    g.setAttribute("position", new THREE.Float32BufferAttribute(verts, 3));
     group.add(
       new THREE.LineSegments(
         g,
-        new THREE.LineBasicMaterial({
-          color: 0xf1f5f9,
-          transparent: true,
-          opacity: 0.8,
-        })
+        new THREE.LineBasicMaterial({ color, transparent: true, opacity })
       )
     );
-  }
+  };
+  // White lane separators - pure white, slight transparency.
+  addLines(stripeWhiteVerts, 0xf8fafc, 0.9);
+  // Yellow median / direction markings.
+  addLines(stripeYellowVerts, 0xfbbf24, 0.95);
+  // Stop lines and zebra crossings, brighter / fully opaque.
+  addLines(stopLineVerts, 0xffffff, 1.0);
+  addLines(zebraVerts, 0xffffff, 1.0);
 
   return linkAsphalt;
 }
