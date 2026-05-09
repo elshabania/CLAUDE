@@ -7,6 +7,7 @@ import { AppHeader } from "@/components/AppHeader";
 import { NetworkSummaryCard } from "@/components/NetworkSummaryCard";
 import { JunctionTabsStrip } from "@/components/JunctionTabsStrip";
 import { BottomNav, type DashTab } from "@/components/BottomNav";
+import { CadViewer, CATEGORY_COLORS } from "@/components/CadViewer";
 import { PhasingView } from "@/components/PhasingView";
 import { AiOptView } from "@/components/AiOptView";
 import { InterchgView } from "@/components/InterchgView";
@@ -38,7 +39,8 @@ export default function Page() {
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<ParseResponse | null>(null);
   const [groupCategory, setGroupCategory] = useState<Record<string, RoadCategory>>({});
-  const [tab, setTab] = useState<DashTab>("network");
+  const [visibleGroups, setVisibleGroups] = useState<Record<string, boolean>>({});
+  const [tab, setTab] = useState<DashTab>("drawing");
   const [selectedJunctionId, setSelectedJunctionId] = useState<string | null>(null);
   const [junctionInputs, setJunctionInputs] = useState<Record<string, JunctionInputs>>({});
   const [warning, setWarning] = useState<string | null>(null);
@@ -52,8 +54,13 @@ export default function Page() {
   useEffect(() => {
     if (!result) return;
     const c: Record<string, RoadCategory> = {};
-    for (const g of result.drawing.groups) c[g.id] = g.category;
+    const v: Record<string, boolean> = {};
+    for (const g of result.drawing.groups) {
+      c[g.id] = g.category;
+      v[g.id] = true;
+    }
     setGroupCategory(c);
+    setVisibleGroups(v);
   }, [result]);
 
   const network = useMemo(() => {
@@ -241,7 +248,7 @@ export default function Page() {
         onUpload={() => inputRef.current?.click()}
       />
 
-      {/* Top: 3D scene area */}
+      {/* Top: scene area - 2D drawing on the Drawing tab, 3D otherwise. */}
       <div
         style={{
           flex: 1,
@@ -251,7 +258,14 @@ export default function Page() {
           borderBottom: "1px solid #1e293b",
         }}
       >
-        {network && network.links.length > 0 && (
+        {tab === "drawing" && result && (
+          <CadViewer
+            drawing={result.drawing}
+            visibleGroups={visibleGroups}
+            groupCategory={groupCategory}
+          />
+        )}
+        {tab !== "drawing" && network && network.links.length > 0 && (
           <Simulation3DViewer
             drawing={result!.drawing}
             groupCategory={groupCategory}
@@ -261,7 +275,7 @@ export default function Page() {
             onSelectJunction={setSelectedJunctionId}
           />
         )}
-        {(!network || network.links.length === 0) && (
+        {tab !== "drawing" && (!network || network.links.length === 0) && (
           <SceneEmptyState
             status={status}
             error={error}
@@ -269,7 +283,7 @@ export default function Page() {
             rasterPreview={rasterPreview}
           />
         )}
-        {network && (
+        {tab !== "drawing" && network && (
           <NetworkSummaryCard
             results={junctionResults}
             junctionCount={network.junctions.length}
@@ -277,8 +291,8 @@ export default function Page() {
         )}
       </div>
 
-      {/* Junction tabs */}
-      {network && (
+      {/* Junction tabs - hidden on the Drawing tab. */}
+      {tab !== "drawing" && network && (
         <JunctionTabsStrip
           junctions={network.junctions}
           results={junctionResults}
@@ -290,13 +304,26 @@ export default function Page() {
       {/* Tab content */}
       <div
         style={{
-          height: tab === "network" ? 0 : 320,
+          height: tab === "network" ? 0 : tab === "drawing" ? 360 : 320,
           overflowY: "auto",
           background: "#070b14",
           transition: "height 220ms ease",
           flexShrink: 0,
         }}
       >
+        {tab === "drawing" && result && (
+          <DrawingPanel
+            drawing={result.drawing}
+            groupCategory={groupCategory}
+            visibleGroups={visibleGroups}
+            onToggleVisible={(id, v) =>
+              setVisibleGroups((m) => ({ ...m, [id]: v }))
+            }
+            onChangeCategory={(id, cat) =>
+              setGroupCategory((m) => ({ ...m, [id]: cat }))
+            }
+          />
+        )}
         {tab === "movements" && selectedJunctionId && selectedInputs && selectedResult && (
           <JunctionPanelInline
             junctionLabel={`Junction ${selectedJunctionIndex + 1}`}
@@ -323,7 +350,7 @@ export default function Page() {
         {tab === "interchg" && selectedInputs && (
           <InterchgView inputs={selectedInputs} onChange={setSelectedInputs} />
         )}
-        {tab !== "network" && (!selectedInputs || !selectedResult) && (
+        {tab !== "network" && tab !== "drawing" && (!selectedInputs || !selectedResult) && (
           <NoSelection />
         )}
       </div>
@@ -421,6 +448,162 @@ function SceneEmptyState({
           }}
         />
       )}
+    </div>
+  );
+}
+
+function DrawingPanel({
+  drawing,
+  groupCategory,
+  visibleGroups,
+  onToggleVisible,
+  onChangeCategory,
+}: {
+  drawing: ParsedDrawing;
+  groupCategory: Record<string, RoadCategory>;
+  visibleGroups: Record<string, boolean>;
+  onToggleVisible: (id: string, v: boolean) => void;
+  onChangeCategory: (id: string, cat: RoadCategory) => void;
+}) {
+  const ALL: RoadCategory[] = [
+    "edge",
+    "lane",
+    "curb",
+    "shoulder",
+    "boundary",
+    "building",
+    "other",
+  ];
+  const groups = drawing.groups;
+  return (
+    <div style={{ padding: "16px 18px" }}>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          marginBottom: 10,
+        }}
+      >
+        <div
+          style={{
+            fontSize: 10,
+            color: "#94a3b8",
+            letterSpacing: 1.5,
+            textTransform: "uppercase",
+          }}
+        >
+          {drawing.source === "pdf" ? "PDF layers" : "DXF layers"} ·{" "}
+          {drawing.segments.length.toLocaleString()} segments
+        </div>
+      </div>
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)",
+          gap: 8,
+          fontSize: 12,
+        }}
+      >
+        {groups.map((g) => (
+          <div
+            key={g.id}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+              padding: "5px 10px",
+              border: "1px solid #1e293b",
+              borderRadius: 6,
+            }}
+          >
+            <input
+              type="checkbox"
+              checked={visibleGroups[g.id] ?? true}
+              onChange={(e) => onToggleVisible(g.id, e.target.checked)}
+            />
+            {g.color && (
+              <span
+                style={{
+                  width: 12,
+                  height: 12,
+                  background: `rgb(${Math.round(g.color[0] * 255)}, ${Math.round(g.color[1] * 255)}, ${Math.round(g.color[2] * 255)})`,
+                  border: "1px solid #334155",
+                  borderRadius: 2,
+                  flexShrink: 0,
+                }}
+              />
+            )}
+            <span
+              style={{
+                flex: 1,
+                whiteSpace: "nowrap",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                color: "#cbd5e1",
+              }}
+              title={g.label}
+            >
+              {g.label}
+            </span>
+            <select
+              value={groupCategory[g.id] ?? g.category}
+              onChange={(e) =>
+                onChangeCategory(g.id, e.target.value as RoadCategory)
+              }
+              style={{
+                background: "#0a1120",
+                color: "#e2e8f0",
+                border: "1px solid #334155",
+                borderRadius: 4,
+                fontSize: 11,
+                padding: "2px 4px",
+              }}
+            >
+              {ALL.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </select>
+            <span
+              style={{
+                color: "#64748b",
+                fontVariantNumeric: "tabular-nums",
+                minWidth: 36,
+                textAlign: "right",
+                fontSize: 11,
+              }}
+            >
+              {g.count}
+            </span>
+          </div>
+        ))}
+      </div>
+      <div style={{ fontSize: 10, color: "#475569", marginTop: 8 }}>
+        Categories preview colour palette:{" "}
+        {ALL.map((c) => (
+          <span
+            key={c}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 4,
+              marginRight: 10,
+            }}
+          >
+            <span
+              style={{
+                width: 10,
+                height: 10,
+                background: CATEGORY_COLORS[c],
+                borderRadius: 2,
+              }}
+            />
+            {c}
+          </span>
+        ))}
+      </div>
     </div>
   );
 }

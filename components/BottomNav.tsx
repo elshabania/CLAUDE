@@ -1,6 +1,12 @@
 "use client";
 
-export type DashTab = "network" | "movements" | "phasing" | "ai" | "interchg";
+export type DashTab =
+  | "drawing"
+  | "network"
+  | "movements"
+  | "phasing"
+  | "ai"
+  | "interchg";
 
 interface Props {
   active: DashTab;
@@ -12,6 +18,29 @@ const TABS: {
   label: string;
   icon: React.ReactNode;
 }[] = [
+  {
+    id: "drawing",
+    label: "Drawing",
+    icon: (
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+        <rect
+          x="4"
+          y="4"
+          width="16"
+          height="16"
+          rx="2"
+          stroke="currentColor"
+          strokeWidth="1.6"
+        />
+        <path
+          d="M4 9H20M9 4V20"
+          stroke="currentColor"
+          strokeWidth="1.4"
+          strokeLinecap="round"
+        />
+      </svg>
+    ),
+  },
   {
     id: "network",
     label: "Network",

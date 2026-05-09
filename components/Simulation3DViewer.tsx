@@ -591,60 +591,42 @@ function addRoads(
     roughness: 0.85,
     metalness: 0.0,
   });
+  // Roundabouts get a slightly warmer / more visible asphalt tone than
+  // signal junctions so the typology reads at a glance.
+  const roundaboutMat = new THREE.MeshStandardMaterial({
+    color: 0x2c3548,
+    roughness: 0.85,
+    metalness: 0.0,
+  });
   for (const node of network.junctions) {
     if (!node.region) continue;
     const geom = buildPolygonGeom(node.region, wt, 0.012);
-    if (geom) group.add(new THREE.Mesh(geom, regionMat));
+    if (geom)
+      group.add(
+        new THREE.Mesh(
+          geom,
+          node.kind === "roundabout" ? roundaboutMat : regionMat
+        )
+      );
   }
 
-  // Lane / centerline / curb decorations.
-  const laneVerts: number[] = [];
-  const centerVerts: number[] = [];
-  const curbVerts: number[] = [];
-  for (const seg of drawing.segments) {
-    const cat = groupCategory[seg.groupId] ?? seg.category;
-    const pts = seg.points;
-    if (cat === "lane") {
-      for (let i = 2; i < pts.length; i += 2) {
-        const [x1, z1] = wt.project(pts[i - 2], pts[i - 1]);
-        const [x2, z2] = wt.project(pts[i], pts[i + 1]);
-        laneVerts.push(x1, 0.06, z1, x2, 0.06, z2);
-      }
-    } else if (cat === "centerline") {
-      for (let i = 2; i < pts.length; i += 2) {
-        const [x1, z1] = wt.project(pts[i - 2], pts[i - 1]);
-        const [x2, z2] = wt.project(pts[i], pts[i + 1]);
-        centerVerts.push(x1, 0.07, z1, x2, 0.07, z2);
-      }
-    } else if (cat === "edge" || cat === "curb") {
-      for (let i = 2; i < pts.length; i += 2) {
-        const [x1, z1] = wt.project(pts[i - 2], pts[i - 1]);
-        const [x2, z2] = wt.project(pts[i], pts[i + 1]);
-        curbVerts.push(x1, 0.04, z1, x2, 0.04, z2);
-      }
-    }
-  }
-  const addLines = (verts: number[], color: number, opacity: number) => {
-    if (verts.length === 0) return;
-    const g = new THREE.BufferGeometry();
-    g.setAttribute("position", new THREE.Float32BufferAttribute(verts, 3));
-    group.add(
-      new THREE.LineSegments(
-        g,
-        new THREE.LineBasicMaterial({ color, transparent: true, opacity })
-      )
-    );
-  };
-  addLines(laneVerts, 0xe2e8f0, 0.85);
-  addLines(centerVerts, 0xfde68a, 0.85);
-  addLines(curbVerts, 0xa1abc1, 0.7);
-
+  // Drop the per-CAD-layer LineSegments overlays - the user wants the
+  // 3D scene to show only the road network (asphalt + junction regions)
+  // plus signals / roundabouts. Lane stripes etc. live in the 2D Drawing
+  // tab where they belong.
+  void drawing;
+  void groupCategory;
   return linkAsphalt;
 }
 
 function addBuildings(group: THREE.Group, network: RoadNetwork, wt: WorldTransform) {
-  // Cap building meshes for the same reason as roads.
+  // Cap building meshes for the same reason as roads. Buildings render as
+  // FLAT 2D footprints on the ground plane (the user wants the roads to be
+  // the visual hero, not the buildings); a thin extrude for vertical
+  // separation is intentional (~0.2% of span) so they don't z-fight with
+  // the asphalt.
   const MAX_BUILDING_MESHES = 1200;
+  const FLAT_HEIGHT = wt.span * 0.002;
   const sorted = [...network.buildings].sort((a, b) => b.area - a.area);
   let added = 0;
   for (const b of sorted) {
@@ -660,19 +642,17 @@ function addBuildings(group: THREE.Group, network: RoadNetwork, wt: WorldTransfo
       shape.lineTo(x, z);
     }
     const type: BuildingType = b.buildingType ?? "other";
-    const heightFraction = BUILDING_HEIGHT[type];
-    const height = wt.span * heightFraction;
     const geom = new THREE.ExtrudeGeometry(shape, {
-      depth: height,
+      depth: FLAT_HEIGHT,
       bevelEnabled: false,
     });
     geom.rotateX(-Math.PI / 2);
     const mat = new THREE.MeshStandardMaterial({
       color: BUILDING_COLOR[type],
-      roughness: 0.78,
+      roughness: 0.85,
       metalness: 0.0,
       transparent: true,
-      opacity: type === "other" ? 0.55 : 0.9,
+      opacity: 0.42,
     });
     const mesh = new THREE.Mesh(geom, mat);
     group.add(mesh);
@@ -789,6 +769,35 @@ function syncLinkColors(
   }
 }
 
+/** Approximate the smallest distance from a polygon's centroid to its
+ *  vertices, in world units. For a roughly circular roundabout this is the
+ *  inner radius of the kerb circle; we draw the central island slightly
+ *  smaller than that. */
+function roundaboutInnerRadius(
+  polygon: number[] | undefined,
+  wt: WorldTransform
+): number {
+  if (!polygon || polygon.length < 6) return 0;
+  let cx = 0,
+    cy = 0;
+  for (let i = 0; i < polygon.length; i += 2) {
+    cx += polygon[i];
+    cy += polygon[i + 1];
+  }
+  const n = polygon.length / 2;
+  cx /= n;
+  cy /= n;
+  let minD = Infinity;
+  for (let i = 0; i < polygon.length; i += 2) {
+    const d = Math.hypot(polygon[i] - cx, polygon[i + 1] - cy);
+    if (d < minD) minD = d;
+  }
+  if (!isFinite(minD)) return 0;
+  // Project from source-units to world-units and shrink by 30% so the dome
+  // sits cleanly inside the kerb ring.
+  return minD * wt.scale * 0.7;
+}
+
 function addSignalsAndPickers(
   group: THREE.Group,
   network: RoadNetwork,
@@ -828,6 +837,32 @@ function addSignalsAndPickers(
     pickMeshes.push(pick);
 
     if (!node.isJunction) continue;
+
+    // Roundabouts get a domed central island instead of signal poles.
+    if (node.kind === "roundabout") {
+      const radius = roundaboutInnerRadius(node.region, wt);
+      if (radius > 0.4) {
+        const domeGeom = new THREE.SphereGeometry(
+          radius,
+          24,
+          12,
+          0,
+          Math.PI * 2,
+          0,
+          Math.PI / 2
+        );
+        const domeMat = new THREE.MeshStandardMaterial({
+          color: 0x4ade80,
+          roughness: 0.7,
+          metalness: 0.0,
+        });
+        const dome = new THREE.Mesh(domeGeom, domeMat);
+        dome.position.set(wx, 0.05, wz);
+        dome.scale.set(1, 0.35, 1); // flat dome, like a real RAB island
+        group.add(dome);
+      }
+      continue;
+    }
 
     for (const d of dirs) {
       // Pole.

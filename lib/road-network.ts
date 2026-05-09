@@ -16,6 +16,11 @@ export interface NetworkNode {
   /** Polygon (closed flat point array) of the junction's footprint when it
    *  was derived from a closed curb region (e.g. roundabout). */
   region?: number[];
+  /** Junction kind (only set when isJunction === true). 'roundabout' is
+   *  inferred from a roughly circular closed curb polygon; otherwise
+   *  'signal' for any other junction region; 'priority' for plain
+   *  intersection nodes that didn't get a region polygon. */
+  kind?: "roundabout" | "signal" | "priority";
 }
 
 export interface NetworkLink {
@@ -100,6 +105,15 @@ function polygonArea(points: number[]): number {
     a += points[i] * points[j + 1] - points[j] * points[i + 1];
   }
   return Math.abs(a) / 2;
+}
+
+function polygonPerimeter(points: number[]): number {
+  let p = 0;
+  for (let i = 0; i < points.length; i += 2) {
+    const j = (i + 2) % points.length;
+    p += Math.hypot(points[j] - points[i], points[j + 1] - points[i + 1]);
+  }
+  return p;
 }
 
 /**
@@ -202,7 +216,15 @@ export function buildRoadNetwork(
   // tiny dash-loops and the page outline.
   const minRegionArea = Math.pow(diag * 0.005, 2);
   const maxRegionArea = Math.pow(diag * 0.15, 2);
-  const regions: { id: string; cx: number; cy: number; polygon: number[]; aabb: { minX: number; minY: number; maxX: number; maxY: number } }[] = [];
+  type RegionRec = {
+    id: string;
+    cx: number;
+    cy: number;
+    polygon: number[];
+    aabb: { minX: number; minY: number; maxX: number; maxY: number };
+    kind: "roundabout" | "signal";
+  };
+  const regions: RegionRec[] = [];
   for (const c of curbSegs) {
     if (!c.closed) continue;
     if (c.points.length < 8) continue;
@@ -227,12 +249,22 @@ export function buildRoadNetwork(
       if (y > mxy) mxy = y;
     }
     if (count === 0) continue;
+    // Compactness 4 pi A / P^2 in [0, 1]: a circle is 1.0, a square ~0.785,
+    // long thin polygons << 0.5. Use this to distinguish a roundabout
+    // (typically a smooth ellipse / circle) from a signalised junction box
+    // (rectangular, lower compactness).
+    const perim = polygonPerimeter(c.points);
+    const compact =
+      perim > 0 ? Math.min(1, (4 * Math.PI * a) / (perim * perim)) : 0;
+    const kind: "roundabout" | "signal" =
+      compact > 0.6 ? "roundabout" : "signal";
     regions.push({
       id: `j${regions.length}`,
       cx: cx / count,
       cy: cy / count,
       polygon: c.points,
       aabb: { minX: mnx, minY: mny, maxX: mxx, maxY: mxy },
+      kind,
     });
   }
 
@@ -350,6 +382,7 @@ export function buildRoadNetwork(
         cy,
         polygon: flat,
         aabb: { minX: mnx, minY: mny, maxX: mxx, maxY: mxy },
+        kind: "signal",
       });
     }
   }
@@ -373,6 +406,7 @@ export function buildRoadNetwork(
       links: [],
       isJunction: true,
       region: r.polygon,
+      kind: r.kind,
     });
   }
 
@@ -545,6 +579,7 @@ export function buildRoadNetwork(
   for (const node of nodes.values()) {
     if (node.region) continue;
     node.isJunction = node.links.length >= 3;
+    if (node.isJunction && !node.kind) node.kind = "priority";
   }
 
   // Junction-region v2: cluster nearby high-degree nodes into a single
