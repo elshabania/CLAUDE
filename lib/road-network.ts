@@ -4,6 +4,7 @@ import type {
   DrawingSegment,
 } from "@/lib/road-detect";
 import { deriveCenterlinesFromCurbs } from "@/lib/centerline-derivation";
+import { extractRoadSkeleton } from "@/lib/road-skeleton";
 
 export interface NetworkNode {
   id: string;
@@ -187,15 +188,33 @@ export function buildRoadNetwork(
   };
   let roadSegs: RoadSeg[];
   if (shouldDerive && curbSegs.length > 0) {
-    const maxRoadWidth = diag * (opts.maxRoadWidthFraction ?? 0.025);
-    const sampleStep = Math.max(diag * 0.0025, 1);
-    const derived = deriveCenterlinesFromCurbs(curbSegs, {
-      maxRoadWidth,
-      sampleStep,
-      parallelCos: 0.85,
-      perpCos: 0.4,
-      minPoints: 3,
-    });
+    // Primary path: image-based medial-axis extractor. Rasterizes kerbs,
+    // distance-transforms the asphalt mask, thins to a 1-pixel-wide
+    // skeleton, and traces the skeleton into polylines + body polygons.
+    // Falls back to the local pair-matcher when the image path is
+    // unavailable (no `document`, e.g. SSR) or returns nothing.
+    let derived: {
+      points: number[];
+      length: number;
+      width: number;
+      bodyPolygon: number[];
+    }[] = [];
+    if (typeof document !== "undefined") {
+      const skeleton = extractRoadSkeleton(curbSegs, { minX, minY, maxX, maxY });
+      if (skeleton.length > 0) derived = skeleton;
+    }
+    if (derived.length === 0) {
+      const maxRoadWidth = diag * (opts.maxRoadWidthFraction ?? 0.025);
+      const sampleStep = Math.max(diag * 0.0025, 1);
+      const fallback = deriveCenterlinesFromCurbs(curbSegs, {
+        maxRoadWidth,
+        sampleStep,
+        parallelCos: 0.85,
+        perpCos: 0.4,
+        minPoints: 3,
+      });
+      derived = fallback;
+    }
     roadSegs = derived.map((d) => ({
       points: d.points,
       length: d.length,
