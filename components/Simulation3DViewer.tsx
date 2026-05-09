@@ -559,7 +559,13 @@ function addRoads(
       : (network.bounds.maxX - network.bounds.minX) * 0.005;
 
   const linkAsphalt: { mesh: THREE.Mesh; link: NetworkLink }[] = [];
-  for (const link of network.links) {
+  // Hard cap to keep WebGL draw calls and GPU memory bounded on machines
+  // with weaker GPUs. Sorted by descending length so the most important
+  // (longest) road bodies survive when we hit the cap.
+  const MAX_LINK_MESHES = 1500;
+  const sortedLinks = [...network.links].sort((a, b) => b.length - a.length);
+  for (const link of sortedLinks) {
+    if (linkAsphalt.length >= MAX_LINK_MESHES) break;
     let geom: THREE.BufferGeometry | null = null;
     if (link.bodyPolygon && link.bodyPolygon.length >= 6) {
       geom = buildPolygonGeom(link.bodyPolygon, wt, 0.005);
@@ -637,9 +643,15 @@ function addRoads(
 }
 
 function addBuildings(group: THREE.Group, network: RoadNetwork, wt: WorldTransform) {
-  for (const b of network.buildings) {
+  // Cap building meshes for the same reason as roads.
+  const MAX_BUILDING_MESHES = 1200;
+  const sorted = [...network.buildings].sort((a, b) => b.area - a.area);
+  let added = 0;
+  for (const b of sorted) {
+    if (added >= MAX_BUILDING_MESHES) break;
     const pts = b.points;
     if (pts.length < 6) continue;
+    added += 1;
     const shape = new THREE.Shape();
     const [x0, z0] = wt.project(pts[0], pts[1]);
     shape.moveTo(x0, z0);

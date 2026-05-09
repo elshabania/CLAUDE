@@ -329,11 +329,44 @@ export function detectFromPdf(
     }
   }
 
+  // Aggressive simplification: per-category caps to keep memory bounded
+  // even for very dense layers (Survey_EXI_LANE = 51k stripes etc.). When
+  // a category is over its cap we keep the longest segments first so the
+  // visual structure of the road network is preserved. Curbs ('edge') get
+  // the largest cap because the centerline derivation needs them dense.
+  const PER_CAT_CAP: Record<RoadCategory, number> = {
+    edge: 12000,
+    curb: 12000,
+    lane: 6000,
+    centerline: 4000,
+    boundary: 3000,
+    shoulder: 2000,
+    building: 5000,
+    other: 3000,
+  };
+  const byCat = new Map<RoadCategory, DrawingSegment[]>();
+  for (const s of segments) {
+    const arr = byCat.get(s.category) ?? [];
+    arr.push(s);
+    byCat.set(s.category, arr);
+  }
+  const capped: DrawingSegment[] = [];
+  for (const [cat, arr] of byCat) {
+    const cap = PER_CAT_CAP[cat] ?? 3000;
+    if (arr.length <= cap) {
+      capped.push(...arr);
+      continue;
+    }
+    // Keep the longest segments (highest signal-to-noise) first.
+    arr.sort((a, b) => b.length - a.length);
+    capped.push(...arr.slice(0, cap));
+  }
+
   // Stitch end-to-end collinear segments inside each group. AutoCAD-exported
   // PDFs split anything with a slight bend (or a dashed linetype) into many
   // tiny separate polylines; rejoining them dramatically reduces clutter
   // and makes lane stripes / kerbs read as continuous painted lines.
-  const stitched = stitchSegmentsByGroup(segments, diag);
+  const stitched = stitchSegmentsByGroup(capped, diag);
   // Recompute group counts / total length to reflect the merged segments.
   for (const g of groupMap.values()) {
     g.count = 0;

@@ -100,10 +100,18 @@ export default function Page() {
 
   // Build the road network whenever drawing or category overrides change.
   // Skip when only the Drawing tab is being viewed since the network builder
-  // is the more expensive step.
+  // is the more expensive step. Wrapped in try/catch so a build failure on
+  // a pathological drawing surfaces as an error instead of taking the page
+  // down with it.
   const network = useMemo(() => {
     if (!result || view === "drawing") return null;
-    return buildRoadNetwork(result.drawing, groupCategory);
+    try {
+      return buildRoadNetwork(result.drawing, groupCategory);
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error("buildRoadNetwork failed:", err);
+      return null;
+    }
   }, [result, groupCategory, view]);
 
   const networkReady = !!network;
