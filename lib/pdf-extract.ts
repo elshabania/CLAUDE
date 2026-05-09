@@ -20,6 +20,8 @@ interface GraphicsState {
 
 const IDENTITY: number[] = [1, 0, 0, 1, 0, 0];
 
+// Path mini-op codes used by pdfjs's *legacy* build inside the interleaved
+// `constructPath` buffer.
 const MINI_MOVE = 0;
 const MINI_LINE = 1;
 const MINI_CURVE = 2;
@@ -27,6 +29,16 @@ const MINI_CURVE2 = 3;
 const MINI_CURVE3 = 4;
 const MINI_CLOSE = 5;
 const MINI_RECT = 6;
+
+interface PathOpsTable {
+  moveTo: number;
+  lineTo: number;
+  curveTo: number;
+  curveTo2: number;
+  curveTo3: number;
+  closePath: number;
+  rectangle: number;
+}
 
 function multiply(a: number[], b: number[]): number[] {
   return [
@@ -100,7 +112,11 @@ function parseColor(arg: unknown): [number, number, number] | null {
   return null;
 }
 
-function decodePathBuffer(
+/**
+ * Decode the legacy build's interleaved `[op, ...coords, op, ...coords]`
+ * buffer (mini-op codes 0..6).
+ */
+function decodeLegacyBuffer(
   buffer: ArrayLike<number>,
   ctm: number[]
 ): { subpaths: DxfPoint[][]; closed: boolean } {
@@ -172,6 +188,82 @@ function decodePathBuffer(
   return { subpaths, closed };
 }
 
+/**
+ * Decode the modern build's separate ops + args arrays. `ops` contains
+ * full OPS codes (moveTo / lineTo / curveTo / ...); `args` is a flat
+ * coords array consumed in the order the ops dictate.
+ */
+function decodeModernPath(
+  ops: ArrayLike<number>,
+  args: ArrayLike<number>,
+  ctm: number[],
+  table: PathOpsTable
+): { subpaths: DxfPoint[][]; closed: boolean } {
+  const subpaths: DxfPoint[][] = [];
+  let current: DxfPoint[] = [];
+  let closed = false;
+  let argIdx = 0;
+  const finish = () => {
+    if (current.length > 0) subpaths.push(current);
+    current = [];
+  };
+  for (let i = 0; i < ops.length; i++) {
+    const op = ops[i];
+    if (op === table.moveTo) {
+      finish();
+      const p = applyCTM(ctm, args[argIdx], args[argIdx + 1]);
+      current.push({ x: p.x, y: p.y });
+      argIdx += 2;
+    } else if (op === table.lineTo) {
+      const p = applyCTM(ctm, args[argIdx], args[argIdx + 1]);
+      current.push({ x: p.x, y: p.y });
+      argIdx += 2;
+    } else if (op === table.curveTo) {
+      const last = current[current.length - 1];
+      const c1 = applyCTM(ctm, args[argIdx], args[argIdx + 1]);
+      const c2 = applyCTM(ctm, args[argIdx + 2], args[argIdx + 3]);
+      const end = applyCTM(ctm, args[argIdx + 4], args[argIdx + 5]);
+      if (last) flattenCubic(last, c1, c2, end, current);
+      else current.push({ x: end.x, y: end.y });
+      argIdx += 6;
+    } else if (op === table.curveTo2) {
+      const last = current[current.length - 1];
+      const c2 = applyCTM(ctm, args[argIdx], args[argIdx + 1]);
+      const end = applyCTM(ctm, args[argIdx + 2], args[argIdx + 3]);
+      if (last) flattenCubic(last, last, c2, end, current);
+      else current.push({ x: end.x, y: end.y });
+      argIdx += 4;
+    } else if (op === table.curveTo3) {
+      const last = current[current.length - 1];
+      const c1 = applyCTM(ctm, args[argIdx], args[argIdx + 1]);
+      const end = applyCTM(ctm, args[argIdx + 2], args[argIdx + 3]);
+      if (last) flattenCubic(last, c1, end, end, current);
+      else current.push({ x: end.x, y: end.y });
+      argIdx += 4;
+    } else if (op === table.closePath) {
+      if (current.length > 0) {
+        const first = current[0];
+        current.push({ x: first.x, y: first.y });
+      }
+      closed = true;
+    } else if (op === table.rectangle) {
+      finish();
+      const x = args[argIdx];
+      const y = args[argIdx + 1];
+      const w = args[argIdx + 2];
+      const h = args[argIdx + 3];
+      const p1 = applyCTM(ctm, x, y);
+      const p2 = applyCTM(ctm, x + w, y);
+      const p3 = applyCTM(ctm, x + w, y + h);
+      const p4 = applyCTM(ctm, x, y + h);
+      subpaths.push([p1, p2, p3, p4, p1]);
+      argIdx += 4;
+    }
+  }
+  finish();
+  return { subpaths, closed };
+}
+
 export interface PdfjsOpList {
   fnArray: ArrayLike<number>;
   argsArray: unknown[];
@@ -187,7 +279,9 @@ export type PdfjsLikeOps = Record<string, number>;
 /**
  * Walk every page of a pdfjs document and emit one ExtractedPath per painted
  * path operation. Pure: takes pdfjs's OPS table and the document object so it
- * can run in either Node (via unpdf) or the browser (pdfjs-dist).
+ * works against either pdfjs-dist's modern build (browser) or its legacy
+ * build (Node via unpdf). The two builds encode `constructPath` differently
+ * - see `decodeLegacyBuffer` and `decodeModernPath` for the formats.
  */
 export async function walkPdfDocument(
   OPS: PdfjsLikeOps,
@@ -214,6 +308,16 @@ export async function walkPdfDocument(
     OPS.closeFillStroke,
     OPS.closeEOFillStroke,
   ]);
+  const PAINT_OPS = new Set<number>([...STROKE_OPS, ...FILL_OPS, OPS.endPath]);
+  const pathOpsTable: PathOpsTable = {
+    moveTo: OPS.moveTo,
+    lineTo: OPS.lineTo,
+    curveTo: OPS.curveTo,
+    curveTo2: OPS.curveTo2,
+    curveTo3: OPS.curveTo3,
+    closePath: OPS.closePath,
+    rectangle: OPS.rectangle,
+  };
 
   const result: ExtractedPath[] = [];
 
@@ -228,6 +332,34 @@ export async function walkPdfDocument(
       lineWidth: 1,
     };
     const stack: GraphicsState[] = [];
+
+    // Modern-build pending path: filled in by `constructPath`, painted by the
+    // subsequent stroke / fill / endPath operator.
+    let pendingPath: {
+      subpaths: DxfPoint[][];
+      closed: boolean;
+      lineWidth: number;
+      strokeColor: [number, number, number] | null;
+      fillColor: [number, number, number] | null;
+    } | null = null;
+
+    const emit = (
+      isStroked: boolean,
+      isFilled: boolean,
+      isClosed: boolean,
+      pending: NonNullable<typeof pendingPath>
+    ) => {
+      if (pending.subpaths.length === 0) return;
+      result.push({
+        subpaths: pending.subpaths,
+        strokeColor: pending.strokeColor,
+        fillColor: pending.fillColor,
+        lineWidth: pending.lineWidth,
+        isStroked,
+        isFilled,
+        isClosed: pending.closed || isClosed,
+      });
+    };
 
     for (let i = 0; i < opList.fnArray.length; i++) {
       const op = opList.fnArray[i];
@@ -253,33 +385,67 @@ export async function walkPdfDocument(
       } else if (op === OPS.setLineWidth && args) {
         state.lineWidth = args[0] as number;
       } else if (op === OPS.setStrokeRGBColor && args) {
-        state.strokeColor = parseColor(args[0]);
+        // Legacy build wraps the colour in a one-element array; modern build
+        // passes the Uint8ClampedArray directly as the args entry.
+        state.strokeColor = parseColor(args) ?? parseColor((args as unknown[])[0]);
       } else if (op === OPS.setFillRGBColor && args) {
-        state.fillColor = parseColor(args[0]);
+        state.fillColor = parseColor(args) ?? parseColor((args as unknown[])[0]);
       } else if (op === OPS.constructPath && args) {
-        const terminalOp = args[0];
-        const bufferContainer = args[1];
-        const flat = Array.isArray(bufferContainer) ? bufferContainer[0] : null;
-        if (typeof terminalOp !== "number" || !flat) continue;
-        const isStroked = STROKE_OPS.has(terminalOp);
-        const isFilled = FILL_OPS.has(terminalOp);
-        if (!isStroked && !isFilled) continue;
+        const arg0 = args[0];
+        const lineWidthHere =
+          state.lineWidth * Math.hypot(state.ctm[0], state.ctm[1]);
 
-        const { subpaths, closed } = decodePathBuffer(
-          flat as ArrayLike<number>,
-          state.ctm
-        );
-        if (subpaths.length === 0) continue;
-
-        result.push({
-          subpaths,
-          strokeColor: state.strokeColor,
-          fillColor: state.fillColor,
-          lineWidth: state.lineWidth * Math.hypot(state.ctm[0], state.ctm[1]),
-          isStroked,
-          isFilled,
-          isClosed: closed || CLOSE_OPS.has(terminalOp),
-        });
+        if (Array.isArray(arg0)) {
+          // Modern build: separate ops + args. Defer paint until the next
+          // stroke / fill / endPath op in fnArray.
+          const ops = arg0 as number[];
+          const flatArgs = (args[1] ?? []) as ArrayLike<number>;
+          const { subpaths, closed } = decodeModernPath(
+            ops,
+            flatArgs,
+            state.ctm,
+            pathOpsTable
+          );
+          pendingPath = {
+            subpaths,
+            closed,
+            lineWidth: lineWidthHere,
+            strokeColor: state.strokeColor,
+            fillColor: state.fillColor,
+          };
+        } else if (typeof arg0 === "number") {
+          // Legacy build: terminal op embedded in args[0], buffer in args[1][0].
+          const terminalOp = arg0;
+          const bufferContainer = args[1];
+          const flat = Array.isArray(bufferContainer) ? bufferContainer[0] : null;
+          if (!flat) continue;
+          const isStroked = STROKE_OPS.has(terminalOp);
+          const isFilled = FILL_OPS.has(terminalOp);
+          if (!isStroked && !isFilled) continue;
+          const { subpaths, closed } = decodeLegacyBuffer(
+            flat as ArrayLike<number>,
+            state.ctm
+          );
+          if (subpaths.length === 0) continue;
+          result.push({
+            subpaths,
+            strokeColor: state.strokeColor,
+            fillColor: state.fillColor,
+            lineWidth: lineWidthHere,
+            isStroked,
+            isFilled,
+            isClosed: closed || CLOSE_OPS.has(terminalOp),
+          });
+        }
+      } else if (PAINT_OPS.has(op) && pendingPath) {
+        // Modern-build paint operator finishing the deferred path.
+        const isStroked = STROKE_OPS.has(op);
+        const isFilled = FILL_OPS.has(op);
+        const isClosed = CLOSE_OPS.has(op);
+        if (isStroked || isFilled) {
+          emit(isStroked, isFilled, isClosed, pendingPath);
+        }
+        pendingPath = null;
       }
     }
   }
