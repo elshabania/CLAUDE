@@ -181,9 +181,11 @@ export function buildRoadNetwork(
     }));
   }
 
-  // Default 1.5% snap so derived centerline endpoints meeting at the same
-  // junction collapse into one node.
-  const tolerance = diag * (opts.snapTolerance ?? 0.015);
+  // Default 2.5% snap so derived centerline endpoints meeting at the same
+  // junction collapse into one node, even when the centerlines stop a short
+  // distance before the junction (which is typical when curb pairing breaks
+  // down inside the junction region).
+  const tolerance = diag * (opts.snapTolerance ?? 0.025);
 
   // Detect junction regions from closed curb polygons (typically roundabouts
   // and signalised junction boxes). We bound by area so we ignore both the
@@ -375,6 +377,40 @@ export function buildRoadNetwork(
   // Drop nodes that ended up with no links after stitching.
   for (const [id, node] of nodes) {
     if (node.links.length === 0) nodes.delete(id);
+  }
+
+  // Iteratively prune tiny dangling fragments (degree-1 nodes whose link is
+  // shorter than 0.4% of bounds diagonal). These are typically curb-pairing
+  // artefacts at the entrance to a junction and add visual noise. Iterate
+  // because removing a fragment can leave the next link as degree-1 too.
+  const minFragmentLen = diag * 0.004;
+  let prunedAny = true;
+  let safety = 5;
+  while (prunedAny && safety-- > 0) {
+    prunedAny = false;
+    for (const node of Array.from(nodes.values())) {
+      if (node.links.length !== 1) continue;
+      if (node.region) continue; // never prune junction-region nodes
+      const linkId = node.links[0];
+      const link = linkMap.get(linkId);
+      if (!link) {
+        nodes.delete(node.id);
+        continue;
+      }
+      if (link.length >= minFragmentLen) continue;
+      // Detach link from both ends, drop both link and the dangling node.
+      const otherId = link.fromNode === node.id ? link.toNode : link.fromNode;
+      const other = nodes.get(otherId);
+      if (other) {
+        other.links = other.links.filter((id) => id !== linkId);
+      }
+      linkMap.delete(linkId);
+      nodes.delete(node.id);
+      if (other && other.links.length === 0 && !other.region) {
+        nodes.delete(other.id);
+      }
+      prunedAny = true;
+    }
   }
 
   for (const node of nodes.values()) {
@@ -940,6 +976,10 @@ function cross(
 
 function prettyType(t: BuildingType): string {
   return t === "other" ? "Building" : t.charAt(0).toUpperCase() + t.slice(1);
+}
+
+export function junctionDegree(node: NetworkNode): number {
+  return node.links.length;
 }
 
 /**

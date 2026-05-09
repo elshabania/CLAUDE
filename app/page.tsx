@@ -5,13 +5,25 @@ import { CadViewer, CATEGORY_COLORS } from "@/components/CadViewer";
 import { NetworkViewer } from "@/components/NetworkViewer";
 import { SimulationViewer } from "@/components/SimulationViewer";
 import { Simulation3DViewer } from "@/components/Simulation3DViewer";
+import { JunctionPanel } from "@/components/JunctionPanel";
 import { detectFromPdf, type ParsedDrawing, type RoadCategory } from "@/lib/road-detect";
 import {
   extractPdfPathsInBrowser,
   extractPdfTextItemsInBrowser,
   renderPdfPagePreview,
 } from "@/lib/pdf-extract-client";
-import { buildRoadNetwork } from "@/lib/road-network";
+import {
+  buildRoadNetwork,
+  classifyJunctionApproaches,
+  type RoadNetwork,
+} from "@/lib/road-network";
+import {
+  analyzeJunction,
+  defaultJunctionInputs,
+  DIRS,
+  type JunctionInputs,
+  type JunctionResult,
+} from "@/lib/hcm";
 
 type ViewMode = "drawing" | "network" | "simulation" | "simulation3d";
 
@@ -50,6 +62,8 @@ export default function Page() {
     height: number;
   } | null>(null);
   const [warning, setWarning] = useState<string | null>(null);
+  const [selectedJunctionId, setSelectedJunctionId] = useState<string | null>(null);
+  const [junctionInputs, setJunctionInputs] = useState<Record<string, JunctionInputs>>({});
   const inputRef = useRef<HTMLInputElement | null>(null);
 
   // Reset visibility/categories whenever a new file is loaded.
@@ -91,6 +105,55 @@ export default function Page() {
   }, [result, groupCategory, view]);
 
   const networkReady = !!network;
+
+  // Seed default junction inputs whenever new junctions appear so HCM LOS
+  // is computable from the moment the user opens a simulation tab. The
+  // seeded inputs use the per-cardinal approach detection so directions that
+  // don't actually have a connecting link get zero lanes / volumes.
+  useEffect(() => {
+    if (!network) return;
+    setJunctionInputs((prev) => {
+      const next = { ...prev };
+      let changed = false;
+      for (const j of network.junctions) {
+        if (next[j.id]) continue;
+        const seed = defaultJunctionInputs();
+        const present = new Set(
+          classifyJunctionApproaches(j, network).map((a) => a.cardinal)
+        );
+        for (const dir of DIRS) {
+          if (!present.has(dir)) {
+            seed.approaches[dir] = {
+              lanes: { L: 0, T: 0, R: 0 },
+              greenTime: 0,
+              volumes: { L: 0, T: 0, R: 0 },
+            };
+          }
+        }
+        next[j.id] = seed;
+        changed = true;
+      }
+      return changed ? next : prev;
+    });
+  }, [network]);
+
+  const junctionResults = useMemo(() => {
+    if (!network) return undefined;
+    const out: Record<string, JunctionResult> = {};
+    for (const j of network.junctions) {
+      const inputs = junctionInputs[j.id];
+      if (!inputs) continue;
+      out[j.id] = analyzeJunction(inputs);
+    }
+    return out;
+  }, [network, junctionInputs]);
+
+  const selectedInputs = selectedJunctionId
+    ? junctionInputs[selectedJunctionId]
+    : undefined;
+  const selectedResult = selectedJunctionId
+    ? junctionResults?.[selectedJunctionId]
+    : undefined;
 
   async function handleFile(file: File) {
     setStatus("loading");
@@ -531,7 +594,16 @@ export default function Page() {
           )}
 
           {result && view === "simulation" && network && (
-            <div style={{ flex: 1, position: "relative", minWidth: 0 }}>
+            <SimulationLayout
+              network={network}
+              selectedJunctionId={selectedJunctionId}
+              selectedInputs={selectedInputs}
+              selectedResult={selectedResult}
+              onChangeInputs={(next) =>
+                setJunctionInputs((m) => ({ ...m, [selectedJunctionId!]: next }))
+              }
+              onClose={() => setSelectedJunctionId(null)}
+            >
               {network.links.length === 0 ? (
                 <EmptyState
                   title="No drivable network"
@@ -544,11 +616,20 @@ export default function Page() {
                   network={network}
                 />
               )}
-            </div>
+            </SimulationLayout>
           )}
 
           {result && view === "simulation3d" && network && (
-            <div style={{ flex: 1, position: "relative", minWidth: 0 }}>
+            <SimulationLayout
+              network={network}
+              selectedJunctionId={selectedJunctionId}
+              selectedInputs={selectedInputs}
+              selectedResult={selectedResult}
+              onChangeInputs={(next) =>
+                setJunctionInputs((m) => ({ ...m, [selectedJunctionId!]: next }))
+              }
+              onClose={() => setSelectedJunctionId(null)}
+            >
               {network.links.length === 0 ? (
                 <EmptyState
                   title="No drivable network"
@@ -559,9 +640,12 @@ export default function Page() {
                   drawing={result.drawing}
                   groupCategory={groupCategory}
                   network={network}
+                  junctionResults={junctionResults}
+                  selectedJunctionId={selectedJunctionId}
+                  onSelectJunction={setSelectedJunctionId}
                 />
               )}
-            </div>
+            </SimulationLayout>
           )}
 
           {!networkReady && result && view !== "drawing" && (
@@ -641,6 +725,40 @@ function RasterPreview({
         Raster preview only — no vectors to extract
       </div>
     </div>
+  );
+}
+
+function SimulationLayout({
+  network,
+  selectedJunctionId,
+  selectedInputs,
+  selectedResult,
+  onChangeInputs,
+  onClose,
+  children,
+}: {
+  network: RoadNetwork;
+  selectedJunctionId: string | null;
+  selectedInputs?: JunctionInputs;
+  selectedResult?: JunctionResult;
+  onChangeInputs: (next: JunctionInputs) => void;
+  onClose: () => void;
+  children: React.ReactNode;
+}) {
+  void network;
+  return (
+    <>
+      <div style={{ flex: 1, position: "relative", minWidth: 0 }}>{children}</div>
+      {selectedJunctionId && selectedInputs && selectedResult && (
+        <JunctionPanel
+          junctionLabel={`Junction ${selectedJunctionId}`}
+          inputs={selectedInputs}
+          result={selectedResult}
+          onChange={onChangeInputs}
+          onClose={onClose}
+        />
+      )}
+    </>
   );
 }
 

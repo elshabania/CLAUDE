@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import type { ParsedDrawing, RoadCategory } from "@/lib/road-detect";
-import type { RoadNetwork, BuildingType } from "@/lib/road-network";
+import type { RoadNetwork, BuildingType, NetworkLink } from "@/lib/road-network";
 import {
   buildSimulationState,
   spawnVehicles,
@@ -12,13 +12,19 @@ import {
   pointOnLink,
   tangentOnLink,
   step,
+  activeGreen,
   type SimulationState,
 } from "@/lib/simulation";
+import { LOS_COLORS, type JunctionResult, type LOS } from "@/lib/hcm";
 
 interface Props {
   drawing: ParsedDrawing;
   groupCategory: Record<string, RoadCategory>;
   network: RoadNetwork;
+  /** HCM analysis output keyed by junction id, when available. */
+  junctionResults?: Record<string, JunctionResult | undefined>;
+  selectedJunctionId?: string | null;
+  onSelectJunction?: (id: string | null) => void;
 }
 
 const BUILDING_COLOR: Record<BuildingType, number> = {
@@ -51,7 +57,25 @@ const BUILDING_HEIGHT: Record<BuildingType, number> = {
   other: 0.025,
 };
 
-export function Simulation3DViewer({ drawing, groupCategory, network }: Props) {
+const LOS_COLOR_HEX: Record<LOS, number> = {
+  A: 0x22dd77,
+  B: 0x88ee44,
+  C: 0xfbbf24,
+  D: 0xff8c1a,
+  E: 0xff5544,
+  F: 0xee2244,
+};
+
+const ASPHALT_BASE_COLOR = 0x1a212d;
+
+export function Simulation3DViewer({
+  drawing,
+  groupCategory,
+  network,
+  junctionResults,
+  selectedJunctionId,
+  onSelectJunction,
+}: Props) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const stateRef = useRef<SimulationState | null>(null);
   const sceneRef = useRef<{
@@ -61,29 +85,44 @@ export function Simulation3DViewer({ drawing, groupCategory, network }: Props) {
     controls: OrbitControls;
     vehicleMeshes: THREE.Mesh[];
     vehicleGroup: THREE.Group;
+    junctionLabels: { sprite: THREE.Sprite; nodeId: string; canvasState: { los: LOS | null } }[];
+    junctionPickMeshes: THREE.Mesh[];
+    signalLights: { mesh: THREE.Mesh; nodeId: string; cardinal: "NB" | "EB" | "SB" | "WB" }[];
+    linkAsphalt: { mesh: THREE.Mesh; link: NetworkLink }[];
     raf: number;
   } | null>(null);
 
   const [running, setRunning] = useState(true);
-  const [vehicleCount, setVehicleCount] = useState(150);
+  const [vehicleCount, setVehicleCount] = useState(220);
   const [speedMul, setSpeedMul] = useState(1);
+  const [losColoring, setLosColoring] = useState(true);
   const runningRef = useRef(running);
   const speedRef = useRef(speedMul);
+  const losRef = useRef(losColoring);
+  const resultsRef = useRef(junctionResults);
+  const selectedRef = useRef(selectedJunctionId);
   useEffect(() => {
     runningRef.current = running;
   }, [running]);
   useEffect(() => {
     speedRef.current = speedMul;
   }, [speedMul]);
+  useEffect(() => {
+    losRef.current = losColoring;
+  }, [losColoring]);
+  useEffect(() => {
+    resultsRef.current = junctionResults;
+  }, [junctionResults]);
+  useEffect(() => {
+    selectedRef.current = selectedJunctionId;
+  }, [selectedJunctionId]);
 
-  // Compute world transform: PDF user units mapped into a roughly unit-sized
-  // 3D scene with x going east, z going south (so y is up).
+  // Compute world transform: PDF user units mapped into a unit-sized 3D
+  // scene with x=east, z=south (so y is up).
   const worldTransform = useMemo(() => {
     const { minX, minY, maxX, maxY } = network.bounds;
     const w = Math.max(maxX - minX, 1);
     const h = Math.max(maxY - minY, 1);
-    // Normalise so the bigger axis spans 100 world units. Buildings height
-    // and vehicle size pick sensible scales from this.
     const span = Math.max(w, h);
     const scale = 100 / span;
     const cx = (minX + maxX) / 2;
@@ -91,8 +130,6 @@ export function Simulation3DViewer({ drawing, groupCategory, network }: Props) {
     return {
       project: (x: number, y: number): [number, number] => [
         (x - cx) * scale,
-        // PDF y is up; three.js z+ is into the screen for our camera so we
-        // negate y to put north/+y at -z.
         -(y - cy) * scale,
       ],
       scale,
@@ -100,7 +137,6 @@ export function Simulation3DViewer({ drawing, groupCategory, network }: Props) {
     };
   }, [network.bounds]);
 
-  // Build / rebuild the simulation state when the network changes.
   useEffect(() => {
     const fresh = buildSimulationState(network, { signalsEnabled: true });
     const diag =
@@ -108,11 +144,10 @@ export function Simulation3DViewer({ drawing, groupCategory, network }: Props) {
         network.bounds.maxX - network.bounds.minX,
         network.bounds.maxY - network.bounds.minY
       ) || 1;
-    stateRef.current = spawnVehicles(fresh, vehicleCount, diag / 60);
+    stateRef.current = spawnVehicles(fresh, vehicleCount, diag / 70);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [network]);
 
-  // Adjust vehicle count without resetting state.
   useEffect(() => {
     const s = stateRef.current;
     if (!s) return;
@@ -122,51 +157,86 @@ export function Simulation3DViewer({ drawing, groupCategory, network }: Props) {
         network.bounds.maxY - network.bounds.minY
       ) || 1;
     if (vehicleCount > s.vehicles.length) {
-      stateRef.current = spawnVehicles(s, vehicleCount - s.vehicles.length, diag / 60);
+      stateRef.current = spawnVehicles(s, vehicleCount - s.vehicles.length, diag / 70);
     } else if (vehicleCount < s.vehicles.length) {
       stateRef.current = { ...s, vehicles: s.vehicles.slice(0, vehicleCount) };
     }
   }, [vehicleCount, network]);
 
-  // Set up the 3D scene once when the container mounts.
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
 
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x0b1220);
-    scene.fog = new THREE.Fog(0x0b1220, 80, 220);
+
+    // Sky gradient via a large inverted sphere.
+    const skyGeom = new THREE.SphereGeometry(500, 32, 16);
+    const skyMat = new THREE.ShaderMaterial({
+      uniforms: {
+        topColor: { value: new THREE.Color(0x0b1220) },
+        bottomColor: { value: new THREE.Color(0x111827) },
+        offset: { value: 33 },
+        exponent: { value: 0.6 },
+      },
+      vertexShader: /* glsl */ `
+        varying vec3 vWorldPosition;
+        void main() {
+          vec4 worldPosition = modelMatrix * vec4(position, 1.0);
+          vWorldPosition = worldPosition.xyz;
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+      `,
+      fragmentShader: /* glsl */ `
+        uniform vec3 topColor;
+        uniform vec3 bottomColor;
+        uniform float offset;
+        uniform float exponent;
+        varying vec3 vWorldPosition;
+        void main() {
+          float h = normalize(vWorldPosition + vec3(0.0, offset, 0.0)).y;
+          gl_FragColor = vec4(mix(bottomColor, topColor, max(pow(max(h, 0.0), exponent), 0.0)), 1.0);
+        }
+      `,
+      side: THREE.BackSide,
+    });
+    scene.add(new THREE.Mesh(skyGeom, skyMat));
+    scene.fog = new THREE.Fog(0x0c1424, 90, 260);
 
     const w = container.clientWidth || 800;
     const h = container.clientHeight || 600;
-    const camera = new THREE.PerspectiveCamera(55, w / h, 0.1, 1000);
-    camera.position.set(40, 60, 80);
+    const camera = new THREE.PerspectiveCamera(52, w / h, 0.1, 1000);
+    camera.position.set(50, 75, 95);
 
     const renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
     renderer.setSize(w, h);
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.05;
     container.appendChild(renderer.domElement);
 
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
     controls.dampingFactor = 0.08;
-    controls.maxPolarAngle = Math.PI * 0.49;
-    controls.minDistance = 5;
-    controls.maxDistance = 300;
+    controls.maxPolarAngle = Math.PI * 0.485;
+    controls.minDistance = 6;
+    controls.maxDistance = 320;
     controls.target.set(0, 0, 0);
 
-    // Lighting.
-    const hemi = new THREE.HemisphereLight(0xb0c4de, 0x101727, 0.55);
+    // Warm three-point lighting.
+    const hemi = new THREE.HemisphereLight(0xb0c4de, 0x0e1521, 0.62);
     scene.add(hemi);
-    const sun = new THREE.DirectionalLight(0xfff0d6, 1.05);
-    sun.position.set(60, 120, 30);
+    const sun = new THREE.DirectionalLight(0xfff4d6, 1.15);
+    sun.position.set(80, 140, 60);
     scene.add(sun);
+    const fill = new THREE.DirectionalLight(0x6ea0ff, 0.35);
+    fill.position.set(-80, 60, -60);
+    scene.add(fill);
 
     // Ground plane sized to the drawing.
     const ground = new THREE.Mesh(
-      new THREE.PlaneGeometry(worldTransform.span * 1.4, worldTransform.span * 1.4),
+      new THREE.PlaneGeometry(worldTransform.span * 1.6, worldTransform.span * 1.6),
       new THREE.MeshStandardMaterial({
-        color: 0x111827,
+        color: 0x0b1220,
         roughness: 0.95,
         metalness: 0,
       })
@@ -174,16 +244,25 @@ export function Simulation3DViewer({ drawing, groupCategory, network }: Props) {
     ground.rotation.x = -Math.PI / 2;
     scene.add(ground);
 
-    // Build static geometry: roads + buildings.
     const roadsGroup = new THREE.Group();
     scene.add(roadsGroup);
     const buildingsGroup = new THREE.Group();
     scene.add(buildingsGroup);
     const vehicleGroup = new THREE.Group();
     scene.add(vehicleGroup);
+    const labelsGroup = new THREE.Group();
+    scene.add(labelsGroup);
+    const signalsGroup = new THREE.Group();
+    scene.add(signalsGroup);
 
-    addRoads(roadsGroup, drawing, groupCategory, network, worldTransform);
+    const linkAsphalt = addRoads(roadsGroup, drawing, groupCategory, network, worldTransform);
     addBuildings(buildingsGroup, network, worldTransform);
+    const junctionLabels = addJunctionLabels(labelsGroup, network, worldTransform);
+    const { lights: signalLights, pickMeshes: junctionPickMeshes } = addSignalsAndPickers(
+      signalsGroup,
+      network,
+      worldTransform
+    );
 
     sceneRef.current = {
       scene,
@@ -192,8 +271,30 @@ export function Simulation3DViewer({ drawing, groupCategory, network }: Props) {
       controls,
       vehicleMeshes: [],
       vehicleGroup,
+      junctionLabels,
+      junctionPickMeshes,
+      signalLights,
+      linkAsphalt,
       raf: 0,
     };
+
+    // Click-to-select a junction via raycasting against the picker discs.
+    const raycaster = new THREE.Raycaster();
+    const pointer = new THREE.Vector2();
+    const onClick = (e: MouseEvent) => {
+      const rect = renderer.domElement.getBoundingClientRect();
+      pointer.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+      pointer.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+      raycaster.setFromCamera(pointer, camera);
+      const hits = raycaster.intersectObjects(junctionPickMeshes, false);
+      if (hits.length > 0) {
+        const id = (hits[0].object.userData as { nodeId?: string }).nodeId;
+        if (id && onSelectJunction) onSelectJunction(id);
+      } else if (onSelectJunction) {
+        onSelectJunction(null);
+      }
+    };
+    renderer.domElement.addEventListener("click", onClick);
 
     let lastT = performance.now();
     const tickFn = (now: number) => {
@@ -202,13 +303,15 @@ export function Simulation3DViewer({ drawing, groupCategory, network }: Props) {
       const s = stateRef.current;
       if (s && runningRef.current) step(s, dt);
       syncVehicles(scene, vehicleGroup, sceneRef.current!.vehicleMeshes, stateRef.current, network, worldTransform);
+      syncSignals(stateRef.current, signalLights);
+      syncLinkColors(linkAsphalt, resultsRef.current ?? null, losRef.current);
+      syncJunctionLabels(junctionLabels, resultsRef.current ?? null, selectedRef.current ?? null, camera);
       controls.update();
       renderer.render(scene, camera);
       sceneRef.current!.raf = requestAnimationFrame(tickFn);
     };
     sceneRef.current.raf = requestAnimationFrame(tickFn);
 
-    // Resize handling.
     const ro = new ResizeObserver(() => {
       const cw = container.clientWidth || 800;
       const ch = container.clientHeight || 600;
@@ -222,12 +325,13 @@ export function Simulation3DViewer({ drawing, groupCategory, network }: Props) {
       ro.disconnect();
       cancelAnimationFrame(sceneRef.current!.raf);
       controls.dispose();
+      renderer.domElement.removeEventListener("click", onClick);
       renderer.dispose();
       renderer.domElement.remove();
-      // Dispose meshes / geometries to free GPU memory.
       scene.traverse((obj) => {
-        if ((obj as THREE.Mesh).geometry) (obj as THREE.Mesh).geometry.dispose();
-        const mat = (obj as THREE.Mesh).material;
+        const mesh = obj as THREE.Mesh;
+        if (mesh.geometry) mesh.geometry.dispose();
+        const mat = mesh.material;
         if (Array.isArray(mat)) mat.forEach((m) => m.dispose());
         else if (mat) mat.dispose();
       });
@@ -284,7 +388,7 @@ export function Simulation3DViewer({ drawing, groupCategory, network }: Props) {
               stateRef.current = spawnVehicles(
                 clearVehicles(s),
                 vehicleCount,
-                diag / 60
+                diag / 70
               );
             }}
             style={{
@@ -307,14 +411,14 @@ export function Simulation3DViewer({ drawing, groupCategory, network }: Props) {
               fontVariantNumeric: "tabular-nums",
             }}
           >
-            3D · {network.junctions.length} junc · {network.links.length} links
+            {network.junctions.length} junc · {network.links.length} links
           </span>
         </div>
         <Field label="Vehicles">
           <input
             type="range"
             min={0}
-            max={1000}
+            max={1500}
             step={10}
             value={vehicleCount}
             onChange={(e) => setVehicleCount(Number(e.target.value))}
@@ -338,8 +442,25 @@ export function Simulation3DViewer({ drawing, groupCategory, network }: Props) {
             {speedMul.toFixed(2)}×
           </span>
         </Field>
+        <label
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            fontSize: 11,
+            color: "#94a3b8",
+            cursor: "pointer",
+          }}
+        >
+          <input
+            type="checkbox"
+            checked={losColoring}
+            onChange={(e) => setLosColoring(e.target.checked)}
+          />
+          Colour roads by LOS
+        </label>
         <div style={{ color: "#94a3b8", fontSize: 10, lineHeight: 1.5 }}>
-          Drag to orbit · scroll to zoom · right-drag to pan
+          Drag = orbit · scroll = zoom · right-drag = pan · click a junction
         </div>
       </div>
     </div>
@@ -352,11 +473,6 @@ interface WorldTransform {
   span: number;
 }
 
-/**
- * Asphalt mesh for a single link: build a triangulated ribbon of
- * (link.width or fallback) units around the link's polyline. Uses average
- * tangent at each interior point so the ribbon tracks curves smoothly.
- */
 function buildLinkRibbon(
   link: { points: number[]; width?: number },
   fallbackWidth: number,
@@ -365,8 +481,7 @@ function buildLinkRibbon(
 ): THREE.BufferGeometry | null {
   const pts = link.points;
   if (pts.length < 4) return null;
-  const halfW = ((link.width ?? fallbackWidth) * wt.scale) / 2;
-
+  const halfW = (link.width ?? fallbackWidth) / 2;
   const verts: number[] = [];
   const indices: number[] = [];
   for (let i = 0; i < pts.length; i += 2) {
@@ -384,17 +499,17 @@ function buildLinkRibbon(
     const m = Math.hypot(tx, ty) || 1;
     tx /= m;
     ty /= m;
-    // Right-hand normal in source coords (y-up): rotate tangent -90° = (ty, -tx).
+    // Right-hand normal in source coords (y-up).
     const nx = ty;
     const ny = -tx;
     const x = pts[i];
     const y = pts[i + 1];
-    const [lwx, lwz] = wt.project(x - nx * (halfW / wt.scale), y - ny * (halfW / wt.scale));
-    const [rwx, rwz] = wt.project(x + nx * (halfW / wt.scale), y + ny * (halfW / wt.scale));
+    const [lwx, lwz] = wt.project(x - nx * halfW, y - ny * halfW);
+    const [rwx, rwz] = wt.project(x + nx * halfW, y + ny * halfW);
     verts.push(lwx, yLevel, lwz);
     verts.push(rwx, yLevel, rwz);
   }
-  const ringCount = verts.length / 6; // 2 verts per ring, 3 components each
+  const ringCount = verts.length / 6;
   for (let i = 0; i < ringCount - 1; i++) {
     const a = i * 2;
     const b = i * 2 + 1;
@@ -423,7 +538,6 @@ function buildJunctionRegionGeom(
     shape.lineTo(x, z);
   }
   const geom = new THREE.ShapeGeometry(shape);
-  // ShapeGeometry sits on the XY plane; rotate so it lies on XZ at yLevel.
   geom.rotateX(-Math.PI / 2);
   geom.translate(0, yLevel, 0);
   return geom;
@@ -435,98 +549,87 @@ function addRoads(
   groupCategory: Record<string, RoadCategory>,
   network: RoadNetwork,
   wt: WorldTransform
-) {
-  // 1. Asphalt: one mesh per link, sized by its derived width. Default to a
-  //    reasonable fraction of the drawing diagonal when the network builder
-  //    couldn't compute a width.
-  const meanWidth =
-    network.links.reduce((acc, l) => acc + (l.width ?? 0), 0) /
-      Math.max(1, network.links.filter((l) => l.width).length) ||
-    wt.span * 0.005;
+): { mesh: THREE.Mesh; link: NetworkLink }[] {
+  // Average pavement width for any link that didn't get one from the
+  // derivation, so we still draw something sensible.
+  const widthsKnown = network.links.filter((l) => l.width).map((l) => l.width!);
+  const fallbackWidth =
+    widthsKnown.length > 0
+      ? widthsKnown.reduce((a, b) => a + b, 0) / widthsKnown.length
+      : (network.bounds.maxX - network.bounds.minX) * 0.005;
 
-  const asphaltMat = new THREE.MeshStandardMaterial({
-    color: 0x1f2937,
-    roughness: 0.92,
-    metalness: 0.0,
-  });
-
+  const linkAsphalt: { mesh: THREE.Mesh; link: NetworkLink }[] = [];
   for (const link of network.links) {
-    const geom = buildLinkRibbon(link, meanWidth, wt, 0.005);
-    if (geom) group.add(new THREE.Mesh(geom, asphaltMat));
+    const geom = buildLinkRibbon(link, fallbackWidth, wt, 0.005);
+    if (!geom) continue;
+    const mat = new THREE.MeshStandardMaterial({
+      color: ASPHALT_BASE_COLOR,
+      roughness: 0.9,
+      metalness: 0.0,
+    });
+    const mesh = new THREE.Mesh(geom, mat);
+    group.add(mesh);
+    linkAsphalt.push({ mesh, link });
   }
 
-  // Junction regions: render the closed curb polygon as a flat asphalt slab
-  // raised just above the link ribbons so it covers the seams cleanly.
+  // Junction-region asphalt slabs.
+  const regionMat = new THREE.MeshStandardMaterial({
+    color: ASPHALT_BASE_COLOR,
+    roughness: 0.9,
+    metalness: 0.0,
+  });
   for (const node of network.junctions) {
     if (!node.region) continue;
     const geom = buildJunctionRegionGeom(node.region, wt, 0.012);
-    if (geom) group.add(new THREE.Mesh(geom, asphaltMat));
+    if (geom) group.add(new THREE.Mesh(geom, regionMat));
   }
 
-  // 2. Lane markings as thin LineSegments above the asphalt.
+  // Lane / centerline / curb decorations.
   const laneVerts: number[] = [];
   const centerVerts: number[] = [];
-  for (const seg of drawing.segments) {
-    const cat = groupCategory[seg.groupId] ?? seg.category;
-    if (cat !== "lane" && cat !== "centerline") continue;
-    const target = cat === "centerline" ? centerVerts : laneVerts;
-    const pts = seg.points;
-    for (let i = 2; i < pts.length; i += 2) {
-      const [x1, z1] = wt.project(pts[i - 2], pts[i - 1]);
-      const [x2, z2] = wt.project(pts[i], pts[i + 1]);
-      target.push(x1, 0.06, z1, x2, 0.06, z2);
-    }
-  }
-  if (laneVerts.length > 0) {
-    const g = new THREE.BufferGeometry();
-    g.setAttribute("position", new THREE.Float32BufferAttribute(laneVerts, 3));
-    group.add(
-      new THREE.LineSegments(
-        g,
-        new THREE.LineBasicMaterial({ color: 0xe2e8f0, transparent: true, opacity: 0.85 })
-      )
-    );
-  }
-  if (centerVerts.length > 0) {
-    const g = new THREE.BufferGeometry();
-    g.setAttribute("position", new THREE.Float32BufferAttribute(centerVerts, 3));
-    group.add(
-      new THREE.LineSegments(
-        g,
-        new THREE.LineBasicMaterial({ color: 0xfbbf24, transparent: true, opacity: 0.85 })
-      )
-    );
-  }
-
-  // 3. Curbs as light-grey lines along the asphalt edges.
   const curbVerts: number[] = [];
   for (const seg of drawing.segments) {
     const cat = groupCategory[seg.groupId] ?? seg.category;
-    if (cat !== "edge" && cat !== "curb") continue;
     const pts = seg.points;
-    for (let i = 2; i < pts.length; i += 2) {
-      const [x1, z1] = wt.project(pts[i - 2], pts[i - 1]);
-      const [x2, z2] = wt.project(pts[i], pts[i + 1]);
-      curbVerts.push(x1, 0.04, z1, x2, 0.04, z2);
+    if (cat === "lane") {
+      for (let i = 2; i < pts.length; i += 2) {
+        const [x1, z1] = wt.project(pts[i - 2], pts[i - 1]);
+        const [x2, z2] = wt.project(pts[i], pts[i + 1]);
+        laneVerts.push(x1, 0.06, z1, x2, 0.06, z2);
+      }
+    } else if (cat === "centerline") {
+      for (let i = 2; i < pts.length; i += 2) {
+        const [x1, z1] = wt.project(pts[i - 2], pts[i - 1]);
+        const [x2, z2] = wt.project(pts[i], pts[i + 1]);
+        centerVerts.push(x1, 0.07, z1, x2, 0.07, z2);
+      }
+    } else if (cat === "edge" || cat === "curb") {
+      for (let i = 2; i < pts.length; i += 2) {
+        const [x1, z1] = wt.project(pts[i - 2], pts[i - 1]);
+        const [x2, z2] = wt.project(pts[i], pts[i + 1]);
+        curbVerts.push(x1, 0.04, z1, x2, 0.04, z2);
+      }
     }
   }
-  if (curbVerts.length > 0) {
+  const addLines = (verts: number[], color: number, opacity: number) => {
+    if (verts.length === 0) return;
     const g = new THREE.BufferGeometry();
-    g.setAttribute("position", new THREE.Float32BufferAttribute(curbVerts, 3));
+    g.setAttribute("position", new THREE.Float32BufferAttribute(verts, 3));
     group.add(
       new THREE.LineSegments(
         g,
-        new THREE.LineBasicMaterial({ color: 0x94a3b8, transparent: true, opacity: 0.85 })
+        new THREE.LineBasicMaterial({ color, transparent: true, opacity })
       )
     );
-  }
+  };
+  addLines(laneVerts, 0xe2e8f0, 0.85);
+  addLines(centerVerts, 0xfde68a, 0.85);
+  addLines(curbVerts, 0xa1abc1, 0.7);
+
+  return linkAsphalt;
 }
 
-function addBuildings(
-  group: THREE.Group,
-  network: RoadNetwork,
-  wt: WorldTransform
-) {
+function addBuildings(group: THREE.Group, network: RoadNetwork, wt: WorldTransform) {
   for (const b of network.buildings) {
     const pts = b.points;
     if (pts.length < 6) continue;
@@ -544,17 +647,213 @@ function addBuildings(
       depth: height,
       bevelEnabled: false,
     });
-    // ExtrudeGeometry extrudes along +z; rotate so it goes up along +y.
     geom.rotateX(-Math.PI / 2);
     const mat = new THREE.MeshStandardMaterial({
       color: BUILDING_COLOR[type],
       roughness: 0.78,
       metalness: 0.0,
       transparent: true,
-      opacity: type === "other" ? 0.55 : 0.88,
+      opacity: type === "other" ? 0.55 : 0.9,
     });
     const mesh = new THREE.Mesh(geom, mat);
     group.add(mesh);
+  }
+}
+
+function addJunctionLabels(
+  group: THREE.Group,
+  network: RoadNetwork,
+  wt: WorldTransform
+) {
+  const out: {
+    sprite: THREE.Sprite;
+    nodeId: string;
+    canvasState: { los: LOS | null };
+  }[] = [];
+  for (const node of network.junctions) {
+    const canvas = document.createElement("canvas");
+    canvas.width = 128;
+    canvas.height = 128;
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.minFilter = THREE.LinearFilter;
+    const mat = new THREE.SpriteMaterial({
+      map: tex,
+      transparent: true,
+      depthTest: false,
+    });
+    const sprite = new THREE.Sprite(mat);
+    const [wx, wz] = wt.project(node.x, node.y);
+    sprite.position.set(wx, wt.span * 0.025, wz);
+    const size = wt.span * 0.018;
+    sprite.scale.set(size, size, 1);
+    sprite.renderOrder = 1000;
+    group.add(sprite);
+    out.push({ sprite, nodeId: node.id, canvasState: { los: null } });
+  }
+  return out;
+}
+
+function paintLosBadge(canvas: HTMLCanvasElement, los: LOS | null, selected: boolean) {
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return;
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  if (!los) return;
+  const fill = `#${LOS_COLOR_HEX[los].toString(16).padStart(6, "0")}`;
+  ctx.fillStyle = fill;
+  const r = canvas.width / 2 - 8;
+  ctx.beginPath();
+  ctx.arc(canvas.width / 2, canvas.height / 2, r, 0, Math.PI * 2);
+  ctx.fill();
+  if (selected) {
+    ctx.strokeStyle = "#fde68a";
+    ctx.lineWidth = 6;
+    ctx.stroke();
+  }
+  ctx.fillStyle = "#0f172a";
+  ctx.font = "bold 64px ui-sans-serif, system-ui";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(los, canvas.width / 2, canvas.height / 2 + 4);
+}
+
+function syncJunctionLabels(
+  labels: { sprite: THREE.Sprite; nodeId: string; canvasState: { los: LOS | null } }[],
+  results: Record<string, JunctionResult | undefined> | null,
+  selectedId: string | null,
+  camera: THREE.Camera
+) {
+  for (const lbl of labels) {
+    const r = results?.[lbl.nodeId];
+    const newLos = r?.los ?? null;
+    const isSelected = selectedId === lbl.nodeId;
+    if (lbl.canvasState.los !== newLos || isSelected) {
+      const tex = (lbl.sprite.material as THREE.SpriteMaterial).map;
+      if (tex) {
+        const canvas = tex.image as HTMLCanvasElement;
+        paintLosBadge(canvas, newLos, isSelected);
+        tex.needsUpdate = true;
+      }
+      lbl.canvasState.los = newLos;
+    }
+  }
+  void camera;
+}
+
+function syncLinkColors(
+  asphalt: { mesh: THREE.Mesh; link: NetworkLink }[],
+  results: Record<string, JunctionResult | undefined> | null,
+  losColoring: boolean
+) {
+  if (!losColoring || !results) {
+    for (const a of asphalt) {
+      const m = a.mesh.material as THREE.MeshStandardMaterial;
+      if (m.color.getHex() !== ASPHALT_BASE_COLOR) m.color.setHex(ASPHALT_BASE_COLOR);
+    }
+    return;
+  }
+  const order: LOS[] = ["A", "B", "C", "D", "E", "F"];
+  for (const a of asphalt) {
+    const fr = results[a.link.fromNode];
+    const tr = results[a.link.toNode];
+    let worst: LOS | null = null;
+    for (const r of [fr, tr]) {
+      if (!r) continue;
+      if (!worst || order.indexOf(r.los) > order.indexOf(worst)) worst = r.los;
+    }
+    const target = worst ? LOS_COLOR_HEX[worst] : ASPHALT_BASE_COLOR;
+    // Mix the LOS hue with the asphalt base so the road still reads as a road.
+    const base = new THREE.Color(ASPHALT_BASE_COLOR);
+    const overlay = new THREE.Color(target);
+    const mixed = base.clone().lerp(overlay, worst ? 0.55 : 0);
+    const m = a.mesh.material as THREE.MeshStandardMaterial;
+    m.color.copy(mixed);
+  }
+}
+
+function addSignalsAndPickers(
+  group: THREE.Group,
+  network: RoadNetwork,
+  wt: WorldTransform
+) {
+  const lights: { mesh: THREE.Mesh; nodeId: string; cardinal: "NB" | "EB" | "SB" | "WB" }[] = [];
+  const pickMeshes: THREE.Mesh[] = [];
+
+  const poleH = wt.span * 0.022;
+  const poleR = wt.span * 0.0018;
+  const lampR = wt.span * 0.0035;
+  const offset = wt.span * 0.012;
+
+  const dirs: Array<{ card: "NB" | "EB" | "SB" | "WB"; dx: number; dz: number }> = [
+    { card: "NB", dx: 0, dz: -1 },
+    { card: "EB", dx: 1, dz: 0 },
+    { card: "SB", dx: 0, dz: 1 },
+    { card: "WB", dx: -1, dz: 0 },
+  ];
+
+  for (const node of network.junctions) {
+    const [wx, wz] = wt.project(node.x, node.y);
+
+    // Click-pick disc, invisible-ish, sits at junction level.
+    const pickGeom = new THREE.CircleGeometry(wt.span * 0.012, 24);
+    pickGeom.rotateX(-Math.PI / 2);
+    const pickMat = new THREE.MeshBasicMaterial({
+      color: 0xfde68a,
+      transparent: true,
+      opacity: 0.0,
+      depthWrite: false,
+    });
+    const pick = new THREE.Mesh(pickGeom, pickMat);
+    pick.position.set(wx, 0.02, wz);
+    pick.userData = { nodeId: node.id };
+    group.add(pick);
+    pickMeshes.push(pick);
+
+    if (!node.isJunction) continue;
+
+    for (const d of dirs) {
+      // Pole.
+      const poleGeom = new THREE.CylinderGeometry(poleR, poleR, poleH, 8);
+      const poleMat = new THREE.MeshStandardMaterial({
+        color: 0x1f2937,
+        metalness: 0.4,
+        roughness: 0.5,
+      });
+      const pole = new THREE.Mesh(poleGeom, poleMat);
+      pole.position.set(wx + d.dx * offset, poleH / 2, wz + d.dz * offset);
+      group.add(pole);
+
+      // Lamp head.
+      const lampGeom = new THREE.SphereGeometry(lampR, 16, 12);
+      const lampMat = new THREE.MeshStandardMaterial({
+        color: 0xff3b30,
+        emissive: 0xff3b30,
+        emissiveIntensity: 0.7,
+        roughness: 0.4,
+      });
+      const lamp = new THREE.Mesh(lampGeom, lampMat);
+      lamp.position.set(wx + d.dx * offset, poleH + lampR, wz + d.dz * offset);
+      group.add(lamp);
+      lights.push({ mesh: lamp, nodeId: node.id, cardinal: d.card });
+    }
+  }
+
+  return { lights, pickMeshes };
+}
+
+function syncSignals(
+  state: SimulationState | null,
+  lights: { mesh: THREE.Mesh; nodeId: string; cardinal: "NB" | "EB" | "SB" | "WB" }[]
+) {
+  if (!state) return;
+  for (const l of lights) {
+    const greens = activeGreen(state, l.nodeId);
+    const isGreen = greens?.has(l.cardinal) ?? false;
+    const m = l.mesh.material as THREE.MeshStandardMaterial;
+    const target = isGreen ? 0x22dd77 : 0xff3b30;
+    if (m.color.getHex() !== target) {
+      m.color.setHex(target);
+      m.emissive.setHex(target);
+    }
   }
 }
 
@@ -569,33 +868,46 @@ function syncVehicles(
   void scene;
   if (!state) return;
 
-  // Pick a vehicle size from the typical road width if we have one. Real
-  // proportions: car ~4.5m long, ~1.8m wide, ~1.5m tall on a ~3.5m lane.
-  let medianWorldWidth = 0;
+  // Pick a vehicle size from the typical road width.
   const widths: number[] = [];
   for (const link of network.links) if (link.width) widths.push(link.width * wt.scale);
+  let medianWorldWidth: number;
   if (widths.length > 0) {
     widths.sort((a, b) => a - b);
     medianWorldWidth = widths[Math.floor(widths.length / 2)];
   } else {
     medianWorldWidth = wt.span * 0.01;
   }
-  const laneW = medianWorldWidth / 2; // assume 2 lanes per road
+  const laneW = medianWorldWidth / 2;
   const carLength = laneW * 1.4;
   const carWidth = laneW * 0.55;
-  const carHeight = laneW * 0.42;
+  const carHeight = laneW * 0.45;
 
   while (meshes.length < state.vehicles.length) {
     const v = state.vehicles[meshes.length];
-    const geom = new THREE.BoxGeometry(carLength, carHeight, carWidth);
-    const mat = new THREE.MeshStandardMaterial({
-      color: new THREE.Color(v.color),
-      roughness: 0.4,
-      metalness: 0.3,
-    });
-    const mesh = new THREE.Mesh(geom, mat);
-    group.add(mesh);
-    meshes.push(mesh);
+    // Body (lower). A second smaller box on top makes the cabin.
+    const body = new THREE.Mesh(
+      new THREE.BoxGeometry(carLength, carHeight * 0.55, carWidth),
+      new THREE.MeshStandardMaterial({
+        color: new THREE.Color(v.color),
+        roughness: 0.45,
+        metalness: 0.35,
+      })
+    );
+    const cabin = new THREE.Mesh(
+      new THREE.BoxGeometry(carLength * 0.55, carHeight * 0.55, carWidth * 0.9),
+      new THREE.MeshStandardMaterial({
+        color: 0x111827,
+        roughness: 0.3,
+        metalness: 0.2,
+        transparent: true,
+        opacity: 0.85,
+      })
+    );
+    cabin.position.set(-carLength * 0.05, carHeight * 0.55, 0);
+    body.add(cabin);
+    group.add(body);
+    meshes.push(body);
   }
   while (meshes.length > state.vehicles.length) {
     const m = meshes.pop()!;
@@ -603,6 +915,14 @@ function syncVehicles(
     m.geometry.dispose();
     if (Array.isArray(m.material)) m.material.forEach((mt) => mt.dispose());
     else m.material.dispose();
+    m.children.forEach((c) => {
+      const cm = c as THREE.Mesh;
+      if (cm.geometry) cm.geometry.dispose();
+      if (cm.material) {
+        if (Array.isArray(cm.material)) cm.material.forEach((mt) => mt.dispose());
+        else cm.material.dispose();
+      }
+    });
   }
 
   const linksById = new Map(network.links.map((l) => [l.id, l]));
@@ -616,16 +936,13 @@ function syncVehicles(
     const tan = tangentOnLink(link, arc, v.s);
     const fx = v.dir === 1 ? tan.dx : -tan.dx;
     const fy = v.dir === 1 ? tan.dy : -tan.dy;
-    // Right-hand normal in world XY space (right-side driving).
     const rx = fy;
     const ry = -fx;
-    // Offset to the right of centerline by half a lane width so opposing
-    // flows take the two lanes of a 2-lane road instead of overlapping.
     const linkLaneOffset = link.width != null ? link.width / 4 : v.laneOffset;
     const offX = pos.x + rx * linkLaneOffset;
     const offY = pos.y + ry * linkLaneOffset;
     const [wx, wz] = wt.project(offX, offY);
-    mesh.position.set(wx, carHeight / 2 + 0.06, wz);
+    mesh.position.set(wx, carHeight * 0.27 + 0.06, wz);
     const heading = Math.atan2(-fy, fx);
     mesh.rotation.set(0, heading, 0);
   }
