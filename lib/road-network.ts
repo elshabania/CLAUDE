@@ -46,6 +46,10 @@ export interface BuildNetworkOptions {
   roadCategories?: RoadCategory[];
   /** Categories to treat as building footprints. */
   buildingCategories?: RoadCategory[];
+  /** Disable degree-2 collinear chain merging (default: enabled). */
+  skipStitching?: boolean;
+  /** Bearing tolerance for collinear merge, in degrees. */
+  stitchAngleToleranceDeg?: number;
 }
 
 const DEFAULT_ROAD: RoadCategory[] = ["centerline"];
@@ -108,7 +112,10 @@ export function buildRoadNetwork(
   }
 
   const diag = Math.hypot(maxX - minX, maxY - minY) || 1;
-  const tolerance = diag * (opts.snapTolerance ?? 0.005);
+  // Default 1.5% snap so the gap between dashed centerline segments closes
+  // before graph construction. Drop it back via opts if a finer drawing
+  // collapses real intersections.
+  const tolerance = diag * (opts.snapTolerance ?? 0.015);
   const cell = Math.max(tolerance, 1e-6);
 
   // Spatial hash on a grid with cell = tolerance. We search the 3x3 cell
@@ -174,6 +181,65 @@ export function buildRoadNetwork(
     nodes.get(link.fromNode)?.links.push(link.id);
     nodes.get(link.toNode)?.links.push(link.id);
   }
+
+  // Stitch dashed centerlines: where exactly two links meet end-to-end at
+  // the same node and their bearings are collinear (within tolerance), merge
+  // them into one link and drop the in-between node. Iterate until stable.
+  const linkMap = new Map(links.map((l) => [l.id, l]));
+  if (!opts.skipStitching) {
+    const angleTol = opts.stitchAngleToleranceDeg ?? 12;
+    let changed = true;
+    while (changed) {
+      changed = false;
+      for (const node of nodes.values()) {
+        if (node.links.length !== 2) continue;
+        const linkA = linkMap.get(node.links[0]);
+        const linkB = linkMap.get(node.links[1]);
+        if (!linkA || !linkB) continue;
+        if (linkA === linkB) continue; // self-loop guard
+
+        const inBearing = bearingApproachingNode(linkA, node.id);
+        const outBearing = bearingLeavingNode(linkB, node.id);
+        const turn = Math.abs(((outBearing - inBearing + 540) % 360) - 180);
+        if (turn > angleTol) continue;
+
+        const merged = mergeAtNode(linkA, linkB, node.id);
+        if (!merged) continue;
+
+        linkMap.delete(linkA.id);
+        linkMap.delete(linkB.id);
+        linkMap.set(merged.id, merged);
+
+        const farA = linkA.fromNode === node.id ? linkA.toNode : linkA.fromNode;
+        const farB = linkB.fromNode === node.id ? linkB.toNode : linkB.fromNode;
+
+        const farANode = nodes.get(farA);
+        if (farANode) {
+          farANode.links = farANode.links
+            .filter((id) => id !== linkA.id && id !== linkB.id)
+            .concat(merged.id);
+        }
+        if (farA !== farB) {
+          const farBNode = nodes.get(farB);
+          if (farBNode) {
+            farBNode.links = farBNode.links
+              .filter((id) => id !== linkA.id && id !== linkB.id)
+              .concat(merged.id);
+          }
+        }
+
+        nodes.delete(node.id);
+        changed = true;
+        break; // restart with mutated maps
+      }
+    }
+  }
+
+  // Drop nodes that ended up with no links after stitching.
+  for (const [id, node] of nodes) {
+    if (node.links.length === 0) nodes.delete(id);
+  }
+
   for (const node of nodes.values()) {
     node.isJunction = node.links.length >= 3;
   }
@@ -187,11 +253,84 @@ export function buildRoadNetwork(
   const nodeArr = Array.from(nodes.values());
   return {
     nodes: nodeArr,
-    links,
+    links: Array.from(linkMap.values()),
     junctions: nodeArr.filter((n) => n.isJunction),
     buildings,
     bounds: { minX, minY, maxX, maxY },
   };
+}
+
+function bearingFromTo(x0: number, y0: number, x1: number, y1: number): number {
+  const dx = x1 - x0;
+  const dy = y1 - y0;
+  return ((Math.atan2(dx, dy) * 180) / Math.PI + 360) % 360;
+}
+
+/** Bearing of the link's last segment, pointing towards the node (i.e. the
+ *  direction traffic faces just before reaching the node). */
+function bearingApproachingNode(link: NetworkLink, nodeId: string): number {
+  const pts = link.points;
+  if (link.toNode === nodeId) {
+    const i = pts.length;
+    return bearingFromTo(pts[i - 4], pts[i - 3], pts[i - 2], pts[i - 1]);
+  }
+  // node is fromNode, so reverse the first segment's direction.
+  return bearingFromTo(pts[2], pts[3], pts[0], pts[1]);
+}
+
+/** Bearing of the link's first segment, pointing away from the node. */
+function bearingLeavingNode(link: NetworkLink, nodeId: string): number {
+  const pts = link.points;
+  if (link.fromNode === nodeId) {
+    return bearingFromTo(pts[0], pts[1], pts[2], pts[3]);
+  }
+  // node is toNode, so head outward from the last point back along the link.
+  const i = pts.length;
+  return bearingFromTo(pts[i - 2], pts[i - 1], pts[i - 4], pts[i - 3]);
+}
+
+let mergedLinkCounter = 0;
+
+/**
+ * Concatenate two links that meet end-to-end at `nodeId` into one. Direction
+ * of the merged polyline goes from the far end of A to the far end of B.
+ */
+function mergeAtNode(
+  a: NetworkLink,
+  b: NetworkLink,
+  nodeId: string
+): NetworkLink | null {
+  const aPts = a.toNode === nodeId ? a.points : reverseFlat(a.points);
+  const bPts = b.fromNode === nodeId ? b.points : reverseFlat(b.points);
+  // aPts ends at node, bPts starts at node. Skip the duplicated mid point.
+  const merged = aPts.slice(0, aPts.length - 2).concat(bPts);
+  if (merged.length < 4) return null;
+  const fromNode = a.toNode === nodeId ? a.fromNode : a.toNode;
+  const toNode = b.fromNode === nodeId ? b.toNode : b.fromNode;
+  const length = a.length + b.length;
+  const bearing = bearingFromTo(
+    merged[0],
+    merged[1],
+    merged[merged.length - 2],
+    merged[merged.length - 1]
+  );
+  return {
+    id: `m${mergedLinkCounter++}`,
+    fromNode,
+    toNode,
+    points: merged,
+    length,
+    bearing,
+  };
+}
+
+function reverseFlat(points: number[]): number[] {
+  const out = new Array<number>(points.length);
+  for (let i = 0; i < points.length; i += 2) {
+    out[i] = points[points.length - 2 - i];
+    out[i + 1] = points[points.length - 1 - i];
+  }
+  return out;
 }
 
 /**

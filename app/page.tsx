@@ -3,20 +3,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { CadViewer, CATEGORY_COLORS } from "@/components/CadViewer";
 import { NetworkViewer } from "@/components/NetworkViewer";
-import { JunctionPanel } from "@/components/JunctionPanel";
 import { detectFromPdf, type ParsedDrawing, type RoadCategory } from "@/lib/road-detect";
 import {
   extractPdfPathsInBrowser,
   renderPdfPagePreview,
 } from "@/lib/pdf-extract-client";
-import { buildRoadNetwork, classifyJunctionApproaches } from "@/lib/road-network";
-import {
-  analyzeJunction,
-  defaultJunctionInputs,
-  DIRS,
-  type JunctionInputs,
-  type JunctionResult,
-} from "@/lib/hcm";
+import { buildRoadNetwork } from "@/lib/road-network";
 
 type ViewMode = "drawing" | "network";
 
@@ -48,8 +40,7 @@ export default function Page() {
   const [visibleGroups, setVisibleGroups] = useState<Record<string, boolean>>({});
   const [groupCategory, setGroupCategory] = useState<Record<string, RoadCategory>>({});
   const [view, setView] = useState<ViewMode>("drawing");
-  const [selectedJunctionId, setSelectedJunctionId] = useState<string | null>(null);
-  const [junctionInputs, setJunctionInputs] = useState<Record<string, JunctionInputs>>({});
+  const [showJunctions, setShowJunctions] = useState(true);
   const [rasterPreview, setRasterPreview] = useState<{
     dataUrl: string;
     width: number;
@@ -69,8 +60,6 @@ export default function Page() {
     }
     setVisibleGroups(v);
     setGroupCategory(c);
-    setJunctionInputs({});
-    setSelectedJunctionId(null);
   }, [result]);
 
   const stats = useMemo(() => {
@@ -96,47 +85,6 @@ export default function Page() {
     if (!result || view !== "network") return null;
     return buildRoadNetwork(result.drawing, groupCategory);
   }, [result, groupCategory, view]);
-
-  // Seed default junction inputs whenever new junctions appear.
-  useEffect(() => {
-    if (!network) return;
-    setJunctionInputs((prev) => {
-      const next = { ...prev };
-      let changed = false;
-      for (const j of network.junctions) {
-        if (next[j.id]) continue;
-        const seed = defaultJunctionInputs();
-        // Use approach-bearing detection to zero out any cardinal directions
-        // that don't actually have a connecting link at this junction.
-        const present = new Set(
-          classifyJunctionApproaches(j, network).map((a) => a.cardinal)
-        );
-        for (const dir of DIRS) {
-          if (!present.has(dir)) {
-            seed.approaches[dir] = {
-              lanes: { L: 0, T: 0, R: 0 },
-              greenTime: 0,
-              volumes: { L: 0, T: 0, R: 0 },
-            };
-          }
-        }
-        next[j.id] = seed;
-        changed = true;
-      }
-      return changed ? next : prev;
-    });
-  }, [network]);
-
-  const junctionResults = useMemo(() => {
-    if (!network) return {};
-    const out: Record<string, JunctionResult> = {};
-    for (const j of network.junctions) {
-      const inputs = junctionInputs[j.id];
-      if (!inputs) continue;
-      out[j.id] = analyzeJunction(inputs);
-    }
-    return out;
-  }, [network, junctionInputs]);
 
   async function handleFile(file: File) {
     setStatus("loading");
@@ -195,13 +143,6 @@ export default function Page() {
       setStatus("error");
     }
   }
-
-  const selectedInputs = selectedJunctionId
-    ? junctionInputs[selectedJunctionId]
-    : undefined;
-  const selectedResult = selectedJunctionId
-    ? junctionResults[selectedJunctionId]
-    : undefined;
 
   return (
     <main style={{ display: "flex", height: "100vh", width: "100vw" }}>
@@ -446,9 +387,29 @@ export default function Page() {
                   alignSelf: "center",
                   fontSize: 11,
                   color: "#94a3b8",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 12,
                 }}
               >
-                {network.junctions.length} junctions detected. Click one to edit.
+                <label
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 6,
+                    cursor: "pointer",
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={showJunctions}
+                    onChange={(e) => setShowJunctions(e.target.checked)}
+                  />
+                  Show junctions
+                </label>
+                <span>
+                  {network.junctions.length} junctions · {network.links.length} links
+                </span>
               </div>
             )}
           </div>
@@ -489,39 +450,22 @@ export default function Page() {
             </div>
           )}
 
-          {result && view === "network" && network && network.junctions.length === 0 && (
-            <EmptyState
-              title="No junctions detected"
-              body={
-                result.drawing.segments.length === 0
-                  ? "This file has no vector roads to build a network from. Try uploading the original CAD-exported PDF or a DXF."
-                  : "No nodes meet the degree-≥-3 junction threshold. Use the sidebar to relabel another colour cluster as 'centerline' (e.g. road edges if centerlines are missing) and the network will rebuild."
-              }
-            />
-          )}
-
-          {result && view === "network" && network && network.junctions.length > 0 && (
-            <>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <NetworkViewer
-                  network={network}
-                  results={junctionResults}
-                  selectedJunctionId={selectedJunctionId}
-                  onSelectJunction={setSelectedJunctionId}
+          {result && view === "network" && network && (
+            <div style={{ flex: 1, position: "relative", minWidth: 0 }}>
+              {result.drawing.segments.length === 0 ? (
+                <EmptyState
+                  title="No road geometry"
+                  body="This file has no vector roads to render. Try uploading the original CAD-exported PDF or a DXF."
                 />
-              </div>
-              {selectedJunctionId && selectedInputs && selectedResult && (
-                <JunctionPanel
-                  junctionLabel={`Junction ${selectedJunctionId}`}
-                  inputs={selectedInputs}
-                  result={selectedResult}
-                  onChange={(next) =>
-                    setJunctionInputs((m) => ({ ...m, [selectedJunctionId]: next }))
-                  }
-                  onClose={() => setSelectedJunctionId(null)}
+              ) : (
+                <NetworkViewer
+                  drawing={result.drawing}
+                  groupCategory={groupCategory}
+                  network={network}
+                  showJunctions={showJunctions}
                 />
               )}
-            </>
+            </div>
           )}
         </div>
       </section>

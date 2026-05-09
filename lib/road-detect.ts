@@ -288,15 +288,18 @@ function classifyByColor(
   _lineWidth: number,
   isFilled: boolean
 ): RoadCategory {
+  const isGray = Math.abs(r - g) < 15 && Math.abs(g - b) < 15;
+
   // Bright magenta/purple → centerline / median markings.
   if (r > 150 && b > 120 && g < 100) return "centerline";
-  // Bright green / light green → boundary.
-  if (g > 160 && r < 200 && b < 200) return "boundary";
-  // Cyan/blue → utility, mark as other for now.
-  if (b > 180 && r < 150) return "other";
-  // Dark grey/black filled regions → buildings or asphalt fills.
+  // Strong green (g dominant over r and b) → boundary / property line.
+  // The earlier rule fired on neutral grays because gray has g > 160 too.
+  if (!isGray && g > 160 && r < 120 && b < 120) return "boundary";
+  // Cyan / blue strokes → utility lines, ignore for road geometry.
+  if (!isGray && b > 180 && r < 150) return "other";
+  // Dark grey filled regions → buildings or asphalt fills.
   if (isFilled && r < 80 && g < 80 && b < 80) return "building";
   // Mid grey strokes → kerbs / road edges.
-  if (Math.abs(r - g) < 15 && Math.abs(g - b) < 15 && r < 200 && r > 60) return "edge";
+  if (isGray && r < 200 && r > 60) return "edge";
   return "other";
 }
