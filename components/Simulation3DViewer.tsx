@@ -627,10 +627,15 @@ function addRoads(
     ws.sort((a, b) => a - b);
     return ws[Math.floor(ws.length / 2)];
   })();
-  // Asphalt fallback: ONLY curb segments thicken into wide grey bands.
-  // Lane markings are paint, not body, so they're rendered separately as
-  // line decorations on top. Wide edge bands fully overlap to form a
-  // continuous asphalt area.
+  // Curb outlines: thin dark line drawn on top of the asphalt to make the
+  // road-edge boundary (Road Edge_MP_00 etc.) read as a real curb. The
+  // user wants this layer to always be visible in the 3D network.
+  const curbOutlineVerts: number[] = [];
+
+  // Asphalt fallback bands: ONLY curb segments thicken into wide grey bands
+  // so the closed bodyPolygon meshes from the centerline derivation are
+  // the primary visible asphalt and the bands just plug any gaps where
+  // pairing failed.
   const edgeBandHalfWidth = medianWidth * 0.55;
 
   const edgeVerts: number[] = [];
@@ -647,6 +652,13 @@ function addRoads(
     if (pts.length < 4) continue;
     if (cat === "edge" || cat === "curb") {
       edgeBase = pushBandStrip(pts, edgeBandHalfWidth, wt, 0.003, edgeVerts, edgeIndices, edgeBase);
+      // Always also emit a thin dark curb outline on top of the asphalt
+      // so the road-edge boundary reads cleanly.
+      for (let i = 2; i < pts.length; i += 2) {
+        const [x1, z1] = wt.project(pts[i - 2], pts[i - 1]);
+        const [x2, z2] = wt.project(pts[i], pts[i + 1]);
+        curbOutlineVerts.push(x1, 0.018, z1, x2, 0.018, z2);
+      }
       continue;
     }
     if (cat !== "lane") continue;
@@ -717,6 +729,9 @@ function addRoads(
   // Stop lines and zebra crossings, brighter / fully opaque.
   addLines(stopLineVerts, 0xffffff, 1.0);
   addLines(zebraVerts, 0xffffff, 1.0);
+  // Curb outlines render last + brightest so the road-edge boundary
+  // reads on top of any nearby paint.
+  addLines(curbOutlineVerts, 0x1e293b, 0.95);
 
   return linkAsphalt;
 }

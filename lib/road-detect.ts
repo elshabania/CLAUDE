@@ -654,8 +654,11 @@ const PDF_LAYER_PATTERNS: { category: RoadCategory; patterns: RegExp[] }[] = [
       /(?:^|[^a-z])fence(?:[^a-z]|$)/i,
     ],
   },
-  // Building footprints - villa / townhouse / mixed-use are pinned to win
-  // unconditionally; the rest is the standard land-use vocabulary.
+  // Building footprints - intentionally NARROW pattern set: only villa /
+  // townhouse / townhome / mixed-use layer names classify as building.
+  // Everything else (hospital, hotel, school, mosque, anchor assets, etc.)
+  // falls through to 'other'. The user explicitly wants to keep building
+  // classification conservative for downstream visualisation.
   {
     category: "building",
     patterns: [
@@ -663,40 +666,7 @@ const PDF_LAYER_PATTERNS: { category: RoadCategory; patterns: RegExp[] }[] = [
       /townhouse/i,
       /town[\s_-]*hous/i,
       /town[\s_-]*home/i,
-      /(?:^|[^a-z])th(?:[^a-z]|$)/i,
-      /resi[_\s-]?(?:villa|town|h\b|dential)?/i,
-      /residential/i,
-      /apart/i,
-      /\bhotel\b/i,
-      /boutique/i,
-      /hospital/i,
-      /\bschool\b/i,
-      /\bmosque\b/i,
-      /masjid/i,
-      /religi/i,
-      /(?:^|[^a-z])bldg(?:[^a-z]|$)/i,
-      /(?:^|[^a-z])building(?:[^a-z]|$)/i,
-      /\boffice\b/i,
-      /\bretail\b/i,
       /mixed[\s_-]?use/i,
-      /commercial/i,
-      /anchor\s*assets?/i,
-      /grandstand/i,
-      /\bstable\b/i,
-      /equine/i,
-      /equest/i,
-      /\bmall\b/i,
-      /clinic/i,
-      /museum/i,
-      /gallery/i,
-      /police/i,
-      /fire.?station/i,
-      /library/i,
-      /community/i,
-      /cultural/i,
-      /vertiport/i,
-      /(?:^|[^a-z])jarc(?:[^a-z]|$)/i,
-      /facility\s*management/i,
     ],
   },
 ];
