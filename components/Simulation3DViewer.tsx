@@ -66,7 +66,12 @@ const LOS_COLOR_HEX: Record<LOS, number> = {
   F: 0xee2244,
 };
 
-const ASPHALT_BASE_COLOR = 0x1a212d;
+// Visible asphalt grey. Was much darker; bumped so the road reads against
+// a dark scene background. Junction-region asphalt and roundabout asphalt
+// step lighter so the typology reads from above.
+const ASPHALT_BASE_COLOR = 0x6b7280;
+const ASPHALT_JUNCTION_COLOR = 0x7a8294;
+const ASPHALT_ROUNDABOUT_COLOR = 0x8089a0;
 
 export function Simulation3DViewer({
   drawing,
@@ -587,14 +592,14 @@ function addRoads(
   // Junction-region asphalt slabs in a slightly lighter / warmer tone so
   // they read as junctions when viewed from above.
   const regionMat = new THREE.MeshStandardMaterial({
-    color: 0x252e3c,
+    color: ASPHALT_JUNCTION_COLOR,
     roughness: 0.85,
     metalness: 0.0,
   });
   // Roundabouts get a slightly warmer / more visible asphalt tone than
   // signal junctions so the typology reads at a glance.
   const roundaboutMat = new THREE.MeshStandardMaterial({
-    color: 0x2c3548,
+    color: ASPHALT_ROUNDABOUT_COLOR,
     roughness: 0.85,
     metalness: 0.0,
   });
@@ -610,13 +615,145 @@ function addRoads(
       );
   }
 
-  // Drop the per-CAD-layer LineSegments overlays - the user wants the
-  // 3D scene to show only the road network (asphalt + junction regions)
-  // plus signals / roundabouts. Lane stripes etc. live in the 2D Drawing
-  // tab where they belong.
-  void drawing;
-  void groupCategory;
+  // Asphalt fallback: thicken every curb (edge) and every lane stripe
+  // into a wide light-grey ribbon at ground level. The UNION of those
+  // ribbons covers the drivable area even where the centerline-pair
+  // derivation didn't produce a clean bodyPolygon. Without this fallback
+  // most of the network is silently invisible because the curb-pair
+  // classifier rejects pairs that aren't perfectly parallel.
+  const medianWidth = (() => {
+    const ws = network.links.filter((l) => l.width).map((l) => l.width!);
+    if (ws.length === 0) return wt.span * 0.005;
+    ws.sort((a, b) => a - b);
+    return ws[Math.floor(ws.length / 2)];
+  })();
+  const edgeBandHalfWidth = medianWidth * 0.45;
+  const laneBandHalfWidth = medianWidth * 0.4;
+
+  const edgeVerts: number[] = [];
+  const edgeIndices: number[] = [];
+  const laneVerts: number[] = [];
+  const laneIndices: number[] = [];
+  const stripeVerts: number[] = [];
+  let edgeBase = 0;
+  let laneBase = 0;
+  for (const seg of drawing.segments) {
+    const cat = groupCategory[seg.groupId] ?? seg.category;
+    const pts = seg.points;
+    if (pts.length < 4) continue;
+    if (cat === "edge" || cat === "curb") {
+      edgeBase = pushBandStrip(pts, edgeBandHalfWidth, wt, 0.003, edgeVerts, edgeIndices, edgeBase);
+    } else if (cat === "lane") {
+      laneBase = pushBandStrip(pts, laneBandHalfWidth, wt, 0.0035, laneVerts, laneIndices, laneBase);
+      // Also a thin white stripe on top of the asphalt to read as paint.
+      for (let i = 2; i < pts.length; i += 2) {
+        const [x1, z1] = wt.project(pts[i - 2], pts[i - 1]);
+        const [x2, z2] = wt.project(pts[i], pts[i + 1]);
+        stripeVerts.push(x1, 0.012, z1, x2, 0.012, z2);
+      }
+    }
+  }
+  if (edgeIndices.length > 0) {
+    const g = new THREE.BufferGeometry();
+    g.setAttribute("position", new THREE.Float32BufferAttribute(edgeVerts, 3));
+    g.setIndex(edgeIndices);
+    g.computeVertexNormals();
+    group.add(
+      new THREE.Mesh(
+        g,
+        new THREE.MeshStandardMaterial({
+          color: ASPHALT_BASE_COLOR,
+          roughness: 0.92,
+          metalness: 0,
+        })
+      )
+    );
+  }
+  if (laneIndices.length > 0) {
+    const g = new THREE.BufferGeometry();
+    g.setAttribute("position", new THREE.Float32BufferAttribute(laneVerts, 3));
+    g.setIndex(laneIndices);
+    g.computeVertexNormals();
+    group.add(
+      new THREE.Mesh(
+        g,
+        new THREE.MeshStandardMaterial({
+          color: ASPHALT_BASE_COLOR,
+          roughness: 0.92,
+          metalness: 0,
+        })
+      )
+    );
+  }
+  if (stripeVerts.length > 0) {
+    const g = new THREE.BufferGeometry();
+    g.setAttribute("position", new THREE.Float32BufferAttribute(stripeVerts, 3));
+    group.add(
+      new THREE.LineSegments(
+        g,
+        new THREE.LineBasicMaterial({
+          color: 0xf1f5f9,
+          transparent: true,
+          opacity: 0.8,
+        })
+      )
+    );
+  }
+
   return linkAsphalt;
+}
+
+/**
+ * Build a triangulated band along a polyline at fixed half-width and emit
+ * its triangles into the supplied vertex / index arrays. Returns the new
+ * vertex base index for chaining multiple polylines into one mesh.
+ */
+function pushBandStrip(
+  pts: number[],
+  halfW: number,
+  wt: WorldTransform,
+  yLevel: number,
+  verts: number[],
+  indices: number[],
+  base: number
+): number {
+  if (pts.length < 4) return base;
+  let ringStart = base;
+  let prevHadVerts = false;
+  for (let i = 0; i < pts.length; i += 2) {
+    let tx: number;
+    let ty: number;
+    if (i === 0) {
+      tx = pts[2] - pts[0];
+      ty = pts[3] - pts[1];
+    } else if (i === pts.length - 2) {
+      tx = pts[i] - pts[i - 2];
+      ty = pts[i + 1] - pts[i - 1];
+    } else {
+      tx = pts[i + 2] - pts[i - 2];
+      ty = pts[i + 3] - pts[i - 1];
+    }
+    const m = Math.hypot(tx, ty) || 1;
+    tx /= m;
+    ty /= m;
+    const nx = ty;
+    const ny = -tx;
+    const x = pts[i];
+    const y = pts[i + 1];
+    const [lwx, lwz] = wt.project(x - nx * halfW, y - ny * halfW);
+    const [rwx, rwz] = wt.project(x + nx * halfW, y + ny * halfW);
+    verts.push(lwx, yLevel, lwz);
+    verts.push(rwx, yLevel, rwz);
+    if (prevHadVerts) {
+      const a = ringStart + (i / 2 - 1) * 2;
+      const b = a + 1;
+      const c = a + 2;
+      const d = a + 3;
+      indices.push(a, c, b, b, c, d);
+    }
+    prevHadVerts = true;
+  }
+  return base + pts.length;
 }
 
 function addBuildings(group: THREE.Group, network: RoadNetwork, wt: WorldTransform) {
