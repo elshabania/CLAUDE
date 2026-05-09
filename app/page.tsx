@@ -2,8 +2,20 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { CadViewer, CATEGORY_COLORS } from "@/components/CadViewer";
+import { NetworkViewer } from "@/components/NetworkViewer";
+import { JunctionPanel } from "@/components/JunctionPanel";
 import { detectFromPdf, type ParsedDrawing, type RoadCategory } from "@/lib/road-detect";
 import { extractPdfPathsInBrowser } from "@/lib/pdf-extract-client";
+import { buildRoadNetwork, classifyJunctionApproaches } from "@/lib/road-network";
+import {
+  analyzeJunction,
+  defaultJunctionInputs,
+  DIRS,
+  type JunctionInputs,
+  type JunctionResult,
+} from "@/lib/hcm";
+
+type ViewMode = "drawing" | "network";
 
 const ALL_CATEGORIES: RoadCategory[] = [
   "centerline",
@@ -32,6 +44,9 @@ export default function Page() {
   const [result, setResult] = useState<ParseResponse | null>(null);
   const [visibleGroups, setVisibleGroups] = useState<Record<string, boolean>>({});
   const [groupCategory, setGroupCategory] = useState<Record<string, RoadCategory>>({});
+  const [view, setView] = useState<ViewMode>("drawing");
+  const [selectedJunctionId, setSelectedJunctionId] = useState<string | null>(null);
+  const [junctionInputs, setJunctionInputs] = useState<Record<string, JunctionInputs>>({});
   const inputRef = useRef<HTMLInputElement | null>(null);
 
   // Reset visibility/categories whenever a new file is loaded.
@@ -45,6 +60,8 @@ export default function Page() {
     }
     setVisibleGroups(v);
     setGroupCategory(c);
+    setJunctionInputs({});
+    setSelectedJunctionId(null);
   }, [result]);
 
   const stats = useMemo(() => {
@@ -64,13 +81,60 @@ export default function Page() {
     })).filter((s) => s.count > 0);
   }, [result, groupCategory]);
 
+  // Build the road network whenever drawing or category overrides change.
+  // Limited to network view to avoid the cost on initial drawing-only viewing.
+  const network = useMemo(() => {
+    if (!result || view !== "network") return null;
+    return buildRoadNetwork(result.drawing, groupCategory);
+  }, [result, groupCategory, view]);
+
+  // Seed default junction inputs whenever new junctions appear.
+  useEffect(() => {
+    if (!network) return;
+    setJunctionInputs((prev) => {
+      const next = { ...prev };
+      let changed = false;
+      for (const j of network.junctions) {
+        if (next[j.id]) continue;
+        const seed = defaultJunctionInputs();
+        // Use approach-bearing detection to zero out any cardinal directions
+        // that don't actually have a connecting link at this junction.
+        const present = new Set(
+          classifyJunctionApproaches(j, network).map((a) => a.cardinal)
+        );
+        for (const dir of DIRS) {
+          if (!present.has(dir)) {
+            seed.approaches[dir] = {
+              lanes: { L: 0, T: 0, R: 0 },
+              greenTime: 0,
+              volumes: { L: 0, T: 0, R: 0 },
+            };
+          }
+        }
+        next[j.id] = seed;
+        changed = true;
+      }
+      return changed ? next : prev;
+    });
+  }, [network]);
+
+  const junctionResults = useMemo(() => {
+    if (!network) return {};
+    const out: Record<string, JunctionResult> = {};
+    for (const j of network.junctions) {
+      const inputs = junctionInputs[j.id];
+      if (!inputs) continue;
+      out[j.id] = analyzeJunction(inputs);
+    }
+    return out;
+  }, [network, junctionInputs]);
+
   async function handleFile(file: File) {
     setStatus("loading");
     setError(null);
     const isPdf = file.name.toLowerCase().endsWith(".pdf");
     try {
       if (isPdf) {
-        // Parse PDFs in the browser to bypass serverless body / time limits.
         const paths = await extractPdfPathsInBrowser(file);
         const drawing = detectFromPdf(paths);
         setResult({ filename: file.name, drawing });
@@ -109,6 +173,13 @@ export default function Page() {
     }
   }
 
+  const selectedInputs = selectedJunctionId
+    ? junctionInputs[selectedJunctionId]
+    : undefined;
+  const selectedResult = selectedJunctionId
+    ? junctionResults[selectedJunctionId]
+    : undefined;
+
   return (
     <main style={{ display: "flex", height: "100vh", width: "100vw" }}>
       <aside
@@ -122,9 +193,8 @@ export default function Page() {
       >
         <h1 style={{ margin: "0 0 4px", fontSize: 20 }}>Road CAD Viewer</h1>
         <p style={{ margin: "0 0 20px", color: "#94a3b8", fontSize: 13 }}>
-          Upload a PDF, DXF or DWG drawing. The app extracts vector geometry, groups it by
-          layer or stroke colour, and lets you re-classify each group as roads, buildings,
-          boundaries, etc.
+          Upload a PDF, DXF or DWG drawing. Switch to the Network tab to derive a
+          junction-level model and run HCM analysis on each intersection.
         </p>
 
         <input
@@ -177,7 +247,8 @@ export default function Page() {
             </h2>
             <div style={{ fontSize: 12, color: "#94a3b8", marginBottom: 16 }}>
               {result.drawing.entityCount} entities · {result.drawing.segments.length} segments
-              · {result.drawing.groups.length} {result.drawing.source === "pdf" ? "colour groups" : "layers"}
+              · {result.drawing.groups.length}{" "}
+              {result.drawing.source === "pdf" ? "colour groups" : "layers"}
             </div>
 
             <h3 style={{ fontSize: 13, color: "#cbd5e1", margin: "16px 0 8px" }}>
@@ -278,7 +349,14 @@ export default function Page() {
                       </option>
                     ))}
                   </select>
-                  <span style={{ color: "#64748b", fontVariantNumeric: "tabular-nums", minWidth: 28, textAlign: "right" }}>
+                  <span
+                    style={{
+                      color: "#64748b",
+                      fontVariantNumeric: "tabular-nums",
+                      minWidth: 28,
+                      textAlign: "right",
+                    }}
+                  >
                     {g.count}
                   </span>
                 </div>
@@ -288,28 +366,131 @@ export default function Page() {
         )}
       </aside>
 
-      <section style={{ flex: 1, position: "relative" }}>
-        {result ? (
-          <CadViewer
-            drawing={result.drawing}
-            visibleGroups={visibleGroups}
-            groupCategory={groupCategory}
-          />
-        ) : (
+      <section
+        style={{
+          flex: 1,
+          position: "relative",
+          display: "flex",
+          flexDirection: "column",
+          minWidth: 0,
+        }}
+      >
+        {result && (
           <div
             style={{
-              height: "100%",
               display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              color: "#475569",
-              fontSize: 14,
+              gap: 4,
+              padding: "8px 12px",
+              borderBottom: "1px solid #1e293b",
+              background: "#0b1220",
             }}
           >
-            Upload a drawing to begin
+            <TabButton
+              active={view === "drawing"}
+              onClick={() => setView("drawing")}
+            >
+              Drawing
+            </TabButton>
+            <TabButton
+              active={view === "network"}
+              onClick={() => setView("network")}
+            >
+              Network
+            </TabButton>
+            {view === "network" && network && (
+              <div
+                style={{
+                  marginLeft: "auto",
+                  alignSelf: "center",
+                  fontSize: 11,
+                  color: "#94a3b8",
+                }}
+              >
+                {network.junctions.length} junctions detected. Click one to edit.
+              </div>
+            )}
           </div>
         )}
+
+        <div style={{ flex: 1, position: "relative", display: "flex", minHeight: 0 }}>
+          {!result && (
+            <div
+              style={{
+                flex: 1,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                color: "#475569",
+                fontSize: 14,
+              }}
+            >
+              Upload a drawing to begin
+            </div>
+          )}
+
+          {result && view === "drawing" && (
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <CadViewer
+                drawing={result.drawing}
+                visibleGroups={visibleGroups}
+                groupCategory={groupCategory}
+              />
+            </div>
+          )}
+
+          {result && view === "network" && network && (
+            <>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <NetworkViewer
+                  network={network}
+                  results={junctionResults}
+                  selectedJunctionId={selectedJunctionId}
+                  onSelectJunction={setSelectedJunctionId}
+                />
+              </div>
+              {selectedJunctionId && selectedInputs && selectedResult && (
+                <JunctionPanel
+                  junctionLabel={`Junction ${selectedJunctionId}`}
+                  inputs={selectedInputs}
+                  result={selectedResult}
+                  onChange={(next) =>
+                    setJunctionInputs((m) => ({ ...m, [selectedJunctionId]: next }))
+                  }
+                  onClose={() => setSelectedJunctionId(null)}
+                />
+              )}
+            </>
+          )}
+        </div>
       </section>
     </main>
+  );
+}
+
+function TabButton({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        background: active ? "#1e293b" : "transparent",
+        color: active ? "#fbbf24" : "#94a3b8",
+        border: 0,
+        borderRadius: 6,
+        padding: "6px 14px",
+        fontSize: 12,
+        fontWeight: 600,
+        cursor: "pointer",
+      }}
+    >
+      {children}
+    </button>
   );
 }
