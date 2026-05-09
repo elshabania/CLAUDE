@@ -329,42 +329,44 @@ export function detectFromPdf(
     }
   }
 
-  // Per-category caps applied BEFORE stitching. Lane stripes are visually
-  // decorative once you can see the road body, so 1500 of them (longest
-  // first) is plenty. Edge/curb stay high because the centerline
-  // derivation needs them dense. The pre-cap dramatically reduces the
-  // memory cost of stitching and prevents OOM on huge lane layers like
-  // Road Lane_Main (44k) and Survey_EXI_LANE (51k).
-  const PRE_STITCH_CAP: Record<RoadCategory, number> = {
-    edge: 12000,
-    curb: 12000,
-    lane: 1500,
-    centerline: 4000,
-    boundary: 2500,
+  // Stitch FIRST, cap AFTER. The user's main layers (Road Lane_Main = 44k
+  // stripes, Survey_EXI_LANE = 51k) are heavily fragmented in the source
+  // PDF; the stitcher is what collapses them back into a small number of
+  // continuous polylines. Capping before stitching would lose 97% of the
+  // layer's stripes before they could be merged. The stitcher itself
+  // mutates point arrays in place so memory cost stays bounded even at
+  // 50k+ segments per group.
+  const stitched0 = stitchSegmentsByGroup(segments, diag);
+
+  // Per-category caps applied AFTER stitching. After 44k stripes have
+  // collapsed to ~hundreds of polylines, even a tight cap leaves plenty
+  // of visual coverage.
+  const POST_STITCH_CAP: Record<RoadCategory, number> = {
+    edge: 6000,
+    curb: 6000,
+    lane: 4000,
+    centerline: 2000,
+    boundary: 2000,
     shoulder: 1500,
     building: 6000,
     other: 3000,
   };
   const byCat = new Map<RoadCategory, DrawingSegment[]>();
-  for (const s of segments) {
+  for (const s of stitched0) {
     const arr = byCat.get(s.category) ?? [];
     arr.push(s);
     byCat.set(s.category, arr);
   }
-  const preCapped: DrawingSegment[] = [];
+  const stitched: DrawingSegment[] = [];
   for (const [cat, arr] of byCat) {
-    const cap = PRE_STITCH_CAP[cat] ?? 3000;
+    const cap = POST_STITCH_CAP[cat] ?? 3000;
     if (arr.length <= cap) {
-      preCapped.push(...arr);
+      stitched.push(...arr);
       continue;
     }
     arr.sort((a, b) => b.length - a.length);
-    preCapped.push(...arr.slice(0, cap));
+    stitched.push(...arr.slice(0, cap));
   }
-
-  // Now stitch the capped set. With each group bounded the stitcher's
-  // memory and time cost are well within budget.
-  const stitched = stitchSegmentsByGroup(preCapped, diag);
   // Recompute group counts / total length to reflect the merged segments.
   for (const g of groupMap.values()) {
     g.count = 0;
@@ -518,9 +520,13 @@ function stitchSegmentsByGroup(
       }
       if (!best) continue;
       const b = segCopy[best.j];
+      // Build the merged point array WITHOUT calling slice + concat (those
+      // allocate fresh arrays per merge - on a 44k-stripe layer that's a
+      // GC nightmare). Mutate a.points in place: drop its last point
+      // (which is the duplicated join), then append b's points.
       const bPts = best.reverse ? reverseFlat(b.points) : b.points;
-      const merged = a.points.slice(0, a.points.length - 2).concat(bPts);
-      if (merged.length < 4 || merged.length > MAX_MERGED_POINTS) continue;
+      const projectedLen = a.points.length - 2 + bPts.length;
+      if (projectedLen < 4 || projectedLen > MAX_MERGED_POINTS) continue;
 
       // Update grid: remove a's old tail, b's used end and free end.
       removeEnd(i, 1, tx, ty);
@@ -533,7 +539,11 @@ function stitchSegmentsByGroup(
       removeEnd(best.j, bUsedEnd, bUsedX, bUsedY);
       removeEnd(best.j, bFreeEnd, bFreeX, bFreeY);
 
-      a.points = merged;
+      // In-place merge: shrink a.points to drop the duplicated join point,
+      // then push b's points one element at a time (avoids the spread-args
+      // call-stack limit on long arrays).
+      a.points.length -= 2;
+      for (let k = 0; k < bPts.length; k++) a.points.push(bPts[k]);
       a.length = a.length + b.length + best.d;
       dropped.add(best.j);
       // Re-add a's NEW tail to the grid so it can chain again.
