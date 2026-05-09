@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { CadViewer, CATEGORY_COLORS } from "@/components/CadViewer";
 import { NetworkViewer } from "@/components/NetworkViewer";
+import { SimulationViewer } from "@/components/SimulationViewer";
 import { detectFromPdf, type ParsedDrawing, type RoadCategory } from "@/lib/road-detect";
 import {
   extractPdfPathsInBrowser,
@@ -11,7 +12,7 @@ import {
 } from "@/lib/pdf-extract-client";
 import { buildRoadNetwork } from "@/lib/road-network";
 
-type ViewMode = "drawing" | "network";
+type ViewMode = "drawing" | "network" | "simulation";
 
 const ALL_CATEGORIES: RoadCategory[] = [
   "centerline",
@@ -81,9 +82,10 @@ export default function Page() {
   }, [result, groupCategory]);
 
   // Build the road network whenever drawing or category overrides change.
-  // Limited to network view to avoid the cost on initial drawing-only viewing.
+  // Skip when only the Drawing tab is being viewed since the network builder
+  // is the more expensive step.
   const network = useMemo(() => {
-    if (!result || view !== "network") return null;
+    if (!result || view === "drawing") return null;
     return buildRoadNetwork(result.drawing, groupCategory);
   }, [result, groupCategory, view]);
 
@@ -236,9 +238,13 @@ export default function Page() {
               {result.filename}
             </h2>
             <div style={{ fontSize: 12, color: "#94a3b8", marginBottom: 16 }}>
-              {result.drawing.entityCount} entities · {result.drawing.segments.length} segments
-              · {result.drawing.groups.length}{" "}
-              {result.drawing.source === "pdf" ? "colour groups" : "layers"}
+              {result.drawing.entityCount} entities · {result.drawing.segments.length}{" "}
+              segments · {result.drawing.groups.length}{" "}
+              {result.drawing.groups.some((g) => g.layer)
+                ? "PDF layers"
+                : result.drawing.source === "pdf"
+                ? "colour groups"
+                : "layers"}
             </div>
 
             <h3 style={{ fontSize: 13, color: "#cbd5e1", margin: "16px 0 8px" }}>
@@ -271,7 +277,11 @@ export default function Page() {
             ))}
 
             <h3 style={{ fontSize: 13, color: "#cbd5e1", margin: "20px 0 8px" }}>
-              {result.drawing.source === "pdf" ? "Colour groups" : "Layers"}
+              {result.drawing.groups.some((g) => g.layer)
+                ? "PDF layers"
+                : result.drawing.source === "pdf"
+                ? "Colour groups"
+                : "Layers"}
             </h3>
             <div style={{ fontSize: 12, color: "#94a3b8" }}>
               {result.drawing.groups.map((g) => (
@@ -387,6 +397,12 @@ export default function Page() {
             >
               Network
             </TabButton>
+            <TabButton
+              active={view === "simulation"}
+              onClick={() => setView("simulation")}
+            >
+              Simulation
+            </TabButton>
             {view === "network" && network && (
               <div
                 style={{
@@ -470,6 +486,23 @@ export default function Page() {
                   groupCategory={groupCategory}
                   network={network}
                   showJunctions={showJunctions}
+                />
+              )}
+            </div>
+          )}
+
+          {result && view === "simulation" && network && (
+            <div style={{ flex: 1, position: "relative", minWidth: 0 }}>
+              {network.links.length === 0 ? (
+                <EmptyState
+                  title="No drivable network"
+                  body="Switch to the Network tab and confirm that at least one cluster is classified as 'centerline'. The simulator drives vehicles along centerline links."
+                />
+              ) : (
+                <SimulationViewer
+                  drawing={result.drawing}
+                  groupCategory={groupCategory}
+                  network={network}
                 />
               )}
             </div>
