@@ -699,20 +699,76 @@ export function buildRoadNetwork(
   // estimates on weirdly-shaped polygons).
   const widths: number[] = [];
   for (const l of linkArr) if (l.width != null) widths.push(l.width);
+  let medianWidth = 0;
   if (widths.length > 0) {
     widths.sort((a, b) => a - b);
-    const medianWidth = widths[Math.floor(widths.length / 2)];
-    const laneUnit = Math.max(1e-3, medianWidth / 2);
-    for (const link of linkArr) {
-      if (link.width == null) {
-        link.lanesPerDir = 1;
-        continue;
-      }
-      const total = Math.max(2, Math.min(8, Math.round(link.width / laneUnit)));
-      link.lanesPerDir = Math.max(1, Math.floor(total / 2));
+    medianWidth = widths[Math.floor(widths.length / 2)];
+  }
+  const laneUnit = medianWidth > 0 ? Math.max(1e-3, medianWidth / 2) : diag * 0.001;
+
+  // Lane-count derivation from the actual CAD lane markings:
+  // for each link with a bodyPolygon (= the asphalt area between paired
+  // curbs), count how many lane-separator polylines lie INSIDE the body.
+  // N internal markings = N+1 lanes total. This produces an accurate
+  // per-link lane count for any road that the curb-pair derivation
+  // covered. Fallback to the width-based estimate when there's no body
+  // polygon (e.g. a single-curb stretch).
+  const laneMarkings: { mid: { x: number; y: number } }[] = [];
+  for (const seg of drawing.segments) {
+    const cat = groupCategoryOverrides[seg.groupId] ?? seg.category;
+    if (cat !== "lane") continue;
+    // Skip decorative paint (zebras, stop lines, arrows, drop-kerb marks)
+    // - those aren't lane separators.
+    const layer = (seg.layer ?? "").toLowerCase();
+    if (
+      layer.includes("pedestrian") ||
+      layer.includes("crosswalk") ||
+      layer.includes("zebra") ||
+      layer.includes("stop line") ||
+      layer.includes("giveway") ||
+      layer.includes("give way") ||
+      layer.includes("arrow") ||
+      layer.includes("drop kerb") ||
+      layer.includes("parking") ||
+      layer.includes("crossing") ||
+      layer.includes("no crossing")
+    ) {
+      continue;
     }
-  } else {
-    for (const link of linkArr) link.lanesPerDir = 1;
+    if (seg.points.length < 4) continue;
+    // Sample the polyline midpoint.
+    const midIdx = Math.floor(seg.points.length / 4) * 2;
+    laneMarkings.push({
+      mid: { x: seg.points[midIdx], y: seg.points[midIdx + 1] },
+    });
+  }
+
+  for (const link of linkArr) {
+    let totalLanes = 2;
+    if (link.bodyPolygon && link.bodyPolygon.length >= 6) {
+      let mnx = Infinity,
+        mny = Infinity,
+        mxx = -Infinity,
+        mxy = -Infinity;
+      for (let i = 0; i < link.bodyPolygon.length; i += 2) {
+        const x = link.bodyPolygon[i];
+        const y = link.bodyPolygon[i + 1];
+        if (x < mnx) mnx = x;
+        if (y < mny) mny = y;
+        if (x > mxx) mxx = x;
+        if (y > mxy) mxy = y;
+      }
+      let internal = 0;
+      for (const m of laneMarkings) {
+        if (m.mid.x < mnx || m.mid.x > mxx || m.mid.y < mny || m.mid.y > mxy)
+          continue;
+        if (pointInPolygon(m.mid.x, m.mid.y, link.bodyPolygon)) internal += 1;
+      }
+      totalLanes = Math.max(2, Math.min(8, internal + 1));
+    } else if (link.width != null) {
+      totalLanes = Math.max(2, Math.min(8, Math.round(link.width / laneUnit)));
+    }
+    link.lanesPerDir = Math.max(1, Math.floor(totalLanes / 2));
   }
 
   return {
