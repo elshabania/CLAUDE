@@ -992,9 +992,15 @@ function syncVehicles(
     const fy = v.dir === 1 ? tan.dy : -tan.dy;
     const rx = fy;
     const ry = -fx;
-    const linkLaneOffset = link.width != null ? link.width / 4 : v.laneOffset;
-    const offX = pos.x + rx * linkLaneOffset;
-    const offY = pos.y + ry * linkLaneOffset;
+    // Multi-lane offset: lane 0 closest to outer kerb, higher = toward
+    // centerline. Falls back to width/4 single-lane behaviour when the
+    // link's lanesPerDir wasn't computed.
+    const lanesPerDir = Math.max(1, link.lanesPerDir ?? 1);
+    const halfW = (link.width ?? v.laneOffset * 4) / 2;
+    const laneWidth = halfW / lanesPerDir;
+    const laneOffset = halfW - (v.lane + 0.5) * laneWidth;
+    const offX = pos.x + rx * laneOffset;
+    const offY = pos.y + ry * laneOffset;
     const [wx, wz] = wt.project(offX, offY);
     mesh.position.set(wx, carHeight * 0.27 + 0.06, wz);
     const heading = Math.atan2(-fy, fx);

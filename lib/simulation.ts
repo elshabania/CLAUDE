@@ -12,7 +12,12 @@ export interface Vehicle {
   v: number;
   /** Desired free-flow speed. */
   v0: number;
-  /** Lateral offset along the right-hand normal of the travel direction. */
+  /** Lane index in the current link's direction-of-travel: 0 = closest to
+   *  the outer kerb (slowest lane), increasing toward the centerline. */
+  lane: number;
+  /** Lateral offset along the right-hand normal of travel - kept for
+   *  compatibility with single-lane fallback rendering when a link has
+   *  no lanesPerDir set. */
   laneOffset: number;
   /** RGB colour for rendering. */
   color: string;
@@ -303,6 +308,7 @@ export function spawnVehicles(
   const vehicles: Vehicle[] = [];
   for (let i = 0; i < count; i++) {
     const link = network.links[Math.floor(Math.random() * network.links.length)];
+    const lanesPerDir = Math.max(1, link.lanesPerDir ?? 1);
     vehicles.push({
       id: id0 + i,
       linkId: link.id,
@@ -310,6 +316,7 @@ export function spawnVehicles(
       dir: Math.random() < 0.5 ? 1 : -1,
       v: 0,
       v0: baseSpeed * (0.75 + Math.random() * 0.5),
+      lane: Math.floor(Math.random() * lanesPerDir),
       laneOffset: config.laneOffset,
       color: VEHICLE_COLORS[i % VEHICLE_COLORS.length],
     });
@@ -368,10 +375,12 @@ export function step(state: SimulationState, dt: number): void {
   const s0 = config.diag * 0.0015; // jam distance
 
   // Group vehicles by (link, dir) for fast leader lookup.
+  // Per-lane grouping: vehicles in adjacent lanes don't block each other,
+  // so IDM only sees a leader on the same (link, dir, lane) tuple.
   const groups = new Map<string, VehicleGroupEntry[]>();
   for (let i = 0; i < vehicles.length; i++) {
     const v = vehicles[i];
-    const key = `${v.linkId}_${v.dir}`;
+    const key = `${v.linkId}_${v.dir}_${v.lane}`;
     let arr = groups.get(key);
     if (!arr) {
       arr = [];
@@ -485,6 +494,12 @@ export function step(state: SimulationState, dt: number): void {
         veh.s = 0;
         veh.dir = 1;
       }
+      // Clamp lane index to the new link's lane count - if the new road
+      // is narrower than the previous one, push the vehicle inwards
+      // (slow lane fills up first).
+      const newLanesPerDir = Math.max(1, next.lanesPerDir ?? 1);
+      if (veh.lane >= newLanesPerDir) veh.lane = newLanesPerDir - 1;
+      if (veh.lane < 0) veh.lane = 0;
     }
   }
 }

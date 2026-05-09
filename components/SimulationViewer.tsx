@@ -245,8 +245,14 @@ export function SimulationViewer({ drawing, groupCategory, network }: Props) {
       // Right-hand normal of the forward direction (right-side driving).
       const rx = fy;
       const ry = -fx;
-      const offX = pos.x + rx * v.laneOffset;
-      const offY = pos.y + ry * v.laneOffset;
+      // Multi-lane offset: lane 0 sits closest to the outer kerb, higher
+      // indices toward the centerline. halfWidth - (lane+0.5)*laneWidth.
+      const lanesPerDir = Math.max(1, link.lanesPerDir ?? 1);
+      const halfW = (link.width ?? v.laneOffset * 4) / 2;
+      const laneWidth = halfW / lanesPerDir;
+      const laneOffset = halfW - (v.lane + 0.5) * laneWidth;
+      const offX = pos.x + rx * laneOffset;
+      const offY = pos.y + ry * laneOffset;
       const screenX = px(offX);
       const screenY = py(offY);
 

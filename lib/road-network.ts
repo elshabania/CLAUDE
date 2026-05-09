@@ -38,6 +38,10 @@ export interface NetworkLink {
    *  paired curbs that produced its centerline). Set when the link comes
    *  from the curb-pair derivation, omitted otherwise. */
   bodyPolygon?: number[];
+  /** Number of travel lanes PER DIRECTION on this link. Computed from
+   *  `width` against the network's median link width so a typical 2-lane
+   *  road = 1 lane per dir, double-width = 2 per dir, etc. */
+  lanesPerDir?: number;
 }
 
 export type BuildingType =
@@ -686,9 +690,34 @@ export function buildRoadNetwork(
   const buildings = mergeBuildingClusters(labelled);
 
   const nodeArr = Array.from(nodes.values());
+  const linkArr = Array.from(linkMap.values());
+
+  // Tag each link with its lanesPerDir, derived from its width vs the
+  // network's median link width. The lane unit is half the median width
+  // because we assume the median road carries 1 lane per direction. Wider
+  // links scale up (2 / 3 / 4 lanes per dir, capped at 4 to avoid runaway
+  // estimates on weirdly-shaped polygons).
+  const widths: number[] = [];
+  for (const l of linkArr) if (l.width != null) widths.push(l.width);
+  if (widths.length > 0) {
+    widths.sort((a, b) => a - b);
+    const medianWidth = widths[Math.floor(widths.length / 2)];
+    const laneUnit = Math.max(1e-3, medianWidth / 2);
+    for (const link of linkArr) {
+      if (link.width == null) {
+        link.lanesPerDir = 1;
+        continue;
+      }
+      const total = Math.max(2, Math.min(8, Math.round(link.width / laneUnit)));
+      link.lanesPerDir = Math.max(1, Math.floor(total / 2));
+    }
+  } else {
+    for (const link of linkArr) link.lanesPerDir = 1;
+  }
+
   return {
     nodes: nodeArr,
-    links: Array.from(linkMap.values()),
+    links: linkArr,
     junctions: nodeArr.filter((n) => n.isJunction),
     buildings,
     bounds: { minX, minY, maxX, maxY },
