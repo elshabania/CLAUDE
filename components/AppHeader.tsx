@@ -2,14 +2,32 @@
 
 import { LOS_COLORS, type JunctionResult } from "@/lib/hcm";
 
+interface MethodOption {
+  id: string;
+  name: string;
+  description: string;
+}
+
 interface Props {
   filename: string | null;
   results: Record<string, JunctionResult | undefined>;
   totalDemand?: number;
   onUpload: () => void;
+  /** Method picker. When omitted, the dropdown isn't rendered. */
+  methods?: MethodOption[];
+  selectedMethodId?: string;
+  onSelectMethod?: (id: string) => void;
 }
 
-export function AppHeader({ filename, results, totalDemand, onUpload }: Props) {
+export function AppHeader({
+  filename,
+  results,
+  totalDemand,
+  onUpload,
+  methods,
+  selectedMethodId,
+  onSelectMethod,
+}: Props) {
   const list = Object.values(results).filter(Boolean) as JunctionResult[];
   const totalDelayWeighted = list.reduce(
     (acc, r) => acc + r.delay * r.totalVolume,
@@ -101,6 +119,43 @@ export function AppHeader({ filename, results, totalDemand, onUpload }: Props) {
       )}
 
       <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 14 }}>
+        {methods && onSelectMethod && (
+          <label
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: 2,
+              fontSize: 9,
+              color: "#64748b",
+              letterSpacing: 1.4,
+              textTransform: "uppercase",
+            }}
+          >
+            Method
+            <select
+              value={selectedMethodId}
+              onChange={(e) => onSelectMethod(e.target.value)}
+              style={{
+                background: "#0a1120",
+                color: "#e2e8f0",
+                border: "1px solid #334155",
+                borderRadius: 6,
+                fontSize: 11,
+                padding: "5px 8px",
+                minWidth: 260,
+              }}
+              title={
+                methods.find((m) => m.id === selectedMethodId)?.description
+              }
+            >
+              {methods.map((m) => (
+                <option key={m.id} value={m.id} title={m.description}>
+                  {m.name}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
         <button
           onClick={onUpload}
           style={{

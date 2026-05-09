@@ -5,6 +5,7 @@ import type {
 } from "@/lib/road-detect";
 import { deriveCenterlinesFromCurbs } from "@/lib/centerline-derivation";
 import { extractRoadSkeleton } from "@/lib/road-skeleton";
+import { getMethod, type MethodInput } from "@/lib/methods";
 
 export interface NetworkNode {
   id: string;
@@ -98,6 +99,8 @@ export interface BuildNetworkOptions {
   deriveCenterlines?: boolean;
   /** Maximum road width as fraction of bounds diagonal (for derivation). */
   maxRoadWidthFraction?: number;
+  /** Which extraction method to dispatch to. Default: "skeleton-zs-1100". */
+  methodId?: string;
 }
 
 const DEFAULT_ROAD: RoadCategory[] = ["centerline"];
@@ -188,32 +191,55 @@ export function buildRoadNetwork(
   };
   let roadSegs: RoadSeg[];
   if (shouldDerive && curbSegs.length > 0) {
-    // Primary path: image-based medial-axis extractor. Rasterizes kerbs,
-    // distance-transforms the asphalt mask, thins to a 1-pixel-wide
-    // skeleton, and traces the skeleton into polylines + body polygons.
-    // Falls back to the local pair-matcher when the image path is
-    // unavailable (no `document`, e.g. SSR) or returns nothing.
+    // Dispatch to the requested method (defaults to skeleton-zs-1100).
+    // The METHODS registry exposes 20 different extraction strategies;
+    // the dashboard's method-picker UI flips this id live.
+    const methodId = opts.methodId ?? "skeleton-zs-1100";
+    const method = getMethod(methodId);
+
+    // Lane markings (Road Lane_Main, Survey_EXI_LANE, etc.) are needed by
+    // some methods (lane-as-centerline, lane-curb-pair, lane-lane-pair).
+    const laneMarkings: DrawingSegment[] = [];
+    for (const s of drawing.segments) {
+      const cat = groupCategoryOverrides[s.groupId] ?? s.category;
+      if (cat === "lane") laneMarkings.push(s);
+    }
+
+    const methodInput: MethodInput = {
+      curbs: curbSegs,
+      laneMarkings,
+      bounds: { minX, minY, maxX, maxY },
+    };
+
     let derived: {
       points: number[];
       length: number;
       width: number;
       bodyPolygon: number[];
     }[] = [];
-    if (typeof document !== "undefined") {
-      const skeleton = extractRoadSkeleton(curbSegs, { minX, minY, maxX, maxY });
-      if (skeleton.length > 0) derived = skeleton;
+    try {
+      derived = method.compute(methodInput);
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.warn(`Method ${methodId} threw, falling back:`, err);
+      derived = [];
+    }
+
+    // Fallback to skeleton-default if the chosen method returned nothing
+    // (e.g. running in SSR where document is undefined).
+    if (derived.length === 0 && typeof document !== "undefined") {
+      derived = extractRoadSkeleton(curbSegs, { minX, minY, maxX, maxY });
     }
     if (derived.length === 0) {
       const maxRoadWidth = diag * (opts.maxRoadWidthFraction ?? 0.025);
       const sampleStep = Math.max(diag * 0.0025, 1);
-      const fallback = deriveCenterlinesFromCurbs(curbSegs, {
+      derived = deriveCenterlinesFromCurbs(curbSegs, {
         maxRoadWidth,
         sampleStep,
         parallelCos: 0.85,
         perpCos: 0.4,
         minPoints: 3,
       });
-      derived = fallback;
     }
     roadSegs = derived.map((d) => ({
       points: d.points,

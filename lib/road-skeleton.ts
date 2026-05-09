@@ -40,6 +40,9 @@ interface ExtractOptions {
   /** Cap on Zhang-Suen iterations - the algorithm converges in ~30-50 for
    *  a typical road network; this is just a safety. */
   thinIterationCap?: number;
+  /** Thinner: 'zhang-suen' (default) | 'guo-hall' | 'distance-ridge' |
+   *  'erosion' (iterative one-px morphological erosion). */
+  thinner?: "zhang-suen" | "guo-hall" | "distance-ridge" | "erosion";
 }
 
 export function extractRoadSkeleton(
@@ -195,10 +198,15 @@ export function extractRoadSkeleton(
     }
   }
 
-  // 4. Zhang-Suen thinning. Operates on a copy so we keep `keep` for the
-  // body-polygon sweep later.
+  // 4. Thin to a 1-pixel-wide skeleton. Algorithm chosen by opts.thinner.
+  // All variants operate on a copy so we keep `keep` for the body-polygon
+  // sweep later.
   const skel = keep.slice();
-  zhangSuen(skel, W, H, thinCap);
+  const thinner = opts.thinner ?? "zhang-suen";
+  if (thinner === "guo-hall") guoHall(skel, W, H, thinCap);
+  else if (thinner === "distance-ridge") distanceRidge(skel, dist, W, H);
+  else if (thinner === "erosion") morphologicalErosion(skel, W, H, thinCap);
+  else zhangSuen(skel, W, H, thinCap);
 
   // 5. Trace skeleton -> polylines.
   const polylines = traceSkeleton(skel, W, H, minPolylinePx);
@@ -483,4 +491,121 @@ function sweepBody(
   for (let i = 0; i < left.length; i += 2) poly.push(left[i], left[i + 1]);
   for (let i = right.length - 2; i >= 0; i -= 2) poly.push(right[i], right[i + 1]);
   return poly;
+}
+
+/**
+ * Guo-Hall thinning. Slightly different deletion mask than Zhang-Suen;
+ * tends to produce skeletons with fewer spurs near junctions.
+ */
+function guoHall(mask: Uint8Array, W: number, H: number, cap: number) {
+  let changed = true;
+  let iter = 0;
+  const toRemove: number[] = [];
+  while (changed && iter++ < cap) {
+    changed = false;
+    for (const subIter of [0, 1]) {
+      toRemove.length = 0;
+      for (let y = 1; y < H - 1; y++) {
+        for (let x = 1; x < W - 1; x++) {
+          const idx = y * W + x;
+          if (mask[idx] !== 1) continue;
+          const p2 = mask[idx - W];
+          const p3 = mask[idx - W + 1];
+          const p4 = mask[idx + 1];
+          const p5 = mask[idx + W + 1];
+          const p6 = mask[idx + W];
+          const p7 = mask[idx + W - 1];
+          const p8 = mask[idx - 1];
+          const p9 = mask[idx - W - 1];
+          // C: number of distinct 8-neighbour pairs that don't have both 1.
+          const C =
+            ((p9 === 0 ? 1 : 0) & (p2 === 1 || p3 === 1 ? 1 : 0)) +
+            ((p3 === 0 ? 1 : 0) & (p4 === 1 || p5 === 1 ? 1 : 0)) +
+            ((p5 === 0 ? 1 : 0) & (p6 === 1 || p7 === 1 ? 1 : 0)) +
+            ((p7 === 0 ? 1 : 0) & (p8 === 1 || p9 === 1 ? 1 : 0));
+          if (C !== 1) continue;
+          const N1 = (p9 | p2) + (p3 | p4) + (p5 | p6) + (p7 | p8);
+          const N2 = (p2 | p3) + (p4 | p5) + (p6 | p7) + (p8 | p9);
+          const N = Math.min(N1, N2);
+          if (N < 2 || N > 3) continue;
+          const m =
+            subIter === 0
+              ? (p2 | p3 | (1 - p5)) & p4
+              : (p6 | p7 | (1 - p9)) & p8;
+          if (m !== 0) continue;
+          toRemove.push(idx);
+        }
+      }
+      for (const idx of toRemove) {
+        mask[idx] = 0;
+        changed = true;
+      }
+    }
+  }
+}
+
+/**
+ * Distance-ridge thinning: keep pixels that are local maxima (or strict
+ * ridges) of the distance field. Cheap O(N), produces a thicker
+ * skeleton than morphological thinners but is robust on noisy kerbs.
+ */
+function distanceRidge(mask: Uint8Array, dist: Int32Array, W: number, H: number) {
+  const out = new Uint8Array(mask.length);
+  for (let y = 1; y < H - 1; y++) {
+    for (let x = 1; x < W - 1; x++) {
+      const idx = y * W + x;
+      if (mask[idx] !== 1) continue;
+      const d = dist[idx];
+      if (d < 2) continue;
+      // Pixel is on the ridge if its distance is >= each 8-neighbour.
+      let isRidge = true;
+      for (const off of [-W - 1, -W, -W + 1, -1, 1, W - 1, W, W + 1]) {
+        if (dist[idx + off] > d) {
+          isRidge = false;
+          break;
+        }
+      }
+      if (isRidge) out[idx] = 1;
+    }
+  }
+  for (let i = 0; i < mask.length; i++) mask[i] = out[i];
+}
+
+/**
+ * Iterative morphological erosion: peel one pixel layer at a time until
+ * each connected component is 1-2 pixels wide. Simple but can collapse
+ * narrow corridors entirely; good for sanity-comparison.
+ */
+function morphologicalErosion(mask: Uint8Array, W: number, H: number, cap: number) {
+  const buf = new Uint8Array(mask.length);
+  for (let iter = 0; iter < cap; iter++) {
+    let changed = false;
+    for (let i = 0; i < mask.length; i++) buf[i] = mask[i];
+    for (let y = 1; y < H - 1; y++) {
+      for (let x = 1; x < W - 1; x++) {
+        const idx = y * W + x;
+        if (buf[idx] !== 1) continue;
+        // Erode if any 4-neighbour is 0.
+        if (
+          buf[idx - 1] === 0 ||
+          buf[idx + 1] === 0 ||
+          buf[idx - W] === 0 ||
+          buf[idx + W] === 0
+        ) {
+          // Don't erode if this pixel only has 2 neighbours (otherwise
+          // we'd disconnect the skeleton).
+          const n =
+            (buf[idx - 1] === 1 ? 1 : 0) +
+            (buf[idx + 1] === 1 ? 1 : 0) +
+            (buf[idx - W] === 1 ? 1 : 0) +
+            (buf[idx + W] === 1 ? 1 : 0);
+          if (n >= 3) {
+            mask[idx] = 0;
+            changed = true;
+          }
+        }
+      }
+    }
+    if (!changed) break;
+  }
 }

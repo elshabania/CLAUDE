@@ -21,6 +21,7 @@ import {
   buildRoadNetwork,
   classifyJunctionApproaches,
 } from "@/lib/road-network";
+import { METHODS } from "@/lib/methods";
 import {
   analyzeJunction,
   defaultJunctionInputs,
@@ -41,6 +42,7 @@ export default function Page() {
   const [groupCategory, setGroupCategory] = useState<Record<string, RoadCategory>>({});
   const [visibleGroups, setVisibleGroups] = useState<Record<string, boolean>>({});
   const [tab, setTab] = useState<DashTab>("drawing");
+  const [methodId, setMethodId] = useState<string>("skeleton-zs-1100");
   const [selectedJunctionId, setSelectedJunctionId] = useState<string | null>(null);
   const [junctionInputs, setJunctionInputs] = useState<Record<string, JunctionInputs>>({});
   const [warning, setWarning] = useState<string | null>(null);
@@ -69,13 +71,13 @@ export default function Page() {
   const network = useMemo(() => {
     if (!result) return null;
     try {
-      return buildRoadNetwork(result.drawing, groupCategory);
+      return buildRoadNetwork(result.drawing, groupCategory, { methodId });
     } catch (err) {
       // eslint-disable-next-line no-console
       console.error("buildRoadNetwork failed:", err);
       return null;
     }
-  }, [result, groupCategory]);
+  }, [result, groupCategory, methodId]);
 
   // Seed default junction inputs when new junctions appear.
   useEffect(() => {
@@ -249,6 +251,13 @@ export default function Page() {
         filename={result?.filename ?? null}
         results={junctionResults}
         onUpload={() => inputRef.current?.click()}
+        methods={METHODS.map((m) => ({
+          id: m.id,
+          name: m.name,
+          description: m.description,
+        }))}
+        selectedMethodId={methodId}
+        onSelectMethod={setMethodId}
       />
 
       {/* Top: scene area - 2D drawing on the Drawing tab, 3D otherwise.
