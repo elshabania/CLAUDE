@@ -1,44 +1,60 @@
 import type { Dxf, DxfEntity, DxfPoint } from "dxf-parser";
+import type { ExtractedPath } from "@/lib/pdf-extract";
 
-export type RoadCategory = "centerline" | "edge" | "lane" | "curb" | "shoulder" | "other";
+export type RoadCategory =
+  | "centerline"
+  | "edge"
+  | "lane"
+  | "curb"
+  | "shoulder"
+  | "boundary"
+  | "building"
+  | "other";
 
-export interface RoadSegment {
+export interface DrawingSegment {
   id: string;
-  layer: string;
+  groupId: string;
   category: RoadCategory;
-  points: DxfPoint[];
+  /** Flat [x0, y0, x1, y1, ...] for compact transport. */
+  points: number[];
   closed: boolean;
   length: number;
 }
 
+export interface DrawingGroup {
+  id: string;
+  label: string;
+  category: RoadCategory;
+  count: number;
+  totalLength: number;
+  /** PDF-only: original stroke color in 0..1 RGB. */
+  color?: [number, number, number];
+  /** PDF-only: average line width in PDF user units. */
+  lineWidth?: number;
+}
+
 export interface ParsedDrawing {
+  source: "dxf" | "pdf";
   bounds: { minX: number; minY: number; maxX: number; maxY: number };
-  segments: RoadSegment[];
-  layers: { name: string; category: RoadCategory; count: number }[];
+  segments: DrawingSegment[];
+  groups: DrawingGroup[];
   entityCount: number;
 }
 
 const LAYER_PATTERNS: { category: RoadCategory; patterns: RegExp[] }[] = [
   {
     category: "centerline",
-    patterns: [/center.?line/i, /\bcl\b/i, /\bc[\/_-]?l\b/i, /centre.?line/i],
+    patterns: [/center.?line/i, /\bcl\b/i, /\bc[\/_-]?l\b/i, /centre.?line/i, /median/i],
   },
   {
     category: "edge",
     patterns: [/edge.?of.?pavement/i, /\beop\b/i, /pavement.?edge/i, /road.?edge/i, /\bedge\b/i],
   },
-  {
-    category: "lane",
-    patterns: [/lane.?line/i, /\blane\b/i, /stripe/i, /marking/i],
-  },
-  {
-    category: "curb",
-    patterns: [/curb/i, /kerb/i, /\bgutter\b/i],
-  },
-  {
-    category: "shoulder",
-    patterns: [/shoulder/i, /\bverge\b/i],
-  },
+  { category: "lane", patterns: [/lane.?line/i, /\blane\b/i, /stripe/i, /marking/i] },
+  { category: "curb", patterns: [/curb/i, /kerb/i, /\bgutter\b/i] },
+  { category: "shoulder", patterns: [/shoulder/i, /\bverge\b/i] },
+  { category: "boundary", patterns: [/boundary/i, /property/i, /\bplot\b/i] },
+  { category: "building", patterns: [/building/i, /structure/i, /footprint/i] },
 ];
 
 export function classifyLayer(layer: string): RoadCategory {
@@ -54,24 +70,33 @@ function entityPoints(entity: DxfEntity): DxfPoint[] {
   return [];
 }
 
-function polylineLength(points: DxfPoint[]): number {
+function flatPoints(points: DxfPoint[]): number[] {
+  const out: number[] = [];
+  for (const p of points) {
+    if (!Number.isFinite(p.x) || !Number.isFinite(p.y)) continue;
+    out.push(Math.round(p.x * 100) / 100);
+    out.push(Math.round(p.y * 100) / 100);
+  }
+  return out;
+}
+
+function flatLength(flat: number[]): number {
   let total = 0;
-  for (let i = 1; i < points.length; i++) {
-    const dx = points[i].x - points[i - 1].x;
-    const dy = points[i].y - points[i - 1].y;
+  for (let i = 2; i < flat.length; i += 2) {
+    const dx = flat[i] - flat[i - 2];
+    const dy = flat[i + 1] - flat[i - 1];
     total += Math.sqrt(dx * dx + dy * dy);
   }
   return total;
 }
 
-export function detectRoads(dxf: Dxf): ParsedDrawing {
-  const segments: RoadSegment[] = [];
-  const layerCounts = new Map<string, { category: RoadCategory; count: number }>();
-
-  let minX = Infinity;
-  let minY = Infinity;
-  let maxX = -Infinity;
-  let maxY = -Infinity;
+export function detectFromDxf(dxf: Dxf): ParsedDrawing {
+  const segments: DrawingSegment[] = [];
+  const groupMap = new Map<string, DrawingGroup>();
+  let minX = Infinity,
+    minY = Infinity,
+    maxX = -Infinity,
+    maxY = -Infinity;
 
   const supported = new Set(["LINE", "LWPOLYLINE", "POLYLINE"]);
 
@@ -82,6 +107,8 @@ export function detectRoads(dxf: Dxf): ParsedDrawing {
 
     const layer = entity.layer ?? "0";
     const category = classifyLayer(layer);
+    const flat = flatPoints(points);
+    const length = flatLength(flat);
 
     for (const p of points) {
       if (p.x < minX) minX = p.x;
@@ -92,18 +119,25 @@ export function detectRoads(dxf: Dxf): ParsedDrawing {
 
     segments.push({
       id: entity.handle ?? `e${idx}`,
-      layer,
+      groupId: layer,
       category,
-      points,
+      points: flat,
       closed: Boolean((entity as { shape?: boolean }).shape),
-      length: polylineLength(points),
+      length,
     });
 
-    const existing = layerCounts.get(layer);
+    const existing = groupMap.get(layer);
     if (existing) {
       existing.count += 1;
+      existing.totalLength += length;
     } else {
-      layerCounts.set(layer, { category, count: 1 });
+      groupMap.set(layer, {
+        id: layer,
+        label: layer,
+        category,
+        count: 1,
+        totalLength: length,
+      });
     }
   });
 
@@ -115,13 +149,154 @@ export function detectRoads(dxf: Dxf): ParsedDrawing {
   }
 
   return {
+    source: "dxf",
     bounds: { minX, minY, maxX, maxY },
     segments,
-    layers: Array.from(layerCounts.entries()).map(([name, v]) => ({
-      name,
-      category: v.category,
-      count: v.count,
-    })),
+    groups: Array.from(groupMap.values()).sort((a, b) => b.count - a.count),
     entityCount: dxf.entities.length,
   };
+}
+
+/**
+ * Convert PDF-extracted paths into a ParsedDrawing by clustering paths on
+ * stroke colour. A CAD-exported PDF tends to use a small fixed palette per
+ * layer, so identical colours act as a reasonable proxy for original layers.
+ */
+export interface PdfDetectOptions {
+  /** Drop subpaths whose total length is below this (in PDF user units). */
+  minSegmentLength?: number;
+  /** Drop fully-white paths (typically background fills). */
+  dropWhite?: boolean;
+  /** Drop filled paths whose bounding box area is below this (in user units²). */
+  minFilledArea?: number;
+}
+
+export function detectFromPdf(
+  paths: ExtractedPath[],
+  opts: PdfDetectOptions = {}
+): ParsedDrawing {
+  const minSegmentLength = opts.minSegmentLength ?? 5;
+  const dropWhite = opts.dropWhite ?? true;
+  const minFilledArea = opts.minFilledArea ?? 25;
+
+  const segments: DrawingSegment[] = [];
+  const groupMap = new Map<string, DrawingGroup>();
+
+  let minX = Infinity,
+    minY = Infinity,
+    maxX = -Infinity,
+    maxY = -Infinity;
+
+  let pi = 0;
+  for (const path of paths) {
+    pi += 1;
+    if (!path.isStroked && !path.isFilled) continue;
+    const color = path.strokeColor ?? path.fillColor ?? [0, 0, 0];
+
+    // Quantise to reduce near-duplicate clusters and clamp to 255.
+    const r = Math.min(255, Math.round((color[0] * 255) / 8) * 8);
+    const g = Math.min(255, Math.round((color[1] * 255) / 8) * 8);
+    const b = Math.min(255, Math.round((color[2] * 255) / 8) * 8);
+    if (dropWhite && r >= 248 && g >= 248 && b >= 248) continue;
+
+    const groupId = `rgb_${r}_${g}_${b}${path.isFilled && !path.isStroked ? "_f" : ""}`;
+    const category = classifyByColor(r, g, b, path.lineWidth, path.isFilled);
+
+    path.subpaths.forEach((sub, si) => {
+      if (sub.length < 2) return;
+      const flat = flatPoints(sub);
+      if (flat.length < 4) return;
+      const length = flatLength(flat);
+      if (length < minSegmentLength) return;
+
+      let bxMin = Infinity,
+        byMin = Infinity,
+        bxMax = -Infinity,
+        byMax = -Infinity;
+      for (let k = 0; k < flat.length; k += 2) {
+        const x = flat[k];
+        const y = flat[k + 1];
+        if (x < bxMin) bxMin = x;
+        if (y < byMin) byMin = y;
+        if (x > bxMax) bxMax = x;
+        if (y > byMax) byMax = y;
+      }
+      if (path.isFilled && !path.isStroked) {
+        const area = (bxMax - bxMin) * (byMax - byMin);
+        if (area < minFilledArea) return;
+      }
+
+      if (bxMin < minX) minX = bxMin;
+      if (byMin < minY) minY = byMin;
+      if (bxMax > maxX) maxX = bxMax;
+      if (byMax > maxY) maxY = byMax;
+
+      segments.push({
+        id: `p${pi}_${si}`,
+        groupId,
+        category,
+        points: flat,
+        closed:
+          flat.length >= 4 &&
+          flat[0] === flat[flat.length - 2] &&
+          flat[1] === flat[flat.length - 1],
+        length,
+      });
+
+      const existing = groupMap.get(groupId);
+      if (existing) {
+        existing.count += 1;
+        existing.totalLength += length;
+      } else {
+        groupMap.set(groupId, {
+          id: groupId,
+          label: `RGB(${r}, ${g}, ${b})${path.isFilled && !path.isStroked ? " filled" : ""}`,
+          category,
+          count: 1,
+          totalLength: length,
+          color: [r / 255, g / 255, b / 255],
+          lineWidth: path.lineWidth,
+        });
+      }
+    });
+  }
+
+  if (!isFinite(minX)) {
+    minX = 0;
+    minY = 0;
+    maxX = 0;
+    maxY = 0;
+  }
+
+  return {
+    source: "pdf",
+    bounds: { minX, minY, maxX, maxY },
+    segments,
+    groups: Array.from(groupMap.values()).sort((a, b) => b.count - a.count),
+    entityCount: paths.length,
+  };
+}
+
+/**
+ * Heuristic colour classifier for AutoCAD-exported PDFs. The palette below is
+ * a starting guess; users can re-label clusters in the UI.
+ */
+function classifyByColor(
+  r: number,
+  g: number,
+  b: number,
+  _lineWidth: number,
+  isFilled: boolean
+): RoadCategory {
+  // Bright magenta/purple → centerline / median markings.
+  if (r > 150 && b > 120 && g < 100) return "centerline";
+  // Bright green / light green → boundary.
+  if (g > 160 && r < 200 && b < 200) return "boundary";
+  // Cyan/blue → utility, mark as other for now.
+  if (b > 180 && r < 150) return "other";
+  // Dark grey/black filled regions → buildings or asphalt fills.
+  if (isFilled && r < 80 && g < 80 && b < 80) return "building";
+  // Mid grey strokes → kerbs / road edges.
+  if (Math.abs(r - g) < 15 && Math.abs(g - b) < 15 && r < 200 && r > 60) return "edge";
+  return "other";
 }

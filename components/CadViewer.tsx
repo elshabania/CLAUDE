@@ -3,12 +3,14 @@
 import { useEffect, useRef, useState } from "react";
 import type { ParsedDrawing, RoadCategory } from "@/lib/road-detect";
 
-const CATEGORY_COLORS: Record<RoadCategory, string> = {
+export const CATEGORY_COLORS: Record<RoadCategory, string> = {
   centerline: "#facc15",
   edge: "#38bdf8",
   lane: "#a78bfa",
   curb: "#f472b6",
   shoulder: "#34d399",
+  boundary: "#22c55e",
+  building: "#94a3b8",
   other: "#475569",
 };
 
@@ -18,20 +20,24 @@ const CATEGORY_WIDTH: Record<RoadCategory, number> = {
   lane: 1.2,
   curb: 1.4,
   shoulder: 1.2,
-  other: 0.8,
+  boundary: 1.2,
+  building: 1,
+  other: 0.6,
 };
 
 interface Props {
   drawing: ParsedDrawing;
-  visible: Record<RoadCategory, boolean>;
+  /** Visibility per group (PDF: by colour cluster, DXF: by layer name). */
+  visibleGroups: Record<string, boolean>;
+  /** Override the category for a group (used by user re-labelling). */
+  groupCategory: Record<string, RoadCategory>;
 }
 
-export function CadViewer({ drawing, visible }: Props) {
+export function CadViewer({ drawing, visibleGroups, groupCategory }: Props) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [transform, setTransform] = useState({ scale: 1, tx: 0, ty: 0 });
   const dragRef = useRef<{ x: number; y: number; tx: number; ty: number } | null>(null);
 
-  // Fit drawing to canvas on first load / when drawing changes.
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -60,19 +66,21 @@ export function CadViewer({ drawing, visible }: Props) {
     });
 
     for (const seg of drawing.segments) {
-      if (!visible[seg.category]) continue;
-      ctx.strokeStyle = CATEGORY_COLORS[seg.category];
-      ctx.lineWidth = CATEGORY_WIDTH[seg.category];
+      if (visibleGroups[seg.groupId] === false) continue;
+      const cat = groupCategory[seg.groupId] ?? seg.category;
+      ctx.strokeStyle = CATEGORY_COLORS[cat];
+      ctx.lineWidth = CATEGORY_WIDTH[cat];
       ctx.beginPath();
-      seg.points.forEach((p, i) => {
-        const { px, py } = project(p.x, p.y);
+      const pts = seg.points;
+      for (let i = 0; i < pts.length; i += 2) {
+        const { px, py } = project(pts[i], pts[i + 1]);
         if (i === 0) ctx.moveTo(px, py);
         else ctx.lineTo(px, py);
-      });
+      }
       if (seg.closed) ctx.closePath();
       ctx.stroke();
     }
-  }, [drawing, transform, visible]);
+  }, [drawing, transform, visibleGroups, groupCategory]);
 
   const onPointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
     e.currentTarget.setPointerCapture(e.pointerId);
@@ -100,7 +108,6 @@ export function CadViewer({ drawing, visible }: Props) {
     const factor = e.deltaY < 0 ? 1.15 : 1 / 1.15;
     setTransform((t) => {
       const newScale = t.scale * factor;
-      // Keep cursor anchor stable across zoom.
       const newTx = mx - (mx - t.tx) * factor;
       const newTy = my - (my - t.ty) * factor;
       return { scale: newScale, tx: newTx, ty: newTy };
@@ -110,8 +117,8 @@ export function CadViewer({ drawing, visible }: Props) {
   return (
     <canvas
       ref={canvasRef}
-      width={1200}
-      height={800}
+      width={1400}
+      height={900}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
@@ -126,5 +133,3 @@ export function CadViewer({ drawing, visible }: Props) {
     />
   );
 }
-
-export { CATEGORY_COLORS };

@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import DxfParser from "dxf-parser";
-import { detectRoads } from "@/lib/road-detect";
+import { detectFromDxf, detectFromPdf } from "@/lib/road-detect";
 import { dwgToDxf, DwgConversionError } from "@/lib/dwg";
+import { extractPdfPaths } from "@/lib/pdf-extract";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -17,43 +18,42 @@ export async function POST(request: Request) {
   const name = file.name.toLowerCase();
   const isDwg = name.endsWith(".dwg");
   const isDxf = name.endsWith(".dxf");
+  const isPdf = name.endsWith(".pdf");
 
-  if (!isDwg && !isDxf) {
+  if (!isDwg && !isDxf && !isPdf) {
     return NextResponse.json(
-      { error: "Unsupported file type. Upload a .dxf or .dwg file." },
+      { error: "Unsupported file type. Upload a .pdf, .dxf or .dwg file." },
       { status: 400 }
     );
   }
 
-  let dxfText: string;
   try {
+    if (isPdf) {
+      const buf = Buffer.from(await file.arrayBuffer());
+      const paths = await extractPdfPaths(buf);
+      const drawing = detectFromPdf(paths);
+      return NextResponse.json({ filename: file.name, drawing });
+    }
+
+    let dxfText: string;
     if (isDwg) {
       const buf = Buffer.from(await file.arrayBuffer());
       dxfText = await dwgToDxf(buf);
     } else {
       dxfText = await file.text();
     }
+
+    const parser = new DxfParser();
+    const parsed = parser.parseSync(dxfText);
+    const drawing = detectFromDxf(parsed);
+    return NextResponse.json({ filename: file.name, drawing });
   } catch (err) {
     if (err instanceof DwgConversionError) {
       return NextResponse.json({ error: err.message }, { status: 422 });
     }
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Failed to read file" },
+      { error: err instanceof Error ? err.message : "Failed to process file" },
       { status: 500 }
     );
   }
-
-  let parsed;
-  try {
-    const parser = new DxfParser();
-    parsed = parser.parseSync(dxfText);
-  } catch (err) {
-    return NextResponse.json(
-      { error: `Failed to parse DXF: ${err instanceof Error ? err.message : String(err)}` },
-      { status: 422 }
-    );
-  }
-
-  const drawing = detectRoads(parsed);
-  return NextResponse.json({ filename: file.name, drawing });
 }
