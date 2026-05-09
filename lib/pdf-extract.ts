@@ -12,7 +12,7 @@ export interface ExtractedPath {
 }
 
 interface GraphicsState {
-  ctm: number[]; // [a, b, c, d, e, f]
+  ctm: number[];
   strokeColor: [number, number, number] | null;
   fillColor: [number, number, number] | null;
   lineWidth: number;
@@ -20,7 +20,6 @@ interface GraphicsState {
 
 const IDENTITY: number[] = [1, 0, 0, 1, 0, 0];
 
-// Path mini-op codes used inside `constructPath` args (separate from OPS codes).
 const MINI_MOVE = 0;
 const MINI_LINE = 1;
 const MINI_CURVE = 2;
@@ -83,7 +82,10 @@ function parseColor(arg: unknown): [number, number, number] | null {
       parseInt(arg.slice(5, 7), 16) / 255,
     ];
   }
-  if (arg instanceof Uint8ClampedArray || arg instanceof Uint8Array) {
+  if (
+    (typeof Uint8ClampedArray !== "undefined" && arg instanceof Uint8ClampedArray) ||
+    (typeof Uint8Array !== "undefined" && arg instanceof Uint8Array)
+  ) {
     if (arg.length >= 3) return [arg[0] / 255, arg[1] / 255, arg[2] / 255];
   }
   if (Array.isArray(arg) && arg.length >= 3) {
@@ -91,7 +93,6 @@ function parseColor(arg: unknown): [number, number, number] | null {
     const g = arg[1];
     const b = arg[2];
     if (typeof r === "number" && typeof g === "number" && typeof b === "number") {
-      // pdfjs may pass raw 0..255 or 0..1; normalise.
       const norm = Math.max(r, g, b) > 1 ? 255 : 1;
       return [r / norm, g / norm, b / norm];
     }
@@ -99,10 +100,6 @@ function parseColor(arg: unknown): [number, number, number] | null {
   return null;
 }
 
-/**
- * Walk one constructPath buffer (flat array of [miniOp, ...coords, miniOp, ...]) and
- * return one or more subpaths in user space.
- */
 function decodePathBuffer(
   buffer: ArrayLike<number>,
   ctm: number[]
@@ -168,7 +165,6 @@ function decodePathBuffer(
       subpaths.push([p1, p2, p3, p4, p1]);
       i += 4;
     } else {
-      // Unknown mini-op: bail out to avoid corrupt parse.
       break;
     }
   }
@@ -176,28 +172,27 @@ function decodePathBuffer(
   return { subpaths, closed };
 }
 
-interface ExtractOptions {
-  /** Skip paths whose bbox area is below this fraction of the page bbox. */
-  minRelativeArea?: number;
+export interface PdfjsOpList {
+  fnArray: ArrayLike<number>;
+  argsArray: unknown[];
 }
 
-/**
- * Extract vector paths from every page of the PDF, in user-space coordinates,
- * tagged with their stroke colour, fill colour and line width.
- *
- * pdfjs v4+ encodes constructPath as `[terminalOp, [Float32Array], minMax]`
- * where the buffer interleaves mini-op codes (0..6) with their numeric args.
- * The terminal op (stroke / fill / endPath) tells us how the path is painted.
- */
-export async function extractPdfPaths(
-  buffer: Buffer,
-  options: ExtractOptions = {}
-): Promise<ExtractedPath[]> {
-  const { getResolvedPDFJS, getDocumentProxy } = await import("unpdf");
-  const pdfjs = await getResolvedPDFJS();
-  const doc = await getDocumentProxy(new Uint8Array(buffer));
+export interface PdfjsLikeDoc {
+  numPages: number;
+  getPage(n: number): Promise<{ getOperatorList(): Promise<PdfjsOpList> }>;
+}
 
-  const OPS = pdfjs.OPS as Record<string, number>;
+export type PdfjsLikeOps = Record<string, number>;
+
+/**
+ * Walk every page of a pdfjs document and emit one ExtractedPath per painted
+ * path operation. Pure: takes pdfjs's OPS table and the document object so it
+ * can run in either Node (via unpdf) or the browser (pdfjs-dist).
+ */
+export async function walkPdfDocument(
+  OPS: PdfjsLikeOps,
+  doc: PdfjsLikeDoc
+): Promise<ExtractedPath[]> {
   const STROKE_OPS = new Set<number>([
     OPS.stroke,
     OPS.closeStroke,
@@ -236,31 +231,44 @@ export async function extractPdfPaths(
 
     for (let i = 0; i < opList.fnArray.length; i++) {
       const op = opList.fnArray[i];
-      const args = opList.argsArray[i];
+      const args = opList.argsArray[i] as unknown[] | undefined;
 
       if (op === OPS.save) {
         stack.push(cloneState(state));
       } else if (op === OPS.restore) {
         const popped = stack.pop();
         if (popped) state = popped;
-      } else if (op === OPS.transform) {
-        state.ctm = multiply([args[0], args[1], args[2], args[3], args[4], args[5]], state.ctm);
-      } else if (op === OPS.setLineWidth) {
-        state.lineWidth = args[0];
-      } else if (op === OPS.setStrokeRGBColor) {
+      } else if (op === OPS.transform && args) {
+        state.ctm = multiply(
+          [
+            args[0] as number,
+            args[1] as number,
+            args[2] as number,
+            args[3] as number,
+            args[4] as number,
+            args[5] as number,
+          ],
+          state.ctm
+        );
+      } else if (op === OPS.setLineWidth && args) {
+        state.lineWidth = args[0] as number;
+      } else if (op === OPS.setStrokeRGBColor && args) {
         state.strokeColor = parseColor(args[0]);
-      } else if (op === OPS.setFillRGBColor) {
+      } else if (op === OPS.setFillRGBColor && args) {
         state.fillColor = parseColor(args[0]);
-      } else if (op === OPS.constructPath) {
-        const terminalOp = args?.[0];
-        const bufferContainer = args?.[1];
+      } else if (op === OPS.constructPath && args) {
+        const terminalOp = args[0];
+        const bufferContainer = args[1];
         const flat = Array.isArray(bufferContainer) ? bufferContainer[0] : null;
         if (typeof terminalOp !== "number" || !flat) continue;
         const isStroked = STROKE_OPS.has(terminalOp);
         const isFilled = FILL_OPS.has(terminalOp);
         if (!isStroked && !isFilled) continue;
 
-        const { subpaths, closed } = decodePathBuffer(flat as ArrayLike<number>, state.ctm);
+        const { subpaths, closed } = decodePathBuffer(
+          flat as ArrayLike<number>,
+          state.ctm
+        );
         if (subpaths.length === 0) continue;
 
         result.push({
@@ -276,38 +284,6 @@ export async function extractPdfPaths(
     }
   }
 
-  if (options.minRelativeArea && result.length > 0) {
-    let minX = Infinity,
-      minY = Infinity,
-      maxX = -Infinity,
-      maxY = -Infinity;
-    for (const p of result) {
-      for (const sp of p.subpaths) {
-        for (const pt of sp) {
-          if (pt.x < minX) minX = pt.x;
-          if (pt.y < minY) minY = pt.y;
-          if (pt.x > maxX) maxX = pt.x;
-          if (pt.y > maxY) maxY = pt.y;
-        }
-      }
-    }
-    const pageArea = Math.max((maxX - minX) * (maxY - minY), 1);
-    const threshold = pageArea * options.minRelativeArea;
-    return result.filter((p) => {
-      let pminX = Infinity,
-        pminY = Infinity,
-        pmaxX = -Infinity,
-        pmaxY = -Infinity;
-      for (const sp of p.subpaths) {
-        for (const pt of sp) {
-          if (pt.x < pminX) pminX = pt.x;
-          if (pt.y < pminY) pminY = pt.y;
-          if (pt.x > pmaxX) pmaxX = pt.x;
-          if (pt.y > pmaxY) pmaxY = pt.y;
-        }
-      }
-      return (pmaxX - pminX) * (pmaxY - pminY) >= threshold;
-    });
-  }
   return result;
 }
+

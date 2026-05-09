@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { CadViewer, CATEGORY_COLORS } from "@/components/CadViewer";
-import type { ParsedDrawing, RoadCategory } from "@/lib/road-detect";
+import { detectFromPdf, type ParsedDrawing, type RoadCategory } from "@/lib/road-detect";
+import { extractPdfPathsInBrowser } from "@/lib/pdf-extract-client";
 
 const ALL_CATEGORIES: RoadCategory[] = [
   "centerline",
@@ -66,20 +67,44 @@ export default function Page() {
   async function handleFile(file: File) {
     setStatus("loading");
     setError(null);
-    const body = new FormData();
-    body.append("file", file);
+    const isPdf = file.name.toLowerCase().endsWith(".pdf");
     try {
+      if (isPdf) {
+        // Parse PDFs in the browser to bypass serverless body / time limits.
+        const paths = await extractPdfPathsInBrowser(file);
+        const drawing = detectFromPdf(paths);
+        setResult({ filename: file.name, drawing });
+        setStatus("idle");
+        return;
+      }
+
+      const body = new FormData();
+      body.append("file", file);
       const res = await fetch("/api/parse", { method: "POST", body });
-      const data = await res.json();
+      const text = await res.text();
+      let data: { error?: string; filename?: string; drawing?: ParsedDrawing };
+      try {
+        data = JSON.parse(text);
+      } catch {
+        setError(
+          res.status === 413
+            ? "File too large for the deployed server. Run locally with `npm run dev` or use a smaller file."
+            : `Server returned ${res.status}: ${text.slice(0, 200)}`
+        );
+        setStatus("error");
+        return;
+      }
       if (!res.ok) {
         setError(data.error ?? "Failed to parse file");
         setStatus("error");
         return;
       }
-      setResult(data);
+      if (data.filename && data.drawing) {
+        setResult({ filename: data.filename, drawing: data.drawing });
+      }
       setStatus("idle");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Network error");
+      setError(err instanceof Error ? err.message : "Failed to process file");
       setStatus("error");
     }
   }

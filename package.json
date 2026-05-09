@@ -14,8 +14,7 @@
     "next": "^16.2.6",
     "pdfjs-dist": "^4.10.38",
     "react": "19.0.0",
-    "react-dom": "19.0.0",
-    "unpdf": "^1.6.2"
+    "react-dom": "19.0.0"
   },
   "devDependencies": {
     "@types/node": "^22.9.0",
