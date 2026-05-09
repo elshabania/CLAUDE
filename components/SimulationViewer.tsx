@@ -10,6 +10,7 @@ import {
   pointOnLink,
   tangentOnLink,
   step,
+  activeGreen,
   type SimulationState,
 } from "@/lib/simulation";
 
@@ -40,18 +41,15 @@ export function SimulationViewer({ drawing, groupCategory, network }: Props) {
   const [transform, setTransform] = useState({ scale: 1, tx: 0, ty: 0 });
   const dragRef = useRef<{ x: number; y: number; tx: number; ty: number } | null>(null);
 
-  // Simulation control state.
   const [running, setRunning] = useState(true);
   const [speedMul, setSpeedMul] = useState(1);
   const [vehicleCount, setVehicleCount] = useState(150);
+  const [signalsEnabled, setSignalsEnabled] = useState(true);
+  const [showSignalHeads, setShowSignalHeads] = useState(true);
 
-  // Persistent simulation state across renders.
   const stateRef = useRef<SimulationState | null>(null);
-  // Tick counter to drive a rerender each animation frame for the React-only
-  // overlays (the canvas itself paints inside the rAF loop).
   const [, setTick] = useState(0);
 
-  // Resize observer keeps the canvas pixel size synced to the container.
   useEffect(() => {
     const container = containerRef.current;
     if (!container || typeof ResizeObserver === "undefined") return;
@@ -66,44 +64,44 @@ export function SimulationViewer({ drawing, groupCategory, network }: Props) {
     return () => ro.disconnect();
   }, []);
 
-  // Rebuild the simulation state when the network changes.
+  // Build state when network changes.
   useEffect(() => {
-    const fresh = buildSimulationState(network);
-    // Speed scales with the drawing extents so the demo looks sensible
-    // regardless of CAD units (the WSPTRA file is in PDF points, ~2300 wide).
-    const diag = Math.hypot(
-      network.bounds.maxX - network.bounds.minX,
-      network.bounds.maxY - network.bounds.minY
-    ) || 1;
-    const baseSpeed = diag / 60; // cross the drawing in ~60 s
+    const fresh = buildSimulationState(network, { signalsEnabled });
+    const diag =
+      Math.hypot(
+        network.bounds.maxX - network.bounds.minX,
+        network.bounds.maxY - network.bounds.minY
+      ) || 1;
+    const baseSpeed = diag / 60;
     stateRef.current = spawnVehicles(fresh, vehicleCount, baseSpeed);
     setTick((t) => t + 1);
-    // Vehicle count change handled separately so we don't re-snap positions
-    // every time the slider moves.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [network]);
 
-  // Adjust population when the slider changes without resetting the rest.
+  // Sync signal toggle into the simulation config without rebuilding state.
   useEffect(() => {
     const s = stateRef.current;
     if (!s) return;
-    const diag = Math.hypot(
-      network.bounds.maxX - network.bounds.minX,
-      network.bounds.maxY - network.bounds.minY
-    ) || 1;
+    s.config.signalsEnabled = signalsEnabled;
+  }, [signalsEnabled]);
+
+  useEffect(() => {
+    const s = stateRef.current;
+    if (!s) return;
+    const diag =
+      Math.hypot(
+        network.bounds.maxX - network.bounds.minX,
+        network.bounds.maxY - network.bounds.minY
+      ) || 1;
     const baseSpeed = diag / 60;
     if (vehicleCount > s.vehicles.length) {
       stateRef.current = spawnVehicles(s, vehicleCount - s.vehicles.length, baseSpeed);
     } else if (vehicleCount < s.vehicles.length) {
-      stateRef.current = {
-        ...s,
-        vehicles: s.vehicles.slice(0, vehicleCount),
-      };
+      stateRef.current = { ...s, vehicles: s.vehicles.slice(0, vehicleCount) };
     }
     setTick((t) => t + 1);
   }, [vehicleCount, network]);
 
-  // Auto-fit transform when the network or canvas size changes.
   useEffect(() => {
     const { minX, minY, maxX, maxY } = network.bounds;
     const w = Math.max(maxX - minX, 1);
@@ -114,7 +112,6 @@ export function SimulationViewer({ drawing, groupCategory, network }: Props) {
     setTransform({ scale, tx, ty });
   }, [network, size.width, size.height]);
 
-  // Group road segments by category (drawn behind the vehicles).
   const segmentsByCat = useMemo(() => {
     const map = new Map<RoadCategory, typeof drawing.segments>();
     for (const cat of Object.keys(ROAD_BG_STYLE) as RoadCategory[]) map.set(cat, []);
@@ -125,8 +122,6 @@ export function SimulationViewer({ drawing, groupCategory, network }: Props) {
     return map;
   }, [drawing, groupCategory]);
 
-  // The animation loop. requestAnimationFrame gives us tick deltas; we feed
-  // dt into step() and re-render the canvas every frame.
   useEffect(() => {
     let raf = 0;
     let lastT = performance.now();
@@ -141,7 +136,7 @@ export function SimulationViewer({ drawing, groupCategory, network }: Props) {
     raf = requestAnimationFrame(tickFn);
     return () => cancelAnimationFrame(raf);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [running, speedMul, transform, size.width, size.height, drawing, groupCategory]);
+  }, [running, speedMul, transform, size.width, size.height, drawing, groupCategory, showSignalHeads]);
 
   function drawFrame() {
     const canvas = canvasRef.current;
@@ -163,7 +158,6 @@ export function SimulationViewer({ drawing, groupCategory, network }: Props) {
     const px = (x: number) => x * scale + tx;
     const py = (y: number) => -y * scale + ty;
 
-    // Buildings as faint outlines (cluster polygons from network).
     ctx.strokeStyle = "rgba(148, 163, 184, 0.30)";
     ctx.fillStyle = "rgba(148, 163, 184, 0.10)";
     ctx.lineWidth = 0.5;
@@ -180,7 +174,6 @@ export function SimulationViewer({ drawing, groupCategory, network }: Props) {
       ctx.stroke();
     }
 
-    // Roads behind vehicles.
     ctx.lineCap = "round";
     ctx.lineJoin = "round";
     const drawOrder: RoadCategory[] = [
@@ -211,39 +204,63 @@ export function SimulationViewer({ drawing, groupCategory, network }: Props) {
     }
     ctx.setLineDash([]);
 
-    // Vehicles.
     const sim = stateRef.current;
-    if (sim) {
-      const linksById = new Map(network.links.map((l) => [l.id, l]));
-      for (const v of sim.vehicles) {
-        const link = linksById.get(v.linkId);
-        const arc = sim.linkArc.get(v.linkId);
-        if (!link || !arc) continue;
-        const pos = pointOnLink(link, arc, v.s);
-        const tan = tangentOnLink(link, arc, v.s);
-        // Flip tangent for backward-driving vehicles so their "front" matches
-        // direction of travel.
-        const fx = v.dir === 1 ? tan.dx : -tan.dx;
-        const fy = v.dir === 1 ? tan.dy : -tan.dy;
-        const screenX = px(pos.x);
-        const screenY = py(pos.y);
+    if (!sim) return;
 
-        // Draw a small oriented rectangle. Width / length are in screen px,
-        // not world units, so vehicles stay readable at any zoom.
-        const lengthPx = 8;
-        const widthPx = 4;
-        ctx.save();
-        ctx.translate(screenX, screenY);
-        // Canvas y is downwards; world y is upwards. Flip dy when rotating.
-        ctx.rotate(Math.atan2(-fy, fx));
-        ctx.fillStyle = v.color;
-        ctx.beginPath();
-        ctx.rect(-lengthPx / 2, -widthPx / 2, lengthPx, widthPx);
-        ctx.fill();
-        ctx.fillStyle = "rgba(0,0,0,0.4)";
-        ctx.fillRect(lengthPx / 2 - 1.5, -widthPx / 2, 1.5, widthPx); // headlights tip
-        ctx.restore();
+    // Signal heads at signalised junctions: little discs around the node
+    // coloured per cardinal showing red / green for the active phase.
+    if (showSignalHeads && sim.config.signalsEnabled) {
+      for (const node of network.junctions) {
+        const greens = activeGreen(sim, node.id);
+        if (!greens) continue;
+        const sx = px(node.x);
+        const sy = py(node.y);
+        const r = 6;
+        const dirs: Array<[string, number, number]> = [
+          ["NB", 0, -1],
+          ["EB", 1, 0],
+          ["SB", 0, 1],
+          ["WB", -1, 0],
+        ];
+        for (const [card, dx, dy] of dirs) {
+          ctx.beginPath();
+          ctx.arc(sx + dx * (r + 4), sy + dy * (r + 4), 2.5, 0, Math.PI * 2);
+          ctx.fillStyle = greens.has(card as never) ? "#22c55e" : "#dc2626";
+          ctx.fill();
+        }
       }
+    }
+
+    // Vehicles with lane offset.
+    const linksById = new Map(network.links.map((l) => [l.id, l]));
+    for (const v of sim.vehicles) {
+      const link = linksById.get(v.linkId);
+      const arc = sim.linkArc.get(v.linkId);
+      if (!link || !arc) continue;
+      const pos = pointOnLink(link, arc, v.s);
+      const tan = tangentOnLink(link, arc, v.s);
+      // Forward direction in world space (y-up), accounting for travel dir.
+      const fx = v.dir === 1 ? tan.dx : -tan.dx;
+      const fy = v.dir === 1 ? tan.dy : -tan.dy;
+      // Right-hand normal of the forward direction (right-side driving).
+      const rx = fy;
+      const ry = -fx;
+      const offX = pos.x + rx * v.laneOffset;
+      const offY = pos.y + ry * v.laneOffset;
+      const screenX = px(offX);
+      const screenY = py(offY);
+
+      ctx.save();
+      ctx.translate(screenX, screenY);
+      // Canvas y is down; world y is up. Flip dy when computing rotation.
+      ctx.rotate(Math.atan2(-fy, fx));
+      const lengthPx = 8;
+      const widthPx = 4;
+      ctx.fillStyle = v.color;
+      ctx.fillRect(-lengthPx / 2, -widthPx / 2, lengthPx, widthPx);
+      ctx.fillStyle = "rgba(0,0,0,0.55)";
+      ctx.fillRect(lengthPx / 2 - 1.6, -widthPx / 2, 1.6, widthPx);
+      ctx.restore();
     }
   }
 
@@ -256,19 +273,16 @@ export function SimulationViewer({ drawing, groupCategory, network }: Props) {
       ty: transform.ty,
     };
   };
-
   const onPointerMove = (e: React.PointerEvent<HTMLCanvasElement>) => {
     if (!dragRef.current) return;
     const dx = e.clientX - dragRef.current.x;
     const dy = e.clientY - dragRef.current.y;
     setTransform((t) => ({ ...t, tx: dragRef.current!.tx + dx, ty: dragRef.current!.ty + dy }));
   };
-
   const onPointerUp = (e: React.PointerEvent<HTMLCanvasElement>) => {
     e.currentTarget.releasePointerCapture(e.pointerId);
     dragRef.current = null;
   };
-
   const onWheel = (e: React.WheelEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -313,7 +327,7 @@ export function SimulationViewer({ drawing, groupCategory, network }: Props) {
           display: "flex",
           flexDirection: "column",
           gap: 8,
-          minWidth: 220,
+          minWidth: 240,
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -336,10 +350,11 @@ export function SimulationViewer({ drawing, groupCategory, network }: Props) {
             onClick={() => {
               const s = stateRef.current;
               if (!s) return;
-              const diag = Math.hypot(
-                network.bounds.maxX - network.bounds.minX,
-                network.bounds.maxY - network.bounds.minY
-              ) || 1;
+              const diag =
+                Math.hypot(
+                  network.bounds.maxX - network.bounds.minX,
+                  network.bounds.maxY - network.bounds.minY
+                ) || 1;
               stateRef.current = spawnVehicles(
                 clearVehicles(s),
                 vehicleCount,
@@ -364,11 +379,13 @@ export function SimulationViewer({ drawing, groupCategory, network }: Props) {
               marginLeft: "auto",
               color: "#94a3b8",
               fontVariantNumeric: "tabular-nums",
+              fontSize: 11,
             }}
           >
-            {network.links.length} links · {network.junctions.length} junctions
+            {network.junctions.length} junctions · {network.links.length} links
           </span>
         </div>
+
         <Field label="Vehicles">
           <input
             type="range"
@@ -397,6 +414,42 @@ export function SimulationViewer({ drawing, groupCategory, network }: Props) {
             {speedMul.toFixed(2)}×
           </span>
         </Field>
+
+        <label
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            fontSize: 11,
+            color: "#94a3b8",
+            cursor: "pointer",
+          }}
+        >
+          <input
+            type="checkbox"
+            checked={signalsEnabled}
+            onChange={(e) => setSignalsEnabled(e.target.checked)}
+          />
+          Traffic signals
+        </label>
+        <label
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            fontSize: 11,
+            color: "#94a3b8",
+            cursor: "pointer",
+          }}
+        >
+          <input
+            type="checkbox"
+            checked={showSignalHeads}
+            onChange={(e) => setShowSignalHeads(e.target.checked)}
+          />
+          Show signal heads
+        </label>
+
         {network.links.length === 0 && (
           <div style={{ color: "#fda4af", fontSize: 11 }}>
             No road links to drive on. Switch to the Network tab and adjust
@@ -408,13 +461,7 @@ export function SimulationViewer({ drawing, groupCategory, network }: Props) {
   );
 }
 
-function Field({
-  label,
-  children,
-}: {
-  label: string;
-  children: React.ReactNode;
-}) {
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <label
       style={{
