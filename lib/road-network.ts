@@ -369,66 +369,167 @@ function pointInPolygon(x: number, y: number, points: number[]): boolean {
 }
 
 const BUILDING_TYPE_PATTERNS: { type: BuildingType; patterns: RegExp[] }[] = [
-  { type: "residential", patterns: [/residen/i, /apart/i, /villa/i, /housing/i, /dwell/i, /town\s*hous/i] },
-  { type: "retail", patterns: [/retail/i, /\bshop/i, /store/i, /mall/i, /super.?market/i] },
-  { type: "commercial", patterns: [/commerc/i, /\bmixed[-\s]?use\b/i] },
-  { type: "office", patterns: [/office/i, /admin/i, /headquarters/i, /\bhq\b/i] },
-  { type: "school", patterns: [/school/i, /kinder|nursery/i, /college/i, /universit/i, /educat/i] },
-  { type: "mosque", patterns: [/mosque/i, /masjid/i, /prayer/i, /jam(?:e|i'?a)/i] },
-  { type: "hospital", patterns: [/hospital/i, /clinic/i, /medic/i, /health.?cent/i] },
-  { type: "civic", patterns: [/civic/i, /community/i, /municip/i, /\bgov(?:ernment)?\b/i, /police/i, /fire\s*stat/i, /library/i] },
-  { type: "industrial", patterns: [/industrial/i, /warehouse/i, /factory/i, /workshop/i] },
-  { type: "parking", patterns: [/park(?:ing)?/i, /\bcar.?park\b/i, /\bgarage\b/i] },
-  { type: "amenity", patterns: [/amenity|amenities/i, /club|gym|spa/i, /restaurant|cafe|café/i, /hotel/i, /retail|leisure/i] },
+  {
+    type: "residential",
+    patterns: [
+      /residen/i,
+      /\bapart/i,
+      /\bvilla/i,
+      /housing/i,
+      /\bdwell/i,
+      /town\s*hous/i,
+      /\bcondo/i,
+      /\bflat/i,
+      /\bserviced\s*apt\b/i,
+    ],
+  },
+  {
+    type: "retail",
+    patterns: [/retail/i, /\bshop/i, /store/i, /\bmall\b/i, /super.?market/i, /boutique/i],
+  },
+  {
+    type: "commercial",
+    patterns: [/commerc/i, /\bmixed[-\s]?use\b/i, /tower\b/i],
+  },
+  {
+    type: "office",
+    patterns: [/office/i, /admin/i, /headquarters/i, /\bhq\b/i, /business\s*centre/i],
+  },
+  {
+    type: "school",
+    patterns: [/school/i, /\bnursery/i, /\bkinder/i, /\bcollege/i, /\bunivers/i, /educat/i, /academy/i],
+  },
+  {
+    type: "mosque",
+    patterns: [/mosque/i, /masjid/i, /\bprayer\s*(hall|room)/i, /jami[a-z]*/i, /jamee/i],
+  },
+  {
+    type: "hospital",
+    patterns: [/hospital/i, /\bclinic\b/i, /\bmedical\b/i, /health.?cent/i, /\bpharma/i],
+  },
+  {
+    type: "civic",
+    patterns: [
+      /civic/i,
+      /community/i,
+      /municip/i,
+      /\bgov(?:ernment)?\b/i,
+      /police/i,
+      /fire\s*stat/i,
+      /library/i,
+      /museum/i,
+      /gallery/i,
+      /cultural/i,
+      /heritage/i,
+    ],
+  },
+  {
+    type: "industrial",
+    patterns: [/industrial/i, /warehouse/i, /factory/i, /workshop/i, /utility/i, /substation/i],
+  },
+  {
+    type: "parking",
+    patterns: [/park(?:ing)?\s*(?:lot|garage|building|structure)?/i, /\bcar.?park\b/i, /\bgarage\b/i],
+  },
+  {
+    type: "amenity",
+    patterns: [
+      /amenity|amenities/i,
+      /\bclub\b/i,
+      /\bgym\b/i,
+      /\bspa\b/i,
+      /restaurant|cafe|café|brasserie|bistro/i,
+      /\bhotel\b/i,
+      /\blounge\b/i,
+      /grandstand/i,
+      /stadium/i,
+      /arena/i,
+      /pavilion/i,
+      /equine|equestrian|stable|paddock/i,
+      /\bpool\b/i,
+      /\bcouture\b/i,
+      /\blifestyle\b/i,
+    ],
+  },
 ];
 
 function classifyBuildingLabel(label: string): BuildingType {
+  // Per-glyph PDFs render the label with whitespace between letters; match
+  // against both the original and a de-spaced version.
+  const compact = label.replace(/\s+/g, "");
   for (const { type, patterns } of BUILDING_TYPE_PATTERNS) {
-    if (patterns.some((p) => p.test(label))) return type;
+    if (patterns.some((p) => p.test(label) || p.test(compact))) return type;
   }
   return "other";
 }
 
 /**
- * For each building polygon, gather every text item whose anchor lies inside
- * the polygon. The combined string becomes the building label, and the
- * label is mapped to a building type via simple regex classification.
+ * For each text item, find the smallest building polygon whose interior
+ * contains the text's centre point. Concatenated lines become the label;
+ * the label is run through a regex classifier to pick a building type.
  */
 function assignLabels(
   buildings: BuildingFootprint[],
-  texts: { text: string; x: number; y: number }[]
+  texts: {
+    text: string;
+    x: number;
+    y: number;
+    width?: number;
+    height?: number;
+    fontSize?: number;
+  }[]
 ): BuildingFootprint[] {
   if (texts.length === 0) return buildings;
 
-  // Bucket buildings by AABB for fast lookup.
-  const aabbs: { id: string; minX: number; minY: number; maxX: number; maxY: number }[] = [];
-  const labelMap = new Map<string, string[]>();
+  // Pre-compute AABB and area for each building.
+  const aabbs: {
+    id: string;
+    minX: number;
+    minY: number;
+    maxX: number;
+    maxY: number;
+    area: number;
+  }[] = [];
+  const byId = new Map<string, BuildingFootprint>();
   for (const b of buildings) {
+    byId.set(b.id, b);
     let mnx = Infinity,
       mny = Infinity,
       mxx = -Infinity,
       mxy = -Infinity;
     for (let i = 0; i < b.points.length; i += 2) {
-      const x = b.points[i];
-      const y = b.points[i + 1];
+      const x = b.points[i],
+        y = b.points[i + 1];
       if (x < mnx) mnx = x;
       if (y < mny) mny = y;
       if (x > mxx) mxx = x;
       if (y > mxy) mxy = y;
     }
-    aabbs.push({ id: b.id, minX: mnx, minY: mny, maxX: mxx, maxY: mxy });
+    aabbs.push({ id: b.id, minX: mnx, minY: mny, maxX: mxx, maxY: mxy, area: b.area });
   }
+  // Smallest first - so when multiple polygons contain a label we pick the
+  // tightest one (e.g. inner room vs outer block).
+  aabbs.sort((a, b) => a.area - b.area);
+
+  const labelMap = new Map<string, string[]>();
 
   for (const t of texts) {
+    // pdfjs anchors text at the baseline-left. Use the centre of the text
+    // bounding box so a label printed centred on a building registers
+    // even when the polygon doesn't quite contain the anchor.
+    const w = t.width ?? 0;
+    const h = t.height ?? t.fontSize ?? 0;
+    const cx = t.x + w / 2;
+    const cy = t.y + h / 2;
     for (const a of aabbs) {
-      if (t.x < a.minX || t.x > a.maxX || t.y < a.minY || t.y > a.maxY) continue;
-      const b = buildings.find((bb) => bb.id === a.id);
+      if (cx < a.minX || cx > a.maxX || cy < a.minY || cy > a.maxY) continue;
+      const b = byId.get(a.id);
       if (!b) continue;
-      if (!pointInPolygon(t.x, t.y, b.points)) continue;
+      if (!pointInPolygon(cx, cy, b.points)) continue;
       const arr = labelMap.get(a.id) ?? [];
       arr.push(t.text);
       labelMap.set(a.id, arr);
-      break; // attach text to one building only.
+      break;
     }
   }
 

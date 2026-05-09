@@ -280,6 +280,48 @@ export function detectFromPdf(
     maxY = 0;
   }
 
+  // Lane markings vs kerbs share the same grey colour in CAD-exported PDFs
+  // and aren't distinguishable by colour alone. AutoCAD draws dashed stripes
+  // as many short individual polylines (no PDF setDash), so we can split
+  // segments classified as 'edge' into 'lane' (short) and 'edge' (long) by
+  // length, using a threshold tied to the drawing extents.
+  const diag = Math.hypot(maxX - minX, maxY - minY) || 1;
+  const laneCutoff = diag * 0.012; // ~1.2% of bounds diagonal
+  const edgeGroupRecount = new Map<
+    string,
+    { edge: number; lane: number; edgeLen: number; laneLen: number }
+  >();
+  for (const seg of segments) {
+    if (seg.category !== "edge") continue;
+    if (seg.length < laneCutoff) {
+      seg.category = "lane";
+    }
+    const r = edgeGroupRecount.get(seg.groupId) ?? {
+      edge: 0,
+      lane: 0,
+      edgeLen: 0,
+      laneLen: 0,
+    };
+    if (seg.category === "lane") {
+      r.lane += 1;
+      r.laneLen += seg.length;
+    } else {
+      r.edge += 1;
+      r.edgeLen += seg.length;
+    }
+    edgeGroupRecount.set(seg.groupId, r);
+  }
+  // If a colour group ended up overwhelmingly 'lane' (90%+ short segments),
+  // promote the whole group to 'lane'. Otherwise leave it mixed.
+  for (const g of groupMap.values()) {
+    if (g.category !== "edge") continue;
+    const r = edgeGroupRecount.get(g.id);
+    if (!r) continue;
+    if (r.lane > 0 && r.lane / (r.lane + r.edge) > 0.9) {
+      g.category = "lane";
+    }
+  }
+
   return {
     source: "pdf",
     bounds: { minX, minY, maxX, maxY },

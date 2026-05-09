@@ -153,22 +153,22 @@ export function NetworkViewer({
       ctx.stroke();
     }
 
-    // Building labels (only when zoom is sufficient to render legibly).
-    if (transform.scale >= 0.5) {
-      ctx.fillStyle = "#e2e8f0";
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-      ctx.font = "10px ui-sans-serif, system-ui";
-      for (const b of network.buildings) {
-        if (!b.label) continue;
-        const c = polygonCentroid(b.points);
-        if (!c) continue;
-        const widthPx = polygonAabbWidth(b.points) * transform.scale;
-        if (widthPx < 24) continue; // too small at this zoom
-        const label = truncateForWidth(b.label, ctx, Math.max(widthPx - 6, 20));
-        if (!label) continue;
-        ctx.fillText(label, px(c.x), py(c.y));
-      }
+    // Building labels - only render when the polygon is wide enough on screen
+    // for the text to be readable. No global zoom gate so labels appear
+    // progressively as the user zooms in.
+    ctx.fillStyle = "#e2e8f0";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.font = "10px ui-sans-serif, system-ui";
+    for (const b of network.buildings) {
+      if (!b.label) continue;
+      const widthPx = polygonAabbWidth(b.points) * transform.scale;
+      if (widthPx < 18) continue;
+      const c = polygonCentroid(b.points);
+      if (!c) continue;
+      const label = truncateForWidth(b.label, ctx, Math.max(widthPx - 6, 16));
+      if (!label) continue;
+      ctx.fillText(label, px(c.x), py(c.y));
     }
 
     ctx.lineCap = "round";
