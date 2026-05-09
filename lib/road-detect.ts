@@ -19,6 +19,8 @@ export interface DrawingSegment {
   points: number[];
   closed: boolean;
   length: number;
+  /** Cleaned PDF OCG layer name when present. */
+  layer?: string;
 }
 
 export interface DrawingGroup {
@@ -31,6 +33,8 @@ export interface DrawingGroup {
   color?: [number, number, number];
   /** PDF-only: average line width in PDF user units. */
   lineWidth?: number;
+  /** When the group corresponds to a PDF OCG layer rather than a colour cluster. */
+  layer?: string;
 }
 
 export interface DrawingTextItem {
@@ -211,8 +215,18 @@ export function detectFromPdf(
     const b = Math.min(255, Math.round((color[2] * 255) / 8) * 8);
     if (dropWhite && r >= 248 && g >= 248 && b >= 248) continue;
 
-    const groupId = `rgb_${r}_${g}_${b}${path.isFilled && !path.isStroked ? "_f" : ""}`;
-    const category = classifyByColor(r, g, b, path.lineWidth, path.isFilled);
+    // Prefer grouping by OCG layer name when the PDF carries it; fall back
+    // to colour cluster otherwise. Layer-based classification overrides the
+    // colour heuristic since CAD layer names are far more semantic.
+    const layer = path.layer ?? null;
+    const filledSuffix = path.isFilled && !path.isStroked ? "_f" : "";
+    const groupId = layer
+      ? `layer_${layer}${filledSuffix}`
+      : `rgb_${r}_${g}_${b}${filledSuffix}`;
+    const category = layer
+      ? classifyByLayer(layer, path.isFilled) ??
+        classifyByColor(r, g, b, path.lineWidth, path.isFilled)
+      : classifyByColor(r, g, b, path.lineWidth, path.isFilled);
 
     path.subpaths.forEach((sub, si) => {
       if (sub.length < 2) return;
@@ -253,6 +267,7 @@ export function detectFromPdf(
           flat[0] === flat[flat.length - 2] &&
           flat[1] === flat[flat.length - 1],
         length,
+        layer: layer ?? undefined,
       });
 
       const existing = groupMap.get(groupId);
@@ -262,12 +277,15 @@ export function detectFromPdf(
       } else {
         groupMap.set(groupId, {
           id: groupId,
-          label: `RGB(${r}, ${g}, ${b})${path.isFilled && !path.isStroked ? " filled" : ""}`,
+          label: layer
+            ? `${layer}${filledSuffix ? " (filled)" : ""}`
+            : `RGB(${r}, ${g}, ${b})${filledSuffix ? " filled" : ""}`,
           category,
           count: 1,
           totalLength: length,
           color: [r / 255, g / 255, b / 255],
           lineWidth: path.lineWidth,
+          layer: layer ?? undefined,
         });
       }
     });
@@ -280,41 +298,24 @@ export function detectFromPdf(
     maxY = 0;
   }
 
-  // Lane markings vs kerbs share the same grey colour in CAD-exported PDFs
-  // and aren't distinguishable by colour alone. AutoCAD draws dashed stripes
-  // as many short individual polylines (no PDF setDash), so we can split
-  // segments classified as 'edge' into 'lane' (short) and 'edge' (long) by
-  // length, using a threshold tied to the drawing extents.
+  // Lane markings vs kerbs heuristic: only run for segments that came in
+  // without a layer tag (i.e. PDFs without OCG metadata). When layers are
+  // present they're more reliable than length-based guessing.
   const diag = Math.hypot(maxX - minX, maxY - minY) || 1;
-  const laneCutoff = diag * 0.012; // ~1.2% of bounds diagonal
-  const edgeGroupRecount = new Map<
-    string,
-    { edge: number; lane: number; edgeLen: number; laneLen: number }
-  >();
+  const laneCutoff = diag * 0.012;
+  const edgeGroupRecount = new Map<string, { edge: number; lane: number }>();
   for (const seg of segments) {
     if (seg.category !== "edge") continue;
-    if (seg.length < laneCutoff) {
-      seg.category = "lane";
-    }
-    const r = edgeGroupRecount.get(seg.groupId) ?? {
-      edge: 0,
-      lane: 0,
-      edgeLen: 0,
-      laneLen: 0,
-    };
-    if (seg.category === "lane") {
-      r.lane += 1;
-      r.laneLen += seg.length;
-    } else {
-      r.edge += 1;
-      r.edgeLen += seg.length;
-    }
+    if (seg.layer) continue; // trust the layer
+    if (seg.length < laneCutoff) seg.category = "lane";
+    const r = edgeGroupRecount.get(seg.groupId) ?? { edge: 0, lane: 0 };
+    if (seg.category === "lane") r.lane += 1;
+    else r.edge += 1;
     edgeGroupRecount.set(seg.groupId, r);
   }
-  // If a colour group ended up overwhelmingly 'lane' (90%+ short segments),
-  // promote the whole group to 'lane'. Otherwise leave it mixed.
   for (const g of groupMap.values()) {
     if (g.category !== "edge") continue;
+    if (g.layer) continue;
     const r = edgeGroupRecount.get(g.id);
     if (!r) continue;
     if (r.lane > 0 && r.lane / (r.lane + r.edge) > 0.9) {
@@ -330,6 +331,116 @@ export function detectFromPdf(
     entityCount: paths.length,
     texts,
   };
+}
+
+const PDF_LAYER_PATTERNS: { category: RoadCategory; patterns: RegExp[] }[] = [
+  // Lane-related layers: lane bodies, lane direction, lane markings, parking
+  // marks, give-way / stop / no-crossing lines, arrows, cycle tracks, ped
+  // crossings. Anything that is "stuff drawn on top of the road body".
+  {
+    category: "lane",
+    patterns: [
+      /\blane\b/i,
+      /\bcycle.?track\b/i,
+      /\bcrossing\b/i,
+      /\bgiveway\b/i,
+      /\bgive\s*way\b/i,
+      /\bstop\s*line\b/i,
+      /\bno.?crossing\b/i,
+      /\bdrop.?kerb.?marking\b/i,
+      /\barrow\b/i,
+      /\broad.?mark\b/i,
+      /\bparking\b/i,
+      /\bcrosswalk\b/i,
+      /\bzebra\b/i,
+    ],
+  },
+  // Solid kerb / road-edge layers.
+  {
+    category: "edge",
+    patterns: [
+      /\bkerb\b/i,
+      /\bcurb\b/i,
+      /\broad.?edge\b/i,
+      /\bedge.?of.?pavement\b/i,
+      /\beop\b/i,
+      /\broad.?flush\b/i,
+      /\bdrop.?kerb\b/i,
+    ],
+  },
+  // Right-of-way / road centerline / median.
+  {
+    category: "centerline",
+    patterns: [
+      /\brow\b/i,
+      /\bcenter.?line\b/i,
+      /\bcentre.?line\b/i,
+      /\bmedian\b/i,
+      /\b\/cl\/\b/i,
+    ],
+  },
+  // Boundary layers (legal, planning, master plan extents).
+  {
+    category: "boundary",
+    patterns: [
+      /\bboundary\b/i,
+      /\bplot\b/i,
+      /\baffection\b/i,
+      /\bcluster\s*boundary\b/i,
+      /\baffected\b/i,
+    ],
+  },
+  // Building footprints - detected by land-use layer naming.
+  {
+    category: "building",
+    patterns: [
+      /\bvilla\b/i,
+      /\btownhouse\b/i,
+      /\btown\s*hous/i,
+      /\bresi[_\s]/i,
+      /\bresidential\b/i,
+      /\bapart/i,
+      /\bhotel\b/i,
+      /\bhospital\b/i,
+      /\bschool\b/i,
+      /\bmosque\b/i,
+      /\bmasjid\b/i,
+      /\breligi/i,
+      /\bbldg\b/i,
+      /\bbuilding\b/i,
+      /\boffice\b/i,
+      /\bretail\b/i,
+      /\bmixed.?use\b/i,
+      /\bcommercial\b/i,
+      /\banchor\s*assets?\b/i,
+      /\bgrandstand\b/i,
+      /\bstable\b/i,
+      /\bequine\b/i,
+      /\bequest/i,
+      /\bmall\b/i,
+      /\bclinic\b/i,
+      /\bmuseum\b/i,
+      /\bgallery\b/i,
+      /\bpolice\b/i,
+      /\bfire.?station\b/i,
+      /\blibrary\b/i,
+      /\bcommunity\b/i,
+      /\bcultural\b/i,
+      /\bvertiport\b/i,
+      /\bjarc\b/i,
+    ],
+  },
+];
+
+/**
+ * PDF OCG layer-name classifier. Returns null when no rule matches so the
+ * caller can fall back to colour-based heuristics.
+ */
+function classifyByLayer(layer: string, _isFilled: boolean): RoadCategory | null {
+  for (const { category, patterns } of PDF_LAYER_PATTERNS) {
+    if (patterns.some((p) => p.test(layer))) return category;
+  }
+  return null;
 }
 
 /**

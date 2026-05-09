@@ -9,6 +9,8 @@ export interface ExtractedPath {
   isStroked: boolean;
   isFilled: boolean;
   isClosed: boolean;
+  /** Innermost OCG layer name when the path was drawn inside one. */
+  layer: string | null;
 }
 
 interface GraphicsState {
@@ -272,9 +274,33 @@ export interface PdfjsOpList {
 export interface PdfjsLikeDoc {
   numPages: number;
   getPage(n: number): Promise<{ getOperatorList(): Promise<PdfjsOpList> }>;
+  getOptionalContentConfig?: () => Promise<PdfjsLikeOptionalContentConfig | null>;
+}
+
+export interface PdfjsLikeOptionalContentConfig {
+  getGroup?: (id: string) => { name?: string } | null | undefined;
+  getOrder?: () =>
+    | (string | { groups?: string[]; name?: string })[]
+    | null
+    | undefined;
 }
 
 export type PdfjsLikeOps = Record<string, number>;
+
+/**
+ * Strip the AutoCAD-export prefix from a raw OCG layer name. Examples:
+ *   "37478110-HS-PRIME-RCMP-...|X_PRIME-MP_Anchor Assets$0$-MP_BLDG"
+ *     -> "MP_BLDG"
+ *   "...|X_PRIME-MP-VILLA-TH PLOT_I-REV2$0$-LU_H-Resi_Villa+TH"
+ *     -> "LU_H-Resi_Villa+TH"
+ */
+export function cleanLayerName(raw: string): string {
+  if (!raw) return raw;
+  const m = raw.match(/\$\d+\$-(.+)$/);
+  if (m) return m[1].trim();
+  const piped = raw.split("|").pop() ?? raw;
+  return piped.trim();
+}
 
 /**
  * Walk every page of a pdfjs document and emit one ExtractedPath per painted
@@ -321,6 +347,32 @@ export async function walkPdfDocument(
 
   const result: ExtractedPath[] = [];
 
+  // Build OCG id -> clean layer name lookup once per document. AutoCAD-style
+  // PDFs often nest groups under a parent group, so we walk both flat ids and
+  // nested order entries.
+  const layerNameById = new Map<string, string>();
+  if (doc.getOptionalContentConfig) {
+    try {
+      const cfg = await doc.getOptionalContentConfig();
+      const order = cfg?.getOrder?.() ?? [];
+      const visit = (entry: unknown) => {
+        if (!entry) return;
+        if (typeof entry === "string") {
+          const g = cfg?.getGroup?.(entry);
+          if (g && typeof g.name === "string") {
+            layerNameById.set(entry, cleanLayerName(g.name));
+          }
+        } else if (typeof entry === "object" && entry && "groups" in entry) {
+          const groups = (entry as { groups?: string[] }).groups ?? [];
+          for (const sub of groups) visit(sub);
+        }
+      };
+      for (const entry of order) visit(entry);
+    } catch {
+      // Non-fatal: fall back to colour clustering if OCG metadata is missing.
+    }
+  }
+
   for (let pageNum = 1; pageNum <= doc.numPages; pageNum++) {
     const page = await doc.getPage(pageNum);
     const opList = await page.getOperatorList();
@@ -332,6 +384,17 @@ export async function walkPdfDocument(
       lineWidth: 1,
     };
     const stack: GraphicsState[] = [];
+    // Stack of OCG layer names for the current marked-content nesting. The
+    // top entry is the innermost layer; null entries push for non-OC marked
+    // content so begin/end pairs balance regardless of tag type.
+    const layerStack: (string | null)[] = [];
+    const currentLayer = () => {
+      for (let k = layerStack.length - 1; k >= 0; k--) {
+        const v = layerStack[k];
+        if (v) return v;
+      }
+      return null;
+    };
 
     // Modern-build pending path: filled in by `constructPath`, painted by the
     // subsequent stroke / fill / endPath operator.
@@ -341,6 +404,7 @@ export async function walkPdfDocument(
       lineWidth: number;
       strokeColor: [number, number, number] | null;
       fillColor: [number, number, number] | null;
+      layer: string | null;
     } | null = null;
 
     const emit = (
@@ -358,6 +422,7 @@ export async function walkPdfDocument(
         isStroked,
         isFilled,
         isClosed: pending.closed || isClosed,
+        layer: pending.layer,
       });
     };
 
@@ -390,10 +455,26 @@ export async function walkPdfDocument(
         state.strokeColor = parseColor(args) ?? parseColor((args as unknown[])[0]);
       } else if (op === OPS.setFillRGBColor && args) {
         state.fillColor = parseColor(args) ?? parseColor((args as unknown[])[0]);
+      } else if (op === OPS.beginMarkedContentProps && args) {
+        // args is `[tag, properties]`. For OCG layers tag === "OC" and
+        // properties.id is the OCG group id. Anything else just balances
+        // the stack with a null entry.
+        const tag = args[0];
+        const props = args[1] as { id?: string; type?: string } | null;
+        if (tag === "OC" && props && typeof props.id === "string") {
+          layerStack.push(layerNameById.get(props.id) ?? null);
+        } else {
+          layerStack.push(null);
+        }
+      } else if (op === OPS.beginMarkedContent) {
+        layerStack.push(null);
+      } else if (op === OPS.endMarkedContent) {
+        layerStack.pop();
       } else if (op === OPS.constructPath && args) {
         const arg0 = args[0];
         const lineWidthHere =
           state.lineWidth * Math.hypot(state.ctm[0], state.ctm[1]);
+        const layerHere = currentLayer();
 
         if (Array.isArray(arg0)) {
           // Modern build: separate ops + args. Defer paint until the next
@@ -412,6 +493,7 @@ export async function walkPdfDocument(
             lineWidth: lineWidthHere,
             strokeColor: state.strokeColor,
             fillColor: state.fillColor,
+            layer: layerHere,
           };
         } else if (typeof arg0 === "number") {
           // Legacy build: terminal op embedded in args[0], buffer in args[1][0].
@@ -435,6 +517,7 @@ export async function walkPdfDocument(
             isStroked,
             isFilled,
             isClosed: closed || CLOSE_OPS.has(terminalOp),
+            layer: layerHere,
           });
         }
       } else if (PAINT_OPS.has(op) && pendingPath) {

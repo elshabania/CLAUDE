@@ -45,8 +45,10 @@ export interface BuildingFootprint {
   area: number;
   /** Concatenated text labels found inside the polygon, if any. */
   label?: string;
-  /** Best-guess building category derived from `label`. */
+  /** Best-guess building category derived from `label` or its OCG layer. */
   buildingType?: BuildingType;
+  /** Number of source plot polygons rolled into this footprint (>=1). */
+  plotCount?: number;
 }
 
 export interface RoadNetwork {
@@ -262,12 +264,17 @@ export function buildRoadNetwork(
     node.isJunction = node.links.length >= 3;
   }
 
-  const rawBuildings: BuildingFootprint[] = buildingSegs.map((s, i) => ({
+  const rawBuildings: BuildingWithLayer[] = buildingSegs.map((s, i) => ({
     id: `b${i}`,
     points: s.points,
     area: polygonArea(s.points),
+    layer: s.layer ?? undefined,
   }));
-  const buildings = assignLabels(rawBuildings, drawing.texts ?? []);
+  const labelled = assignLabels(rawBuildings, drawing.texts ?? []);
+  // Merge clusters of small same-type residential plots into one polygon
+  // (typical CAD villa/townhouse layouts draw every plot individually; a
+  // simulation network only needs the cluster as a single TAZ).
+  const buildings = mergeBuildingClusters(labelled);
 
   const nodeArr = Array.from(nodes.values());
   return {
@@ -368,6 +375,10 @@ function pointInPolygon(x: number, y: number, points: number[]): boolean {
   return inside;
 }
 
+interface BuildingWithLayer extends BuildingFootprint {
+  layer?: string;
+}
+
 const BUILDING_TYPE_PATTERNS: { type: BuildingType; patterns: RegExp[] }[] = [
   {
     type: "residential",
@@ -454,13 +465,32 @@ const BUILDING_TYPE_PATTERNS: { type: BuildingType; patterns: RegExp[] }[] = [
 ];
 
 function classifyBuildingLabel(label: string): BuildingType {
-  // Per-glyph PDFs render the label with whitespace between letters; match
-  // against both the original and a de-spaced version.
   const compact = label.replace(/\s+/g, "");
   for (const { type, patterns } of BUILDING_TYPE_PATTERNS) {
     if (patterns.some((p) => p.test(label) || p.test(compact))) return type;
   }
   return "other";
+}
+
+/** Layer names give us a more authoritative building-type mapping than free text. */
+function classifyBuildingLayer(layer: string): BuildingType | null {
+  if (/villa|townhouse|town\s*hous|resi[_\s]|residen|apart/i.test(layer))
+    return "residential";
+  if (/hotel|boutique|amenit|club|gym|spa|grandstand|stable|equine|equest|lounge|brasserie/i.test(layer))
+    return "amenity";
+  if (/hospital|clinic|medical|health/i.test(layer)) return "hospital";
+  if (/religious|mosque|masjid|jami/i.test(layer)) return "mosque";
+  if (/school|nursery|kinder|college|univers|education|academy/i.test(layer))
+    return "school";
+  if (/civic|community|municip|police|fire.?stat|library|museum|gallery|cultural|heritage/i.test(layer))
+    return "civic";
+  if (/parking|garage/i.test(layer)) return "parking";
+  if (/industrial|warehouse|factory|workshop|substation|utility|^ut\b/i.test(layer))
+    return "industrial";
+  if (/commercial|mixed.?use|retail|shop|mall|tower/i.test(layer))
+    return "commercial";
+  if (/office|admin|hq\b/i.test(layer)) return "office";
+  return null;
 }
 
 /**
@@ -469,7 +499,7 @@ function classifyBuildingLabel(label: string): BuildingType {
  * the label is run through a regex classifier to pick a building type.
  */
 function assignLabels(
-  buildings: BuildingFootprint[],
+  buildings: BuildingWithLayer[],
   texts: {
     text: string;
     x: number;
@@ -478,8 +508,15 @@ function assignLabels(
     height?: number;
     fontSize?: number;
   }[]
-): BuildingFootprint[] {
-  if (texts.length === 0) return buildings;
+): BuildingWithLayer[] {
+  // Layer-name pre-classification: even when no text falls inside the polygon,
+  // a layer like LU_H-Resi_Villa+TH already tells us the type.
+  const seeded = buildings.map((b) => {
+    if (!b.layer) return b;
+    const t = classifyBuildingLayer(b.layer);
+    return t ? { ...b, buildingType: t } : b;
+  });
+  if (texts.length === 0) return seeded;
 
   // Pre-compute AABB and area for each building.
   const aabbs: {
@@ -490,8 +527,8 @@ function assignLabels(
     maxY: number;
     area: number;
   }[] = [];
-  const byId = new Map<string, BuildingFootprint>();
-  for (const b of buildings) {
+  const byId = new Map<string, BuildingWithLayer>();
+  for (const b of seeded) {
     byId.set(b.id, b);
     let mnx = Infinity,
       mny = Infinity,
@@ -533,16 +570,245 @@ function assignLabels(
     }
   }
 
-  return buildings.map((b) => {
+  return seeded.map((b) => {
     const lines = labelMap.get(b.id);
     if (!lines || lines.length === 0) return b;
     const label = lines.join(" ").replace(/\s+/g, " ").trim();
-    return {
-      ...b,
-      label,
-      buildingType: classifyBuildingLabel(label),
-    };
+    // Don't downgrade a stronger layer-based type with a weaker text-based
+    // guess of "other".
+    const fromLabel = classifyBuildingLabel(label);
+    const buildingType =
+      b.buildingType && fromLabel === "other" ? b.buildingType : fromLabel;
+    return { ...b, label, buildingType };
   });
+}
+
+/**
+ * Merge adjacent same-type building plots (typically villas / townhouses)
+ * into a single cluster polygon. Adjacency is by AABB proximity inside a
+ * tight tolerance so a row of detached villas joins into one block, but a
+ * villa cluster across the road from a hotel does not.
+ *
+ * The merged geometry is the union's convex hull (cheap, deterministic, and
+ * good enough for a simulation TAZ representation - we don't need the
+ * cluster's exact concave outline at this stage).
+ */
+function mergeBuildingClusters(buildings: BuildingWithLayer[]): BuildingFootprint[] {
+  if (buildings.length === 0) return [];
+
+  // Bucket buildings by type so we never merge across types.
+  const byType = new Map<BuildingType, number[]>();
+  buildings.forEach((b, i) => {
+    const t: BuildingType = b.buildingType ?? "other";
+    if (!byType.has(t)) byType.set(t, []);
+    byType.get(t)!.push(i);
+  });
+
+  // Drawing-scale heuristic: pick a merge tolerance from the median plot
+  // diagonal. Two plots whose AABBs are within `tol` are considered adjacent.
+  const aabbs = buildings.map((b) => aabbOf(b.points));
+  const diags = aabbs
+    .map((a) => Math.hypot(a.maxX - a.minX, a.maxY - a.minY))
+    .sort((a, b) => a - b);
+  const medianDiag = diags[Math.floor(diags.length / 2)] || 1;
+
+  const merged: BuildingFootprint[] = [];
+  let mid = 0;
+
+  for (const [type, idxs] of byType) {
+    if (!shouldClusterType(type)) {
+      for (const i of idxs) merged.push(buildings[i]);
+      continue;
+    }
+    // Tighter tolerance for big aggregated types so we don't accidentally
+    // merge two distinct clusters separated by an internal road.
+    const tol = Math.max(3, medianDiag * 0.6);
+    const adj = buildAdjacency(idxs, aabbs, tol);
+    const components = connectedComponents(idxs, adj);
+
+    for (const comp of components) {
+      if (comp.length === 1) {
+        merged.push(buildings[comp[0]]);
+        continue;
+      }
+      const allPoints: { x: number; y: number }[] = [];
+      let totalArea = 0;
+      const labels: string[] = [];
+      for (const i of comp) {
+        const b = buildings[i];
+        totalArea += b.area;
+        if (b.label) labels.push(b.label);
+        for (let p = 0; p < b.points.length; p += 2) {
+          allPoints.push({ x: b.points[p], y: b.points[p + 1] });
+        }
+      }
+      const hullPts = convexHull(allPoints);
+      const flat: number[] = [];
+      for (const p of hullPts) flat.push(p.x, p.y);
+      // Close the hull polygon explicitly.
+      if (
+        flat.length >= 4 &&
+        (flat[0] !== flat[flat.length - 2] || flat[1] !== flat[flat.length - 1])
+      ) {
+        flat.push(flat[0], flat[1]);
+      }
+      const dedup = [...new Set(labels)];
+      merged.push({
+        id: `m${mid++}`,
+        points: flat,
+        area: totalArea,
+        buildingType: type,
+        plotCount: comp.length,
+        label: dedup.length > 0 ? dedup.join(" / ") : `${prettyType(type)} cluster`,
+      });
+    }
+  }
+
+  return merged;
+}
+
+/** Cluster the bulk-style usage types (villas, townhouses, generic resi);
+ *  leave anchor assets like hotels / mosques / schools alone. */
+function shouldClusterType(t: BuildingType): boolean {
+  return t === "residential" || t === "industrial";
+}
+
+function aabbOf(points: number[]) {
+  let minX = Infinity,
+    minY = Infinity,
+    maxX = -Infinity,
+    maxY = -Infinity;
+  for (let i = 0; i < points.length; i += 2) {
+    const x = points[i];
+    const y = points[i + 1];
+    if (x < minX) minX = x;
+    if (y < minY) minY = y;
+    if (x > maxX) maxX = x;
+    if (y > maxY) maxY = y;
+  }
+  return { minX, minY, maxX, maxY };
+}
+
+function aabbsTouch(
+  a: ReturnType<typeof aabbOf>,
+  b: ReturnType<typeof aabbOf>,
+  tol: number
+): boolean {
+  if (a.maxX + tol < b.minX) return false;
+  if (b.maxX + tol < a.minX) return false;
+  if (a.maxY + tol < b.minY) return false;
+  if (b.maxY + tol < a.minY) return false;
+  return true;
+}
+
+function buildAdjacency(
+  idxs: number[],
+  aabbs: ReturnType<typeof aabbOf>[],
+  tol: number
+): Map<number, number[]> {
+  // Spatial grid keyed by floor(x/cell), floor(y/cell). Cell = tol so any
+  // two AABBs within tol must share a neighbour cell.
+  const cell = Math.max(tol, 1);
+  const grid = new Map<string, number[]>();
+  const key = (cx: number, cy: number) => `${cx}_${cy}`;
+  for (const i of idxs) {
+    const a = aabbs[i];
+    const cx0 = Math.floor(a.minX / cell);
+    const cy0 = Math.floor(a.minY / cell);
+    const cx1 = Math.floor(a.maxX / cell);
+    const cy1 = Math.floor(a.maxY / cell);
+    for (let cx = cx0; cx <= cx1; cx++) {
+      for (let cy = cy0; cy <= cy1; cy++) {
+        const k = key(cx, cy);
+        const arr = grid.get(k) ?? [];
+        arr.push(i);
+        grid.set(k, arr);
+      }
+    }
+  }
+  const adj = new Map<number, number[]>();
+  for (const i of idxs) adj.set(i, []);
+  const seen = new Set<string>();
+  for (const cellIdxs of grid.values()) {
+    for (let p = 0; p < cellIdxs.length; p++) {
+      for (let q = p + 1; q < cellIdxs.length; q++) {
+        const i = cellIdxs[p];
+        const j = cellIdxs[q];
+        const pairKey = i < j ? `${i}|${j}` : `${j}|${i}`;
+        if (seen.has(pairKey)) continue;
+        seen.add(pairKey);
+        if (aabbsTouch(aabbs[i], aabbs[j], tol)) {
+          adj.get(i)!.push(j);
+          adj.get(j)!.push(i);
+        }
+      }
+    }
+  }
+  return adj;
+}
+
+function connectedComponents(
+  idxs: number[],
+  adj: Map<number, number[]>
+): number[][] {
+  const seen = new Set<number>();
+  const out: number[][] = [];
+  for (const start of idxs) {
+    if (seen.has(start)) continue;
+    const comp: number[] = [];
+    const stack = [start];
+    while (stack.length > 0) {
+      const v = stack.pop()!;
+      if (seen.has(v)) continue;
+      seen.add(v);
+      comp.push(v);
+      for (const n of adj.get(v) ?? []) if (!seen.has(n)) stack.push(n);
+    }
+    out.push(comp);
+  }
+  return out;
+}
+
+/** Andrew's monotone chain convex hull. Returns CCW polygon, no closing copy. */
+function convexHull(points: { x: number; y: number }[]): { x: number; y: number }[] {
+  if (points.length < 3) return points.slice();
+  const pts = points.slice().sort((a, b) => a.x - b.x || a.y - b.y);
+  const lower: { x: number; y: number }[] = [];
+  for (const p of pts) {
+    while (
+      lower.length >= 2 &&
+      cross(lower[lower.length - 2], lower[lower.length - 1], p) <= 0
+    ) {
+      lower.pop();
+    }
+    lower.push(p);
+  }
+  const upper: { x: number; y: number }[] = [];
+  for (let i = pts.length - 1; i >= 0; i--) {
+    const p = pts[i];
+    while (
+      upper.length >= 2 &&
+      cross(upper[upper.length - 2], upper[upper.length - 1], p) <= 0
+    ) {
+      upper.pop();
+    }
+    upper.push(p);
+  }
+  upper.pop();
+  lower.pop();
+  return lower.concat(upper);
+}
+
+function cross(
+  o: { x: number; y: number },
+  a: { x: number; y: number },
+  b: { x: number; y: number }
+): number {
+  return (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x);
+}
+
+function prettyType(t: BuildingType): string {
+  return t === "other" ? "Building" : t.charAt(0).toUpperCase() + t.slice(1);
 }
 
 /**
