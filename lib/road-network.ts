@@ -235,6 +235,124 @@ export function buildRoadNetwork(
       aabb: { minX: mnx, minY: mny, maxX: mxx, maxY: mxy },
     });
   }
+
+  // Junction-zone detection v3: cluster curb endpoints (where multiple
+  // curb polylines END near the same point - the signature of a road
+  // intersection). This works directly off the curb geometry so it doesn't
+  // depend on having any centerline drawn or derived in the area.
+  const endpoints: { x: number; y: number; segId: number }[] = [];
+  curbSegs.forEach((c, i) => {
+    if (c.points.length < 4) return;
+    const x0 = c.points[0];
+    const y0 = c.points[1];
+    const x1 = c.points[c.points.length - 2];
+    const y1 = c.points[c.points.length - 1];
+    if (Number.isFinite(x0) && Number.isFinite(y0))
+      endpoints.push({ x: x0, y: y0, segId: i });
+    if (Number.isFinite(x1) && Number.isFinite(y1))
+      endpoints.push({ x: x1, y: y1, segId: i });
+  });
+  if (endpoints.length > 0) {
+    const clusterRadius = diag * 0.014; // ~typical curb-corner radius
+    const minClusterEndpoints = 4; // 2 roads meeting = 4 curb ends minimum
+    const minDistinctSegs = 3; // require >=3 distinct curb polylines
+    const epCell = Math.max(clusterRadius, 1);
+    const epGrid = new Map<string, number[]>();
+    for (let i = 0; i < endpoints.length; i++) {
+      const p = endpoints[i];
+      const k = `${Math.floor(p.x / epCell)}_${Math.floor(p.y / epCell)}`;
+      if (!epGrid.has(k)) epGrid.set(k, []);
+      epGrid.get(k)!.push(i);
+    }
+    const visited = new Set<number>();
+    for (let start = 0; start < endpoints.length; start++) {
+      if (visited.has(start)) continue;
+      const cluster: number[] = [];
+      const queue = [start];
+      while (queue.length > 0) {
+        const j = queue.pop()!;
+        if (visited.has(j)) continue;
+        visited.add(j);
+        cluster.push(j);
+        const p = endpoints[j];
+        const cx = Math.floor(p.x / epCell);
+        const cy = Math.floor(p.y / epCell);
+        for (let dx = -1; dx <= 1; dx++) {
+          for (let dy = -1; dy <= 1; dy++) {
+            const ids = epGrid.get(`${cx + dx}_${cy + dy}`);
+            if (!ids) continue;
+            for (const k of ids) {
+              if (visited.has(k)) continue;
+              const q = endpoints[k];
+              if (Math.hypot(q.x - p.x, q.y - p.y) < clusterRadius) queue.push(k);
+            }
+          }
+        }
+      }
+      if (cluster.length < minClusterEndpoints) continue;
+      const distinct = new Set(cluster.map((i) => endpoints[i].segId));
+      if (distinct.size < minDistinctSegs) continue;
+
+      // Compute centroid + AABB. The region polygon = convex hull of the
+      // endpoints expanded outward from the centroid by 1.4x so the polygon
+      // has a bit of buffer beyond the literal endpoints.
+      let cx = 0,
+        cy = 0;
+      for (const i of cluster) {
+        cx += endpoints[i].x;
+        cy += endpoints[i].y;
+      }
+      cx /= cluster.length;
+      cy /= cluster.length;
+
+      // Skip if this cluster sits inside an already-detected closed-polygon
+      // region (avoid counting roundabouts twice).
+      let insideExisting = false;
+      for (const r of regions) {
+        if (
+          cx >= r.aabb.minX &&
+          cx <= r.aabb.maxX &&
+          cy >= r.aabb.minY &&
+          cy <= r.aabb.maxY &&
+          pointInPolygon(cx, cy, r.polygon)
+        ) {
+          insideExisting = true;
+          break;
+        }
+      }
+      if (insideExisting) continue;
+
+      const expanded: { x: number; y: number }[] = [];
+      for (const i of cluster) {
+        const p = endpoints[i];
+        expanded.push({
+          x: cx + (p.x - cx) * 1.4,
+          y: cy + (p.y - cy) * 1.4,
+        });
+      }
+      const hull = convexHull(expanded);
+      if (hull.length < 3) continue;
+      const flat: number[] = [];
+      let mnx = Infinity,
+        mny = Infinity,
+        mxx = -Infinity,
+        mxy = -Infinity;
+      for (const h of hull) {
+        flat.push(h.x, h.y);
+        if (h.x < mnx) mnx = h.x;
+        if (h.y < mny) mny = h.y;
+        if (h.x > mxx) mxx = h.x;
+        if (h.y > mxy) mxy = h.y;
+      }
+      regions.push({
+        id: `jc${regions.length}`,
+        cx,
+        cy,
+        polygon: flat,
+        aabb: { minX: mnx, minY: mny, maxX: mxx, maxY: mxy },
+      });
+    }
+  }
   const cell = Math.max(tolerance, 1e-6);
 
   // Spatial hash on a grid with cell = tolerance. We search the 3x3 cell
