@@ -57,7 +57,10 @@ export default function Page() {
     const v: Record<string, boolean> = {};
     for (const g of result.drawing.groups) {
       c[g.id] = g.category;
-      v[g.id] = true;
+      // Default-hide everything tagged 'other' - the user's narrow active
+      // category set is { building, lane, edge }, and 'other' is the
+      // catch-all for ROW / boundaries / dimensions / anchor assets / etc.
+      v[g.id] = g.category !== "other";
     }
     setGroupCategory(c);
     setVisibleGroups(v);
@@ -474,15 +477,10 @@ function DrawingPanel({
   onToggleVisible: (id: string, v: boolean) => void;
   onChangeCategory: (id: string, cat: RoadCategory) => void;
 }) {
-  const ALL: RoadCategory[] = [
-    "edge",
-    "lane",
-    "curb",
-    "shoulder",
-    "boundary",
-    "building",
-    "other",
-  ];
+  // Only four user-facing categories: building / lane / edge / other.
+  // Everything previously classified as boundary / curb / shoulder /
+  // centerline now falls under 'other' and is hidden by default.
+  const ALL: RoadCategory[] = ["building", "lane", "edge", "other"];
   const groups = drawing.groups;
   return (
     <div style={{ padding: "16px 18px" }}>

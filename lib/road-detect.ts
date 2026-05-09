@@ -587,78 +587,9 @@ function reverseFlat(points: number[]): number[] {
 }
 
 const PDF_LAYER_PATTERNS: { category: RoadCategory; patterns: RegExp[] }[] = [
-  // Lane markings: anything painted on top of the asphalt body.
-  // Substring-style; underscores are regex word characters so \b doesn't
-  // help inside "Road Lane_Main".
-  {
-    category: "lane",
-    patterns: [
-      /road\s*lane/i,
-      /lane[_\s-]?(?:main|direction|mark|line)/i,
-      /lane[_\s-]?direction/i,
-      /road\s*mark/i,
-      /road\s*pedestrian/i,
-      /road\s*crossing/i,
-      /road\s*give\s*way/i,
-      /giveway/i,
-      /road\s*no\s*crossing/i,
-      /cycle[\s_-]*track/i,
-      /(?:^|[^a-z])lane(?:[^a-z]|$)/i,
-      /survey[_\s.-]+(?:exi[_\s.-]+)?lane/i,
-      /survey[_\s.-]+(?:exi[_\s.-]+)?arrow/i,
-      /survey[_\s.-]+(?:exi[_\s.-]+)?marking/i,
-      /survey[_\s.-]+(?:exi[_\s.-]+)?ped/i,
-      /survey[_\s.-]+(?:exi[_\s.-]+)?yellow/i,
-      /yellow\s*line/i,
-      /drop\s*kerb\s*mark/i,
-      /(?:^|[^a-z])arrow(?:[^a-z]|$)/i,
-      /stop\s*line/i,
-      /zebra/i,
-      /crosswalk/i,
-      /(?:^|[^a-z])parking(?:[^a-z]|$)/i,
-      /shuttle\s*bus/i,
-      /taxi\s*lay/i,
-    ],
-  },
-  // Curbs / kerbs / road edges - the boundary of the drivable asphalt.
-  {
-    category: "edge",
-    patterns: [
-      /road\s*edge/i,
-      /edge[_\s-]*kerb/i,
-      /(?<!drop[_\s-]*)kerb(?![_\s-]*mark)/i,
-      /(?:^|[^a-z])curb(?:[^a-z]|$)/i,
-      /survey[_\s.-]+(?:exi[_\s.-]+)?kerb/i,
-      /survey[_\s.-]+(?:exi[_\s.-]+)?bridge/i,
-      /road\s*flush/i,
-      /road\s*shoulder/i,
-      /road\s*barrier/i,
-      /road\s*raised\s*access/i,
-      /(?<!marking[_\s-]*)drop\s*kerb(?!\s*mark)/i,
-      /(?:^|[^a-z])eop(?:[^a-z]|$)/i,
-      /edge.?of.?pavement/i,
-    ],
-  },
-  // Boundary layers - legal/planning extents AND right-of-way (ROW).
-  // ROW used to be tagged 'centerline' but the source PDF has no
-  // centerlines drawn; ROW is a corridor boundary, so it belongs here.
-  {
-    category: "boundary",
-    patterns: [
-      /(affection|cluster|development|plot|drone|rta)\s*boundary/i,
-      /(?:^|[^a-z])row(?:[^a-z]|$)/i,
-      /road\s*proposed\s*row/i,
-      /\bboundary\b/i,
-      /\baffection\b/i,
-      /(?:^|[^a-z])plot(?:[^a-z]|$)/i,
-      /(?:^|[^a-z])fence(?:[^a-z]|$)/i,
-    ],
-  },
-  // Building footprints - intentionally NARROW pattern set: only villa /
-  // townhouse / townhome / mixed-use layer names classify as building.
-  // Everything else (hospital, hotel, school, mosque, anchor assets, etc.)
-  // falls through to 'other'. The user explicitly wants to keep building
-  // classification conservative for downstream visualisation.
+  // Buildings: only townhouse / villa / mixed-use land-use layers.
+  // Everything else (hospital, school, mosque, anchor assets, etc.) falls
+  // through to 'other'.
   {
     category: "building",
     patterns: [
@@ -668,6 +599,20 @@ const PDF_LAYER_PATTERNS: { category: RoadCategory; patterns: RegExp[] }[] = [
       /town[\s_-]*home/i,
       /mixed[\s_-]?use/i,
     ],
+  },
+  // Lanes: ANY layer name that contains the word 'lane'. Captures
+  // Road Lane_Main, Road Lane_Direction 1/2, Survey_EXI_LANE, Road Lane,
+  // and any future lane-* layer.
+  {
+    category: "lane",
+    patterns: [/lane/i],
+  },
+  // Edges: ANY layer name that contains the word 'edge'. Captures
+  // Road Edge_MP_00 and Road Edge_kerb_00. Drop-kerb / Survey_EXI_KERB
+  // do NOT match - the user wants only true edge layers here.
+  {
+    category: "edge",
+    patterns: [/edge/i],
   },
 ];
 
@@ -691,19 +636,12 @@ function classifyByColor(
   g: number,
   b: number,
   _lineWidth: number,
-  isFilled: boolean
+  _isFilled: boolean
 ): RoadCategory {
-  const isGray = Math.abs(r - g) < 15 && Math.abs(g - b) < 15;
-
-  // Bright magenta/purple historically meant the road-edge layer in this
-  // CMP plan family. With layer names available it's classified by name;
-  // colour fallback keeps it as edge so unnamed magenta polylines still
-  // belong to the curb cluster (the user-facing 'centerline' label is
-  // gone - the source PDF has no centerlines drawn).
+  // Colour fallback only fires for paths that have NO source layer (rare).
+  // Magenta historically marks the road-edge layer in this CAD family, so
+  // keep it -> edge. Everything else falls to 'other' to match the user's
+  // narrow active-category set.
   if (r > 150 && b > 120 && g < 100) return "edge";
-  if (!isGray && g > 160 && r < 120 && b < 120) return "boundary";
-  if (!isGray && b > 180 && r < 150) return "other";
-  if (isFilled && r < 80 && g < 80 && b < 80) return "building";
-  if (isGray && r < 200 && r > 60) return "edge";
   return "other";
 }
