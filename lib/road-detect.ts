@@ -329,45 +329,42 @@ export function detectFromPdf(
     }
   }
 
-  // Stitch end-to-end collinear segments inside each group FIRST. This is
-  // the right order: AutoCAD splits long lane stripes into many short
-  // dash-segments, and the user wants the stripes preserved as continuous
-  // polylines. Rejoining them turns the 44k Road Lane_Main fragments into
-  // a few hundred long polylines with the same visual content but a
-  // fraction of the memory / draw-call cost.
-  const stitched0 = stitchSegmentsByGroup(segments, diag);
-
-  // After stitching, apply per-category caps as a final safety net for
-  // truly noisy layers (annotations, dimensions, "other" buckets). Road
-  // categories get caps high enough that stitching alone is what bounds
-  // their cost. When a category is over its cap we keep the longest
-  // polylines first so visual structure is preserved.
-  const PER_CAT_CAP: Record<RoadCategory, number> = {
-    edge: 50000,
-    curb: 50000,
-    lane: 50000,
-    centerline: 20000,
-    boundary: 4000,
-    shoulder: 4000,
-    building: 8000,
-    other: 4000,
+  // Per-category caps applied BEFORE stitching. Lane stripes are visually
+  // decorative once you can see the road body, so 1500 of them (longest
+  // first) is plenty. Edge/curb stay high because the centerline
+  // derivation needs them dense. The pre-cap dramatically reduces the
+  // memory cost of stitching and prevents OOM on huge lane layers like
+  // Road Lane_Main (44k) and Survey_EXI_LANE (51k).
+  const PRE_STITCH_CAP: Record<RoadCategory, number> = {
+    edge: 12000,
+    curb: 12000,
+    lane: 1500,
+    centerline: 4000,
+    boundary: 2500,
+    shoulder: 1500,
+    building: 6000,
+    other: 3000,
   };
   const byCat = new Map<RoadCategory, DrawingSegment[]>();
-  for (const s of stitched0) {
+  for (const s of segments) {
     const arr = byCat.get(s.category) ?? [];
     arr.push(s);
     byCat.set(s.category, arr);
   }
-  const stitched: DrawingSegment[] = [];
+  const preCapped: DrawingSegment[] = [];
   for (const [cat, arr] of byCat) {
-    const cap = PER_CAT_CAP[cat] ?? 4000;
+    const cap = PRE_STITCH_CAP[cat] ?? 3000;
     if (arr.length <= cap) {
-      stitched.push(...arr);
+      preCapped.push(...arr);
       continue;
     }
     arr.sort((a, b) => b.length - a.length);
-    stitched.push(...arr.slice(0, cap));
+    preCapped.push(...arr.slice(0, cap));
   }
+
+  // Now stitch the capped set. With each group bounded the stitcher's
+  // memory and time cost are well within budget.
+  const stitched = stitchSegmentsByGroup(preCapped, diag);
   // Recompute group counts / total length to reflect the merged segments.
   for (const g of groupMap.values()) {
     g.count = 0;
