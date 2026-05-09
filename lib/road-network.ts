@@ -29,6 +29,10 @@ export interface NetworkLink {
   bearing: number;
   /** Pavement width in source units, when available (derived from paired curbs). */
   width?: number;
+  /** Closed polygon of the asphalt area for this link (between the two
+   *  paired curbs that produced its centerline). Set when the link comes
+   *  from the curb-pair derivation, omitted otherwise. */
+  bodyPolygon?: number[];
 }
 
 export type BuildingType =
@@ -157,7 +161,12 @@ export function buildRoadNetwork(
     opts.deriveCenterlines ??
     (curbSegs.length > preClassifiedRoads.length * 2 && curbSegs.length >= 50);
 
-  type RoadSeg = { points: number[]; length: number; width?: number };
+  type RoadSeg = {
+    points: number[];
+    length: number;
+    width?: number;
+    bodyPolygon?: number[];
+  };
   let roadSegs: RoadSeg[];
   if (shouldDerive && curbSegs.length > 0) {
     const maxRoadWidth = diag * (opts.maxRoadWidthFraction ?? 0.025);
@@ -173,6 +182,7 @@ export function buildRoadNetwork(
       points: d.points,
       length: d.length,
       width: d.width,
+      bodyPolygon: d.bodyPolygon,
     }));
   } else {
     roadSegs = preClassifiedRoads.map((s) => ({
@@ -313,6 +323,7 @@ export function buildRoadNetwork(
       length: seg.length,
       bearing,
       width: seg.width,
+      bodyPolygon: seg.bodyPolygon,
     });
   }
 
@@ -414,10 +425,99 @@ export function buildRoadNetwork(
   }
 
   for (const node of nodes.values()) {
-    // Region-derived nodes (roundabouts / signal boxes) stay flagged as
-    // junctions regardless of how many links happen to touch them.
     if (node.region) continue;
     node.isJunction = node.links.length >= 3;
+  }
+
+  // Junction-region v2: cluster nearby high-degree nodes into a single
+  // junction footprint. Signal junctions don't have a closed curb polygon
+  // around them - they're an open box where multiple roads meet - so the
+  // closed-polygon detector at the top of buildRoadNetwork misses them.
+  // Here we group degree>=3 nodes that fall within a junction-radius of
+  // each other, replace the cluster with one merged node sitting at the
+  // cluster centroid, and synthesise a convex-hull polygon for it.
+  const junctionRadius = diag * 0.025;
+  const allJunctionNodes = Array.from(nodes.values()).filter(
+    (n) => n.isJunction && !n.region
+  );
+  if (allJunctionNodes.length > 0) {
+    const adjMap = new Map<string, Set<string>>();
+    for (const n of allJunctionNodes) adjMap.set(n.id, new Set());
+    for (let i = 0; i < allJunctionNodes.length; i++) {
+      for (let j = i + 1; j < allJunctionNodes.length; j++) {
+        const a = allJunctionNodes[i];
+        const b = allJunctionNodes[j];
+        if (Math.hypot(a.x - b.x, a.y - b.y) <= junctionRadius) {
+          adjMap.get(a.id)!.add(b.id);
+          adjMap.get(b.id)!.add(a.id);
+        }
+      }
+    }
+    const seen = new Set<string>();
+    for (const start of allJunctionNodes) {
+      if (seen.has(start.id)) continue;
+      const cluster: NetworkNode[] = [];
+      const stack = [start.id];
+      while (stack.length > 0) {
+        const id = stack.pop()!;
+        if (seen.has(id)) continue;
+        seen.add(id);
+        const node = nodes.get(id);
+        if (!node) continue;
+        cluster.push(node);
+        for (const nb of adjMap.get(id) ?? []) if (!seen.has(nb)) stack.push(nb);
+      }
+      if (cluster.length < 2) continue;
+
+      // Merge: pick centroid, build convex-hull polygon of node positions
+      // expanded to a square of half-junctionRadius so the region has area.
+      let cx = 0,
+        cy = 0;
+      const ptCloud: { x: number; y: number }[] = [];
+      for (const n of cluster) {
+        cx += n.x;
+        cy += n.y;
+        const r = junctionRadius * 0.5;
+        ptCloud.push({ x: n.x - r, y: n.y - r });
+        ptCloud.push({ x: n.x + r, y: n.y - r });
+        ptCloud.push({ x: n.x + r, y: n.y + r });
+        ptCloud.push({ x: n.x - r, y: n.y + r });
+      }
+      cx /= cluster.length;
+      cy /= cluster.length;
+      const hull = convexHull(ptCloud);
+      const flatHull: number[] = [];
+      for (const p of hull) flatHull.push(p.x, p.y);
+
+      const mergedId = `jc${regions.length + cluster[0].id}`;
+      const mergedNode: NetworkNode = {
+        id: mergedId,
+        x: cx,
+        y: cy,
+        links: [],
+        isJunction: true,
+        region: flatHull,
+      };
+
+      // Re-route each link that touched a cluster node to point at mergedId
+      // instead. Drop links that ended up with both ends inside the cluster.
+      const inCluster = new Set(cluster.map((c) => c.id));
+      const allLinks = Array.from(linkMap.values());
+      for (const link of allLinks) {
+        const fromIn = inCluster.has(link.fromNode);
+        const toIn = inCluster.has(link.toNode);
+        if (fromIn && toIn) {
+          linkMap.delete(link.id);
+          continue;
+        }
+        if (fromIn) link.fromNode = mergedId;
+        if (toIn) link.toNode = mergedId;
+        if (fromIn || toIn) mergedNode.links.push(link.id);
+      }
+      // Remove the original cluster nodes; install the merged one.
+      for (const c of cluster) nodes.delete(c.id);
+      nodes.set(mergedId, mergedNode);
+    }
   }
 
   const rawBuildings: BuildingWithLayer[] = buildingSegs.map((s, i) => ({

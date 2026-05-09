@@ -334,15 +334,15 @@ export function detectFromPdf(
 }
 
 const PDF_LAYER_PATTERNS: { category: RoadCategory; patterns: RegExp[] }[] = [
-  // Lane markings, parking marks, give-way / stop / no-crossing lines, arrows,
-  // cycle tracks, ped crossings - i.e. anything painted on top of the road.
-  // CAD layer names use underscores ("Road Lane_Main", "Lane_Direction 1"),
-  // so word-boundary anchors don't work; we match on substring instead.
+  // Lane markings: anything painted on top of the asphalt body.
+  // Substring-style; underscores are regex word characters so \b doesn't
+  // help inside "Road Lane_Main".
   {
     category: "lane",
     patterns: [
       /road\s*lane/i,
-      /lane[_\s-]?(main|direction|mark|line)/i,
+      /lane[_\s-]?(?:main|direction|mark|line)/i,
+      /lane[_\s-]?direction/i,
       /road\s*mark/i,
       /road\s*pedestrian/i,
       /road\s*crossing/i,
@@ -350,29 +350,38 @@ const PDF_LAYER_PATTERNS: { category: RoadCategory; patterns: RegExp[] }[] = [
       /giveway/i,
       /road\s*no\s*crossing/i,
       /cycle[\s_-]*track/i,
-      /survey[_\s.][a-z]*[_\s.]lane/i,
-      /survey[_\s.][a-z]*[_\s.]arrow/i,
-      /survey[_\s.][a-z]*[_\s.]marking/i,
+      /(?:^|[^a-z])lane(?:[^a-z]|$)/i,
+      /survey[_\s.-]+(?:exi[_\s.-]+)?lane/i,
+      /survey[_\s.-]+(?:exi[_\s.-]+)?arrow/i,
+      /survey[_\s.-]+(?:exi[_\s.-]+)?marking/i,
+      /survey[_\s.-]+(?:exi[_\s.-]+)?ped/i,
+      /survey[_\s.-]+(?:exi[_\s.-]+)?yellow/i,
+      /yellow\s*line/i,
       /drop\s*kerb\s*mark/i,
-      /\barrow\b/i,
-      /\bstop\s*line\b/i,
-      /\bzebra\b/i,
-      /\bcrosswalk\b/i,
-      /lane[_\s-]?direction/i,
+      /(?:^|[^a-z])arrow(?:[^a-z]|$)/i,
+      /stop\s*line/i,
+      /zebra/i,
+      /crosswalk/i,
+      /(?:^|[^a-z])parking(?:[^a-z]|$)/i,
+      /shuttle\s*bus/i,
+      /taxi\s*lay/i,
     ],
   },
-  // Curbs / kerbs / road edges (the purple lines in the user's screenshot).
+  // Curbs / kerbs / road edges - the boundary of the drivable asphalt.
   {
     category: "edge",
     patterns: [
       /road\s*edge/i,
       /edge[_\s-]*kerb/i,
       /(?<!drop[_\s-]*)kerb(?![_\s-]*mark)/i,
-      /\bcurb\b/i,
-      /survey[_\s.][a-z]*[_\s.]kerb/i,
+      /(?:^|[^a-z])curb(?:[^a-z]|$)/i,
+      /survey[_\s.-]+(?:exi[_\s.-]+)?kerb/i,
       /road\s*flush/i,
+      /road\s*shoulder/i,
+      /road\s*barrier/i,
+      /road\s*raised\s*access/i,
       /(?<!marking[_\s-]*)drop\s*kerb(?!\s*mark)/i,
-      /\beop\b/i,
+      /(?:^|[^a-z])eop(?:[^a-z]|$)/i,
       /edge.?of.?pavement/i,
     ],
   },
@@ -417,8 +426,8 @@ const PDF_LAYER_PATTERNS: { category: RoadCategory; patterns: RegExp[] }[] = [
       /\bmosque\b/i,
       /masjid/i,
       /religi/i,
-      /\bbldg\b/i,
-      /\bbuilding\b/i,
+      /(?:^|[^a-z])bldg(?:[^a-z]|$)/i,
+      /(?:^|[^a-z])building(?:[^a-z]|$)/i,
       /\boffice\b/i,
       /\bretail\b/i,
       /mixed[\s_-]?use/i,
@@ -438,7 +447,7 @@ const PDF_LAYER_PATTERNS: { category: RoadCategory; patterns: RegExp[] }[] = [
       /community/i,
       /cultural/i,
       /vertiport/i,
-      /\bjarc\b/i,
+      /(?:^|[^a-z])jarc(?:[^a-z]|$)/i,
       /facility\s*management/i,
     ],
   },

@@ -2,7 +2,8 @@ import type { DrawingSegment } from "@/lib/road-detect";
 
 /**
  * A polyline derived as the medial axis between a pair of curbs, with the
- * average pavement width along that pair.
+ * average pavement width along that pair and the closed polygon describing
+ * the road-body asphalt enclosed between the two curbs.
  */
 export interface DerivedCenterline {
   /** Flat [x0,y0,x1,y1,...] in source PDF user units, y-up. */
@@ -11,6 +12,9 @@ export interface DerivedCenterline {
   width: number;
   /** Cumulative arc length of the centerline. */
   length: number;
+  /** Closed polygon (flat point array) of the asphalt area between the two
+   *  curbs. CCW winding when curb A is on the right of the centerline. */
+  bodyPolygon: number[];
 }
 
 interface Sample {
@@ -26,10 +30,17 @@ interface Sample {
 }
 
 interface PairedMid {
+  /** Midpoint between source sample and paired sample. */
   x: number;
   y: number;
-  s: number; // position along the source curb at which the pair was found
-  width: number; // 2D distance to paired sample
+  /** Source curb sample (the side this chain is anchored to). */
+  ax: number;
+  ay: number;
+  /** Paired sample (on the other curb). */
+  bx: number;
+  by: number;
+  s: number; // position along the source curb
+  width: number;
   pairCurbIdx: number;
 }
 
@@ -169,6 +180,10 @@ export function deriveCenterlinesFromCurbs(
     chain.push({
       x: (s.x + best.sample.x) / 2,
       y: (s.y + best.sample.y) / 2,
+      ax: s.x,
+      ay: s.y,
+      bx: best.sample.x,
+      by: best.sample.y,
       s: s.s,
       width: best.dist,
       pairCurbIdx: best.sample.curbIdx,
@@ -188,7 +203,7 @@ export function deriveCenterlinesFromCurbs(
     }
   }
 
-  // 5. Emit centerlines.
+  // 5. Emit centerlines + body polygons.
   const out: DerivedCenterline[] = [];
   for (const chain of bestPerUnordered.values()) {
     if (chain.length < minPoints) continue;
@@ -208,10 +223,19 @@ export function deriveCenterlinesFromCurbs(
       prevX = p.x;
       prevY = p.y;
     }
+
+    // Body polygon = curb-A samples in order, then curb-B samples reversed.
+    // Closes a band-shaped polygon around the centerline that fills the
+    // actual asphalt between the two curbs.
+    const body: number[] = [];
+    for (const p of chain) body.push(p.ax, p.ay);
+    for (let i = chain.length - 1; i >= 0; i--) body.push(chain[i].bx, chain[i].by);
+
     out.push({
       points,
       width: totalW / chain.length,
       length: totalLen,
+      bodyPolygon: body,
     });
   }
   return out;

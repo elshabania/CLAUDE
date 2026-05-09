@@ -524,7 +524,7 @@ function buildLinkRibbon(
   return geom;
 }
 
-function buildJunctionRegionGeom(
+function buildPolygonGeom(
   polygon: number[],
   wt: WorldTransform,
   yLevel: number
@@ -551,7 +551,7 @@ function addRoads(
   wt: WorldTransform
 ): { mesh: THREE.Mesh; link: NetworkLink }[] {
   // Average pavement width for any link that didn't get one from the
-  // derivation, so we still draw something sensible.
+  // derivation, so the ribbon fallback still draws something sensible.
   const widthsKnown = network.links.filter((l) => l.width).map((l) => l.width!);
   const fallbackWidth =
     widthsKnown.length > 0
@@ -560,7 +560,13 @@ function addRoads(
 
   const linkAsphalt: { mesh: THREE.Mesh; link: NetworkLink }[] = [];
   for (const link of network.links) {
-    const geom = buildLinkRibbon(link, fallbackWidth, wt, 0.005);
+    let geom: THREE.BufferGeometry | null = null;
+    if (link.bodyPolygon && link.bodyPolygon.length >= 6) {
+      geom = buildPolygonGeom(link.bodyPolygon, wt, 0.005);
+    }
+    if (!geom) {
+      geom = buildLinkRibbon(link, fallbackWidth, wt, 0.005);
+    }
     if (!geom) continue;
     const mat = new THREE.MeshStandardMaterial({
       color: ASPHALT_BASE_COLOR,
@@ -572,15 +578,16 @@ function addRoads(
     linkAsphalt.push({ mesh, link });
   }
 
-  // Junction-region asphalt slabs.
+  // Junction-region asphalt slabs in a slightly lighter / warmer tone so
+  // they read as junctions when viewed from above.
   const regionMat = new THREE.MeshStandardMaterial({
-    color: ASPHALT_BASE_COLOR,
-    roughness: 0.9,
+    color: 0x252e3c,
+    roughness: 0.85,
     metalness: 0.0,
   });
   for (const node of network.junctions) {
     if (!node.region) continue;
-    const geom = buildJunctionRegionGeom(node.region, wt, 0.012);
+    const geom = buildPolygonGeom(node.region, wt, 0.012);
     if (geom) group.add(new THREE.Mesh(geom, regionMat));
   }
 
