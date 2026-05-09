@@ -120,7 +120,7 @@ export function BottomNav({ active, onChange }: Props) {
         display: "flex",
         background: "#0a1120",
         borderTop: "1px solid #1e293b",
-        flexShrink: 0,
+        flex: "0 0 auto",
       }}
     >
       {TABS.map((t) => {

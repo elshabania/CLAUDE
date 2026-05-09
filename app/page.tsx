@@ -248,12 +248,14 @@ export default function Page() {
         onUpload={() => inputRef.current?.click()}
       />
 
-      {/* Top: scene area - 2D drawing on the Drawing tab, 3D otherwise. */}
+      {/* Top: scene area - 2D drawing on the Drawing tab, 3D otherwise.
+          flex: 1 1 0 with min-height: 0 so the scene shrinks to fit when
+          the drawer is open and never overflows the page. */}
       <div
         style={{
-          flex: 1,
+          flex: "1 1 0",
+          minHeight: 0,
           position: "relative",
-          minHeight: 280,
           background: "#070b14",
           borderBottom: "1px solid #1e293b",
         }}
@@ -301,14 +303,21 @@ export default function Page() {
         />
       )}
 
-      {/* Tab content */}
+      {/* Tab content - uses flex shorthand so it can never push BottomNav
+          off the bottom of the viewport. The drawer's content scrolls
+          internally instead. */}
       <div
         style={{
-          height: tab === "network" ? 0 : tab === "drawing" ? 360 : 320,
+          flex:
+            tab === "network"
+              ? "0 0 0px"
+              : tab === "drawing"
+              ? "0 0 280px"
+              : "0 0 280px",
           overflowY: "auto",
           background: "#070b14",
-          transition: "height 220ms ease",
-          flexShrink: 0,
+          transition: "flex-basis 220ms ease",
+          minHeight: 0,
         }}
       >
         {tab === "drawing" && result && (

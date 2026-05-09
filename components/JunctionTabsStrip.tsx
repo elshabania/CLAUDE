@@ -26,7 +26,7 @@ export function JunctionTabsStrip({
         overflowX: "auto",
         display: "flex",
         gap: 8,
-        flexShrink: 0,
+        flex: "0 0 auto",
       }}
     >
       {junctions.length === 0 && (

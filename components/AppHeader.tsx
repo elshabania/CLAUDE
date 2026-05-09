@@ -33,7 +33,7 @@ export function AppHeader({ filename, results, totalDemand, onUpload }: Props) {
         padding: "12px 20px",
         background: "linear-gradient(180deg, #0e1726 0%, #0a1120 100%)",
         borderBottom: "1px solid #1e293b",
-        flexShrink: 0,
+        flex: "0 0 auto",
       }}
     >
       <div
