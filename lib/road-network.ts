@@ -787,6 +787,7 @@ export function buildRoadNetwork(
   // gaps between adjacent approaches become arc links going CCW (which is
   // the legal direction for right-hand-drive countries). The central node
   // becomes a non-junction (its links list ends up empty).
+  attachOrphanLanesToJunctions(nodes, linkMap, diag);
   generateRoundaboutRings(nodes, linkMap, diag);
 
   const nodeArr = Array.from(nodes.values());
@@ -884,6 +885,86 @@ export function buildRoadNetwork(
 }
 
 /**
+ * For each non-roundabout junction (signal / priority / synthesised hull),
+ * pull every link endpoint within an attach radius onto the junction node
+ * itself. This patches the case where 16.x lane stripes end at the
+ * stop-line a few metres outside the junction polygon — without it, those
+ * approaches are detached and the simulator has nothing to hand off to.
+ */
+function attachOrphanLanesToJunctions(
+  nodes: Map<string, NetworkNode>,
+  linkMap: Map<string, NetworkLink>,
+  diag: number
+): void {
+  const targets = Array.from(nodes.values()).filter(
+    (n) =>
+      n.region &&
+      n.region.length >= 6 &&
+      n.kind !== "roundabout" // roundabouts get their own perimeter pass
+  );
+  if (targets.length === 0) return;
+  for (const node of targets) {
+    const region = node.region!;
+    let radius = 0;
+    let count = 0;
+    for (let i = 0; i < region.length; i += 2) {
+      radius += Math.hypot(region[i] - node.x, region[i + 1] - node.y);
+      count++;
+    }
+    if (count === 0) continue;
+    const regionRadius = radius / count;
+    const attachRadius = Math.max(regionRadius * 1.6, diag * 0.025);
+    for (const link of Array.from(linkMap.values())) {
+      if (link.kind === "ring") continue;
+      if (link.points.length < 4) continue;
+      const ends: Array<{ atToEnd: boolean; x: number; y: number }> = [
+        { atToEnd: false, x: link.points[0], y: link.points[1] },
+        {
+          atToEnd: true,
+          x: link.points[link.points.length - 2],
+          y: link.points[link.points.length - 1],
+        },
+      ];
+      for (const end of ends) {
+        const oldNodeId = end.atToEnd ? link.toNode : link.fromNode;
+        if (oldNodeId === node.id) continue;
+        const d = Math.hypot(end.x - node.x, end.y - node.y);
+        if (d > attachRadius) continue;
+        // Detach from the old node; if the old node is now empty and isn't a
+        // junction-region in its own right, drop it.
+        const oldNode = nodes.get(oldNodeId);
+        if (oldNode) {
+          oldNode.links = oldNode.links.filter((id) => id !== link.id);
+          if (
+            oldNode.links.length === 0 &&
+            !oldNode.region &&
+            !oldNode.isJunction
+          ) {
+            nodes.delete(oldNodeId);
+          }
+        }
+        // Append (or prepend) the junction centre onto the polyline so the
+        // link visually reaches the junction footprint, then re-anchor.
+        if (end.atToEnd) {
+          link.points.push(node.x, node.y);
+          link.toNode = node.id;
+        } else {
+          link.points.unshift(node.x, node.y);
+          link.fromNode = node.id;
+        }
+        link.length = polylineLength(link.points);
+        if (link.width != null) {
+          link.bodyPolygon = ribbonAroundPolyline(link.points, link.width / 2);
+        } else {
+          link.bodyPolygon = undefined;
+        }
+        node.links.push(link.id);
+      }
+    }
+  }
+}
+
+/**
  * For each roundabout junction node, replace the dead-ending approach
  * setup with: one perimeter node per approach + arc links connecting
  * consecutive perimeter nodes CCW. Approach links get their endpoint
@@ -899,7 +980,6 @@ function generateRoundaboutRings(
     (n) => n.kind === "roundabout" && n.region && n.region.length >= 6
   );
   for (const node of roundabouts) {
-    if (node.links.length < 2) continue;
     const region = node.region!;
     let radius = 0;
     let count = 0;
@@ -909,34 +989,67 @@ function generateRoundaboutRings(
     }
     if (count === 0) continue;
     const curbRadius = radius / count;
-    // Lane centerline sits ~65% of the way out from the centre.
+    // Lane centreline sits ~65% of the way out from the centre.
     const ringRadius = curbRadius * 0.65;
+    // Cast a generous net so that lane stripes ending at the give-way line
+    // (which falls a few metres outside the kerbs) still get attached.
+    const attachRadius = Math.max(curbRadius * 2.5, diag * 0.045);
 
-    // Order approaches by the angle from the junction centre to the
-    // approach link's tip (the end that touches the junction).
-    type Approach = {
+    // Collect every link endpoint that falls within the attach radius.
+    type Cand = {
       linkId: string;
-      angle: number;
       atToEnd: boolean;
+      x: number;
+      y: number;
+      angle: number;
+      distance: number;
     };
-    const approaches: Approach[] = [];
-    for (const linkId of node.links) {
-      const link = linkMap.get(linkId);
-      if (!link || link.points.length < 4) continue;
-      const atToEnd = link.toNode === node.id;
-      const tipX = atToEnd
-        ? link.points[link.points.length - 2]
-        : link.points[0];
-      const tipY = atToEnd
-        ? link.points[link.points.length - 1]
-        : link.points[1];
-      const angle = Math.atan2(tipY - node.y, tipX - node.x);
-      approaches.push({ linkId, angle, atToEnd });
+    const cands: Cand[] = [];
+    for (const link of Array.from(linkMap.values())) {
+      if (link.kind === "ring") continue;
+      if (link.points.length < 4) continue;
+      const heads: Array<{ atToEnd: boolean; x: number; y: number }> = [
+        { atToEnd: false, x: link.points[0], y: link.points[1] },
+        {
+          atToEnd: true,
+          x: link.points[link.points.length - 2],
+          y: link.points[link.points.length - 1],
+        },
+      ];
+      for (const h of heads) {
+        const d = Math.hypot(h.x - node.x, h.y - node.y);
+        if (d > attachRadius) continue;
+        // Skip endpoints that are inside the central island (probably stray
+        // labels / decorations rather than approach lanes).
+        if (d < curbRadius * 0.4) continue;
+        cands.push({
+          linkId: link.id,
+          atToEnd: h.atToEnd,
+          x: h.x,
+          y: h.y,
+          angle: Math.atan2(h.y - node.y, h.x - node.x),
+          distance: d,
+        });
+      }
     }
-    if (approaches.length < 2) continue;
-    approaches.sort((a, b) => a.angle - b.angle);
+    if (cands.length < 2) continue;
 
-    // Snap each approach tip to a perimeter node.
+    // Bin by angle (12° bins). Multiple lane stripes from the same approach
+    // arrive at very similar angles — pick one representative per bin so
+    // the perimeter has one node per leg, not one per stripe.
+    const binSize = (12 * Math.PI) / 180;
+    const bins = new Map<number, Cand>();
+    for (const c of cands) {
+      const bin = Math.round(c.angle / binSize);
+      const ex = bins.get(bin);
+      if (!ex || c.distance < ex.distance) bins.set(bin, c);
+    }
+    const approaches = Array.from(bins.values()).sort(
+      (a, b) => a.angle - b.angle
+    );
+    if (approaches.length < 2) continue;
+
+    // Re-anchor each surviving approach to a fresh perimeter node.
     const perimeterNodes: { id: string; angle: number }[] = [];
     for (let i = 0; i < approaches.length; i++) {
       const a = approaches[i];
@@ -956,23 +1069,38 @@ function generateRoundaboutRings(
       nodes.set(ringNodeId, ringNode);
       perimeterNodes.push({ id: ringNodeId, angle: a.angle });
 
-      // Pull the approach link's tip onto the perimeter and re-end-cap it.
+      const oldNodeId = a.atToEnd ? link.toNode : link.fromNode;
+      const oldNode = nodes.get(oldNodeId);
+      if (oldNode) {
+        oldNode.links = oldNode.links.filter((id) => id !== link.id);
+        if (
+          oldNode.links.length === 0 &&
+          !oldNode.region &&
+          oldNodeId !== node.id
+        ) {
+          nodes.delete(oldNodeId);
+        }
+      }
+      // Append (or prepend) the perimeter point so the polyline reaches
+      // the ring without snapping its existing tip onto the perimeter.
       if (a.atToEnd) {
-        link.points[link.points.length - 2] = px;
-        link.points[link.points.length - 1] = py;
+        link.points.push(px, py);
         link.toNode = ringNodeId;
       } else {
-        link.points[0] = px;
-        link.points[1] = py;
+        link.points.unshift(px, py);
         link.fromNode = ringNodeId;
       }
       link.length = polylineLength(link.points);
+      if (link.width != null) {
+        link.bodyPolygon = ribbonAroundPolyline(link.points, link.width / 2);
+      } else {
+        link.bodyPolygon = undefined;
+      }
     }
 
-    // Detach the approaches from the central node; it no longer carries
-    // any link references.
+    // The central junction node keeps its region polygon (so the
+    // roundabout asphalt still renders) but is no longer a routing node.
     node.links = [];
-    node.isJunction = false;
 
     // CCW arc links between consecutive perimeter nodes.
     let arcIdx = 0;
@@ -983,7 +1111,10 @@ function generateRoundaboutRings(
       let a1 = to.angle;
       while (a1 <= a0) a1 += 2 * Math.PI;
       const arcAng = a1 - a0;
-      const samples = Math.max(8, Math.ceil((arcAng * ringRadius) / (diag * 0.003)));
+      const samples = Math.max(
+        8,
+        Math.ceil((arcAng * ringRadius) / (diag * 0.003))
+      );
       const pts: number[] = [];
       let length = 0;
       let prevX = 0;
@@ -1002,7 +1133,7 @@ function generateRoundaboutRings(
       const bearing =
         ((Math.atan2(pts[2] - pts[0], pts[3] - pts[1]) * 180) / Math.PI + 360) %
         360;
-      const arcWidth = curbRadius * 0.3;
+      const arcWidth = curbRadius * 0.35;
       const arcLink: NetworkLink = {
         id: arcId,
         fromNode: from.id,
