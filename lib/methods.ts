@@ -8,6 +8,10 @@ import { deriveCenterlinesFromCurbs } from "@/lib/centerline-derivation";
 export interface MethodInput {
   curbs: DrawingSegment[];
   laneMarkings: DrawingSegment[];
+  /** Stop lines, give-way lines, drop-kerb markings, pedestrian crossings -
+   *  anything that marks where a lane physically ends at a junction. Used
+   *  by 16.9 to extend lane endpoints to the actual junction limit. */
+  junctionMarkers: DrawingSegment[];
   bounds: { minX: number; minY: number; maxX: number; maxY: number };
 }
 
@@ -739,6 +743,121 @@ function laneSeed(input: MethodInput): DerivedCenterline[] {
   return laneAsCenterline.compute(input);
 }
 
+/**
+ * 16.9 helper — ray vs segment intersection.
+ *
+ * Returns the positive ray parameter t at which the ray (P, D) hits the
+ * segment AB, or null if the ray misses, runs anti-parallel, or hits
+ * outside the segment. D is assumed unit-length so t is a true distance.
+ */
+function rayIntersectSegment(
+  px: number,
+  py: number,
+  dx: number,
+  dy: number,
+  ax: number,
+  ay: number,
+  bx: number,
+  by: number
+): number | null {
+  const sx = bx - ax;
+  const sy = by - ay;
+  const det = sx * dy - dx * sy;
+  if (Math.abs(det) < 1e-9) return null;
+  const ex = ax - px;
+  const ey = ay - py;
+  const t = (-sy * ex + sx * ey) / det;
+  const u = (dx * ey - dy * ex) / det;
+  if (t <= 0 || u < 0 || u > 1) return null;
+  return t;
+}
+
+function nearestMarkerHit(
+  px: number,
+  py: number,
+  dx: number,
+  dy: number,
+  markers: DrawingSegment[],
+  maxDist: number
+): number | null {
+  let best: number | null = null;
+  for (const m of markers) {
+    const p = m.points;
+    for (let i = 0; i + 3 < p.length; i += 2) {
+      const t = rayIntersectSegment(
+        px,
+        py,
+        dx,
+        dy,
+        p[i],
+        p[i + 1],
+        p[i + 2],
+        p[i + 3]
+      );
+      if (t === null || t > maxDist) continue;
+      if (best === null || t < best) best = t;
+    }
+  }
+  return best;
+}
+
+/**
+ * 16.9 helper — extend each centerline's head and tail along its outgoing
+ * tangent until it hits a junction-marker segment (stop line, give-way,
+ * drop-kerb, pedestrian crossing). Lane stripes typically end ~1-3 m short
+ * of the actual stop line, leaving vehicles stranded at the junction; this
+ * pass closes the gap.
+ */
+function extendLanesToMarkers(
+  centerlines: DerivedCenterline[],
+  markers: DrawingSegment[],
+  maxExtension: number
+): DerivedCenterline[] {
+  if (markers.length === 0) return centerlines;
+  return centerlines.map((c) => {
+    if (c.points.length < 4) return c;
+    const pts = c.points.slice();
+    let changed = false;
+
+    const hx = pts[0];
+    const hy = pts[1];
+    let hdx = hx - pts[2];
+    let hdy = hy - pts[3];
+    let m = Math.hypot(hdx, hdy) || 1;
+    hdx /= m;
+    hdy /= m;
+    const headHit = nearestMarkerHit(hx, hy, hdx, hdy, markers, maxExtension);
+    if (headHit !== null) {
+      pts[0] = hx + hdx * headHit;
+      pts[1] = hy + hdy * headHit;
+      changed = true;
+    }
+
+    const N = pts.length;
+    const tx = pts[N - 2];
+    const ty = pts[N - 1];
+    let tdx = tx - pts[N - 4];
+    let tdy = ty - pts[N - 3];
+    m = Math.hypot(tdx, tdy) || 1;
+    tdx /= m;
+    tdy /= m;
+    const tailHit = nearestMarkerHit(tx, ty, tdx, tdy, markers, maxExtension);
+    if (tailHit !== null) {
+      pts[N - 2] = tx + tdx * tailHit;
+      pts[N - 1] = ty + tdy * tailHit;
+      changed = true;
+    }
+
+    if (!changed) return c;
+    return {
+      points: pts,
+      width: c.width,
+      length: polylineLength(pts),
+      bodyPolygon: c.bodyPolygon,
+    };
+  });
+}
+
 const method_16_1: NetworkMethod = {
   id: "lane-16-1-filter-short",
   name: "16.1 Filter short markings",
@@ -1015,6 +1134,28 @@ const method_16_8: NetworkMethod = {
   },
 };
 
+const method_16_9: NetworkMethod = {
+  id: "lane-16-9-extend-to-markers",
+  name: "16.9 + Extend lanes to junction markers",
+  description:
+    "16.8 + ray-cast each lane endpoint along its outgoing bearing to " +
+    "the nearest stop-line / give-way / drop-kerb / pedestrian-crossing " +
+    "segment within 5% of bounds diagonal, and extend the lane to meet " +
+    "it. Closes the dangling-end gap so vehicles can traverse the " +
+    "junction instead of stopping short of it.",
+  family: "lane-direct",
+  compute: (input) => {
+    const w = input.bounds.maxX - input.bounds.minX;
+    const h = input.bounds.maxY - input.bounds.minY;
+    const maxExt = Math.hypot(w, h) * 0.05;
+    return extendLanesToMarkers(
+      method_16_8.compute(input),
+      input.junctionMarkers,
+      maxExt
+    );
+  },
+};
+
 METHODS.push(
   method_16_1,
   method_16_2,
@@ -1023,5 +1164,6 @@ METHODS.push(
   method_16_5,
   method_16_6,
   method_16_7,
-  method_16_8
+  method_16_8,
+  method_16_9
 );

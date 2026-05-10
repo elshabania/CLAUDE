@@ -199,15 +199,33 @@ export function buildRoadNetwork(
 
     // Lane markings (Road Lane_Main, Survey_EXI_LANE, etc.) are needed by
     // some methods (lane-as-centerline, lane-curb-pair, lane-lane-pair).
+    // Junction markers (Stop Line, Giveway, Drop Kerb, Pedestrian Crossing)
+    // are pulled by layer name regardless of category - they mark where a
+    // lane physically ends at a junction and let 16.9 extend lane endpoints
+    // to the junction limit.
     const laneMarkings: DrawingSegment[] = [];
+    const junctionMarkers: DrawingSegment[] = [];
     for (const s of drawing.segments) {
       const cat = groupCategoryOverrides[s.groupId] ?? s.category;
       if (cat === "lane") laneMarkings.push(s);
+      const layer = (s.layer ?? "").toLowerCase();
+      if (
+        layer.includes("stop line") ||
+        layer.includes("giveway") ||
+        layer.includes("give way") ||
+        layer.includes("pedestrian crossing") ||
+        layer.includes("crosswalk") ||
+        layer.includes("zebra") ||
+        layer.includes("drop kerb")
+      ) {
+        junctionMarkers.push(s);
+      }
     }
 
     const methodInput: MethodInput = {
       curbs: curbSegs,
       laneMarkings,
+      junctionMarkers,
       bounds: { minX, minY, maxX, maxY },
     };
 
