@@ -3,9 +3,7 @@ import type {
   RoadCategory,
   DrawingSegment,
 } from "@/lib/road-detect";
-import { deriveCenterlinesFromCurbs } from "@/lib/centerline-derivation";
 import { extractRoadSkeleton } from "@/lib/road-skeleton";
-import { getMethod, type MethodInput } from "@/lib/methods";
 
 export interface NetworkNode {
   id: string;
@@ -129,8 +127,6 @@ export interface BuildNetworkOptions {
   deriveCenterlines?: boolean;
   /** Maximum road width as fraction of bounds diagonal (for derivation). */
   maxRoadWidthFraction?: number;
-  /** Which extraction method to dispatch to. Default: "skeleton-zs-1100". */
-  methodId?: string;
 }
 
 const DEFAULT_ROAD: RoadCategory[] = ["centerline"];
@@ -221,73 +217,19 @@ export function buildRoadNetwork(
   };
   let roadSegs: RoadSeg[];
   if (shouldDerive && curbSegs.length > 0) {
-    // Dispatch to the requested method (defaults to skeleton-zs-1100).
-    // The METHODS registry exposes 20 different extraction strategies;
-    // the dashboard's method-picker UI flips this id live.
-    const methodId = opts.methodId ?? "skeleton-zs-1100";
-    const method = getMethod(methodId);
-
-    // Lane markings (Road Lane_Main, Survey_EXI_LANE, etc.) are needed by
-    // some methods (lane-as-centerline, lane-curb-pair, lane-lane-pair).
-    // Junction markers (Stop Line, Giveway, Drop Kerb, Pedestrian Crossing)
-    // are pulled by layer name regardless of category - they mark where a
-    // lane physically ends at a junction and let 16.9 extend lane endpoints
-    // to the junction limit.
-    const laneMarkings: DrawingSegment[] = [];
-    const junctionMarkers: DrawingSegment[] = [];
-    for (const s of drawing.segments) {
-      const cat = groupCategoryOverrides[s.groupId] ?? s.category;
-      if (cat === "lane") laneMarkings.push(s);
-      const layer = (s.layer ?? "").toLowerCase();
-      if (
-        layer.includes("stop line") ||
-        layer.includes("giveway") ||
-        layer.includes("give way") ||
-        layer.includes("pedestrian crossing") ||
-        layer.includes("crosswalk") ||
-        layer.includes("zebra") ||
-        layer.includes("drop kerb")
-      ) {
-        junctionMarkers.push(s);
-      }
-    }
-
-    const methodInput: MethodInput = {
-      curbs: curbSegs,
-      laneMarkings,
-      junctionMarkers,
-      bounds: { minX, minY, maxX, maxY },
-    };
-
+    // Topology comes from one source: the medial axis of the asphalt
+    // enclosed by the kerbs. Rasterise -> flood-fill -> distance-transform
+    // -> Zhang-Suen thinning -> skeleton trace. Roundabouts fall out as
+    // self-loop links automatically because the medial axis circles a
+    // central island once and closes on itself.
     let derived: {
       points: number[];
       length: number;
       width: number;
       bodyPolygon: number[];
     }[] = [];
-    try {
-      derived = method.compute(methodInput);
-    } catch (err) {
-      // eslint-disable-next-line no-console
-      console.warn(`Method ${methodId} threw, falling back:`, err);
-      derived = [];
-    }
-
-    // Fallback to skeleton-default if the chosen method returned nothing
-    // (e.g. running in SSR where document is undefined).
-    if (derived.length === 0 && typeof document !== "undefined") {
+    if (typeof document !== "undefined") {
       derived = extractRoadSkeleton(curbSegs, { minX, minY, maxX, maxY });
-    }
-    if (derived.length === 0) {
-      const maxRoadWidth = diag * (opts.maxRoadWidthFraction ?? 0.025);
-      const sampleStep = Math.max(diag * 0.0025, 1);
-      derived = deriveCenterlinesFromCurbs(curbSegs, {
-        maxRoadWidth,
-        sampleStep,
-        parallelCos: 0.85,
-        perpCos: 0.4,
-        minPoints: 3,
-      });
     }
     roadSegs = derived.map((d) => ({
       points: d.points,
