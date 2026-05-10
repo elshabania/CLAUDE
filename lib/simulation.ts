@@ -1,4 +1,9 @@
-import type { RoadNetwork, NetworkLink, NetworkNode } from "@/lib/road-network";
+import type {
+  RoadNetwork,
+  NetworkLink,
+  NetworkNode,
+  Movement,
+} from "@/lib/road-network";
 import { classifyJunctionApproaches, type Cardinal } from "@/lib/road-network";
 
 export interface Vehicle {
@@ -60,6 +65,10 @@ export interface SimulationState {
   linkArc: Map<string, Float32Array>;
   /** Adjacency: nodeId -> array of links that touch the node. */
   adjacency: Map<string, string[]>;
+  /** Successor lookup keyed by `${linkId}_${arrivalDir}`. Tells the
+   *  simulator which (link, dir, s) to switch to when a vehicle reaches
+   *  the end of its current link. */
+  movementsBySource: Map<string, Movement[]>;
   /** Per-junction signal state, keyed by node id. */
   signals: Map<string, SignalState>;
   /** Per-link approach cardinal on entry to each end node. */
@@ -256,6 +265,17 @@ export function buildSimulationState(
   const adjacency = new Map<string, string[]>();
   for (const node of network.nodes) adjacency.set(node.id, [...node.links]);
 
+  const movementsBySource = new Map<string, Movement[]>();
+  for (const m of network.movements ?? []) {
+    const key = `${m.fromLinkId}_${m.fromDirAtArrival}`;
+    let arr = movementsBySource.get(key);
+    if (!arr) {
+      arr = [];
+      movementsBySource.set(key, arr);
+    }
+    arr.push(m);
+  }
+
   const diag =
     Math.hypot(
       network.bounds.maxX - network.bounds.minX,
@@ -282,6 +302,7 @@ export function buildSimulationState(
     network,
     linkArc,
     adjacency,
+    movementsBySource,
     signals,
     linkApproachCardinal: buildApproachCardinals(network),
     time: 0,
@@ -469,37 +490,30 @@ export function step(state: SimulationState, dt: number): void {
         ? Math.max(0, veh.s - link.length)
         : Math.max(0, -veh.s);
     if (overshoot > 0) {
-      const arrivedAt = veh.dir === 1 ? link.toNode : link.fromNode;
-      const candidates = (state.adjacency.get(arrivedAt) ?? []).filter(
-        (id) => id !== link.id
-      );
-      const nextId =
-        candidates.length > 0
-          ? candidates[Math.floor(Math.random() * candidates.length)]
-          : link.id;
-      const next = linksById.get(nextId);
-      if (!next) {
-        veh.dir = (veh.dir === 1 ? -1 : 1) as 1 | -1;
-        veh.s = veh.dir === 1 ? overshoot : link.length - overshoot;
-        continue;
+      const movKey = `${veh.linkId}_${veh.dir}`;
+      const options = state.movementsBySource.get(movKey);
+      if (options && options.length > 0) {
+        const mov = options[Math.floor(Math.random() * options.length)];
+        const next = linksById.get(mov.toLinkId);
+        if (next) {
+          veh.linkId = next.id;
+          veh.dir = mov.toDirAtDeparture;
+          // Carry the overshoot into the new link so vehicles don't lose
+          // distance crossing the junction.
+          veh.s =
+            mov.toDirAtDeparture === 1
+              ? Math.min(mov.toS + overshoot, next.length)
+              : Math.max(mov.toS - overshoot, 0);
+          const newLanesPerDir = Math.max(1, next.lanesPerDir ?? 1);
+          if (veh.lane >= newLanesPerDir) veh.lane = newLanesPerDir - 1;
+          if (veh.lane < 0) veh.lane = 0;
+          continue;
+        }
       }
-      veh.linkId = next.id;
-      if (next.fromNode === arrivedAt) {
-        veh.dir = 1;
-        veh.s = Math.min(overshoot, next.length);
-      } else if (next.toNode === arrivedAt) {
-        veh.dir = -1;
-        veh.s = Math.max(0, next.length - overshoot);
-      } else {
-        veh.s = 0;
-        veh.dir = 1;
-      }
-      // Clamp lane index to the new link's lane count - if the new road
-      // is narrower than the previous one, push the vehicle inwards
-      // (slow lane fills up first).
-      const newLanesPerDir = Math.max(1, next.lanesPerDir ?? 1);
-      if (veh.lane >= newLanesPerDir) veh.lane = newLanesPerDir - 1;
-      if (veh.lane < 0) veh.lane = 0;
+      // No legal successor: bounce back along the current link rather
+      // than sit at the end indefinitely.
+      veh.dir = (veh.dir === 1 ? -1 : 1) as 1 | -1;
+      veh.s = veh.dir === 1 ? overshoot : link.length - overshoot;
     }
   }
 }

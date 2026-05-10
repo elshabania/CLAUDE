@@ -44,6 +44,33 @@ export interface NetworkLink {
    *  `width` against the network's median link width so a typical 2-lane
    *  road = 1 lane per dir, double-width = 2 per dir, etc. */
   lanesPerDir?: number;
+  /** Link role. "road" (default) is a normal two-way road; "ring" is one
+   *  arc of a roundabout, traversable only in the +1 (fromNode -> toNode)
+   *  direction. The movement table excludes any handoff that would put a
+   *  vehicle on a ring link going dir=-1. */
+  kind?: "road" | "ring";
+}
+
+/**
+ * One legal turn at a junction. Vehicles arriving at `junctionNodeId` on
+ * `(fromLinkId, fromDirAtArrival)` may continue onto
+ * `(toLinkId, toDirAtDeparture)` starting at arc length `toS` on that
+ * link. Built once during network construction; the simulator looks it up
+ * on every link-end handoff instead of picking a random adjacent link.
+ */
+export interface Movement {
+  junctionNodeId: string;
+  fromLinkId: string;
+  /** +1 if the vehicle was travelling fromNode -> toNode on the inbound
+   *  link, -1 otherwise. Tells the simulator which arrival direction this
+   *  movement applies to. */
+  fromDirAtArrival: 1 | -1;
+  toLinkId: string;
+  /** +1 if the vehicle should depart fromNode -> toNode on the outbound
+   *  link, -1 otherwise. */
+  toDirAtDeparture: 1 | -1;
+  /** Arc-length s on the outbound link at which the vehicle starts. */
+  toS: number;
 }
 
 export type BuildingType =
@@ -78,6 +105,9 @@ export interface RoadNetwork {
   junctions: NetworkNode[];
   buildings: BuildingFootprint[];
   bounds: { minX: number; minY: number; maxX: number; maxY: number };
+  /** Explicit per-junction successor table. The simulator picks one of
+   *  these on every link-end handoff instead of guessing from adjacency. */
+  movements: Movement[];
 }
 
 export interface BuildNetworkOptions {
@@ -752,6 +782,13 @@ export function buildRoadNetwork(
   // simulation network only needs the cluster as a single TAZ).
   const buildings = mergeBuildingClusters(labelled);
 
+  // Convert each detected roundabout junction into a ring of one-way arc
+  // links. Each approach gets snapped to a node on the ring perimeter; the
+  // gaps between adjacent approaches become arc links going CCW (which is
+  // the legal direction for right-hand-drive countries). The central node
+  // becomes a non-junction (its links list ends up empty).
+  generateRoundaboutRings(nodes, linkMap, diag);
+
   const nodeArr = Array.from(nodes.values());
   const linkArr = Array.from(linkMap.values());
 
@@ -834,13 +871,241 @@ export function buildRoadNetwork(
     link.lanesPerDir = Math.max(1, Math.floor(totalLanes / 2));
   }
 
+  const movements = buildMovementTable(nodeArr, linkArr);
+
   return {
     nodes: nodeArr,
     links: linkArr,
     junctions: nodeArr.filter((n) => n.isJunction),
     buildings,
     bounds: { minX, minY, maxX, maxY },
+    movements,
   };
+}
+
+/**
+ * For each roundabout junction node, replace the dead-ending approach
+ * setup with: one perimeter node per approach + arc links connecting
+ * consecutive perimeter nodes CCW. Approach links get their endpoint
+ * pulled to the perimeter node so the simulator's handoff logic finds the
+ * arc as the natural next link.
+ */
+function generateRoundaboutRings(
+  nodes: Map<string, NetworkNode>,
+  linkMap: Map<string, NetworkLink>,
+  diag: number
+): void {
+  const roundabouts = Array.from(nodes.values()).filter(
+    (n) => n.kind === "roundabout" && n.region && n.region.length >= 6
+  );
+  for (const node of roundabouts) {
+    if (node.links.length < 2) continue;
+    const region = node.region!;
+    let radius = 0;
+    let count = 0;
+    for (let i = 0; i < region.length; i += 2) {
+      radius += Math.hypot(region[i] - node.x, region[i + 1] - node.y);
+      count++;
+    }
+    if (count === 0) continue;
+    const curbRadius = radius / count;
+    // Lane centerline sits ~65% of the way out from the centre.
+    const ringRadius = curbRadius * 0.65;
+
+    // Order approaches by the angle from the junction centre to the
+    // approach link's tip (the end that touches the junction).
+    type Approach = {
+      linkId: string;
+      angle: number;
+      atToEnd: boolean;
+    };
+    const approaches: Approach[] = [];
+    for (const linkId of node.links) {
+      const link = linkMap.get(linkId);
+      if (!link || link.points.length < 4) continue;
+      const atToEnd = link.toNode === node.id;
+      const tipX = atToEnd
+        ? link.points[link.points.length - 2]
+        : link.points[0];
+      const tipY = atToEnd
+        ? link.points[link.points.length - 1]
+        : link.points[1];
+      const angle = Math.atan2(tipY - node.y, tipX - node.x);
+      approaches.push({ linkId, angle, atToEnd });
+    }
+    if (approaches.length < 2) continue;
+    approaches.sort((a, b) => a.angle - b.angle);
+
+    // Snap each approach tip to a perimeter node.
+    const perimeterNodes: { id: string; angle: number }[] = [];
+    for (let i = 0; i < approaches.length; i++) {
+      const a = approaches[i];
+      const link = linkMap.get(a.linkId);
+      if (!link) continue;
+      const px = node.x + Math.cos(a.angle) * ringRadius;
+      const py = node.y + Math.sin(a.angle) * ringRadius;
+      const ringNodeId = `${node.id}_p${i}`;
+      const ringNode: NetworkNode = {
+        id: ringNodeId,
+        x: px,
+        y: py,
+        links: [link.id],
+        isJunction: true,
+        kind: "roundabout",
+      };
+      nodes.set(ringNodeId, ringNode);
+      perimeterNodes.push({ id: ringNodeId, angle: a.angle });
+
+      // Pull the approach link's tip onto the perimeter and re-end-cap it.
+      if (a.atToEnd) {
+        link.points[link.points.length - 2] = px;
+        link.points[link.points.length - 1] = py;
+        link.toNode = ringNodeId;
+      } else {
+        link.points[0] = px;
+        link.points[1] = py;
+        link.fromNode = ringNodeId;
+      }
+      link.length = polylineLength(link.points);
+    }
+
+    // Detach the approaches from the central node; it no longer carries
+    // any link references.
+    node.links = [];
+    node.isJunction = false;
+
+    // CCW arc links between consecutive perimeter nodes.
+    let arcIdx = 0;
+    for (let i = 0; i < perimeterNodes.length; i++) {
+      const from = perimeterNodes[i];
+      const to = perimeterNodes[(i + 1) % perimeterNodes.length];
+      let a0 = from.angle;
+      let a1 = to.angle;
+      while (a1 <= a0) a1 += 2 * Math.PI;
+      const arcAng = a1 - a0;
+      const samples = Math.max(8, Math.ceil((arcAng * ringRadius) / (diag * 0.003)));
+      const pts: number[] = [];
+      let length = 0;
+      let prevX = 0;
+      let prevY = 0;
+      for (let k = 0; k <= samples; k++) {
+        const t = k / samples;
+        const ang = a0 + arcAng * t;
+        const x = node.x + Math.cos(ang) * ringRadius;
+        const y = node.y + Math.sin(ang) * ringRadius;
+        if (k > 0) length += Math.hypot(x - prevX, y - prevY);
+        pts.push(x, y);
+        prevX = x;
+        prevY = y;
+      }
+      const arcId = `${node.id}_arc${arcIdx++}`;
+      const bearing =
+        ((Math.atan2(pts[2] - pts[0], pts[3] - pts[1]) * 180) / Math.PI + 360) %
+        360;
+      const arcWidth = curbRadius * 0.3;
+      const arcLink: NetworkLink = {
+        id: arcId,
+        fromNode: from.id,
+        toNode: to.id,
+        points: pts,
+        length,
+        bearing,
+        width: arcWidth,
+        bodyPolygon: ribbonAroundPolyline(pts, arcWidth / 2),
+        kind: "ring",
+      };
+      linkMap.set(arcId, arcLink);
+      const fromNode = nodes.get(from.id);
+      const toNode = nodes.get(to.id);
+      if (fromNode) fromNode.links.push(arcId);
+      if (toNode) toNode.links.push(arcId);
+    }
+  }
+}
+
+function polylineLength(pts: number[]): number {
+  let L = 0;
+  for (let i = 2; i < pts.length; i += 2) {
+    L += Math.hypot(pts[i] - pts[i - 2], pts[i + 1] - pts[i - 1]);
+  }
+  return L;
+}
+
+/** Sweep a constant-width ribbon around a polyline; returns a closed
+ *  polygon (left side then reversed right side). */
+function ribbonAroundPolyline(pts: number[], hw: number): number[] {
+  if (pts.length < 4) return [];
+  const left: number[] = [];
+  const right: number[] = [];
+  for (let i = 0; i < pts.length; i += 2) {
+    let tx: number;
+    let ty: number;
+    if (i === 0) {
+      tx = pts[2] - pts[0];
+      ty = pts[3] - pts[1];
+    } else if (i === pts.length - 2) {
+      tx = pts[i] - pts[i - 2];
+      ty = pts[i + 1] - pts[i - 1];
+    } else {
+      tx = pts[i + 2] - pts[i - 2];
+      ty = pts[i + 3] - pts[i - 1];
+    }
+    const m = Math.hypot(tx, ty) || 1;
+    tx /= m;
+    ty /= m;
+    const nx = -ty;
+    const ny = tx;
+    left.push(pts[i] + nx * hw, pts[i + 1] + ny * hw);
+    right.push(pts[i] - nx * hw, pts[i + 1] - ny * hw);
+  }
+  const out: number[] = [];
+  for (let i = 0; i < left.length; i += 2) out.push(left[i], left[i + 1]);
+  for (let i = right.length - 2; i >= 0; i -= 2) out.push(right[i], right[i + 1]);
+  return out;
+}
+
+/**
+ * Enumerate every legal turn at every junction. For each
+ * (incoming-link, arrival-direction) pair, emit movements onto every
+ * other link at the same node, in every direction that points AWAY from
+ * the node. U-turns (continuing on the same link) are excluded. Ring
+ * links can only be traversed in their +1 direction, so movements onto a
+ * ring link in dir=-1 are dropped.
+ */
+function buildMovementTable(
+  nodes: NetworkNode[],
+  links: NetworkLink[]
+): Movement[] {
+  const linksById = new Map(links.map((l) => [l.id, l]));
+  const out: Movement[] = [];
+  for (const node of nodes) {
+    if (node.links.length < 2) continue;
+    for (const inId of node.links) {
+      const inLink = linksById.get(inId);
+      if (!inLink) continue;
+      // Direction the vehicle was travelling on inLink to arrive at node.
+      const fromDir: 1 | -1 = inLink.toNode === node.id ? 1 : -1;
+      // Inbound on a ring link is only legal in dir +1.
+      if (inLink.kind === "ring" && fromDir !== 1) continue;
+      for (const outId of node.links) {
+        if (outId === inId) continue; // exclude U-turn
+        const outLink = linksById.get(outId);
+        if (!outLink) continue;
+        const toDir: 1 | -1 = outLink.fromNode === node.id ? 1 : -1;
+        if (outLink.kind === "ring" && toDir !== 1) continue;
+        const toS = toDir === 1 ? 0 : outLink.length;
+        out.push({
+          junctionNodeId: node.id,
+          fromLinkId: inId,
+          fromDirAtArrival: fromDir,
+          toLinkId: outId,
+          toDirAtDeparture: toDir,
+          toS,
+        });
+      }
+    }
+  }
+  return out;
 }
 
 function bearingFromTo(x0: number, y0: number, x1: number, y1: number): number {
