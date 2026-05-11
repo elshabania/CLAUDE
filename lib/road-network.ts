@@ -1,7 +1,8 @@
-import type {
-  ParsedDrawing,
-  RoadCategory,
-  DrawingSegment,
+import {
+  ROAD_CATEGORIES,
+  type ParsedDrawing,
+  type RoadCategory,
+  type DrawingSegment,
 } from "@/lib/road-detect";
 import { extractRoadSkeleton } from "@/lib/road-skeleton";
 
@@ -129,7 +130,7 @@ export interface BuildNetworkOptions {
   maxRoadWidthFraction?: number;
 }
 
-const DEFAULT_ROAD: RoadCategory[] = ["centerline"];
+const DEFAULT_ROAD: RoadCategory[] = Array.from(ROAD_CATEGORIES);
 const DEFAULT_BUILDING: RoadCategory[] = ["building"];
 
 function polygonArea(points: number[]): number {
@@ -169,10 +170,16 @@ export function buildRoadNetwork(
   const preClassifiedRoads: DrawingSegment[] = [];
   const curbSegs: DrawingSegment[] = [];
   const buildingSegs: DrawingSegment[] = [];
+  // For master-plan PDFs the road categories ARE the filled asphalt
+  // polygons; their closed boundary IS the kerb for the skeleton
+  // extractor. We feed every road-class polygon's outline into curbSegs
+  // so the medial axis can be traced per corridor.
   for (const s of drawing.segments) {
     const cat = segCat(s);
-    if (roadSet.has(cat)) preClassifiedRoads.push(s);
-    else if (cat === "edge" || cat === "curb") curbSegs.push(s);
+    if (roadSet.has(cat)) {
+      preClassifiedRoads.push(s);
+      if (s.closed) curbSegs.push(s);
+    }
     if (buildingSet.has(cat) && s.closed) buildingSegs.push(s);
   }
 
@@ -460,66 +467,13 @@ export function buildRoadNetwork(
   }
   const laneUnit = medianWidth > 0 ? Math.max(1e-3, medianWidth / 2) : diag * 0.001;
 
-  // Lane-count derivation from the actual CAD lane markings:
-  // for each link with a bodyPolygon (= the asphalt area between paired
-  // curbs), count how many lane-separator polylines lie INSIDE the body.
-  // N internal markings = N+1 lanes total. This produces an accurate
-  // per-link lane count for any road that the curb-pair derivation
-  // covered. Fallback to the width-based estimate when there's no body
-  // polygon (e.g. a single-curb stretch).
-  const laneMarkings: { mid: { x: number; y: number } }[] = [];
-  for (const seg of drawing.segments) {
-    const cat = groupCategoryOverrides[seg.groupId] ?? seg.category;
-    if (cat !== "lane") continue;
-    // Skip decorative paint (zebras, stop lines, arrows, drop-kerb marks)
-    // - those aren't lane separators.
-    const layer = (seg.layer ?? "").toLowerCase();
-    if (
-      layer.includes("pedestrian") ||
-      layer.includes("crosswalk") ||
-      layer.includes("zebra") ||
-      layer.includes("stop line") ||
-      layer.includes("giveway") ||
-      layer.includes("give way") ||
-      layer.includes("arrow") ||
-      layer.includes("drop kerb") ||
-      layer.includes("parking") ||
-      layer.includes("crossing") ||
-      layer.includes("no crossing")
-    ) {
-      continue;
-    }
-    if (seg.points.length < 4) continue;
-    // Sample the polyline midpoint.
-    const midIdx = Math.floor(seg.points.length / 4) * 2;
-    laneMarkings.push({
-      mid: { x: seg.points[midIdx], y: seg.points[midIdx + 1] },
-    });
-  }
-
+  // Master-plan PDFs have no separate lane-marking layer, so lane counts
+  // come from the link width alone: lanes = round(width / laneUnit),
+  // clamped to a sensible range. The result is split evenly across the
+  // two directions.
   for (const link of linkArr) {
     let totalLanes = 2;
-    if (link.bodyPolygon && link.bodyPolygon.length >= 6) {
-      let mnx = Infinity,
-        mny = Infinity,
-        mxx = -Infinity,
-        mxy = -Infinity;
-      for (let i = 0; i < link.bodyPolygon.length; i += 2) {
-        const x = link.bodyPolygon[i];
-        const y = link.bodyPolygon[i + 1];
-        if (x < mnx) mnx = x;
-        if (y < mny) mny = y;
-        if (x > mxx) mxx = x;
-        if (y > mxy) mxy = y;
-      }
-      let internal = 0;
-      for (const m of laneMarkings) {
-        if (m.mid.x < mnx || m.mid.x > mxx || m.mid.y < mny || m.mid.y > mxy)
-          continue;
-        if (pointInPolygon(m.mid.x, m.mid.y, link.bodyPolygon)) internal += 1;
-      }
-      totalLanes = Math.max(2, Math.min(8, internal + 1));
-    } else if (link.width != null) {
+    if (link.width != null) {
       totalLanes = Math.max(2, Math.min(8, Math.round(link.width / laneUnit)));
     }
     link.lanesPerDir = Math.max(1, Math.floor(totalLanes / 2));

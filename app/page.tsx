@@ -7,11 +7,19 @@ import { AppHeader } from "@/components/AppHeader";
 import { NetworkSummaryCard } from "@/components/NetworkSummaryCard";
 import { JunctionTabsStrip } from "@/components/JunctionTabsStrip";
 import { BottomNav, type DashTab } from "@/components/BottomNav";
-import { CadViewer, CATEGORY_COLORS } from "@/components/CadViewer";
+import { CadViewer } from "@/components/CadViewer";
 import { PhasingView } from "@/components/PhasingView";
 import { AiOptView } from "@/components/AiOptView";
 import { InterchgView } from "@/components/InterchgView";
-import { detectFromPdf, type ParsedDrawing, type RoadCategory } from "@/lib/road-detect";
+import {
+  detectFromPdf,
+  classifyByLegendSwatch,
+  CATEGORY_LABELS,
+  type ParsedDrawing,
+  type RoadCategory,
+} from "@/lib/road-detect";
+import { LEGEND_SWATCHES } from "@/lib/legend-swatches";
+import { LegendPanel } from "@/components/LegendPanel";
 import {
   extractPdfPathsInBrowser,
   extractPdfTextItemsInBrowser,
@@ -40,6 +48,21 @@ export default function Page() {
   const [result, setResult] = useState<ParseResponse | null>(null);
   const [groupCategory, setGroupCategory] = useState<Record<string, RoadCategory>>({});
   const [visibleGroups, setVisibleGroups] = useState<Record<string, boolean>>({});
+  const [visibleCategories, setVisibleCategories] = useState<
+    Record<RoadCategory, boolean>
+  >(() => {
+    const v = {} as Record<RoadCategory, boolean>;
+    for (const c of Object.keys(CATEGORY_LABELS) as RoadCategory[]) {
+      v[c] = c !== "context" && c !== "other";
+    }
+    return v;
+  });
+  const [pickingCategory, setPickingCategory] = useState<RoadCategory | null>(
+    null
+  );
+  const [swatchOverrides, setSwatchOverrides] = useState<
+    Partial<Record<RoadCategory, [number, number, number]>>
+  >({});
   const [tab, setTab] = useState<DashTab>("drawing");
   const [selectedJunctionId, setSelectedJunctionId] = useState<string | null>(null);
   const [junctionInputs, setJunctionInputs] = useState<Record<string, JunctionInputs>>({});
@@ -57,14 +80,68 @@ export default function Page() {
     const v: Record<string, boolean> = {};
     for (const g of result.drawing.groups) {
       c[g.id] = g.category;
-      // Default-hide everything tagged 'other' - the user's narrow active
-      // category set is { building, lane, edge }, and 'other' is the
-      // catch-all for ROW / boundaries / dimensions / anchor assets / etc.
-      v[g.id] = g.category !== "other";
+      // Group-level visibility starts ON; the LegendPanel layers category-
+      // level visibility on top via `visibleCategories`.
+      v[g.id] = true;
     }
     setGroupCategory(c);
     setVisibleGroups(v);
   }, [result]);
+
+  // Group-level visibility AND category-level visibility, combined.
+  // Either toggle off hides the group.
+  const effectiveVisibleGroups = useMemo(() => {
+    const out: Record<string, boolean> = {};
+    for (const [id, on] of Object.entries(visibleGroups)) {
+      const cat = groupCategory[id];
+      out[id] = on !== false && (cat ? visibleCategories[cat] !== false : true);
+    }
+    return out;
+  }, [visibleGroups, groupCategory, visibleCategories]);
+
+  /** Handle a click in the drawing while in pick mode: snap the picking
+   *  category's swatch to the clicked group's colour and re-classify all
+   *  groups against the updated swatch table. */
+  function handlePickGroup(groupId: string) {
+    if (!pickingCategory || !result) return;
+    const group = result.drawing.groups.find((g) => g.id === groupId);
+    if (!group?.color) return;
+    const rgb: [number, number, number] = [
+      Math.round(group.color[0] * 255),
+      Math.round(group.color[1] * 255),
+      Math.round(group.color[2] * 255),
+    ];
+    const targetCat = pickingCategory;
+    setSwatchOverrides((prev) => ({ ...prev, [targetCat]: rgb }));
+    setPickingCategory(null);
+  }
+
+  // Re-classify groups whenever swatchOverrides change. Each group has
+  // its representative colour stored at detection time; we re-run the
+  // legend-swatch classifier with the override map applied.
+  useEffect(() => {
+    if (!result) return;
+    if (Object.keys(swatchOverrides).length === 0) return;
+    const next: Record<string, RoadCategory> = {};
+    let changed = false;
+    for (const g of result.drawing.groups) {
+      if (!g.color) {
+        next[g.id] = g.category;
+        continue;
+      }
+      const r = Math.round(g.color[0] * 255);
+      const grn = Math.round(g.color[1] * 255);
+      const b = Math.round(g.color[2] * 255);
+      const swatches = LEGEND_SWATCHES.map((sw) => {
+        const ov = swatchOverrides[sw.category];
+        return ov ? { ...sw, rgb: ov } : sw;
+      });
+      const newCat = classifyByLegendSwatch(r, grn, b, swatches);
+      next[g.id] = newCat;
+      if (newCat !== g.category) changed = true;
+    }
+    if (changed) setGroupCategory(next);
+  }, [swatchOverrides, result]);
 
   const network = useMemo(() => {
     if (!result) return null;
@@ -204,10 +281,10 @@ export default function Page() {
     void (async () => {
       try {
         setStatus("loading");
-        const res = await fetch("/sample-cmp-layout.pdf");
+        const res = await fetch("/ju_compressed_1.pdf");
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const blob = await res.blob();
-        const file = new File([blob], "WSPTRA_Prime_CMPRoad_Layout.pdf", {
+        const file = new File([blob], "ju_compressed_1.pdf", {
           type: "application/pdf",
         });
         await handleFile(file);
@@ -266,8 +343,9 @@ export default function Page() {
         {tab === "drawing" && result && (
           <CadViewer
             drawing={result.drawing}
-            visibleGroups={visibleGroups}
+            visibleGroups={effectiveVisibleGroups}
             groupCategory={groupCategory}
+            onPickGroup={pickingCategory ? handlePickGroup : undefined}
           />
         )}
         {tab !== "drawing" && network && network.links.length > 0 && (
@@ -324,16 +402,15 @@ export default function Page() {
         }}
       >
         {tab === "drawing" && result && (
-          <DrawingPanel
+          <LegendPanel
             drawing={result.drawing}
-            groupCategory={groupCategory}
-            visibleGroups={visibleGroups}
-            onToggleVisible={(id, v) =>
-              setVisibleGroups((m) => ({ ...m, [id]: v }))
+            visibleCategories={visibleCategories}
+            onToggleCategory={(cat, v) =>
+              setVisibleCategories((m) => ({ ...m, [cat]: v }))
             }
-            onChangeCategory={(id, cat) =>
-              setGroupCategory((m) => ({ ...m, [id]: cat }))
-            }
+            pickingCategory={pickingCategory}
+            onStartPick={setPickingCategory}
+            swatchOverrides={swatchOverrides}
           />
         )}
         {tab === "movements" && selectedJunctionId && selectedInputs && selectedResult && (
@@ -464,156 +541,6 @@ function SceneEmptyState({
   );
 }
 
-function DrawingPanel({
-  drawing,
-  groupCategory,
-  visibleGroups,
-  onToggleVisible,
-  onChangeCategory,
-}: {
-  drawing: ParsedDrawing;
-  groupCategory: Record<string, RoadCategory>;
-  visibleGroups: Record<string, boolean>;
-  onToggleVisible: (id: string, v: boolean) => void;
-  onChangeCategory: (id: string, cat: RoadCategory) => void;
-}) {
-  // Only four user-facing categories: building / lane / edge / other.
-  // Everything previously classified as boundary / curb / shoulder /
-  // centerline now falls under 'other' and is hidden by default.
-  const ALL: RoadCategory[] = ["building", "lane", "edge", "other"];
-  const groups = drawing.groups;
-  return (
-    <div style={{ padding: "16px 18px" }}>
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          marginBottom: 10,
-        }}
-      >
-        <div
-          style={{
-            fontSize: 10,
-            color: "#94a3b8",
-            letterSpacing: 1.5,
-            textTransform: "uppercase",
-          }}
-        >
-          {drawing.source === "pdf" ? "PDF layers" : "DXF layers"} ·{" "}
-          {drawing.segments.length.toLocaleString()} segments
-        </div>
-      </div>
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)",
-          gap: 8,
-          fontSize: 12,
-        }}
-      >
-        {groups.map((g) => (
-          <div
-            key={g.id}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 6,
-              padding: "5px 10px",
-              border: "1px solid #1e293b",
-              borderRadius: 6,
-            }}
-          >
-            <input
-              type="checkbox"
-              checked={visibleGroups[g.id] ?? true}
-              onChange={(e) => onToggleVisible(g.id, e.target.checked)}
-            />
-            {g.color && (
-              <span
-                style={{
-                  width: 12,
-                  height: 12,
-                  background: `rgb(${Math.round(g.color[0] * 255)}, ${Math.round(g.color[1] * 255)}, ${Math.round(g.color[2] * 255)})`,
-                  border: "1px solid #334155",
-                  borderRadius: 2,
-                  flexShrink: 0,
-                }}
-              />
-            )}
-            <span
-              style={{
-                flex: 1,
-                whiteSpace: "nowrap",
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                color: "#cbd5e1",
-              }}
-              title={g.label}
-            >
-              {g.label}
-            </span>
-            <select
-              value={groupCategory[g.id] ?? g.category}
-              onChange={(e) =>
-                onChangeCategory(g.id, e.target.value as RoadCategory)
-              }
-              style={{
-                background: "#0a1120",
-                color: "#e2e8f0",
-                border: "1px solid #334155",
-                borderRadius: 4,
-                fontSize: 11,
-                padding: "2px 4px",
-              }}
-            >
-              {ALL.map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
-              ))}
-            </select>
-            <span
-              style={{
-                color: "#64748b",
-                fontVariantNumeric: "tabular-nums",
-                minWidth: 36,
-                textAlign: "right",
-                fontSize: 11,
-              }}
-            >
-              {g.count}
-            </span>
-          </div>
-        ))}
-      </div>
-      <div style={{ fontSize: 10, color: "#475569", marginTop: 8 }}>
-        Categories preview colour palette:{" "}
-        {ALL.map((c) => (
-          <span
-            key={c}
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 4,
-              marginRight: 10,
-            }}
-          >
-            <span
-              style={{
-                width: 10,
-                height: 10,
-                background: CATEGORY_COLORS[c],
-                borderRadius: 2,
-              }}
-            />
-            {c}
-          </span>
-        ))}
-      </div>
-    </div>
-  );
-}
 
 function NoSelection() {
   return (

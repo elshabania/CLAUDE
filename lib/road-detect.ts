@@ -1,15 +1,57 @@
 import type { Dxf, DxfEntity, DxfPoint } from "dxf-parser";
 import type { ExtractedPath } from "@/lib/pdf-extract";
+import { LEGEND_SWATCHES, type LegendSwatch } from "@/lib/legend-swatches";
 
 export type RoadCategory =
-  | "centerline"
-  | "edge"
-  | "lane"
-  | "curb"
-  | "shoulder"
-  | "boundary"
+  | "road_row"
+  | "road_plot"
+  | "taxi_layby"
+  | "shuttle_layby"
+  | "emergency_access"
+  | "apartment_access"
+  | "plot_access"
+  | "bridge"
+  | "bridge_ramp"
+  | "tunnel"
+  | "tunnel_ramp"
+  | "raised_crossing"
   | "building"
+  | "context"
   | "other";
+
+/** Categories that represent driveable road surface (used by the network builder). */
+export const ROAD_CATEGORIES: ReadonlySet<RoadCategory> = new Set([
+  "road_row",
+  "road_plot",
+  "taxi_layby",
+  "shuttle_layby",
+  "emergency_access",
+  "apartment_access",
+  "plot_access",
+  "bridge",
+  "bridge_ramp",
+  "tunnel",
+  "tunnel_ramp",
+]);
+
+/** Human-readable labels for the UI. Keep in sync with the printed legend. */
+export const CATEGORY_LABELS: Record<RoadCategory, string> = {
+  road_row: "Proposed Road (within ROW)",
+  road_plot: "Proposed Road (within Plot)",
+  taxi_layby: "Taxi / Drop-off Layby",
+  shuttle_layby: "Shuttle Bus Layby",
+  emergency_access: "Emergency Vehicle Access",
+  apartment_access: "Apartment Access",
+  plot_access: "Plot Access",
+  bridge: "Bridge",
+  bridge_ramp: "Bridge Ramp",
+  tunnel: "Tunnel",
+  tunnel_ramp: "Tunnel Ramp",
+  raised_crossing: "Raised Pedestrian Crossing",
+  building: "Building",
+  context: "Context",
+  other: "Other",
+};
 
 export interface DrawingSegment {
   id: string;
@@ -55,27 +97,54 @@ export interface ParsedDrawing {
   texts: DrawingTextItem[];
 }
 
-const LAYER_PATTERNS: { category: RoadCategory; patterns: RegExp[] }[] = [
-  {
-    category: "centerline",
-    patterns: [/center.?line/i, /\bcl\b/i, /\bc[\/_-]?l\b/i, /centre.?line/i, /median/i],
-  },
-  {
-    category: "edge",
-    patterns: [/edge.?of.?pavement/i, /\beop\b/i, /pavement.?edge/i, /road.?edge/i, /\bedge\b/i],
-  },
-  { category: "lane", patterns: [/lane.?line/i, /\blane\b/i, /stripe/i, /marking/i] },
-  { category: "curb", patterns: [/curb/i, /kerb/i, /\bgutter\b/i] },
-  { category: "shoulder", patterns: [/shoulder/i, /\bverge\b/i] },
-  { category: "boundary", patterns: [/boundary/i, /property/i, /\bplot\b/i] },
-  { category: "building", patterns: [/building/i, /structure/i, /footprint/i] },
-];
+/**
+ * Master-plan PDFs classify roads by *fill colour* matched to the legend.
+ * We compare each path's colour to the legend swatches under CIE-Lab
+ * distance and pick the closest match within tolerance. Falls back to
+ * "other" when no swatch is close enough.
+ *
+ * The runtime can pass an override list (e.g. from the LegendPanel
+ * re-pick UI) that takes precedence over the compiled-in swatches.
+ */
 
-export function classifyLayer(layer: string): RoadCategory {
-  for (const { category, patterns } of LAYER_PATTERNS) {
-    if (patterns.some((p) => p.test(layer))) return category;
+function srgbToLinear(c: number): number {
+  const x = c / 255;
+  return x <= 0.04045 ? x / 12.92 : Math.pow((x + 0.055) / 1.055, 2.4);
+}
+
+function rgbToLab(r: number, g: number, b: number): [number, number, number] {
+  const lr = srgbToLinear(r);
+  const lg = srgbToLinear(g);
+  const lb = srgbToLinear(b);
+  // sRGB D65 -> XYZ
+  const x = (lr * 0.4124564 + lg * 0.3575761 + lb * 0.1804375) / 0.95047;
+  const y = lr * 0.2126729 + lg * 0.7151522 + lb * 0.072175;
+  const z = (lr * 0.0193339 + lg * 0.119192 + lb * 0.9503041) / 1.08883;
+  const f = (t: number) => (t > 0.008856 ? Math.cbrt(t) : 7.787 * t + 16 / 116);
+  const fx = f(x);
+  const fy = f(y);
+  const fz = f(z);
+  return [116 * fy - 16, 500 * (fx - fy), 200 * (fy - fz)];
+}
+
+function deltaE(a: [number, number, number], b: [number, number, number]): number {
+  return Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
+}
+
+export function classifyByLegendSwatch(
+  r: number,
+  g: number,
+  b: number,
+  swatches: readonly LegendSwatch[] = LEGEND_SWATCHES
+): RoadCategory {
+  const lab = rgbToLab(r, g, b);
+  let best: { cat: RoadCategory; d: number } | null = null;
+  for (const sw of swatches) {
+    const d = deltaE(lab, rgbToLab(sw.rgb[0], sw.rgb[1], sw.rgb[2]));
+    if (d > sw.tolerance) continue;
+    if (!best || d < best.d) best = { cat: sw.category, d };
   }
-  return "other";
+  return best?.cat ?? "other";
 }
 
 function entityPoints(entity: DxfEntity): DxfPoint[] {
@@ -120,7 +189,10 @@ export function detectFromDxf(dxf: Dxf): ParsedDrawing {
     if (points.length < 2) return;
 
     const layer = entity.layer ?? "0";
-    const category = classifyLayer(layer);
+    // DXF entities don't carry fill colour we can match against the legend;
+    // they're only used by the auxiliary upload path. Default to "other"
+    // so the user can re-classify per-group in the UI.
+    const category: RoadCategory = "other";
     const flat = flatPoints(points);
     const length = flatLength(flat);
 
@@ -173,9 +245,11 @@ export function detectFromDxf(dxf: Dxf): ParsedDrawing {
 }
 
 /**
- * Convert PDF-extracted paths into a ParsedDrawing by clustering paths on
- * stroke colour. A CAD-exported PDF tends to use a small fixed palette per
- * layer, so identical colours act as a reasonable proxy for original layers.
+ * Convert PDF-extracted paths into a ParsedDrawing. Each path is matched
+ * to a legend swatch by fill colour (or stroke colour if unfilled); the
+ * matched category becomes the segment's category. Paths with the same
+ * matched colour share a group so the UI can list one row per legend
+ * class.
  */
 export interface PdfDetectOptions {
   /** Drop subpaths whose total length is below this (in PDF user units). */
@@ -184,6 +258,8 @@ export interface PdfDetectOptions {
   dropWhite?: boolean;
   /** Drop filled paths whose bounding box area is below this (in user units²). */
   minFilledArea?: number;
+  /** Per-category swatch overrides keyed by category. */
+  swatchOverrides?: Partial<Record<RoadCategory, [number, number, number]>>;
 }
 
 export function detectFromPdf(
@@ -194,6 +270,12 @@ export function detectFromPdf(
   const minSegmentLength = opts.minSegmentLength ?? 5;
   const dropWhite = opts.dropWhite ?? true;
   const minFilledArea = opts.minFilledArea ?? 25;
+
+  // Apply runtime swatch overrides on top of the compiled-in legend.
+  const swatches: LegendSwatch[] = LEGEND_SWATCHES.map((sw) => {
+    const override = opts.swatchOverrides?.[sw.category];
+    return override ? { ...sw, rgb: override } : sw;
+  });
 
   const segments: DrawingSegment[] = [];
   const groupMap = new Map<string, DrawingGroup>();
@@ -207,7 +289,11 @@ export function detectFromPdf(
   for (const path of paths) {
     pi += 1;
     if (!path.isStroked && !path.isFilled) continue;
-    const color = path.strokeColor ?? path.fillColor ?? [0, 0, 0];
+    // Master-plan PDFs classify by FILL colour. Fall back to stroke for
+    // line-only paths (kerbs, tick marks).
+    const color = path.isFilled
+      ? path.fillColor ?? path.strokeColor ?? [0, 0, 0]
+      : path.strokeColor ?? path.fillColor ?? [0, 0, 0];
 
     // Quantise to reduce near-duplicate clusters and clamp to 255.
     const r = Math.min(255, Math.round((color[0] * 255) / 8) * 8);
@@ -215,18 +301,15 @@ export function detectFromPdf(
     const b = Math.min(255, Math.round((color[2] * 255) / 8) * 8);
     if (dropWhite && r >= 248 && g >= 248 && b >= 248) continue;
 
-    // Prefer grouping by OCG layer name when the PDF carries it; fall back
-    // to colour cluster otherwise. Layer-based classification overrides the
-    // colour heuristic since CAD layer names are far more semantic.
-    const layer = path.layer ?? null;
     const filledSuffix = path.isFilled && !path.isStroked ? "_f" : "";
-    const groupId = layer
-      ? `layer_${layer}${filledSuffix}`
-      : `rgb_${r}_${g}_${b}${filledSuffix}`;
-    const category = layer
-      ? classifyByLayer(layer, path.isFilled) ??
-        classifyByColor(r, g, b, path.lineWidth, path.isFilled)
-      : classifyByColor(r, g, b, path.lineWidth, path.isFilled);
+    const category = classifyByLegendSwatch(r, g, b, swatches);
+    // Group by category so the Legend panel lists one row per legend class.
+    // Paths that didn't match any swatch go into per-colour "other" groups
+    // so the user can still see and re-pick them.
+    const groupId =
+      category === "other"
+        ? `other_rgb_${r}_${g}_${b}${filledSuffix}`
+        : `cat_${category}`;
 
     path.subpaths.forEach((sub, si) => {
       if (sub.length < 2) return;
@@ -273,7 +356,6 @@ export function detectFromPdf(
           flat[0] === flat[flat.length - 2] &&
           flat[1] === flat[flat.length - 1],
         length,
-        layer: layer ?? undefined,
       });
 
       const existing = groupMap.get(groupId);
@@ -283,15 +365,15 @@ export function detectFromPdf(
       } else {
         groupMap.set(groupId, {
           id: groupId,
-          label: layer
-            ? `${layer}${filledSuffix ? " (filled)" : ""}`
-            : `RGB(${r}, ${g}, ${b})${filledSuffix ? " filled" : ""}`,
+          label:
+            category === "other"
+              ? `RGB(${r}, ${g}, ${b})${filledSuffix ? " filled" : ""}`
+              : CATEGORY_LABELS[category],
           category,
           count: 1,
           totalLength: length,
           color: [r / 255, g / 255, b / 255],
           lineWidth: path.lineWidth,
-          layer: layer ?? undefined,
         });
       }
     });
@@ -304,52 +386,29 @@ export function detectFromPdf(
     maxY = 0;
   }
 
-  // Lane markings vs kerbs heuristic: only run for segments that came in
-  // without a layer tag (i.e. PDFs without OCG metadata). When layers are
-  // present they're more reliable than length-based guessing.
   const diag = Math.hypot(maxX - minX, maxY - minY) || 1;
-  const laneCutoff = diag * 0.012;
-  const edgeGroupRecount = new Map<string, { edge: number; lane: number }>();
-  for (const seg of segments) {
-    if (seg.category !== "edge") continue;
-    if (seg.layer) continue; // trust the layer
-    if (seg.length < laneCutoff) seg.category = "lane";
-    const r = edgeGroupRecount.get(seg.groupId) ?? { edge: 0, lane: 0 };
-    if (seg.category === "lane") r.lane += 1;
-    else r.edge += 1;
-    edgeGroupRecount.set(seg.groupId, r);
-  }
-  for (const g of groupMap.values()) {
-    if (g.category !== "edge") continue;
-    if (g.layer) continue;
-    const r = edgeGroupRecount.get(g.id);
-    if (!r) continue;
-    if (r.lane > 0 && r.lane / (r.lane + r.edge) > 0.9) {
-      g.category = "lane";
-    }
-  }
 
-  // Stitch FIRST, cap AFTER. The user's main layers (Road Lane_Main = 44k
-  // stripes, Survey_EXI_LANE = 51k) are heavily fragmented in the source
-  // PDF; the stitcher is what collapses them back into a small number of
-  // continuous polylines. Capping before stitching would lose 97% of the
-  // layer's stripes before they could be merged. The stitcher itself
-  // mutates point arrays in place so memory cost stays bounded even at
-  // 50k+ segments per group.
+  // Stitch end-to-end collinear polylines inside each group. Master-plan
+  // PDFs usually have one filled polygon per road class so the stitcher
+  // is mostly a no-op here, but kept on for resilience.
   const stitched0 = stitchSegmentsByGroup(segments, diag);
 
-  // Per-category caps applied AFTER stitching. After 44k stripes have
-  // collapsed to ~hundreds of polylines, even a tight cap leaves plenty
-  // of visual coverage.
   const POST_STITCH_CAP: Record<RoadCategory, number> = {
-    edge: 6000,
-    curb: 6000,
-    lane: 4000,
-    centerline: 2000,
-    boundary: 2000,
-    shoulder: 1500,
-    building: 6000,
-    other: 3000,
+    road_row: 6000,
+    road_plot: 6000,
+    taxi_layby: 2000,
+    shuttle_layby: 2000,
+    emergency_access: 4000,
+    apartment_access: 4000,
+    plot_access: 4000,
+    bridge: 2000,
+    bridge_ramp: 2000,
+    tunnel: 2000,
+    tunnel_ramp: 2000,
+    raised_crossing: 4000,
+    building: 8000,
+    context: 8000,
+    other: 4000,
   };
   const byCat = new Map<RoadCategory, DrawingSegment[]>();
   for (const s of stitched0) {
@@ -586,62 +645,3 @@ function reverseFlat(points: number[]): number[] {
   return out;
 }
 
-const PDF_LAYER_PATTERNS: { category: RoadCategory; patterns: RegExp[] }[] = [
-  // Buildings: only townhouse / villa / mixed-use land-use layers.
-  // Everything else (hospital, school, mosque, anchor assets, etc.) falls
-  // through to 'other'.
-  {
-    category: "building",
-    patterns: [
-      /villa/i,
-      /townhouse/i,
-      /town[\s_-]*hous/i,
-      /town[\s_-]*home/i,
-      /mixed[\s_-]?use/i,
-    ],
-  },
-  // Lanes: ANY layer name that contains the word 'lane'. Captures
-  // Road Lane_Main, Road Lane_Direction 1/2, Survey_EXI_LANE, Road Lane,
-  // and any future lane-* layer.
-  {
-    category: "lane",
-    patterns: [/lane/i],
-  },
-  // Edges: ANY layer name that contains the word 'edge'. Captures
-  // Road Edge_MP_00 and Road Edge_kerb_00. Drop-kerb / Survey_EXI_KERB
-  // do NOT match - the user wants only true edge layers here.
-  {
-    category: "edge",
-    patterns: [/edge/i],
-  },
-];
-
-/**
- * PDF OCG layer-name classifier. Returns null when no rule matches so the
- * caller can fall back to colour-based heuristics.
- */
-function classifyByLayer(layer: string, _isFilled: boolean): RoadCategory | null {
-  for (const { category, patterns } of PDF_LAYER_PATTERNS) {
-    if (patterns.some((p) => p.test(layer))) return category;
-  }
-  return null;
-}
-
-/**
- * Heuristic colour classifier for AutoCAD-exported PDFs. The palette below is
- * a starting guess; users can re-label clusters in the UI.
- */
-function classifyByColor(
-  r: number,
-  g: number,
-  b: number,
-  _lineWidth: number,
-  _isFilled: boolean
-): RoadCategory {
-  // Colour fallback only fires for paths that have NO source layer (rare).
-  // Magenta historically marks the road-edge layer in this CAD family, so
-  // keep it -> edge. Everything else falls to 'other' to match the user's
-  // narrow active-category set.
-  if (r > 150 && b > 120 && g < 100) return "edge";
-  return "other";
-}

@@ -1,27 +1,55 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { ParsedDrawing, RoadCategory } from "@/lib/road-detect";
+import {
+  ROAD_CATEGORIES,
+  type ParsedDrawing,
+  type RoadCategory,
+} from "@/lib/road-detect";
+import { LEGEND_SWATCHES } from "@/lib/legend-swatches";
+
+function swatchHex(cat: RoadCategory, fallback = "#475569"): string {
+  const sw = LEGEND_SWATCHES.find((s) => s.category === cat);
+  if (!sw) return fallback;
+  const [r, g, b] = sw.rgb;
+  return `#${[r, g, b]
+    .map((v) => v.toString(16).padStart(2, "0"))
+    .join("")}`;
+}
 
 export const CATEGORY_COLORS: Record<RoadCategory, string> = {
-  centerline: "#facc15",
-  edge: "#38bdf8",
-  lane: "#a78bfa",
-  curb: "#f472b6",
-  shoulder: "#34d399",
-  boundary: "#22c55e",
-  building: "#94a3b8",
+  road_row: swatchHex("road_row"),
+  road_plot: swatchHex("road_plot"),
+  taxi_layby: swatchHex("taxi_layby"),
+  shuttle_layby: swatchHex("shuttle_layby"),
+  emergency_access: swatchHex("emergency_access"),
+  apartment_access: swatchHex("apartment_access"),
+  plot_access: swatchHex("plot_access"),
+  bridge: swatchHex("bridge"),
+  bridge_ramp: swatchHex("bridge_ramp"),
+  tunnel: swatchHex("tunnel"),
+  tunnel_ramp: swatchHex("tunnel_ramp"),
+  raised_crossing: swatchHex("raised_crossing"),
+  building: swatchHex("building"),
+  context: swatchHex("context"),
   other: "#475569",
 };
 
 const CATEGORY_WIDTH: Record<RoadCategory, number> = {
-  centerline: 2,
-  edge: 1.6,
-  lane: 1.2,
-  curb: 1.4,
-  shoulder: 1.2,
-  boundary: 1.2,
-  building: 1,
+  road_row: 1.4,
+  road_plot: 1.4,
+  taxi_layby: 1.0,
+  shuttle_layby: 1.0,
+  emergency_access: 1.0,
+  apartment_access: 1.0,
+  plot_access: 1.0,
+  bridge: 1.6,
+  bridge_ramp: 1.4,
+  tunnel: 1.6,
+  tunnel_ramp: 1.4,
+  raised_crossing: 1.2,
+  building: 0.6,
+  context: 0.4,
   other: 0.6,
 };
 
@@ -29,9 +57,16 @@ interface Props {
   drawing: ParsedDrawing;
   visibleGroups: Record<string, boolean>;
   groupCategory: Record<string, RoadCategory>;
+  /** Optional click handler. When set, clicking a path reports the matched group id. */
+  onPickGroup?: (groupId: string) => void;
 }
 
-export function CadViewer({ drawing, visibleGroups, groupCategory }: Props) {
+export function CadViewer({
+  drawing,
+  visibleGroups,
+  groupCategory,
+  onPickGroup,
+}: Props) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [transform, setTransform] = useState({ scale: 1, tx: 0, ty: 0 });
@@ -80,39 +115,140 @@ export function CadViewer({ drawing, visibleGroups, groupCategory }: Props) {
     ctx.fillRect(0, 0, size.width, size.height);
 
     const { scale, tx, ty } = transform;
+    // Draw context first (greyed-out surrounding city), then buildings,
+    // then road categories. This lets road colour show on top of any
+    // building/context overlap.
+    const drawOrder: RoadCategory[] = [
+      "context",
+      "building",
+      "road_row",
+      "road_plot",
+      "emergency_access",
+      "apartment_access",
+      "plot_access",
+      "taxi_layby",
+      "shuttle_layby",
+      "bridge",
+      "bridge_ramp",
+      "tunnel",
+      "tunnel_ramp",
+      "raised_crossing",
+      "other",
+    ];
+    const segmentsByCat = new Map<RoadCategory, typeof drawing.segments>();
     for (const seg of drawing.segments) {
       if (visibleGroups[seg.groupId] === false) continue;
       const cat = groupCategory[seg.groupId] ?? seg.category;
-      ctx.strokeStyle = CATEGORY_COLORS[cat];
+      const arr = segmentsByCat.get(cat) ?? [];
+      arr.push(seg);
+      segmentsByCat.set(cat, arr);
+    }
+    for (const cat of drawOrder) {
+      const segs = segmentsByCat.get(cat);
+      if (!segs || segs.length === 0) continue;
+      const color = CATEGORY_COLORS[cat];
       ctx.lineWidth = CATEGORY_WIDTH[cat];
-      ctx.beginPath();
-      const pts = seg.points;
-      for (let i = 0; i < pts.length; i += 2) {
-        const px = pts[i] * scale + tx;
-        const py = -pts[i + 1] * scale + ty;
-        if (i === 0) ctx.moveTo(px, py);
-        else ctx.lineTo(px, py);
+      // Fill closed polygons for road / building / context categories so the
+      // map reads like the printed legend. Open polylines just get stroked.
+      const shouldFill = cat !== "raised_crossing" && cat !== "other";
+      ctx.fillStyle = color;
+      ctx.strokeStyle = color;
+      for (const seg of segs) {
+        const pts = seg.points;
+        if (pts.length < 4) continue;
+        ctx.beginPath();
+        for (let i = 0; i < pts.length; i += 2) {
+          const px = pts[i] * scale + tx;
+          const py = -pts[i + 1] * scale + ty;
+          if (i === 0) ctx.moveTo(px, py);
+          else ctx.lineTo(px, py);
+        }
+        if (seg.closed) {
+          ctx.closePath();
+          if (shouldFill) ctx.fill();
+        }
+        ctx.stroke();
       }
-      if (seg.closed) ctx.closePath();
-      ctx.stroke();
     }
   }, [drawing, transform, visibleGroups, groupCategory, size.width, size.height]);
 
+  const dragMovedRef = useRef(false);
   const onPointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
     e.currentTarget.setPointerCapture(e.pointerId);
     dragRef.current = { x: e.clientX, y: e.clientY, tx: transform.tx, ty: transform.ty };
+    dragMovedRef.current = false;
   };
+
+  /** Hit-test: returns the topmost visible segment under (canvasX, canvasY). */
+  function pickGroupAt(cx: number, cy: number): string | null {
+    const { scale, tx, ty } = transform;
+    // Convert back to drawing units.
+    const x = (cx - tx) / scale;
+    const y = -(cy - ty) / scale;
+    let best: { dist: number; groupId: string } | null = null;
+    const tol = 6 / scale; // 6 screen pixels
+    for (const seg of drawing.segments) {
+      if (visibleGroups[seg.groupId] === false) continue;
+      const pts = seg.points;
+      if (seg.closed && pts.length >= 6) {
+        // Point-in-polygon test.
+        let inside = false;
+        for (let i = 0, j = pts.length - 2; i < pts.length; j = i, i += 2) {
+          const xi = pts[i],
+            yi = pts[i + 1];
+          const xj = pts[j],
+            yj = pts[j + 1];
+          const intersect =
+            yi > y !== yj > y &&
+            x < ((xj - xi) * (y - yi)) / (yj - yi + 1e-9) + xi;
+          if (intersect) inside = !inside;
+        }
+        if (inside) {
+          if (!best || best.dist > 0) best = { dist: 0, groupId: seg.groupId };
+        }
+      } else {
+        // Polyline: nearest-point-to-edge distance.
+        for (let i = 2; i < pts.length; i += 2) {
+          const dx = pts[i] - pts[i - 2];
+          const dy = pts[i + 1] - pts[i - 1];
+          const len2 = dx * dx + dy * dy;
+          if (len2 === 0) continue;
+          let t = ((x - pts[i - 2]) * dx + (y - pts[i - 1]) * dy) / len2;
+          t = Math.max(0, Math.min(1, t));
+          const px2 = pts[i - 2] + t * dx;
+          const py2 = pts[i - 1] + t * dy;
+          const d = Math.hypot(x - px2, y - py2);
+          if (d < tol && (!best || d < best.dist)) {
+            best = { dist: d, groupId: seg.groupId };
+          }
+        }
+      }
+    }
+    return best?.groupId ?? null;
+  }
 
   const onPointerMove = (e: React.PointerEvent<HTMLCanvasElement>) => {
     if (!dragRef.current) return;
     const dx = e.clientX - dragRef.current.x;
     const dy = e.clientY - dragRef.current.y;
+    if (Math.abs(dx) + Math.abs(dy) > 2) dragMovedRef.current = true;
     setTransform((t) => ({ ...t, tx: dragRef.current!.tx + dx, ty: dragRef.current!.ty + dy }));
   };
 
   const onPointerUp = (e: React.PointerEvent<HTMLCanvasElement>) => {
     e.currentTarget.releasePointerCapture(e.pointerId);
     dragRef.current = null;
+    // Treat as a click only if the pointer didn't actually drag.
+    if (!dragMovedRef.current && onPickGroup) {
+      const canvas = canvasRef.current;
+      if (canvas) {
+        const rect = canvas.getBoundingClientRect();
+        const cx = e.clientX - rect.left;
+        const cy = e.clientY - rect.top;
+        const groupId = pickGroupAt(cx, cy);
+        if (groupId) onPickGroup(groupId);
+      }
+    }
   };
 
   const onWheel = (e: React.WheelEvent<HTMLCanvasElement>) => {
