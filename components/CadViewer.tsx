@@ -32,6 +32,9 @@ export const CATEGORY_COLORS: Record<RoadCategory, string> = {
   raised_crossing: swatchHex("raised_crossing"),
   building: swatchHex("building"),
   context: swatchHex("context"),
+  greenery: swatchHex("greenery", "#86efac"),
+  water: swatchHex("water", "#7dd3fc"),
+  plot_fill: swatchHex("plot_fill", "#fde68a"),
   other: "#475569",
 };
 
@@ -50,6 +53,9 @@ const CATEGORY_WIDTH: Record<RoadCategory, number> = {
   raised_crossing: 1.2,
   building: 0.6,
   context: 0.4,
+  greenery: 0.4,
+  water: 0.4,
+  plot_fill: 0.4,
   other: 0.6,
 };
 
@@ -120,6 +126,9 @@ export function CadViewer({
     // building/context overlap.
     const drawOrder: RoadCategory[] = [
       "context",
+      "greenery",
+      "water",
+      "plot_fill",
       "building",
       "road_row",
       "road_plot",

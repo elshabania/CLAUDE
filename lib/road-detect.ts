@@ -17,6 +17,9 @@ export type RoadCategory =
   | "raised_crossing"
   | "building"
   | "context"
+  | "greenery"
+  | "water"
+  | "plot_fill"
   | "other";
 
 /** Categories that represent driveable road surface (used by the network builder). */
@@ -50,6 +53,9 @@ export const CATEGORY_LABELS: Record<RoadCategory, string> = {
   raised_crossing: "Raised Pedestrian Crossing",
   building: "Building",
   context: "Context",
+  greenery: "Park / Greenery",
+  water: "Water",
+  plot_fill: "Plot Interior",
   other: "Other",
 };
 
@@ -140,9 +146,13 @@ export function classifyByLegendSwatch(
   const lab = rgbToLab(r, g, b);
   let best: { cat: RoadCategory; d: number } | null = null;
   for (const sw of swatches) {
-    const d = deltaE(lab, rgbToLab(sw.rgb[0], sw.rgb[1], sw.rgb[2]));
-    if (d > sw.tolerance) continue;
-    if (!best || d < best.d) best = { cat: sw.category, d };
+    const candidates: [number, number, number][] = [sw.rgb];
+    if (sw.aliases) candidates.push(...sw.aliases);
+    for (const c of candidates) {
+      const d = deltaE(lab, rgbToLab(c[0], c[1], c[2]));
+      if (d > sw.tolerance) continue;
+      if (!best || d < best.d) best = { cat: sw.category, d };
+    }
   }
   return best?.cat ?? "other";
 }
@@ -408,6 +418,9 @@ export function detectFromPdf(
     raised_crossing: 4000,
     building: 8000,
     context: 8000,
+    greenery: 8000,
+    water: 4000,
+    plot_fill: 8000,
     other: 4000,
   };
   const byCat = new Map<RoadCategory, DrawingSegment[]>();

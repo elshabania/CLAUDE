@@ -7,6 +7,7 @@ export interface LegendSwatch {
   category: RoadCategory;
   rgb: [number, number, number];
   tolerance: number;
+  aliases?: [number, number, number][];
 }
 
 export const LEGEND_SWATCHES: LegendSwatch[] = [
@@ -17,7 +18,7 @@ export const LEGEND_SWATCHES: LegendSwatch[] = [
       166,
       121
     ],
-    "tolerance": 22
+    "tolerance": 35
   },
   {
     "category": "road_plot",
@@ -26,7 +27,7 @@ export const LEGEND_SWATCHES: LegendSwatch[] = [
       255,
       112
     ],
-    "tolerance": 22
+    "tolerance": 35
   },
   {
     "category": "taxi_layby",
@@ -35,7 +36,7 @@ export const LEGEND_SWATCHES: LegendSwatch[] = [
       92,
       184
     ],
-    "tolerance": 22
+    "tolerance": 35
   },
   {
     "category": "shuttle_layby",
@@ -44,7 +45,7 @@ export const LEGEND_SWATCHES: LegendSwatch[] = [
       221,
       0
     ],
-    "tolerance": 22
+    "tolerance": 35
   },
   {
     "category": "emergency_access",
@@ -53,7 +54,7 @@ export const LEGEND_SWATCHES: LegendSwatch[] = [
       222,
       221
     ],
-    "tolerance": 22
+    "tolerance": 35
   },
   {
     "category": "apartment_access",
@@ -62,7 +63,7 @@ export const LEGEND_SWATCHES: LegendSwatch[] = [
       191,
       223
     ],
-    "tolerance": 22
+    "tolerance": 35
   },
   {
     "category": "plot_access",
@@ -71,7 +72,7 @@ export const LEGEND_SWATCHES: LegendSwatch[] = [
       214,
       173
     ],
-    "tolerance": 22
+    "tolerance": 35
   },
   {
     "category": "bridge",
@@ -80,7 +81,7 @@ export const LEGEND_SWATCHES: LegendSwatch[] = [
       163,
       255
     ],
-    "tolerance": 22
+    "tolerance": 35
   },
   {
     "category": "bridge_ramp",
@@ -89,7 +90,7 @@ export const LEGEND_SWATCHES: LegendSwatch[] = [
       192,
       228
     ],
-    "tolerance": 22
+    "tolerance": 35
   },
   {
     "category": "tunnel",
@@ -98,7 +99,7 @@ export const LEGEND_SWATCHES: LegendSwatch[] = [
       163,
       255
     ],
-    "tolerance": 22
+    "tolerance": 35
   },
   {
     "category": "tunnel_ramp",
@@ -107,7 +108,7 @@ export const LEGEND_SWATCHES: LegendSwatch[] = [
       179,
       198
     ],
-    "tolerance": 22
+    "tolerance": 35
   },
   {
     "category": "raised_crossing",
@@ -116,24 +117,276 @@ export const LEGEND_SWATCHES: LegendSwatch[] = [
       64,
       64
     ],
-    "tolerance": 22
+    "tolerance": 35
+  },
+  {
+    "category": "greenery",
+    "rgb": [
+      230,
+      245,
+      234
+    ],
+    "tolerance": 22,
+    "aliases": [
+      [
+        249,
+        248,
+        244
+      ],
+      [
+        210,
+        242,
+        214
+      ],
+      [
+        217,
+        232,
+        216
+      ],
+      [
+        203,
+        236,
+        211
+      ],
+      [
+        207,
+        241,
+        212
+      ],
+      [
+        214,
+        233,
+        202
+      ],
+      [
+        202,
+        231,
+        201
+      ]
+    ]
+  },
+  {
+    "category": "water",
+    "rgb": [
+      212,
+      237,
+      237
+    ],
+    "tolerance": 22,
+    "aliases": [
+      [
+        235,
+        244,
+        248
+      ],
+      [
+        206,
+        238,
+        238
+      ],
+      [
+        119,
+        192,
+        228
+      ]
+    ]
+  },
+  {
+    "category": "plot_fill",
+    "rgb": [
+      252,
+      250,
+      230
+    ],
+    "tolerance": 22,
+    "aliases": [
+      [
+        233,
+        233,
+        217
+      ]
+    ]
   },
   {
     "category": "building",
     "rgb": [
+      253,
       245,
-      235,
-      210
+      217
     ],
-    "tolerance": 24
+    "tolerance": 22,
+    "aliases": [
+      [
+        255,
+        255,
+        112
+      ],
+      [
+        234,
+        246,
+        214
+      ],
+      [
+        210,
+        166,
+        121
+      ],
+      [
+        254,
+        245,
+        198
+      ],
+      [
+        248,
+        230,
+        197
+      ],
+      [
+        231,
+        220,
+        199
+      ],
+      [
+        246,
+        236,
+        216
+      ],
+      [
+        209,
+        254,
+        198
+      ],
+      [
+        231,
+        229,
+        203
+      ],
+      [
+        249,
+        223,
+        124
+      ]
+    ]
   },
   {
     "category": "context",
     "rgb": [
-      200,
-      200,
-      200
+      220,
+      220,
+      220
     ],
-    "tolerance": 14
+    "tolerance": 14,
+    "aliases": [
+      [
+        231,
+        231,
+        230
+      ],
+      [
+        253,
+        230,
+        247
+      ],
+      [
+        131,
+        131,
+        130
+      ],
+      [
+        91,
+        91,
+        91
+      ],
+      [
+        165,
+        155,
+        151
+      ],
+      [
+        250,
+        231,
+        232
+      ],
+      [
+        251,
+        216,
+        246
+      ],
+      [
+        231,
+        237,
+        246
+      ],
+      [
+        254,
+        206,
+        243
+      ],
+      [
+        129,
+        123,
+        121
+      ],
+      [
+        125,
+        122,
+        120
+      ],
+      [
+        172,
+        172,
+        172
+      ],
+      [
+        248,
+        216,
+        216
+      ],
+      [
+        233,
+        219,
+        214
+      ],
+      [
+        215,
+        215,
+        200
+      ],
+      [
+        238,
+        165,
+        146
+      ],
+      [
+        254,
+        206,
+        219
+      ],
+      [
+        199,
+        199,
+        198
+      ],
+      [
+        205,
+        203,
+        186
+      ],
+      [
+        255,
+        179,
+        198
+      ],
+      [
+        162,
+        162,
+        124
+      ],
+      [
+        159,
+        191,
+        223
+      ]
+    ]
   }
 ];

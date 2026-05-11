@@ -24,6 +24,9 @@ const DISPLAY_ORDER: RoadCategory[] = [
   "tunnel_ramp",
   "raised_crossing",
   "building",
+  "greenery",
+  "water",
+  "plot_fill",
   "context",
   "other",
 ];
@@ -185,7 +188,7 @@ export function LegendPanel({
               </div>
               <button
                 onClick={() => onStartPick(isPicking ? null : cat)}
-                disabled={!isRoad && cat !== "building" && cat !== "context"}
+                disabled={cat === "other"}
                 style={{
                   background: isPicking ? "#fde68a" : "#1f2937",
                   border: "1px solid #334155",
@@ -193,14 +196,8 @@ export function LegendPanel({
                   borderRadius: 4,
                   padding: "3px 8px",
                   fontSize: 11,
-                  cursor:
-                    !isRoad && cat !== "building" && cat !== "context"
-                      ? "not-allowed"
-                      : "pointer",
-                  opacity:
-                    !isRoad && cat !== "building" && cat !== "context"
-                      ? 0.3
-                      : 1,
+                  cursor: cat === "other" ? "not-allowed" : "pointer",
+                  opacity: cat === "other" ? 0.3 : 1,
                 }}
               >
                 {isPicking ? "Picking…" : "Re-pick"}
