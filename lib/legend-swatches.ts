@@ -217,6 +217,11 @@ export const LEGEND_SWATCHES: LegendSwatch[] = [
     "tolerance": 22,
     "aliases": [
       [
+        152,
+        152,
+        0
+      ],
+      [
         255,
         255,
         112

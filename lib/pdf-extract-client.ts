@@ -139,3 +139,64 @@ export async function renderPdfPagePreview(
     height: canvas.height,
   };
 }
+
+export interface PdfRasterPage {
+  /** Offscreen canvas containing the rendered PDF page. */
+  canvas: HTMLCanvasElement;
+  /** Pixel size of the rendered canvas. */
+  pixelWidth: number;
+  pixelHeight: number;
+  /** Page size in PDF user units (1pt = 1/72in). */
+  pdfWidth: number;
+  pdfHeight: number;
+  /** pixels-per-PDF-unit at which we rendered. */
+  scale: number;
+}
+
+/**
+ * Render a PDF page to an offscreen HTMLCanvasElement at the given scale
+ * (pixels per PDF user unit). Returns the canvas plus the geometry the
+ * caller needs to project PDF coordinates to canvas pixels.
+ *
+ * Used by CadViewer to display the source PDF as a pixel-perfect background;
+ * vector overlays on top do click-pick / hide-category dimming. This is far
+ * more reliable than re-rendering the PDF from parsed vectors when the PDF
+ * stores fills as 100k+ tiny SOLID hatch tiles.
+ */
+export async function renderPdfPageToCanvas(
+  file: File,
+  pageNum = 1,
+  pixelWidth = 4096
+): Promise<PdfRasterPage | null> {
+  const pdfjs = await loadPdfjs();
+  const data = await file.arrayBuffer();
+  const doc = await pdfjs.getDocument({
+    data: new Uint8Array(data),
+    isEvalSupported: false,
+    disableFontFace: true,
+  }).promise;
+
+  if (pageNum < 1 || pageNum > doc.numPages) return null;
+  const page = await doc.getPage(pageNum);
+  const viewport0 = page.getViewport({ scale: 1 });
+  const scale = Math.min(pixelWidth / viewport0.width, 6);
+  const viewport = page.getViewport({ scale });
+
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.ceil(viewport.width);
+  canvas.height = Math.ceil(viewport.height);
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return null;
+  await page.render({ canvasContext: ctx, viewport, canvas } as unknown as Parameters<
+    typeof page.render
+  >[0]).promise;
+
+  return {
+    canvas,
+    pixelWidth: canvas.width,
+    pixelHeight: canvas.height,
+    pdfWidth: viewport0.width,
+    pdfHeight: viewport0.height,
+    scale,
+  };
+}

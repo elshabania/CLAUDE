@@ -24,6 +24,8 @@ import {
   extractPdfPathsInBrowser,
   extractPdfTextItemsInBrowser,
   renderPdfPagePreview,
+  renderPdfPageToCanvas,
+  type PdfRasterPage,
 } from "@/lib/pdf-extract-client";
 import {
   buildRoadNetwork,
@@ -72,6 +74,7 @@ export default function Page() {
     width: number;
     height: number;
   } | null>(null);
+  const [rasterPage, setRasterPage] = useState<PdfRasterPage | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
@@ -218,15 +221,21 @@ export default function Page() {
     setError(null);
     setWarning(null);
     setRasterPreview(null);
+    setRasterPage(null);
     const isPdf = file.name.toLowerCase().endsWith(".pdf");
     try {
       if (isPdf) {
-        const [paths, texts] = await Promise.all([
+        // Run vector extraction and raster rendering in parallel. The raster
+        // is the visible background in CadViewer; the vectors drive
+        // classification, click-pick, and the network builder.
+        const [paths, texts, raster] = await Promise.all([
           extractPdfPathsInBrowser(file),
           extractPdfTextItemsInBrowser(file).catch(() => []),
+          renderPdfPageToCanvas(file).catch(() => null),
         ]);
         const drawing = detectFromPdf(paths, texts);
         setResult({ filename: file.name, drawing });
+        if (raster) setRasterPage(raster);
         if (drawing.segments.length === 0) {
           setWarning(
             "No vector geometry found. The file is likely an 'optimized' / image-flattened export — upload the original CAD-exported PDF."
@@ -343,7 +352,8 @@ export default function Page() {
         {tab === "drawing" && result && (
           <CadViewer
             drawing={result.drawing}
-            visibleGroups={effectiveVisibleGroups}
+            rasterPage={rasterPage}
+            visibleCategories={visibleCategories}
             groupCategory={groupCategory}
             onPickGroup={pickingCategory ? handlePickGroup : undefined}
           />

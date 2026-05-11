@@ -7,6 +7,7 @@ import {
   type RoadCategory,
 } from "@/lib/road-detect";
 import { LEGEND_SWATCHES } from "@/lib/legend-swatches";
+import type { PdfRasterPage } from "@/lib/pdf-extract-client";
 
 function swatchHex(cat: RoadCategory, fallback = "#475569"): string {
   const sw = LEGEND_SWATCHES.find((s) => s.category === cat);
@@ -38,50 +39,39 @@ export const CATEGORY_COLORS: Record<RoadCategory, string> = {
   other: "#475569",
 };
 
-const CATEGORY_WIDTH: Record<RoadCategory, number> = {
-  road_row: 1.4,
-  road_plot: 1.4,
-  taxi_layby: 1.0,
-  shuttle_layby: 1.0,
-  emergency_access: 1.0,
-  apartment_access: 1.0,
-  plot_access: 1.0,
-  bridge: 1.6,
-  bridge_ramp: 1.4,
-  tunnel: 1.6,
-  tunnel_ramp: 1.4,
-  raised_crossing: 1.2,
-  building: 0.6,
-  context: 0.4,
-  greenery: 0.4,
-  water: 0.4,
-  plot_fill: 0.4,
-  other: 0.6,
-};
-
 interface Props {
   drawing: ParsedDrawing;
-  visibleGroups: Record<string, boolean>;
-  groupCategory: Record<string, RoadCategory>;
-  /** Optional click handler. When set, clicking a path reports the matched group id. */
+  /** PDF rendered to a raster canvas - drawn as the pixel-perfect background. */
+  rasterPage: PdfRasterPage | null;
+  visibleCategories: Record<RoadCategory, boolean>;
+  /** Optional per-group category override (re-pick updates this map). */
+  groupCategory?: Record<string, RoadCategory>;
+  /** Optional click handler. When set, clicking reports the matched group id. */
   onPickGroup?: (groupId: string) => void;
 }
 
 export function CadViewer({
   drawing,
-  visibleGroups,
+  rasterPage,
+  visibleCategories,
   groupCategory,
   onPickGroup,
 }: Props) {
+  /** Effective category for a segment: per-group override first, else the
+   *  baseline category from detection. */
+  function effCat(seg: { groupId: string; category: RoadCategory }): RoadCategory {
+    return groupCategory?.[seg.groupId] ?? seg.category;
+  }
   const containerRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [transform, setTransform] = useState({ scale: 1, tx: 0, ty: 0 });
   const [size, setSize] = useState({ width: 800, height: 600 });
-  const dragRef = useRef<{ x: number; y: number; tx: number; ty: number } | null>(null);
+  const dragRef = useRef<{ x: number; y: number; tx: number; ty: number } | null>(
+    null
+  );
 
-  // Track the container's actual rendered size and the device pixel ratio so
-  // the canvas backing buffer matches what the user sees - independent of any
-  // flex-chain quirks above us.
+  // Track the container's actual rendered size so the canvas backing buffer
+  // matches what the user sees - independent of any flex-chain quirks above us.
   useEffect(() => {
     const container = containerRef.current;
     if (!container || typeof ResizeObserver === "undefined") return;
@@ -96,16 +86,26 @@ export function CadViewer({
     return () => ro.disconnect();
   }, []);
 
-  // Fit-to-view whenever drawing changes or the viewport resizes.
+  // Fit-to-view: prefer the raster page's extent so the legend block is in
+  // frame, fall back to the parsed-drawing bounds otherwise.
   useEffect(() => {
-    const { minX, minY, maxX, maxY } = drawing.bounds;
+    let minX = 0,
+      minY = 0,
+      maxX = 1,
+      maxY = 1;
+    if (rasterPage) {
+      maxX = rasterPage.pdfWidth;
+      maxY = rasterPage.pdfHeight;
+    } else {
+      ({ minX, minY, maxX, maxY } = drawing.bounds);
+    }
     const w = Math.max(maxX - minX, 1);
     const h = Math.max(maxY - minY, 1);
     const scale = Math.min(size.width / w, size.height / h) * 0.9;
     const tx = size.width / 2 - ((minX + maxX) / 2) * scale;
     const ty = size.height / 2 + ((minY + maxY) / 2) * scale;
     setTransform({ scale, tx, ty });
-  }, [drawing, size.width, size.height]);
+  }, [drawing, rasterPage, size.width, size.height]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -117,52 +117,40 @@ export function CadViewer({
     canvas.height = Math.round(size.height * dpr);
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-    ctx.fillStyle = "#0f172a";
+    ctx.fillStyle = "#1f2937";
     ctx.fillRect(0, 0, size.width, size.height);
 
     const { scale, tx, ty } = transform;
-    // Draw context first (greyed-out surrounding city), then buildings,
-    // then road categories. This lets road colour show on top of any
-    // building/context overlap.
-    const drawOrder: RoadCategory[] = [
-      "context",
-      "greenery",
-      "water",
-      "plot_fill",
-      "building",
-      "road_row",
-      "road_plot",
-      "emergency_access",
-      "apartment_access",
-      "plot_access",
-      "taxi_layby",
-      "shuttle_layby",
-      "bridge",
-      "bridge_ramp",
-      "tunnel",
-      "tunnel_ramp",
-      "raised_crossing",
-      "other",
-    ];
-    const segmentsByCat = new Map<RoadCategory, typeof drawing.segments>();
-    for (const seg of drawing.segments) {
-      if (visibleGroups[seg.groupId] === false) continue;
-      const cat = groupCategory[seg.groupId] ?? seg.category;
-      const arr = segmentsByCat.get(cat) ?? [];
-      arr.push(seg);
-      segmentsByCat.set(cat, arr);
+
+    // 1. Background: PDF rendered raster (pixel-perfect to the source).
+    //    PDF units are y-up; canvas is y-down. We project PDF (0,0) bottom-left
+    //    onto the screen using the same affine the vector overlay uses, then
+    //    drawImage the raster canvas to fill the rect from PDF (0,0) to
+    //    (pdfWidth, pdfHeight).
+    if (rasterPage && rasterPage.canvas.width > 0) {
+      const dx = tx;
+      const dy = ty - rasterPage.pdfHeight * scale;
+      const dw = rasterPage.pdfWidth * scale;
+      const dh = rasterPage.pdfHeight * scale;
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = "high";
+      ctx.drawImage(rasterPage.canvas, dx, dy, dw, dh);
     }
-    for (const cat of drawOrder) {
-      const segs = segmentsByCat.get(cat);
-      if (!segs || segs.length === 0) continue;
-      const color = CATEGORY_COLORS[cat];
-      ctx.lineWidth = CATEGORY_WIDTH[cat];
-      // Fill closed polygons for road / building / context categories so the
-      // map reads like the printed legend. Open polylines just get stroked.
-      const shouldFill = cat !== "raised_crossing" && cat !== "other";
-      ctx.fillStyle = color;
-      ctx.strokeStyle = color;
-      for (const seg of segs) {
+
+    // 2. Hide-category overlay: paint a translucent dark fill over every
+    //    closed polygon belonging to a hidden category. Open polylines get
+    //    a thicker dark stroke. Hidden = visibleCategories[cat] === false.
+    const hidden = new Set<RoadCategory>();
+    for (const [cat, on] of Object.entries(visibleCategories)) {
+      if (on === false) hidden.add(cat as RoadCategory);
+    }
+    if (hidden.size > 0) {
+      ctx.save();
+      ctx.fillStyle = "rgba(15, 23, 42, 0.92)";
+      ctx.strokeStyle = "rgba(15, 23, 42, 0.92)";
+      ctx.lineWidth = 1.6;
+      for (const seg of drawing.segments) {
+        if (!hidden.has(effCat(seg))) continue;
         const pts = seg.points;
         if (pts.length < 4) continue;
         ctx.beginPath();
@@ -174,33 +162,50 @@ export function CadViewer({
         }
         if (seg.closed) {
           ctx.closePath();
-          if (shouldFill) ctx.fill();
+          ctx.fill();
+        } else {
+          ctx.stroke();
         }
-        ctx.stroke();
       }
+      ctx.restore();
     }
-  }, [drawing, transform, visibleGroups, groupCategory, size.width, size.height]);
+
+    // 3. When picking, draw a faint highlight over the picking-target
+    //    category's polygons so the user can see what they're aiming at.
+    //    (Picking state is signalled via onPickGroup being defined.)
+    // (Per-pick highlight is handled separately if needed.)
+  }, [
+    drawing,
+    rasterPage,
+    transform,
+    visibleCategories,
+    size.width,
+    size.height,
+  ]);
 
   const dragMovedRef = useRef(false);
   const onPointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
     e.currentTarget.setPointerCapture(e.pointerId);
-    dragRef.current = { x: e.clientX, y: e.clientY, tx: transform.tx, ty: transform.ty };
+    dragRef.current = {
+      x: e.clientX,
+      y: e.clientY,
+      tx: transform.tx,
+      ty: transform.ty,
+    };
     dragMovedRef.current = false;
   };
 
   /** Hit-test: returns the topmost visible segment under (canvasX, canvasY). */
   function pickGroupAt(cx: number, cy: number): string | null {
     const { scale, tx, ty } = transform;
-    // Convert back to drawing units.
     const x = (cx - tx) / scale;
     const y = -(cy - ty) / scale;
     let best: { dist: number; groupId: string } | null = null;
-    const tol = 6 / scale; // 6 screen pixels
+    const tol = 6 / scale;
     for (const seg of drawing.segments) {
-      if (visibleGroups[seg.groupId] === false) continue;
+      if (visibleCategories[effCat(seg)] === false) continue;
       const pts = seg.points;
       if (seg.closed && pts.length >= 6) {
-        // Point-in-polygon test.
         let inside = false;
         for (let i = 0, j = pts.length - 2; i < pts.length; j = i, i += 2) {
           const xi = pts[i],
@@ -216,7 +221,6 @@ export function CadViewer({
           if (!best || best.dist > 0) best = { dist: 0, groupId: seg.groupId };
         }
       } else {
-        // Polyline: nearest-point-to-edge distance.
         for (let i = 2; i < pts.length; i += 2) {
           const dx = pts[i] - pts[i - 2];
           const dy = pts[i + 1] - pts[i - 1];
@@ -241,13 +245,16 @@ export function CadViewer({
     const dx = e.clientX - dragRef.current.x;
     const dy = e.clientY - dragRef.current.y;
     if (Math.abs(dx) + Math.abs(dy) > 2) dragMovedRef.current = true;
-    setTransform((t) => ({ ...t, tx: dragRef.current!.tx + dx, ty: dragRef.current!.ty + dy }));
+    setTransform((t) => ({
+      ...t,
+      tx: dragRef.current!.tx + dx,
+      ty: dragRef.current!.ty + dy,
+    }));
   };
 
   const onPointerUp = (e: React.PointerEvent<HTMLCanvasElement>) => {
     e.currentTarget.releasePointerCapture(e.pointerId);
     dragRef.current = null;
-    // Treat as a click only if the pointer didn't actually drag.
     if (!dragMovedRef.current && onPickGroup) {
       const canvas = canvasRef.current;
       if (canvas) {
@@ -280,7 +287,7 @@ export function CadViewer({
       style={{
         position: "absolute",
         inset: 0,
-        background: "#0f172a",
+        background: "#1f2937",
       }}
     >
       <canvas
@@ -293,10 +300,31 @@ export function CadViewer({
           width: `${size.width}px`,
           height: `${size.height}px`,
           display: "block",
-          cursor: dragRef.current ? "grabbing" : "grab",
+          cursor: onPickGroup
+            ? "crosshair"
+            : dragRef.current
+            ? "grabbing"
+            : "grab",
           touchAction: "none",
         }}
       />
+      {!rasterPage && (
+        <div
+          style={{
+            position: "absolute",
+            top: 16,
+            left: 16,
+            padding: "6px 10px",
+            background: "rgba(15,23,42,0.85)",
+            color: "#cbd5e1",
+            borderRadius: 4,
+            fontSize: 11,
+            fontFamily: "system-ui, sans-serif",
+          }}
+        >
+          Rendering PDF…
+        </div>
+      )}
     </div>
   );
 }

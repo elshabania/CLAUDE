@@ -57,7 +57,10 @@ const SITE_FEATURES = [
   { name: "greenery",  rgb: [230, 245, 234], tolerance: SITE_TOLERANCE },
   { name: "water",     rgb: [212, 237, 237], tolerance: SITE_TOLERANCE },
   { name: "plot_fill", rgb: [252, 250, 230], tolerance: SITE_TOLERANCE },
-  { name: "building",  rgb: [253, 245, 217], tolerance: SITE_TOLERANCE },
+  // Building category covers both the cream legend swatch AND the dark
+  // olive (152,152,0) used by some plot footprints in this drawing.
+  { name: "building",  rgb: [253, 245, 217], tolerance: SITE_TOLERANCE,
+    extraAliases: [[152, 152, 0]] },
   { name: "context",   rgb: [220, 220, 220], tolerance: 14 },
 ];
 
@@ -183,7 +186,7 @@ for (const f of SITE_FEATURES) {
     category: f.name,
     rgb: f.rgb,
     tolerance: f.tolerance,
-    aliases: [],
+    aliases: f.extraAliases ? [...f.extraAliases] : [],
   });
 }
 
