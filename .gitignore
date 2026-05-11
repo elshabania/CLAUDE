@@ -8,3 +8,4 @@ out
 .turbo
 tsconfig.tsbuildinfo
 scripts/.verify-out/
+scripts/.preview-out/

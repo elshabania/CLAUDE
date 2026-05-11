@@ -1,13 +1,11 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  ROAD_CATEGORIES,
   type ParsedDrawing,
   type RoadCategory,
 } from "@/lib/road-detect";
 import { LEGEND_SWATCHES } from "@/lib/legend-swatches";
-import type { PdfRasterPage } from "@/lib/pdf-extract-client";
 
 function swatchHex(cat: RoadCategory, fallback = "#475569"): string {
   const sw = LEGEND_SWATCHES.find((s) => s.category === cat);
@@ -39,39 +37,84 @@ export const CATEGORY_COLORS: Record<RoadCategory, string> = {
   other: "#475569",
 };
 
+/** Categories drawn from bottom (background) to top (foreground). */
+const DRAW_ORDER: RoadCategory[] = [
+  "context",
+  "greenery",
+  "water",
+  "plot_fill",
+  "building",
+  "road_row",
+  "road_plot",
+  "emergency_access",
+  "apartment_access",
+  "plot_access",
+  "taxi_layby",
+  "shuttle_layby",
+  "bridge",
+  "bridge_ramp",
+  "tunnel",
+  "tunnel_ramp",
+  "raised_crossing",
+  "other",
+];
+
+/** Categories drawn as line strokes (pedestrian crossings) rather than fills. */
+const STROKE_CATEGORIES: ReadonlySet<RoadCategory> = new Set(["raised_crossing"]);
+
 interface Props {
   drawing: ParsedDrawing;
-  /** PDF rendered to a raster canvas - drawn as the pixel-perfect background. */
-  rasterPage: PdfRasterPage | null;
   visibleCategories: Record<RoadCategory, boolean>;
   /** Optional per-group category override (re-pick updates this map). */
   groupCategory?: Record<string, RoadCategory>;
+  /** PDF page /Rotate value in degrees (0 / 90 / 180 / 270). The decoded
+   *  path coordinates live in unrotated user space; the display rotates
+   *  the offscreen canvas so the drawing presents in the orientation the
+   *  source intends. */
+  pageRotation?: number;
   /** Optional click handler. When set, clicking reports the matched group id. */
   onPickGroup?: (groupId: string) => void;
 }
 
 export function CadViewer({
   drawing,
-  rasterPage,
   visibleCategories,
   groupCategory,
+  pageRotation = 0,
   onPickGroup,
 }: Props) {
-  /** Effective category for a segment: per-group override first, else the
-   *  baseline category from detection. */
   function effCat(seg: { groupId: string; category: RoadCategory }): RoadCategory {
     return groupCategory?.[seg.groupId] ?? seg.category;
   }
+
   const containerRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  /** Offscreen canvas where we composite all visible category fills at high
+   *  resolution so the thousands of tiny hatch tiles fuse into clean
+   *  coloured regions. The display canvas just drawImages this with
+   *  pan/zoom. */
+  const offscreenRef = useRef<HTMLCanvasElement | null>(null);
   const [transform, setTransform] = useState({ scale: 1, tx: 0, ty: 0 });
   const [size, setSize] = useState({ width: 800, height: 600 });
   const dragRef = useRef<{ x: number; y: number; tx: number; ty: number } | null>(
     null
   );
 
-  // Track the container's actual rendered size so the canvas backing buffer
-  // matches what the user sees - independent of any flex-chain quirks above us.
+  // Pre-bin segments by *effective* category so the render loop only walks
+  // the segments it'll actually paint.
+  const segmentsByCategory = useMemo(() => {
+    const m = new Map<RoadCategory, ParsedDrawing["segments"]>();
+    for (const seg of drawing.segments) {
+      const cat = effCat(seg);
+      const arr = m.get(cat) ?? [];
+      arr.push(seg);
+      m.set(cat, arr);
+    }
+    return m;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [drawing, groupCategory]);
+
+  // Track container size.
   useEffect(() => {
     const container = containerRef.current;
     if (!container || typeof ResizeObserver === "undefined") return;
@@ -86,27 +129,105 @@ export function CadViewer({
     return () => ro.disconnect();
   }, []);
 
-  // Fit-to-view: prefer the raster page's extent so the legend block is in
-  // frame, fall back to the parsed-drawing bounds otherwise.
+  // Fit-to-view on drawing / viewport change. Account for page rotation:
+  // a 90/270 rotation swaps effective width and height for screen sizing.
   useEffect(() => {
-    let minX = 0,
-      minY = 0,
-      maxX = 1,
-      maxY = 1;
-    if (rasterPage) {
-      maxX = rasterPage.pdfWidth;
-      maxY = rasterPage.pdfHeight;
-    } else {
-      ({ minX, minY, maxX, maxY } = drawing.bounds);
-    }
-    const w = Math.max(maxX - minX, 1);
-    const h = Math.max(maxY - minY, 1);
-    const scale = Math.min(size.width / w, size.height / h) * 0.9;
+    const { minX, minY, maxX, maxY } = drawing.bounds;
+    const drawW = Math.max(maxX - minX, 1);
+    const drawH = Math.max(maxY - minY, 1);
+    const swap = pageRotation === 90 || pageRotation === 270;
+    const effW = swap ? drawH : drawW;
+    const effH = swap ? drawW : drawH;
+    const scale = Math.min(size.width / effW, size.height / effH) * 0.9;
     const tx = size.width / 2 - ((minX + maxX) / 2) * scale;
     const ty = size.height / 2 + ((minY + maxY) / 2) * scale;
     setTransform({ scale, tx, ty });
-  }, [drawing, rasterPage, size.width, size.height]);
+  }, [drawing, pageRotation, size.width, size.height]);
 
+  // Re-render the offscreen layer whenever the drawing, classification, or
+  // category visibility changes. The render is at fixed high resolution so
+  // hatch tiles fuse cleanly regardless of display pan/zoom.
+  useEffect(() => {
+    const { minX, minY, maxX, maxY } = drawing.bounds;
+    const drawW = Math.max(maxX - minX, 1);
+    const drawH = Math.max(maxY - minY, 1);
+    // Target ~3500px on the long edge; cap at 4096 for memory.
+    const targetLong = 3500;
+    const renderScale = Math.min(targetLong / Math.max(drawW, drawH), 4096 / Math.max(drawW, drawH));
+    const W = Math.ceil(drawW * renderScale);
+    const H = Math.ceil(drawH * renderScale);
+
+    let off = offscreenRef.current;
+    if (!off) {
+      off = document.createElement("canvas");
+      offscreenRef.current = off;
+    }
+    if (off.width !== W || off.height !== H) {
+      off.width = W;
+      off.height = H;
+    }
+    const octx = off.getContext("2d");
+    if (!octx) return;
+    octx.setTransform(1, 0, 0, 1, 0, 0);
+    octx.clearRect(0, 0, W, H);
+    octx.fillStyle = "#0f172a";
+    octx.fillRect(0, 0, W, H);
+
+    // Project drawing units (y-up) -> offscreen pixels (y-down).
+    const ox = (x: number) => (x - minX) * renderScale;
+    const oy = (y: number) => (maxY - y) * renderScale;
+
+    // Draw each category in order. For fill categories, fill all closed
+    // polygons with the legend colour - the hundreds-of-thousands of tiny
+    // hatch tiles each become a small filled region; their union forms a
+    // clean coloured corridor at this resolution. For stroke categories
+    // (raised_crossing) we trace the polylines.
+    for (const cat of DRAW_ORDER) {
+      if (visibleCategories[cat] === false) continue;
+      const segs = segmentsByCategory.get(cat);
+      if (!segs || segs.length === 0) continue;
+      const colour = CATEGORY_COLORS[cat];
+      octx.fillStyle = colour;
+      octx.strokeStyle = colour;
+      octx.lineCap = "round";
+      octx.lineJoin = "round";
+
+      if (STROKE_CATEGORIES.has(cat)) {
+        octx.lineWidth = Math.max(1.4, renderScale * 0.6);
+        for (const seg of segs) {
+          const pts = seg.points;
+          if (pts.length < 4) continue;
+          octx.beginPath();
+          for (let i = 0; i < pts.length; i += 2) {
+            const px = ox(pts[i]);
+            const py = oy(pts[i + 1]);
+            if (i === 0) octx.moveTo(px, py);
+            else octx.lineTo(px, py);
+          }
+          if (seg.closed) octx.closePath();
+          octx.stroke();
+        }
+        continue;
+      }
+
+      for (const seg of segs) {
+        const pts = seg.points;
+        if (pts.length < 4) continue;
+        if (!seg.closed) continue;
+        octx.beginPath();
+        for (let i = 0; i < pts.length; i += 2) {
+          const px = ox(pts[i]);
+          const py = oy(pts[i + 1]);
+          if (i === 0) octx.moveTo(px, py);
+          else octx.lineTo(px, py);
+        }
+        octx.closePath();
+        octx.fill();
+      }
+    }
+  }, [drawing, segmentsByCategory, visibleCategories]);
+
+  // Display loop: blit the offscreen layer with pan/zoom.
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -117,71 +238,38 @@ export function CadViewer({
     canvas.height = Math.round(size.height * dpr);
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-    ctx.fillStyle = "#1f2937";
+    ctx.fillStyle = "#0f172a";
     ctx.fillRect(0, 0, size.width, size.height);
 
+    const off = offscreenRef.current;
+    if (!off || off.width === 0) return;
+
+    const { minX, minY, maxX, maxY } = drawing.bounds;
+    const drawW = Math.max(maxX - minX, 1);
+    const drawH = Math.max(maxY - minY, 1);
     const { scale, tx, ty } = transform;
+    // Apply page rotation around the drawing centre, then drawImage the
+    // offscreen (which lives in unrotated drawing coords).
+    const cx = (minX + maxX) / 2;
+    const cy = (minY + maxY) / 2;
+    const screenCx = cx * scale + tx;
+    const screenCy = -cy * scale + ty;
+    const rotRad = (pageRotation * Math.PI) / 180;
 
-    // 1. Background: PDF rendered raster (pixel-perfect to the source).
-    //    PDF units are y-up; canvas is y-down. We project PDF (0,0) bottom-left
-    //    onto the screen using the same affine the vector overlay uses, then
-    //    drawImage the raster canvas to fill the rect from PDF (0,0) to
-    //    (pdfWidth, pdfHeight).
-    if (rasterPage && rasterPage.canvas.width > 0) {
-      const dx = tx;
-      const dy = ty - rasterPage.pdfHeight * scale;
-      const dw = rasterPage.pdfWidth * scale;
-      const dh = rasterPage.pdfHeight * scale;
-      ctx.imageSmoothingEnabled = true;
-      ctx.imageSmoothingQuality = "high";
-      ctx.drawImage(rasterPage.canvas, dx, dy, dw, dh);
-    }
-
-    // 2. Hide-category overlay: paint a translucent dark fill over every
-    //    closed polygon belonging to a hidden category. Open polylines get
-    //    a thicker dark stroke. Hidden = visibleCategories[cat] === false.
-    const hidden = new Set<RoadCategory>();
-    for (const [cat, on] of Object.entries(visibleCategories)) {
-      if (on === false) hidden.add(cat as RoadCategory);
-    }
-    if (hidden.size > 0) {
-      ctx.save();
-      ctx.fillStyle = "rgba(15, 23, 42, 0.92)";
-      ctx.strokeStyle = "rgba(15, 23, 42, 0.92)";
-      ctx.lineWidth = 1.6;
-      for (const seg of drawing.segments) {
-        if (!hidden.has(effCat(seg))) continue;
-        const pts = seg.points;
-        if (pts.length < 4) continue;
-        ctx.beginPath();
-        for (let i = 0; i < pts.length; i += 2) {
-          const px = pts[i] * scale + tx;
-          const py = -pts[i + 1] * scale + ty;
-          if (i === 0) ctx.moveTo(px, py);
-          else ctx.lineTo(px, py);
-        }
-        if (seg.closed) {
-          ctx.closePath();
-          ctx.fill();
-        } else {
-          ctx.stroke();
-        }
-      }
-      ctx.restore();
-    }
-
-    // 3. When picking, draw a faint highlight over the picking-target
-    //    category's polygons so the user can see what they're aiming at.
-    //    (Picking state is signalled via onPickGroup being defined.)
-    // (Per-pick highlight is handled separately if needed.)
-  }, [
-    drawing,
-    rasterPage,
-    transform,
-    visibleCategories,
-    size.width,
-    size.height,
-  ]);
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = "high";
+    ctx.save();
+    ctx.translate(screenCx, screenCy);
+    ctx.rotate(rotRad);
+    ctx.drawImage(
+      off,
+      (-drawW / 2) * scale,
+      (-drawH / 2) * scale,
+      drawW * scale,
+      drawH * scale
+    );
+    ctx.restore();
+  }, [drawing, transform, pageRotation, size.width, size.height, visibleCategories, segmentsByCategory]);
 
   const dragMovedRef = useRef(false);
   const onPointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
@@ -195,11 +283,24 @@ export function CadViewer({
     dragMovedRef.current = false;
   };
 
-  /** Hit-test: returns the topmost visible segment under (canvasX, canvasY). */
   function pickGroupAt(cx: number, cy: number): string | null {
     const { scale, tx, ty } = transform;
-    const x = (cx - tx) / scale;
-    const y = -(cy - ty) / scale;
+    // Inverse of the display transform: undo rotation around the drawing
+    // centre, then map screen pixels back to drawing units.
+    const { minX, minY, maxX, maxY } = drawing.bounds;
+    const dcx = (minX + maxX) / 2;
+    const dcy = (minY + maxY) / 2;
+    const screenCx = dcx * scale + tx;
+    const screenCy = -dcy * scale + ty;
+    const rotRad = (-pageRotation * Math.PI) / 180;
+    const cosR = Math.cos(rotRad);
+    const sinR = Math.sin(rotRad);
+    const sx = cx - screenCx;
+    const sy = cy - screenCy;
+    const ux = cosR * sx - sinR * sy;
+    const uy = sinR * sx + cosR * sy;
+    const x = ux / scale + dcx;
+    const y = dcy - uy / scale;
     let best: { dist: number; groupId: string } | null = null;
     const tol = 6 / scale;
     for (const seg of drawing.segments) {
@@ -287,7 +388,7 @@ export function CadViewer({
       style={{
         position: "absolute",
         inset: 0,
-        background: "#1f2937",
+        background: "#0f172a",
       }}
     >
       <canvas
@@ -308,23 +409,6 @@ export function CadViewer({
           touchAction: "none",
         }}
       />
-      {!rasterPage && (
-        <div
-          style={{
-            position: "absolute",
-            top: 16,
-            left: 16,
-            padding: "6px 10px",
-            background: "rgba(15,23,42,0.85)",
-            color: "#cbd5e1",
-            borderRadius: 4,
-            fontSize: 11,
-            fontFamily: "system-ui, sans-serif",
-          }}
-        >
-          Rendering PDF…
-        </div>
-      )}
     </div>
   );
 }

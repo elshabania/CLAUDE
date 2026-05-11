@@ -33,6 +33,25 @@ export async function extractPdfPathsInBrowser(file: File): Promise<ExtractedPat
   return walkPdfDocument(pdfjs.OPS as unknown as PdfjsLikeOps, doc);
 }
 
+/**
+ * Read a PDF page's /Rotate value (degrees, 0/90/180/270) so the viewer
+ * can present the drawing in the orientation the source intends. Returns 0
+ * if the rotation can't be read.
+ */
+export async function getPdfPageRotation(file: File, pageNum = 1): Promise<number> {
+  const pdfjs = await loadPdfjs();
+  const data = await file.arrayBuffer();
+  const doc = await pdfjs.getDocument({
+    data: new Uint8Array(data),
+    isEvalSupported: false,
+    disableFontFace: true,
+  }).promise;
+  if (pageNum < 1 || pageNum > doc.numPages) return 0;
+  const page = await doc.getPage(pageNum);
+  const rot = (page as unknown as { rotate?: number }).rotate ?? 0;
+  return ((rot % 360) + 360) % 360;
+}
+
 export interface PdfTextItem {
   text: string;
   /** Anchor x (PDF user units, y-up). */

@@ -25,6 +25,7 @@ import {
   extractPdfTextItemsInBrowser,
   renderPdfPagePreview,
   renderPdfPageToCanvas,
+  getPdfPageRotation,
   type PdfRasterPage,
 } from "@/lib/pdf-extract-client";
 import {
@@ -75,6 +76,7 @@ export default function Page() {
     height: number;
   } | null>(null);
   const [rasterPage, setRasterPage] = useState<PdfRasterPage | null>(null);
+  const [pageRotation, setPageRotation] = useState(0);
   const inputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
@@ -222,19 +224,22 @@ export default function Page() {
     setWarning(null);
     setRasterPreview(null);
     setRasterPage(null);
+    setPageRotation(0);
     const isPdf = file.name.toLowerCase().endsWith(".pdf");
     try {
       if (isPdf) {
-        // Run vector extraction and raster rendering in parallel. The raster
-        // is the visible background in CadViewer; the vectors drive
-        // classification, click-pick, and the network builder.
-        const [paths, texts, raster] = await Promise.all([
+        // Vector extraction + page rotation read in parallel; the raster
+        // render is kept around for the legacy fallback when no vectors
+        // are found.
+        const [paths, texts, raster, rotation] = await Promise.all([
           extractPdfPathsInBrowser(file),
           extractPdfTextItemsInBrowser(file).catch(() => []),
           renderPdfPageToCanvas(file).catch(() => null),
+          getPdfPageRotation(file).catch(() => 0),
         ]);
         const drawing = detectFromPdf(paths, texts);
         setResult({ filename: file.name, drawing });
+        setPageRotation(rotation);
         if (raster) setRasterPage(raster);
         if (drawing.segments.length === 0) {
           setWarning(
@@ -352,9 +357,9 @@ export default function Page() {
         {tab === "drawing" && result && (
           <CadViewer
             drawing={result.drawing}
-            rasterPage={rasterPage}
             visibleCategories={visibleCategories}
             groupCategory={groupCategory}
+            pageRotation={pageRotation}
             onPickGroup={pickingCategory ? handlePickGroup : undefined}
           />
         )}
