@@ -7,3 +7,9 @@ out
 .DS_Store
 .turbo
 tsconfig.tsbuildinfo
+
+# Python
+__pycache__/
+*.py[cod]
+.venv
+venv/
