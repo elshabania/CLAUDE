@@ -13,3 +13,8 @@ __pycache__/
 *.py[cod]
 .venv
 venv/
+
+# PyInstaller build output
+build/
+dist/
+*.spec

@@ -1,0 +1,37 @@
+name: Build Windows EXE
+
+# Builds Snake.exe on a Windows runner and uploads it as a downloadable
+# artifact. Runs automatically when the game or build files change, and
+# can also be triggered manually from the Actions tab.
+on:
+  push:
+    paths:
+      - "snake.py"
+      - "build.bat"
+      - ".github/workflows/build-windows.yml"
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install PyInstaller
+        run: pip install pyinstaller
+
+      - name: Build Snake.exe
+        run: pyinstaller --onefile --windowed --name Snake snake.py
+
+      - name: Upload executable
+        uses: actions/upload-artifact@v4
+        with:
+          name: Snake-windows-exe
+          path: dist/Snake.exe
+          if-no-files-found: error
