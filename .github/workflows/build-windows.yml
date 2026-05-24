@@ -1,0 +1,51 @@
+name: Build Windows EXE
+
+# Builds Snake.exe on a Windows runner and uploads it as a downloadable
+# artifact. Runs automatically when the game or build files change, and
+# can also be triggered manually from the Actions tab.
+on:
+  push:
+    paths:
+      - "snake.py"
+      - "build.bat"
+      - ".github/workflows/build-windows.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install PyInstaller
+        run: pip install pyinstaller
+
+      - name: Build Snake.exe
+        run: pyinstaller --onefile --windowed --name Snake snake.py
+
+      - name: Upload executable (artifact)
+        uses: actions/upload-artifact@v4
+        with:
+          name: Snake-windows-exe
+          path: dist/Snake.exe
+          if-no-files-found: error
+
+      - name: Publish to Releases (one-click download)
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: snake-latest
+          name: "Snake Game - Windows build"
+          body: >-
+            Download Snake.exe below and double-click to play.
+            If Windows SmartScreen warns about an unknown publisher,
+            click "More info" then "Run anyway".
+          files: dist/Snake.exe
