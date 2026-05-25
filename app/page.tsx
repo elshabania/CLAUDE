@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Simulation3DViewer } from "@/components/Simulation3DViewer";
+import dynamic from "next/dynamic";
 import { JunctionPanel } from "@/components/JunctionPanel";
 import { NetworkSummaryCard } from "@/components/NetworkSummaryCard";
 import { type DashTab } from "@/components/BottomNav";
@@ -62,6 +62,30 @@ import {
   type JunctionInputs,
   type JunctionResult,
 } from "@/lib/hcm";
+
+// The 3D viewer pulls in Three.js (~600 KB). Load it only when a 3D tab is
+// actually opened so it stays out of the startup bundle.
+const Simulation3DViewer = dynamic(
+  () => import("@/components/Simulation3DViewer").then((m) => m.Simulation3DViewer),
+  {
+    ssr: false,
+    loading: () => (
+      <div
+        style={{
+          position: "absolute",
+          inset: 0,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          color: "var(--text-2)",
+          fontSize: 13,
+        }}
+      >
+        Loading 3D engine…
+      </div>
+    ),
+  }
+);
 
 interface ParseResponse {
   filename: string;
