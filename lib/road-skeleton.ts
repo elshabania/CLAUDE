@@ -45,12 +45,28 @@ interface ExtractOptions {
   thinner?: "zhang-suen" | "guo-hall" | "distance-ridge" | "erosion";
 }
 
+type RasterCtx =
+  | CanvasRenderingContext2D
+  | OffscreenCanvasRenderingContext2D;
+
+function createRasterContext(w: number, h: number): RasterCtx | null {
+  if (typeof document !== "undefined") {
+    const canvas = document.createElement("canvas");
+    canvas.width = w;
+    canvas.height = h;
+    return canvas.getContext("2d");
+  }
+  if (typeof OffscreenCanvas !== "undefined") {
+    return new OffscreenCanvas(w, h).getContext("2d");
+  }
+  return null;
+}
+
 export function extractRoadSkeleton(
   curbs: DrawingSegment[],
   bounds: { minX: number; minY: number; maxX: number; maxY: number },
   opts: ExtractOptions = {}
 ): DerivedCenterline[] {
-  if (typeof document === "undefined") return [];
   if (curbs.length === 0) return [];
 
   const targetSize = opts.resolution ?? 1100;
@@ -72,11 +88,9 @@ export function extractRoadSkeleton(
   const px2x = (px: number) => bounds.minX + px / scale;
   const py2y = (py: number) => bounds.maxY - py / scale;
 
-  // 1. Rasterize.
-  const canvas = document.createElement("canvas");
-  canvas.width = W;
-  canvas.height = H;
-  const ctx = canvas.getContext("2d");
+  // 1. Rasterize. Works on the main thread (HTMLCanvas) and inside a Web
+  // Worker (OffscreenCanvas) so the heavy thinning can run off the UI thread.
+  const ctx = createRasterContext(W, H);
   if (!ctx) return [];
   ctx.fillStyle = "white";
   ctx.fillRect(0, 0, W, H);

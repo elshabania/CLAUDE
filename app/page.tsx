@@ -36,10 +36,10 @@ import {
   getPdfPageRotation,
 } from "@/lib/pdf-extract-client";
 import {
-  buildRoadNetwork,
   classifyJunctionApproaches,
   type RoadNetwork,
 } from "@/lib/road-network";
+import { buildNetwork } from "@/lib/network-worker-client";
 import {
   serializeProject,
   parseProject,
@@ -223,21 +223,20 @@ export default function Page() {
     if (!result || !needsNetwork) return;
     let cancelled = false;
     setNetworkBuilding(true);
-    const t = setTimeout(() => {
-      try {
-        const n = buildRoadNetwork(result.drawing, groupCategory);
+    buildNetwork(result.drawing, groupCategory)
+      .then((n) => {
         if (!cancelled) setNetwork(n);
-      } catch (err) {
+      })
+      .catch((err) => {
         // eslint-disable-next-line no-console
-        console.error("buildRoadNetwork failed:", err);
+        console.error("buildNetwork failed:", err);
         if (!cancelled) setNetwork(null);
-      } finally {
+      })
+      .finally(() => {
         if (!cancelled) setNetworkBuilding(false);
-      }
-    }, 0);
+      });
     return () => {
       cancelled = true;
-      clearTimeout(t);
     };
   }, [result, groupCategory, needsNetwork]);
 
