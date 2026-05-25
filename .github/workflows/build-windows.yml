@@ -14,6 +14,9 @@ on:
       - ".github/workflows/build-windows.yml"
   workflow_dispatch: {}
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: windows-latest
@@ -74,7 +77,7 @@ jobs:
             Write-Host "No portable exe found to smoke test (installer-only build)."
           }
 
-      - name: Upload installer + portable exe
+      - name: Upload installer + portable exe (CI artifact)
         uses: actions/upload-artifact@v4
         with:
           name: windows-app
@@ -82,3 +85,21 @@ jobs:
             release/*.exe
           if-no-files-found: error
           retention-days: 30
+
+      - name: Publish to a GitHub Release (direct download link)
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: desktop-latest
+          name: Masterplan Highway Analyzer - latest desktop build
+          body: |
+            Windows desktop build of the Masterplan Highway Analyzer.
+
+            - **Setup .exe** - installer (Start Menu + desktop shortcut).
+            - **portable .exe** - run directly, no install.
+
+            Built automatically from the latest commit on the development
+            branch by GitHub Actions on a windows-latest runner.
+          files: release/*.exe
+          draft: false
+          prerelease: false
+          make_latest: "true"
