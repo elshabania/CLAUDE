@@ -2,11 +2,15 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
+  ROAD_CATEGORIES,
   type ParsedDrawing,
   type RoadCategory,
 } from "@/lib/road-detect";
 import { LEGEND_SWATCHES } from "@/lib/legend-swatches";
 import { renderDrawingFills, type Ctx2D } from "@/lib/render-drawing";
+import { closeMask } from "@/lib/morphology";
+
+const ROAD_CATEGORIES_ARR = Array.from(ROAD_CATEGORIES);
 
 function swatchHex(cat: RoadCategory, fallback = "#475569"): string {
   const sw = LEGEND_SWATCHES.find((s) => s.category === cat);
@@ -288,11 +292,10 @@ export function CadViewer({
     const { minX, minY, maxX, maxY } = drawing.bounds;
     const drawW = Math.max(maxX - minX, 1);
     const drawH = Math.max(maxY - minY, 1);
-    const targetLong = 3500;
-    const renderScale = Math.min(
-      targetLong / Math.max(drawW, drawH),
-      4096 / Math.max(drawW, drawH)
-    );
+    // Higher offscreen resolution = crisper roads when zoomed. 4096 on the
+    // long axis is a good quality/memory balance (~16-65 MB canvas).
+    const targetLong = 4096;
+    const renderScale = targetLong / Math.max(drawW, drawH);
     const W = Math.ceil(drawW * renderScale);
     const H = Math.ceil(drawH * renderScale);
 
@@ -308,6 +311,8 @@ export function CadViewer({
     const octx = off.getContext("2d");
     if (!octx) return;
 
+    // Non-road categories (greenery, buildings, plots, context…) via the
+    // shared filler. Roads are handled below as one solid closed layer.
     renderDrawingFills(octx as unknown as Ctx2D, drawing.segments, {
       bounds: drawing.bounds,
       renderScale,
@@ -315,7 +320,67 @@ export function CadViewer({
       categoryColors: CATEGORY_COLORS,
       effCat,
       showOutlines,
+      skip: ROAD_CATEGORIES,
     });
+
+    // ROAD NETWORK as one solid layer. PDF roads are hatch-filled (many thin
+    // tiles with gaps), so filling them per-tile looks patchy. Instead we
+    // rasterise every visible road polygon to a mask, morphologically close
+    // the hatch gaps, and paint the result as a single solid corridor colour -
+    // a clean "Road Network" consistent with the PDF footprint.
+    const roadCatsVisible = ROAD_CATEGORIES_ARR.filter(
+      (c) => visibleCategories[c] !== false
+    );
+    if (roadCatsVisible.length > 0) {
+      const ox = (x: number) => (x - minX) * renderScale;
+      const oy = (y: number) => (maxY - y) * renderScale;
+      const mc = document.createElement("canvas");
+      mc.width = W;
+      mc.height = H;
+      const mctx = mc.getContext("2d", { willReadFrequently: true });
+      if (mctx) {
+        mctx.fillStyle = "#fff";
+        // Pick the dominant visible road colour for the unified network.
+        let domCat: RoadCategory = roadCatsVisible[0];
+        let domN = -1;
+        const counts = new Map<RoadCategory, number>();
+        for (const seg of drawing.segments) {
+          const cat = effCat(seg);
+          if (visibleCategories[cat] === false || !ROAD_CATEGORIES.has(cat)) continue;
+          const pts = seg.points;
+          if (pts.length < 6 || !seg.closed) continue;
+          counts.set(cat, (counts.get(cat) ?? 0) + 1);
+          mctx.beginPath();
+          mctx.moveTo(ox(pts[0]), oy(pts[1]));
+          for (let i = 2; i < pts.length; i += 2) mctx.lineTo(ox(pts[i]), oy(pts[i + 1]));
+          mctx.closePath();
+          mctx.fill();
+        }
+        for (const [c, n] of counts) if (n > domN) { domN = n; domCat = c; }
+
+        const N = W * H;
+        const src = mctx.getImageData(0, 0, W, H).data;
+        const mask = new Uint8Array(N);
+        for (let i = 0; i < N; i++) mask[i] = src[i * 4 + 3] > 10 ? 1 : 0;
+        const radius = Math.max(3, Math.round(renderScale * 2));
+        const closed = closeMask(mask, W, H, radius);
+
+        const hex = CATEGORY_COLORS[domCat] ?? "#fbbf24";
+        const rr = parseInt(hex.slice(1, 3), 16);
+        const gg = parseInt(hex.slice(3, 5), 16);
+        const bb = parseInt(hex.slice(5, 7), 16);
+        const out = mctx.createImageData(W, H);
+        const od = out.data;
+        for (let i = 0; i < N; i++) {
+          if (closed[i]) {
+            const o = i * 4;
+            od[o] = rr; od[o + 1] = gg; od[o + 2] = bb; od[o + 3] = 255;
+          }
+        }
+        mctx.putImageData(out, 0, 0);
+        octx.drawImage(mc, 0, 0); // composite solid roads over the rest
+      }
+    }
     // Signal the blit effect that the offscreen pixels changed.
     setOffscreenVersion((v) => v + 1);
     // Repaint when the drawing, the per-group classification override

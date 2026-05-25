@@ -84,6 +84,22 @@ export function LegendPanel({
   const hiddenCount = DISPLAY_ORDER.length - presentCats.length;
   const shownCats = showAll ? DISPLAY_ORDER : presentCats;
 
+  // The road sub-types are collapsed into ONE "Road Network" layer - a single
+  // toggle covering every driveable category - so the panel reads as one road
+  // layer (consistent with the PDF's road network) plus the site/context
+  // layers. The individual road categories are kept out of the per-row list.
+  const roadCats = (showAll ? DISPLAY_ORDER : presentCats).filter((c) =>
+    ROAD_CATEGORIES.has(c)
+  );
+  const roadCount = roadCats.reduce((s, c) => s + stats[c].count, 0);
+  const roadVisible = roadCats.some((c) => visibleCategories[c] !== false);
+  const nonRoadCats = shownCats.filter((c) => !ROAD_CATEGORIES.has(c));
+  const setRoads = (v: boolean) => {
+    for (const c of roadCats) onToggleCategory(c, v);
+  };
+  const roadSwatch =
+    roadCats.length > 0 ? swatchColor(roadCats.includes("road_row") ? "road_row" : roadCats[0]) : "#64748b";
+
   return (
     <div
       style={{
@@ -147,7 +163,44 @@ export function LegendPanel({
       )}
 
       <div style={{ display: "flex", flexDirection: "column", gap: 1 }}>
-        {shownCats.map((cat) => {
+        {roadCats.length > 0 && (
+          <label
+            title="All driveable roads, rendered as one solid network"
+            style={{
+              display: "grid",
+              gridTemplateColumns: "16px 14px 1fr",
+              alignItems: "center",
+              gap: 9,
+              padding: "6px 6px",
+              borderRadius: 4,
+              cursor: "pointer",
+              opacity: roadVisible ? 1 : 0.4,
+            }}
+          >
+            <input
+              type="checkbox"
+              checked={roadVisible}
+              onChange={(e) => setRoads(e.target.checked)}
+              style={{ cursor: "pointer" }}
+            />
+            <span
+              style={{
+                width: 13,
+                height: 13,
+                background: roadSwatch,
+                border: "1px solid #1e293b",
+                borderRadius: 3,
+              }}
+            />
+            <span style={{ color: "#e2e8f0", fontWeight: 600 }}>
+              Road Network
+              <span style={{ color: "#475569", marginLeft: 6, fontSize: 10, fontWeight: 400 }}>
+                {roadCount.toLocaleString()}
+              </span>
+            </span>
+          </label>
+        )}
+        {nonRoadCats.map((cat) => {
           const visible = visibleCategories[cat] !== false;
           const isPicking = pickingCategory === cat;
           const isRoad = ROAD_CATEGORIES.has(cat);

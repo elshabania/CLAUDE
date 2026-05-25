@@ -62,6 +62,9 @@ export interface RenderDrawingOptions {
   /** When true, stroke each polygon's outline (and open hatch lines) on top of
    *  the solid fill so the line / hatch structure is visible. */
   showOutlines?: boolean;
+  /** Categories to NOT draw here (e.g. roads, which the caller renders as a
+   *  separate morphologically-closed solid layer). */
+  skip?: ReadonlySet<RoadCategory>;
 }
 
 /** Darken a #rrggbb hex toward black by factor f (0..1). Used for outlines so
@@ -130,6 +133,7 @@ export function renderDrawingFills(
 
   for (const cat of DRAW_ORDER) {
     if (opts.visibleCategories[cat] === false) continue;
+    if (opts.skip?.has(cat)) continue;
     const segs = byCat.get(cat);
     if (!segs || segs.length === 0) continue;
     const colour = opts.categoryColors[cat];
@@ -157,10 +161,12 @@ export function renderDrawingFills(
     }
 
     const outline = opts.showOutlines === true;
-    if (outline) {
-      ctx.strokeStyle = darken(colour, 0.5);
-      ctx.lineWidth = Math.max(1, opts.renderScale * 0.25);
-    }
+    // Seam-closing: a thin SAME-colour stroke around each filled polygon fuses
+    // adjacent hatch tiles into one clean corridor, removing the hairline
+    // anti-alias gaps that make the fills look fragmented/ragged.
+    const seamW = Math.max(0.6, opts.renderScale * 0.08);
+    const outlineColour = darken(colour, 0.5);
+    const outlineW = Math.max(1, opts.renderScale * 0.25);
     for (const seg of segs) {
       const pts = seg.points;
       if (pts.length < 4) continue;
@@ -168,6 +174,8 @@ export function renderDrawingFills(
         // Open polylines (hatch lines, kerb ticks) are skipped in solid mode;
         // in outline mode they're drawn so the line/hatch detail shows.
         if (!outline) continue;
+        ctx.strokeStyle = outlineColour;
+        ctx.lineWidth = outlineW;
         ctx.beginPath();
         for (let i = 0; i < pts.length; i += 2) {
           if (i === 0) ctx.moveTo(ox(pts[i]), oy(pts[i + 1]));
@@ -185,8 +193,17 @@ export function renderDrawingFills(
       }
       ctx.closePath();
       // Skip the opaque fill for sheet-spanning backgrounds; keep the outline.
-      if (!isBackgroundSpan(pts)) ctx.fill();
-      if (outline) ctx.stroke();
+      if (!isBackgroundSpan(pts)) {
+        ctx.fill();
+        ctx.strokeStyle = colour;
+        ctx.lineWidth = seamW;
+        ctx.stroke();
+      }
+      if (outline) {
+        ctx.strokeStyle = outlineColour;
+        ctx.lineWidth = outlineW;
+        ctx.stroke();
+      }
     }
   }
 }
