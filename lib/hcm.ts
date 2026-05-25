@@ -113,7 +113,12 @@ export function queue95(
 /** Convert vehicles to physical queue length in metres (7.5 m/veh — HCM default). */
 export const queue95m = (q95veh: number): number => q95veh * 7.5;
 
-/** HCM Ch 22 single- or multi-lane roundabout delay. */
+/** HCM Ch 22 single- or multi-lane roundabout delay.
+ *  Per-lane entry capacity c_e = A·exp(-B·v_circ): A=1380, B=1.02e-3 for a
+ *  single-lane entry against one circulating lane (HCM Eq 22-1); A=1420,
+ *  B=0.85e-3 for an entry lane against two circulating lanes (HCM Eq 22-4,
+ *  the right-lane form, used here as a representative per-lane value for a
+ *  multilane entry). Total entry capacity = c_e · lanes. */
 export function rabDelay(v: number, lanes: number, vCirc?: number): number {
   const vc = vCirc ?? v * 0.7;
   const A = lanes >= 2 ? 1420 : 1380;
@@ -121,23 +126,38 @@ export function rabDelay(v: number, lanes: number, vCirc?: number): number {
   const cap = A * Math.exp(-B * vc) * lanes;
   if (cap <= 0) return 600;
   const X = v / cap;
-  if (X >= 1) return Math.min(600, 60 + 100 * (X - 1));
+  // HCM Eq 22-17 control delay (T=0.25 h analysis period). The equation is
+  // valid for oversaturation (X>1) as well, so it is applied across the full
+  // range and bounded at 600 s rather than switching to an ad-hoc linear
+  // ramp at X=1 (which introduced a discontinuity and dropped the
+  // capacity-dependent term). In-sqrt term is (3600/c)·X/(450·T); the
+  // +5·min(X,1) term captures the stop / decel-accel contribution.
+  const T = 0.25;
   return Math.min(
     600,
     3600 / cap +
-      900 * 0.25 * (X - 1 + Math.sqrt((X - 1) ** 2 + (3600 * X) / (450 * cap)))
+      900 * T * (X - 1 + Math.sqrt((X - 1) ** 2 + (3600 * X) / (450 * T * cap))) +
+      5 * Math.min(X, 1)
   );
 }
 
-/** HCM Ch 20 simplified TWSC delay. */
+/** HCM Ch 20 simplified TWSC delay. The minor-movement capacity is a fixed
+ *  surrogate (800 veh/h/lane) in lieu of a full gap-acceptance model. */
 export function twscDelay(v: number, lanes: number): number {
   const cap = 800 * lanes;
   const X = v / cap;
-  if (X >= 1) return Math.min(600, 80 + 150 * (X - 1));
+  // HCM Eq 20-64 control delay (T=0.25 h). The equation is valid for the
+  // oversaturated range too, so it is applied across all X and bounded at
+  // 600 s instead of switching to an ad-hoc linear ramp at X=1 (which broke
+  // continuity and dropped the capacity term). In-sqrt term is
+  // (3600/c)·X/(450·T), plus a flat +5 s for the deceleration-to /
+  // acceleration-from the stop line.
+  const T = 0.25;
   return Math.min(
     600,
     3600 / cap +
-      900 * 0.25 * (X - 1 + Math.sqrt((X - 1) ** 2 + (3600 * X) / (450 * cap)))
+      900 * T * (X - 1 + Math.sqrt((X - 1) ** 2 + (3600 * X) / (450 * T * cap))) +
+      5
   );
 }
 
