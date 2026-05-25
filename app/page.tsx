@@ -60,17 +60,9 @@ import {
   type JunctionResult,
 } from "@/lib/hcm";
 
-// The 3D viewer pulls in Three.js (~600 KB). Load it only when a 3D tab is
-// actually opened so it stays out of the startup bundle.
-const Simulation3DViewer = dynamic(
-  () => import("@/components/Simulation3DViewer").then((m) => m.Simulation3DViewer),
-  {
-    ssr: false,
-    loading: () => <ViewLoading label="Loading 3D engine…" />,
-  }
-);
 // Tab views are loaded on demand so only the default drawing view ships in the
-// startup bundle.
+// startup bundle. (The Three.js 3D network view is deactivated for now, so its
+// ~600 KB never enters the bundle at all.)
 const HighwayPlanViewer = dynamic(
   () => import("@/components/HighwayPlanViewer").then((m) => m.HighwayPlanViewer),
   { ssr: false, loading: () => <ViewLoading label="Loading highway view…" /> }
@@ -925,18 +917,6 @@ export default function Page() {
                 onSelectLink={setSelectedLinkId}
               />
             )}
-          {/* The Three.js scene is heavy, so it loads only on the Network 3D
-              tab - never on the 2D-backed Junctions/Phasing/Optimise tabs. */}
-          {tab === "network" && hasNetwork && (
-            <Simulation3DViewer
-              drawing={result!.drawing}
-              groupCategory={groupCategory}
-              network={network!}
-              junctionResults={junctionResults}
-              selectedJunctionId={selectedJunctionId}
-              onSelectJunction={setSelectedJunctionId}
-            />
-          )}
           {tab !== "drawing" &&
             !hasNetwork &&
             !networkBuilding &&
