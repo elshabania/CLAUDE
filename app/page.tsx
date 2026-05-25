@@ -410,31 +410,25 @@ export default function Page() {
     }
   }
 
-  const autoLoadedRef = useRef(false);
-  useEffect(() => {
-    if (autoLoadedRef.current) return;
-    autoLoadedRef.current = true;
-    if (result) return;
-    void (async () => {
-      try {
-        setStatus("loading");
-        const res = await fetch("/ju_compressed_1.pdf");
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const blob = await res.blob();
-        const file = new File([blob], "ju_compressed_1.pdf", {
-          type: "application/pdf",
-        });
-        await handleFile(file);
-      } catch (err) {
-        if (err instanceof Error) {
-          // eslint-disable-next-line no-console
-          console.warn("default PDF load failed:", err.message);
-        }
-        setStatus("idle");
-      }
-    })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  // The sample masterplan is loaded ON DEMAND (button / drag-drop), never
+  // automatically on launch - parsing a 6 MB / 400k-path PDF on the main
+  // thread would otherwise freeze the window on every startup.
+  async function loadSample() {
+    try {
+      setStatus("loading");
+      setError(null);
+      const res = await fetch("/ju_compressed_1.pdf");
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const blob = await res.blob();
+      const file = new File([blob], "ju_compressed_1.pdf", {
+        type: "application/pdf",
+      });
+      await handleFile(file);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load the sample drawing.");
+      setStatus("error");
+    }
+  }
 
   // ----- Project save / open -----------------------------------------------
   function applyProject(doc: ProjectDoc) {
@@ -841,6 +835,14 @@ export default function Page() {
         {/* VIEWPORT */}
         <div className="viewport">
           <ErrorBoundary key={tab}>
+          {tab === "drawing" && !result && (
+            <WelcomeScreen
+              status={status}
+              error={error}
+              onOpen={() => void doOpenDrawing()}
+              onSample={() => void loadSample()}
+            />
+          )}
           {tab === "drawing" && result && (
             <CadViewer
               drawing={result.drawing}
@@ -1106,6 +1108,65 @@ function JunctionPanelInline(props: {
           /* no-op in dashboard mode */
         }}
       />
+    </div>
+  );
+}
+
+function WelcomeScreen({
+  status,
+  error,
+  onOpen,
+  onSample,
+}: {
+  status: "idle" | "loading" | "error";
+  error: string | null;
+  onOpen: () => void;
+  onSample: () => void;
+}) {
+  const loading = status === "loading";
+  return (
+    <div
+      style={{
+        position: "absolute",
+        inset: 0,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: 24,
+      }}
+    >
+      <div className="panel" style={{ maxWidth: 460, width: "100%" }}>
+        <div className="panel-header">
+          <span>Masterplan Highway Analyzer</span>
+        </div>
+        <div className="panel-body" style={{ fontSize: 13, lineHeight: 1.5 }}>
+          <p style={{ marginTop: 0, color: "var(--text-2)" }}>
+            Open a masterplan drawing to extract its road network and highway
+            dimensions. You can also drag a PDF, DXF or .mhp project onto the
+            window.
+          </p>
+          {loading ? (
+            <div style={{ color: "var(--text-2)", padding: "8px 0" }}>
+              Loading &amp; parsing the drawing… this can take a few seconds on
+              a large plan.
+            </div>
+          ) : (
+            <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+              <button className="btn btn-primary btn-sm" onClick={onOpen}>
+                Open drawing (PDF / DXF)
+              </button>
+              <button className="btn btn-sm" onClick={onSample}>
+                Load sample masterplan
+              </button>
+            </div>
+          )}
+          {error && (
+            <div style={{ color: "#fca5a5", fontSize: 12, marginTop: 10 }}>
+              {error}
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
