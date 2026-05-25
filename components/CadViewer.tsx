@@ -65,6 +65,9 @@ interface Props {
   onSignals?: (s: ViewportSignals) => void;
   /** Optional click handler. When set, clicking reports the matched group id. */
   onPickGroup?: (groupId: string) => void;
+  /** Reports the length (in drawing units) of a completed measurement, for
+   *  scale calibration. */
+  onMeasure?: (distanceUnits: number) => void;
 }
 
 export function CadViewer({
@@ -76,6 +79,7 @@ export function CadViewer({
   command,
   onSignals,
   onPickGroup,
+  onMeasure,
 }: Props) {
   function effCat(seg: { groupId: string; category: RoadCategory }): RoadCategory {
     return groupCategory?.[seg.groupId] ?? seg.category;
@@ -562,7 +566,8 @@ export function CadViewer({
       const p = screenToDrawing(cx, cy);
       setMeasure((m) => {
         if (!m || m.b) return { a: p, b: null }; // start fresh
-        return { a: m.a, b: p }; // finish
+        onMeasure?.(Math.hypot(p.x - m.a.x, p.y - m.a.y)); // finished: report length
+        return { a: m.a, b: p };
       });
     }
   };

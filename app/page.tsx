@@ -149,6 +149,10 @@ export default function Page() {
   const [selectedLinkId, setSelectedLinkId] = useState<string | null>(null);
   const [tool, setTool] = useState<ViewTool>("pan");
   const [cursor, setCursor] = useState<{ x: number; y: number } | null>(null);
+  // Scale calibration: the length (drawing units) of the last completed
+  // measurement, awaiting the user's real-world distance to derive the scale.
+  const [calibUnits, setCalibUnits] = useState<number | null>(null);
+  const [calibMetres, setCalibMetres] = useState("");
   const [zoomPct, setZoomPct] = useState<number | null>(null);
   const [viewportCmd, setViewportCmd] = useState<ViewportCommand | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
@@ -858,7 +862,56 @@ export default function Page() {
               command={viewportCmd}
               onSignals={onViewportSignals}
               onPickGroup={tool === "pick" && pickingCategory ? handlePickGroup : undefined}
+              onMeasure={(units) => {
+                setCalibUnits(units);
+                setCalibMetres("");
+              }}
             />
+          )}
+          {tab === "drawing" && calibUnits != null && (
+            <div className="vp-overlay" style={{ left: 12, bottom: 48, maxWidth: 320 }}>
+              <div style={{ fontSize: 12, marginBottom: 6 }}>
+                Measured <b>{calibUnits.toFixed(1)}</b> drawing units. Enter its
+                real length to set the scale:
+              </div>
+              <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                <input
+                  type="number"
+                  min={0}
+                  step="0.1"
+                  autoFocus
+                  value={calibMetres}
+                  onChange={(e) => setCalibMetres(e.target.value)}
+                  placeholder="metres"
+                  style={{ width: 90 }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      const m = parseFloat(calibMetres);
+                      if (m > 0 && calibUnits > 0) {
+                        setDimAssumptions((d) => ({ ...d, unitsPerMetre: calibUnits / m }));
+                        setCalibUnits(null);
+                      }
+                    }
+                  }}
+                />
+                <span style={{ fontSize: 12, color: "var(--text-2)" }}>m</span>
+                <button
+                  className="btn btn-primary btn-sm"
+                  onClick={() => {
+                    const m = parseFloat(calibMetres);
+                    if (m > 0 && calibUnits > 0) {
+                      setDimAssumptions((d) => ({ ...d, unitsPerMetre: calibUnits / m }));
+                      setCalibUnits(null);
+                    }
+                  }}
+                >
+                  Set scale
+                </button>
+                <button className="btn btn-sm" onClick={() => setCalibUnits(null)}>
+                  Cancel
+                </button>
+              </div>
+            </div>
           )}
           {(tab === "highway" ||
             tab === "movements" ||
