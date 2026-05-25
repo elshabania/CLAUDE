@@ -2,6 +2,7 @@
 
 export type DashTab =
   | "drawing"
+  | "highway"
   | "network"
   | "movements"
   | "phasing"
@@ -38,6 +39,16 @@ const TABS: {
           strokeWidth="1.4"
           strokeLinecap="round"
         />
+      </svg>
+    ),
+  },
+  {
+    id: "highway",
+    label: "Highway",
+    icon: (
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+        <path d="M5 21L9 3M19 21L15 3" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+        <path d="M12 4V8M12 11V14M12 17V20" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
       </svg>
     ),
   },

@@ -154,6 +154,119 @@ export const losSig = (d: number): LOS =>
 export const losUns = (d: number): LOS =>
   d <= 10 ? "A" : d <= 15 ? "B" : d <= 25 ? "C" : d <= 35 ? "D" : d <= 50 ? "E" : "F";
 
+/* -------------------------------------------------------------------------
+ * Urban street SEGMENT Level of Service (HCM 6th ed, Chapter 18).
+ *
+ * Segment LOS grades the road LINK itself (not the junction) from the ratio
+ * of average travel speed to the base free-flow speed. The travel speed
+ * combines segment running time with the through-movement control delay at
+ * the downstream boundary intersection.
+ * ---------------------------------------------------------------------- */
+
+/** HCM Exhibit 18-1 LOS thresholds: travel speed as % of base FFS.
+ *  When the demand/capacity ratio exceeds 1.0, LOS is F regardless. */
+export function losSegment(speedRatio: number, vc: number): LOS {
+  if (vc > 1.0) return "F";
+  if (speedRatio > 0.85) return "A";
+  if (speedRatio > 0.67) return "B";
+  if (speedRatio > 0.5) return "C";
+  if (speedRatio > 0.4) return "D";
+  if (speedRatio > 0.3) return "E";
+  return "F";
+}
+
+/**
+ * Estimate base free-flow speed (km/h). Starts from a class default and
+ * nudges for narrow carriageways (HCM lowers FFS as lane width drops). The
+ * caller can pass a measured posted speed as `baseKmh` to skip the guess.
+ */
+export function estimateFreeFlowSpeed(
+  baseKmh: number,
+  widthM: number | null,
+  _fclass: string
+): number {
+  let ffs = baseKmh;
+  if (widthM != null && widthM > 0) {
+    // Approximate per-lane width; standard lane = 3.6 m. Narrow lanes shed
+    // a few km/h (HCM Ch.18 base FFS adjustment, simplified).
+    const perLane = widthM / 2; // assume ~2 lanes across the carriageway
+    if (perLane < 3.0) ffs -= 5;
+    else if (perLane < 3.3) ffs -= 2;
+  }
+  return Math.max(20, ffs);
+}
+
+export interface SegmentLOSInput {
+  /** Segment length in metres. */
+  lengthM: number;
+  /** Base free-flow speed in km/h. */
+  ffsKmh: number;
+  /** Directional demand volume in veh/h. */
+  demandVeh: number;
+  /** Number of through lanes in the analysis direction. */
+  lanes: number;
+  /** Optional through control delay at the downstream node (s/veh). When
+   *  omitted, estimated from the demand/capacity ratio. */
+  throughDelayS?: number;
+  /** Saturation capacity per lane (veh/h/lane). Default 1900 (HCM base). */
+  capacityPerLane?: number;
+}
+
+export interface SegmentLOSResult {
+  /** Average travel speed over the segment (km/h). */
+  travelSpeedKmh: number;
+  /** Base free-flow speed used (km/h). */
+  ffsKmh: number;
+  /** Travel speed / FFS. */
+  speedRatio: number;
+  /** Demand/capacity ratio. */
+  vc: number;
+  los: LOS;
+  /** Running time over the segment (s). */
+  runningTimeS: number;
+  /** Through control delay applied at the boundary node (s). */
+  throughDelayS: number;
+}
+
+/**
+ * Compute HCM Ch.18 segment LOS. Running time uses the base FFS over the
+ * segment length; control delay at the downstream intersection is added to
+ * get the effective travel time, hence the travel speed.
+ */
+export function segmentLOS(input: SegmentLOSInput): SegmentLOSResult {
+  const ffs = Math.max(5, input.ffsKmh);
+  const cap = (input.capacityPerLane ?? 1900) * Math.max(1, input.lanes);
+  const vc = cap > 0 ? input.demandVeh / cap : 0;
+
+  // Free-flow running time over the segment (s) = length / speed.
+  const ffsMs = (ffs * 1000) / 3600;
+  const runningTimeS = ffsMs > 0 ? input.lengthM / ffsMs : 0;
+
+  // Through control delay at the boundary node. If not supplied, estimate
+  // from v/c with a simple BPR-style delay surrogate so LOS still responds
+  // to demand without a full signal timing model.
+  const throughDelayS =
+    input.throughDelayS ??
+    (vc <= 0
+      ? 0
+      : Math.min(120, 8 + 30 * Math.pow(Math.min(vc, 1.2), 4)));
+
+  const travelTimeS = runningTimeS + throughDelayS;
+  const travelSpeedMs = travelTimeS > 0 ? input.lengthM / travelTimeS : ffsMs;
+  const travelSpeedKmh = (travelSpeedMs * 3600) / 1000;
+  const speedRatio = ffs > 0 ? travelSpeedKmh / ffs : 0;
+
+  return {
+    travelSpeedKmh,
+    ffsKmh: ffs,
+    speedRatio,
+    vc,
+    los: losSegment(speedRatio, vc),
+    runningTimeS,
+    throughDelayS,
+  };
+}
+
 export interface ApproachInputs {
   lanes: Record<Movement, number>;
   greenTime: number; // seconds

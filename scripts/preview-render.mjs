@@ -265,6 +265,14 @@ const DRAW_ORDER = [
   "bridge", "bridge_ramp", "tunnel", "tunnel_ramp", "raised_crossing",
 ];
 const STROKE_CATS = new Set(["raised_crossing"]);
+// ROADS_ONLY=1 renders just the driveable road categories (the "isolate the
+// road network" view) on a dark background, to confirm corridors form cleanly.
+const ROADS_ONLY = process.env.ROADS_ONLY === "1";
+const ROAD_ONLY_CATS = new Set([
+  "road_row", "road_plot", "taxi_layby", "shuttle_layby",
+  "emergency_access", "apartment_access", "plot_access",
+  "bridge", "bridge_ramp", "tunnel", "tunnel_ramp",
+]);
 const buckets = new Map();
 for (const c of DRAW_ORDER) buckets.set(c, []);
 const otherBucket = [];
@@ -344,6 +352,7 @@ ctx.fillRect(0, 0, W, H);
 
 // Render in DRAW_ORDER. Fill closed polygons; stroke for stroke categories.
 for (const cat of DRAW_ORDER) {
+  if (ROADS_ONLY && !ROAD_ONLY_CATS.has(cat)) continue;
   const segs = buckets.get(cat) ?? [];
   if (segs.length === 0) continue;
   const colour = categoryHex(cat);

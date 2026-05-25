@@ -21,6 +21,12 @@ import {
 import { LEGEND_SWATCHES } from "@/lib/legend-swatches";
 import { LegendPanel } from "@/components/LegendPanel";
 import { parseDxfInBrowser } from "@/lib/dxf-client";
+import { HighwayPlanViewer } from "@/components/HighwayPlanViewer";
+import { HighwayDimsPanel } from "@/components/HighwayDimsPanel";
+import {
+  computeNetworkDimensions,
+  type DimensionAssumptions,
+} from "@/lib/highway-dims";
 import {
   extractPdfPathsInBrowser,
   extractPdfTextItemsInBrowser,
@@ -78,6 +84,12 @@ export default function Page() {
   } | null>(null);
   const [rasterPage, setRasterPage] = useState<PdfRasterPage | null>(null);
   const [pageRotation, setPageRotation] = useState(0);
+  const [dimAssumptions, setDimAssumptions] = useState<DimensionAssumptions>({
+    unitsPerMetre: 1,
+    peakHourVolumePerLane: 0,
+  });
+  const [colorBy, setColorBy] = useState<"los" | "class">("class");
+  const [selectedLinkId, setSelectedLinkId] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
@@ -159,6 +171,11 @@ export default function Page() {
       return null;
     }
   }, [result, groupCategory]);
+
+  const dims = useMemo(() => {
+    if (!network) return null;
+    return computeNetworkDimensions(network, dimAssumptions);
+  }, [network, dimAssumptions]);
 
   // Seed default junction inputs when new junctions appear.
   useEffect(() => {
@@ -357,7 +374,17 @@ export default function Page() {
             onPickGroup={pickingCategory ? handlePickGroup : undefined}
           />
         )}
-        {tab !== "drawing" && network && network.links.length > 0 && (
+        {tab === "highway" && network && network.links.length > 0 && dims && (
+          <HighwayPlanViewer
+            network={network}
+            dims={dims}
+            pageRotation={pageRotation}
+            colorBy={colorBy}
+            selectedLinkId={selectedLinkId}
+            onSelectLink={setSelectedLinkId}
+          />
+        )}
+        {tab !== "drawing" && tab !== "highway" && network && network.links.length > 0 && (
           <Simulation3DViewer
             drawing={result!.drawing}
             groupCategory={groupCategory}
@@ -375,7 +402,7 @@ export default function Page() {
             rasterPreview={rasterPreview}
           />
         )}
-        {tab !== "drawing" && network && (
+        {tab !== "drawing" && tab !== "highway" && network && (
           <NetworkSummaryCard
             results={junctionResults}
             junctionCount={network.junctions.length}
@@ -383,8 +410,8 @@ export default function Page() {
         )}
       </div>
 
-      {/* Junction tabs - hidden on the Drawing tab. */}
-      {tab !== "drawing" && network && (
+      {/* Junction tabs - hidden on the Drawing and Highway tabs. */}
+      {tab !== "drawing" && tab !== "highway" && network && (
         <JunctionTabsStrip
           junctions={network.junctions}
           results={junctionResults}
@@ -401,6 +428,8 @@ export default function Page() {
           flex:
             tab === "network"
               ? "0 0 0px"
+              : tab === "highway"
+              ? "0 0 420px"
               : tab === "drawing"
               ? "0 0 280px"
               : "0 0 280px",
@@ -420,6 +449,17 @@ export default function Page() {
             pickingCategory={pickingCategory}
             onStartPick={setPickingCategory}
             swatchOverrides={swatchOverrides}
+          />
+        )}
+        {tab === "highway" && dims && (
+          <HighwayDimsPanel
+            dims={dims}
+            assumptions={dimAssumptions}
+            onChangeAssumptions={setDimAssumptions}
+            colorBy={colorBy}
+            onChangeColorBy={setColorBy}
+            selectedLinkId={selectedLinkId}
+            onSelectLink={setSelectedLinkId}
           />
         )}
         {tab === "movements" && selectedJunctionId && selectedInputs && selectedResult && (
@@ -448,9 +488,10 @@ export default function Page() {
         {tab === "interchg" && selectedInputs && (
           <InterchgView inputs={selectedInputs} onChange={setSelectedInputs} />
         )}
-        {tab !== "network" && tab !== "drawing" && (!selectedInputs || !selectedResult) && (
-          <NoSelection />
-        )}
+        {tab !== "network" &&
+          tab !== "drawing" &&
+          tab !== "highway" &&
+          (!selectedInputs || !selectedResult) && <NoSelection />}
       </div>
 
       <BottomNav active={tab} onChange={setTab} />
