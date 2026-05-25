@@ -59,6 +59,19 @@ export interface RenderDrawingOptions {
   background?: string;
   /** Per-group category override resolver. */
   effCat?: (seg: DrawingSegment) => RoadCategory;
+  /** When true, stroke each polygon's outline (and open hatch lines) on top of
+   *  the solid fill so the line / hatch structure is visible. */
+  showOutlines?: boolean;
+}
+
+/** Darken a #rrggbb hex toward black by factor f (0..1). Used for outlines so
+ *  they read as crisp edges against the same-colour fill. */
+function darken(hex: string, f: number): string {
+  if (!/^#[0-9a-fA-F]{6}$/.test(hex)) return hex;
+  const r = Math.round(parseInt(hex.slice(1, 3), 16) * f);
+  const g = Math.round(parseInt(hex.slice(3, 5), 16) * f);
+  const b = Math.round(parseInt(hex.slice(5, 7), 16) * f);
+  return `rgb(${r}, ${g}, ${b})`;
 }
 
 /**
@@ -125,10 +138,26 @@ export function renderDrawingFills(
       continue;
     }
 
+    const outline = opts.showOutlines === true;
+    if (outline) {
+      ctx.strokeStyle = darken(colour, 0.5);
+      ctx.lineWidth = Math.max(1, opts.renderScale * 0.25);
+    }
     for (const seg of segs) {
       const pts = seg.points;
       if (pts.length < 4) continue;
-      if (!seg.closed) continue;
+      if (!seg.closed) {
+        // Open polylines (hatch lines, kerb ticks) are skipped in solid mode;
+        // in outline mode they're drawn so the line/hatch detail shows.
+        if (!outline) continue;
+        ctx.beginPath();
+        for (let i = 0; i < pts.length; i += 2) {
+          if (i === 0) ctx.moveTo(ox(pts[i]), oy(pts[i + 1]));
+          else ctx.lineTo(ox(pts[i]), oy(pts[i + 1]));
+        }
+        ctx.stroke();
+        continue;
+      }
       ctx.beginPath();
       for (let i = 0; i < pts.length; i += 2) {
         const px = ox(pts[i]);
@@ -138,6 +167,7 @@ export function renderDrawingFills(
       }
       ctx.closePath();
       ctx.fill();
+      if (outline) ctx.stroke();
     }
   }
 }
