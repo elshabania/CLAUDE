@@ -40,6 +40,19 @@ import {
   type RoadNetwork,
 } from "@/lib/road-network";
 import {
+  serializeProject,
+  parseProject,
+  projectFileName,
+  type ProjectDoc,
+} from "@/lib/project";
+import { junctionResultsToCsv, dimensionsToCsv } from "@/lib/export-csv";
+import {
+  saveText,
+  saveBinary,
+  openDrawing as openDrawingFile,
+  openProjectText,
+} from "@/lib/io-client";
+import {
   analyzeJunction,
   defaultJunctionInputs,
   DIRS,
@@ -95,6 +108,7 @@ export default function Page() {
   const [zoomPct, setZoomPct] = useState<number | null>(null);
   const [viewportCmd, setViewportCmd] = useState<ViewportCommand | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const pendingProjectRef = useRef<ProjectDoc | null>(null);
 
   const sendVp = (kind: ViewportCommand["kind"]) =>
     setViewportCmd({ kind, nonce: Date.now() });
@@ -111,16 +125,20 @@ export default function Page() {
 
   useEffect(() => {
     if (!result) return;
-    const c: Record<string, RoadCategory> = {};
     const v: Record<string, boolean> = {};
-    for (const g of result.drawing.groups) {
-      c[g.id] = g.category;
-      // Group-level visibility starts ON; the LegendPanel layers category-
-      // level visibility on top via `visibleCategories`.
-      v[g.id] = true;
-    }
-    setGroupCategory(c);
+    for (const g of result.drawing.groups) v[g.id] = true;
     setVisibleGroups(v);
+    // Loading a project: restore its saved classification rather than
+    // re-deriving the legend defaults.
+    const pending = pendingProjectRef.current;
+    if (pending && pending.drawing === result.drawing) {
+      setGroupCategory(pending.groupCategory);
+      pendingProjectRef.current = null;
+      return;
+    }
+    const c: Record<string, RoadCategory> = {};
+    for (const g of result.drawing.groups) c[g.id] = g.category;
+    setGroupCategory(c);
   }, [result]);
 
   // Group-level visibility AND category-level visibility, combined.
@@ -366,6 +384,271 @@ export default function Page() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // ----- Project save / open -----------------------------------------------
+  function applyProject(doc: ProjectDoc) {
+    setError(null);
+    setWarning(null);
+    setRasterPreview(null);
+    setNetwork(null);
+    setSelectedLinkId(null);
+    setPickingCategory(null);
+    setTool("pan");
+    // Geometry first; the result-effect reads pendingProjectRef to restore
+    // the saved classification instead of re-deriving defaults.
+    pendingProjectRef.current = doc;
+    setResult({ filename: doc.filename ?? "untitled", drawing: doc.drawing });
+    setVisibleCategories(doc.visibleCategories);
+    setSwatchOverrides(doc.swatchOverrides);
+    setJunctionInputs(doc.junctionInputs);
+    setDimAssumptions(doc.dimAssumptions);
+    setPageRotation(doc.pageRotation);
+    setColorBy(doc.colorBy);
+    setSelectedJunctionId(doc.selectedJunctionId);
+    setStatus("idle");
+  }
+
+  async function doOpenDrawing() {
+    const file = await openDrawingFile();
+    if (file) void handleFile(file);
+  }
+
+  async function doOpenProject() {
+    try {
+      const text = await openProjectText();
+      if (text == null) return;
+      applyProject(parseProject(text));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to open project");
+      setStatus("error");
+    }
+  }
+
+  async function doSaveProject() {
+    if (!result) return;
+    const text = serializeProject({
+      filename: result.filename,
+      drawing: result.drawing,
+      groupCategory,
+      visibleCategories,
+      swatchOverrides,
+      junctionInputs,
+      dimAssumptions,
+      pageRotation,
+      colorBy,
+      selectedJunctionId,
+    });
+    await saveText(
+      projectFileName(result.filename),
+      text,
+      "Analyzer Project",
+      "mhp"
+    );
+  }
+
+  // ----- Exports -----------------------------------------------------------
+  const baseName = (result?.filename ?? "analysis").replace(/\.[^.]+$/, "");
+
+  async function doExportCsv() {
+    if (!network) return;
+    const labelOf = (id: string) => {
+      const i = network.junctions.findIndex((j) => j.id === id);
+      return i >= 0 ? `J${i + 1}` : id;
+    };
+    const csv = junctionResultsToCsv(junctionResults, labelOf);
+    await saveText(`${baseName}-LOS.csv`, csv, "CSV", "csv");
+  }
+
+  async function doExportDimsCsv() {
+    if (!dims) return;
+    await saveText(
+      `${baseName}-dimensions.csv`,
+      dimensionsToCsv(dims),
+      "CSV",
+      "csv"
+    );
+  }
+
+  async function doExportPng() {
+    const canvas = document.querySelector<HTMLCanvasElement>(".viewport canvas");
+    if (!canvas) {
+      setError("Nothing to export from the current view.");
+      return;
+    }
+    const blob = await new Promise<Blob | null>((res) =>
+      canvas.toBlob((b) => res(b), "image/png")
+    );
+    if (!blob) return;
+    const buf = await blob.arrayBuffer();
+    await saveBinary(`${baseName}-${tab}.png`, buf, "PNG Image", "png", "image/png");
+  }
+
+  // ----- Undo / redo -------------------------------------------------------
+  // Coarse-grained: snapshots the editable document (classifications, junction
+  // inputs, view options) on every change. Geometry isn't part of history.
+  const editDoc = useMemo(
+    () => ({
+      groupCategory,
+      visibleCategories,
+      swatchOverrides,
+      junctionInputs,
+      dimAssumptions,
+      pageRotation,
+      colorBy,
+    }),
+    [
+      groupCategory,
+      visibleCategories,
+      swatchOverrides,
+      junctionInputs,
+      dimAssumptions,
+      pageRotation,
+      colorBy,
+    ]
+  );
+  const histPast = useRef<string[]>([]);
+  const histFuture = useRef<string[]>([]);
+  const histApplying = useRef(false);
+  const histLast = useRef<string>("");
+  const [histVersion, setHistVersion] = useState(0);
+
+  // Reset history when a new drawing/project loads.
+  useEffect(() => {
+    histPast.current = [];
+    histFuture.current = [];
+    histLast.current = "";
+    setHistVersion((v) => v + 1);
+  }, [result]);
+
+  useEffect(() => {
+    const cur = JSON.stringify(editDoc);
+    if (histApplying.current) {
+      histApplying.current = false;
+      histLast.current = cur;
+      return;
+    }
+    if (histLast.current && histLast.current !== cur) {
+      histPast.current.push(histLast.current);
+      if (histPast.current.length > 100) histPast.current.shift();
+      histFuture.current = [];
+      setHistVersion((v) => v + 1);
+    }
+    histLast.current = cur;
+  }, [editDoc]);
+
+  function applyEditSnapshot(snap: string) {
+    const d = JSON.parse(snap) as typeof editDoc;
+    histApplying.current = true;
+    setGroupCategory(d.groupCategory);
+    setVisibleCategories(d.visibleCategories);
+    setSwatchOverrides(d.swatchOverrides);
+    setJunctionInputs(d.junctionInputs);
+    setDimAssumptions(d.dimAssumptions);
+    setPageRotation(d.pageRotation);
+    setColorBy(d.colorBy);
+  }
+
+  function doUndo() {
+    const prev = histPast.current.pop();
+    if (prev == null) return;
+    histFuture.current.push(histLast.current);
+    applyEditSnapshot(prev);
+    setHistVersion((v) => v + 1);
+  }
+
+  function doRedo() {
+    const next = histFuture.current.pop();
+    if (next == null) return;
+    histPast.current.push(histLast.current);
+    applyEditSnapshot(next);
+    setHistVersion((v) => v + 1);
+  }
+
+  const canUndo = histPast.current.length > 0;
+  const canRedo = histFuture.current.length > 0;
+  void histVersion; // re-render trigger for canUndo/canRedo
+
+  // ----- Native menu + keyboard shortcuts ----------------------------------
+  useEffect(() => {
+    const dispatch = (command: string) => {
+      if (command.startsWith("tab:")) {
+        setTab(command.slice(4) as DashTab);
+        return;
+      }
+      switch (command) {
+        case "open-drawing": void doOpenDrawing(); break;
+        case "open-project": void doOpenProject(); break;
+        case "save-project": void doSaveProject(); break;
+        case "export-csv": void doExportCsv(); break;
+        case "export-dims-csv": void doExportDimsCsv(); break;
+        case "export-png": void doExportPng(); break;
+        case "undo": doUndo(); break;
+        case "redo": doRedo(); break;
+        case "zoom-fit": sendVp("fit"); break;
+        case "zoom-in": sendVp("in"); break;
+        case "zoom-out": sendVp("out"); break;
+      }
+    };
+    const offMenu = window.desktop?.onMenu(dispatch);
+    // In-browser keyboard shortcuts (also a fallback if menu accelerators miss).
+    const onKey = (e: KeyboardEvent) => {
+      const mod = e.ctrlKey || e.metaKey;
+      if (!mod) return;
+      const k = e.key.toLowerCase();
+      if (k === "z" && !e.shiftKey) { e.preventDefault(); doUndo(); }
+      else if ((k === "z" && e.shiftKey) || k === "y") { e.preventDefault(); doRedo(); }
+      else if (k === "s") { e.preventDefault(); void doSaveProject(); }
+      else if (k === "o" && e.shiftKey) { e.preventDefault(); void doOpenProject(); }
+      else if (k === "o") { e.preventDefault(); void doOpenDrawing(); }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => {
+      offMenu?.();
+      window.removeEventListener("keydown", onKey);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  });
+
+  // ----- Drag & drop a drawing or project onto the window -----------------
+  const [dragOver, setDragOver] = useState(false);
+  useEffect(() => {
+    const onDragOver = (e: DragEvent) => {
+      if (e.dataTransfer?.types.includes("Files")) {
+        e.preventDefault();
+        setDragOver(true);
+      }
+    };
+    const onDragLeave = (e: DragEvent) => {
+      if (e.relatedTarget == null) setDragOver(false);
+    };
+    const onDrop = (e: DragEvent) => {
+      e.preventDefault();
+      setDragOver(false);
+      const file = e.dataTransfer?.files?.[0];
+      if (!file) return;
+      if (/\.(mhp|json)$/i.test(file.name)) {
+        void file.text().then((text) => {
+          try {
+            applyProject(parseProject(text));
+          } catch (err) {
+            setError(err instanceof Error ? err.message : "Failed to open project");
+            setStatus("error");
+          }
+        });
+      } else {
+        void handleFile(file);
+      }
+    };
+    window.addEventListener("dragover", onDragOver);
+    window.addEventListener("dragleave", onDragLeave);
+    window.addEventListener("drop", onDrop);
+    return () => {
+      window.removeEventListener("dragover", onDragOver);
+      window.removeEventListener("dragleave", onDragLeave);
+      window.removeEventListener("drop", onDrop);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const hasNetwork = !!network && network.links.length > 0;
   const isPlanTab = tab === "drawing" || tab === "highway";
   // Right dock holds the context-sensitive properties / analysis panel.
@@ -381,6 +664,13 @@ export default function Page() {
 
   return (
     <div className="app-root">
+      {dragOver && (
+        <div className="drop-overlay">
+          <div className="drop-overlay-card">
+            Drop a PDF / DXF drawing or .mhp project to open
+          </div>
+        </div>
+      )}
       <input
         ref={inputRef}
         type="file"
@@ -395,7 +685,17 @@ export default function Page() {
       <Topbar
         filename={result?.filename ?? null}
         results={junctionResults}
-        onUpload={() => inputRef.current?.click()}
+        onUpload={() => void doOpenDrawing()}
+        onOpenProject={() => void doOpenProject()}
+        onSaveProject={() => void doSaveProject()}
+        onExportCsv={() => void doExportCsv()}
+        onExportPng={() => void doExportPng()}
+        onUndo={doUndo}
+        onRedo={doRedo}
+        canUndo={canUndo}
+        canRedo={canRedo}
+        hasProject={!!result}
+        hasNetwork={hasNetwork}
       />
 
       <Toolbar

@@ -289,6 +289,44 @@ button {
   padding: 4px 9px;
   font-size: 11px;
 }
+.btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+  border-color: var(--line-strong);
+  background: var(--bg-3);
+}
+.btn-icon {
+  padding: 4px 6px;
+  color: var(--text-1);
+}
+.tb-group {
+  display: inline-flex;
+  gap: 2px;
+  padding-right: 4px;
+  margin-right: 2px;
+  border-right: 1px solid var(--line-strong);
+}
+
+/* ---- Drag & drop overlay ---- */
+.drop-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(15, 23, 42, 0.72);
+  backdrop-filter: blur(2px);
+  pointer-events: none;
+}
+.drop-overlay-card {
+  padding: 22px 30px;
+  border: 2px dashed var(--accent);
+  border-radius: 12px;
+  background: var(--bg-2);
+  color: var(--text-0);
+  font-size: 14px;
+}
 
 /* ---- Inputs ---- */
 input[type="number"],

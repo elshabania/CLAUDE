@@ -6,9 +6,33 @@ interface Props {
   filename: string | null;
   results: Record<string, JunctionResult | undefined>;
   onUpload: () => void;
+  onOpenProject: () => void;
+  onSaveProject: () => void;
+  onExportCsv: () => void;
+  onExportPng: () => void;
+  onUndo: () => void;
+  onRedo: () => void;
+  canUndo: boolean;
+  canRedo: boolean;
+  hasProject: boolean;
+  hasNetwork: boolean;
 }
 
-export function Topbar({ filename, results, onUpload }: Props) {
+export function Topbar({
+  filename,
+  results,
+  onUpload,
+  onOpenProject,
+  onSaveProject,
+  onExportCsv,
+  onExportPng,
+  onUndo,
+  onRedo,
+  canUndo,
+  canRedo,
+  hasProject,
+  hasNetwork,
+}: Props) {
   const list = Object.values(results).filter(Boolean) as JunctionResult[];
   const totalVolume = list.reduce((a, r) => a + r.totalVolume, 0);
   const delayW = list.reduce((a, r) => a + r.delay * r.totalVolume, 0);
@@ -70,8 +94,34 @@ export function Topbar({ filename, results, onUpload }: Props) {
             {worst}
           </div>
         )}
-        <button className="btn btn-primary btn-sm" onClick={onUpload}>
-          Open PDF / DXF
+
+        <div className="tb-group" title="Undo / Redo">
+          <button className="btn btn-icon btn-sm" onClick={onUndo} disabled={!canUndo} title="Undo (Ctrl+Z)">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
+              <path d="M9 7H15a5 5 0 0 1 0 10H8M9 7L5 11M9 7L5 3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
+          <button className="btn btn-icon btn-sm" onClick={onRedo} disabled={!canRedo} title="Redo (Ctrl+Shift+Z)">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
+              <path d="M15 7H9a5 5 0 0 0 0 10h7M15 7L19 11M15 7L19 3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
+        </div>
+
+        <button className="btn btn-sm" onClick={onSaveProject} disabled={!hasProject} title="Save project (Ctrl+S)">
+          Save
+        </button>
+        <button className="btn btn-sm" onClick={onExportCsv} disabled={!hasNetwork} title="Export junction LOS results as CSV">
+          CSV
+        </button>
+        <button className="btn btn-sm" onClick={onExportPng} disabled={!hasProject} title="Export current view as PNG">
+          PNG
+        </button>
+        <button className="btn btn-sm" onClick={onOpenProject} title="Open a saved .mhp project (Ctrl+Shift+O)">
+          Open Project
+        </button>
+        <button className="btn btn-primary btn-sm" onClick={onUpload} title="Open a PDF or DXF drawing (Ctrl+O)">
+          Open Drawing
         </button>
       </div>
     </div>
