@@ -1,0 +1,84 @@
+name: Build Windows App
+
+on:
+  push:
+    branches: ["**"]
+    paths:
+      - "electron/**"
+      - "app/**"
+      - "components/**"
+      - "lib/**"
+      - "public/**"
+      - "package.json"
+      - "next.config.mjs"
+      - ".github/workflows/build-windows.yml"
+  workflow_dispatch: {}
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci || npm install
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Build static export + Windows installer
+        run: npm run dist:win
+        env:
+          # electron-builder: don't try to publish, just build artifacts.
+          GH_TOKEN: ""
+
+      - name: Verify artifacts exist
+        shell: pwsh
+        run: |
+          $exe = Get-ChildItem -Path release -Filter *.exe -Recurse -ErrorAction SilentlyContinue
+          if (-not $exe) {
+            Write-Error "No .exe produced in release/"
+            exit 1
+          }
+          Write-Host "Built artifacts:"
+          $exe | ForEach-Object { Write-Host (" - {0} ({1:N1} MB)" -f $_.Name, ($_.Length / 1MB)) }
+
+      - name: Smoke test - launch app headless and confirm window loads
+        shell: pwsh
+        run: |
+          # Launch the portable exe briefly to confirm it starts without crashing.
+          $portable = Get-ChildItem -Path release -Filter "*portable*.exe" -Recurse | Select-Object -First 1
+          if (-not $portable) {
+            $portable = Get-ChildItem -Path release -Filter "*.exe" -Recurse |
+              Where-Object { $_.Name -notlike "*Setup*" } | Select-Object -First 1
+          }
+          if ($portable) {
+            Write-Host "Launching $($portable.FullName) for a 20s smoke test..."
+            $p = Start-Process -FilePath $portable.FullName -PassThru
+            Start-Sleep -Seconds 20
+            if ($p.HasExited) {
+              Write-Error "App exited prematurely (exit code $($p.ExitCode)) - likely a startup crash."
+              exit 1
+            }
+            Write-Host "App still running after 20s - startup OK. Stopping."
+            Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue
+          } else {
+            Write-Host "No portable exe found to smoke test (installer-only build)."
+          }
+
+      - name: Upload installer + portable exe
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-app
+          path: |
+            release/*.exe
+          if-no-files-found: error
+          retention-days: 30

@@ -20,6 +20,7 @@ import {
 } from "@/lib/road-detect";
 import { LEGEND_SWATCHES } from "@/lib/legend-swatches";
 import { LegendPanel } from "@/components/LegendPanel";
+import { parseDxfInBrowser } from "@/lib/dxf-client";
 import {
   extractPdfPathsInBrowser,
   extractPdfTextItemsInBrowser,
@@ -256,31 +257,24 @@ export default function Page() {
         return;
       }
 
-      const body = new FormData();
-      body.append("file", file);
-      const res = await fetch("/api/parse", { method: "POST", body });
-      const text = await res.text();
-      let data: { error?: string; filename?: string; drawing?: ParsedDrawing };
-      try {
-        data = JSON.parse(text);
-      } catch {
+      const lower = file.name.toLowerCase();
+      if (lower.endsWith(".dwg")) {
         setError(
-          res.status === 413
-            ? "File too large for the deployed server."
-            : `Server returned ${res.status}: ${text.slice(0, 200)}`
+          "DWG isn't supported in the desktop app. Export the drawing as DXF or PDF and load that instead."
         );
         setStatus("error");
         return;
       }
-      if (!res.ok) {
-        setError(data.error ?? "Failed to parse file");
+      // DXF: parse client-side so the app needs no server.
+      try {
+        const drawing = await parseDxfInBrowser(file);
+        setResult({ filename: file.name, drawing });
+        setStatus("idle");
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Failed to parse DXF file");
         setStatus("error");
-        return;
       }
-      if (data.filename && data.drawing) {
-        setResult({ filename: data.filename, drawing: data.drawing });
-      }
-      setStatus("idle");
+      return;
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to process file");
       setStatus("error");
