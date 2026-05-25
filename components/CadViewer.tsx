@@ -138,6 +138,13 @@ export function CadViewer({
     const colsX = Math.max(1, Math.ceil(spanX * invCell) + 1);
     const colsY = Math.max(1, Math.ceil(spanY * invCell) + 1);
     const cells = new Map<number, number[]>();
+    // Segments whose bounding box covers too many cells (e.g. a sheet-spanning
+    // boundary or context polygon) are NOT rasterised into every cell - that
+    // is O(grid) per segment and, with many large polygons in a masterplan,
+    // tens of millions of inserts that freeze/OOM the renderer on load. They
+    // go in this fallback list which the query always scans.
+    const oversized: number[] = [];
+    const MAX_CELLS_PER_SEG = 64;
     const clampCol = (v: number) => (v < 0 ? 0 : v >= colsX ? colsX - 1 : v);
     const clampRow = (v: number) => (v < 0 ? 0 : v >= colsY ? colsY - 1 : v);
 
@@ -163,6 +170,10 @@ export function CadViewer({
       const c1 = clampCol(Math.floor((sxMax - minX) * invCell));
       const r0 = clampRow(Math.floor((syMin - minY) * invCell));
       const r1 = clampRow(Math.floor((syMax - minY) * invCell));
+      if ((c1 - c0 + 1) * (r1 - r0 + 1) > MAX_CELLS_PER_SEG) {
+        oversized.push(s);
+        continue;
+      }
       for (let cy = r0; cy <= r1; cy++) {
         const base = cy * colsX;
         for (let cx = c0; cx <= c1; cx++) {
@@ -181,6 +192,7 @@ export function CadViewer({
       colsX,
       colsY,
       cells,
+      oversized,
       clampCol,
       clampRow,
     };
@@ -482,7 +494,7 @@ export function CadViewer({
     // containing the point, or an open polyline passing within tolerance, must
     // have a bbox covering this cell range). This turns the per-click cost from
     // O(all ~80k segments) into O(segments near the cursor).
-    const { minX, minY, invCell, colsX, clampCol, clampRow, cells } =
+    const { minX, minY, invCell, colsX, clampCol, clampRow, cells, oversized } =
       spatialIndex;
     const c0 = clampCol(Math.floor((x - tol - minX) * invCell));
     const c1 = clampCol(Math.floor((x + tol - minX) * invCell));
@@ -500,6 +512,8 @@ export function CadViewer({
         for (let k = 0; k < bucket.length; k++) seen.add(bucket[k]);
       }
     }
+    // Sheet-spanning segments aren't in the grid; always consider them.
+    for (let k = 0; k < oversized.length; k++) seen.add(oversized[k]);
     // Test candidates in ascending segment index, i.e. their order in
     // `drawing.segments`. This makes ties break identically to the old full
     // linear scan: among overlapping closed polygons that all contain the
