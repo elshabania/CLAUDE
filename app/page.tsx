@@ -6,8 +6,6 @@ import { JunctionPanel } from "@/components/JunctionPanel";
 import { NetworkSummaryCard } from "@/components/NetworkSummaryCard";
 import { type DashTab } from "@/components/BottomNav";
 import { CadViewer } from "@/components/CadViewer";
-import { PhasingView } from "@/components/PhasingView";
-import { AiOptView } from "@/components/AiOptView";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import {
   detectFromPdf,
@@ -19,7 +17,6 @@ import {
 import { LEGEND_SWATCHES } from "@/lib/legend-swatches";
 import { LegendPanel } from "@/components/LegendPanel";
 import { parseDxfInBrowser } from "@/lib/dxf-client";
-import { HighwayPlanViewer } from "@/components/HighwayPlanViewer";
 import { HighwayDimsPanel } from "@/components/HighwayDimsPanel";
 import { Topbar } from "@/components/shell/Topbar";
 import { Toolbar, type ViewTool } from "@/components/shell/Toolbar";
@@ -69,23 +66,41 @@ const Simulation3DViewer = dynamic(
   () => import("@/components/Simulation3DViewer").then((m) => m.Simulation3DViewer),
   {
     ssr: false,
-    loading: () => (
-      <div
-        style={{
-          position: "absolute",
-          inset: 0,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          color: "var(--text-2)",
-          fontSize: 13,
-        }}
-      >
-        Loading 3D engine…
-      </div>
-    ),
+    loading: () => <ViewLoading label="Loading 3D engine…" />,
   }
 );
+// Tab views are loaded on demand so only the default drawing view ships in the
+// startup bundle.
+const HighwayPlanViewer = dynamic(
+  () => import("@/components/HighwayPlanViewer").then((m) => m.HighwayPlanViewer),
+  { ssr: false, loading: () => <ViewLoading label="Loading highway view…" /> }
+);
+const PhasingView = dynamic(
+  () => import("@/components/PhasingView").then((m) => m.PhasingView),
+  { ssr: false, loading: () => <ViewLoading label="Loading…" /> }
+);
+const AiOptView = dynamic(
+  () => import("@/components/AiOptView").then((m) => m.AiOptView),
+  { ssr: false, loading: () => <ViewLoading label="Loading…" /> }
+);
+
+function ViewLoading({ label }: { label: string }) {
+  return (
+    <div
+      style={{
+        position: "absolute",
+        inset: 0,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        color: "var(--text-2)",
+        fontSize: 13,
+      }}
+    >
+      {label}
+    </div>
+  );
+}
 
 interface ParseResponse {
   filename: string;
