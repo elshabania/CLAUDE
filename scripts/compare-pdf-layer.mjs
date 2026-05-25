@@ -201,10 +201,35 @@ for (let i = 0; i < opList.fnArray.length; i++) {
   }
 }
 
+// Match render-drawing.ts: skip the FILL for sheet-spanning background
+// polygons (bbox covers >70% of both dimensions of the geometry extent).
+let umnX = Infinity, umnY = Infinity, umxX = -Infinity, umxY = -Infinity;
+for (const segs of [...buckets.values(), other])
+  for (const seg of segs)
+    for (const sp of seg.subpaths)
+      for (const p of sp) {
+        if (p.x < umnX) umnX = p.x; if (p.y < umnY) umnY = p.y;
+        if (p.x > umxX) umxX = p.x; if (p.y > umxY) umxY = p.y;
+      }
+const uBW = Math.max(umxX - umnX, 1), uBH = Math.max(umxY - umnY, 1);
+const isBgSeg = (seg) => {
+  let xmn = Infinity, ymn = Infinity, xmx = -Infinity, ymx = -Infinity;
+  for (const sp of seg.subpaths) for (const p of sp) {
+    if (p.x < xmn) xmn = p.x; if (p.y < ymn) ymn = p.y;
+    if (p.x > xmx) xmx = p.x; if (p.y > ymx) ymx = p.y;
+  }
+  return (xmx - xmn) > uBW * 0.7 && (ymx - ymn) > uBH * 0.7;
+};
+
 // Render app layer onto a transparent canvas in viewport pixel space.
 const layerCanvas = createCanvas(VW, VH);
 const lctx = layerCanvas.getContext("2d");
 const vp = (x, y) => viewport.convertToViewportPoint(x, y); // user -> raster px
+const OUTLINES = process.env.OUTLINES === "1"; // preview the solid+outlines look
+const darken = (hex, f) => {
+  const r = Math.round(parseInt(hex.slice(1,3),16)*f), g = Math.round(parseInt(hex.slice(3,5),16)*f), b = Math.round(parseInt(hex.slice(5,7),16)*f);
+  return `rgb(${r}, ${g}, ${b})`;
+};
 for (const cat of DRAW_ORDER) {
   const segs = buckets.get(cat) ?? [];
   if (!segs.length) continue;
@@ -212,8 +237,11 @@ for (const cat of DRAW_ORDER) {
   lctx.fillStyle = hex; lctx.strokeStyle = hex; lctx.lineCap = "round"; lctx.lineJoin = "round";
   const strokeCat = STROKE_CATS.has(cat);
   if (strokeCat) lctx.lineWidth = Math.max(1.4, SCALE * 1.2);
+  const outlineW = Math.max(1, SCALE * 0.5);
   for (const seg of segs) {
     if (!strokeCat && !seg.closed && !seg.isFill) continue;
+    const bg = !strokeCat && isBgSeg(seg);
+    if (bg && !OUTLINES) continue; // skip sheet-spanning background fills
     for (const sp of seg.subpaths) {
       if (sp.length < (strokeCat ? 2 : 3)) continue;
       lctx.beginPath();
@@ -221,12 +249,19 @@ for (const cat of DRAW_ORDER) {
         const p = vp(sp[i].x, sp[i].y);
         if (i === 0) lctx.moveTo(p[0], p[1]); else lctx.lineTo(p[0], p[1]);
       }
-      if (strokeCat) lctx.stroke();
-      else { lctx.closePath(); lctx.fill(); }
+      if (strokeCat) { lctx.stroke(); continue; }
+      lctx.closePath();
+      if (!bg) lctx.fill();
+      if (OUTLINES) {
+        lctx.strokeStyle = darken(hex, 0.5);
+        lctx.lineWidth = outlineW;
+        lctx.stroke();
+        lctx.strokeStyle = hex; // restore for any stroke cats
+      }
     }
   }
 }
-writeFileSync(resolve(OUT, "layer.png"), layerCanvas.toBuffer("image/png"));
+writeFileSync(resolve(OUT, OUTLINES ? "layer-outlines.png" : "layer.png"), layerCanvas.toBuffer("image/png"));
 
 // ---- per-category coverage: which layer blankets the page? -----------------
 console.log("\n=== Per-category painted coverage (% of page) ===");
@@ -241,6 +276,7 @@ for (const cat of DRAW_ORDER) {
   if (strokeCat) { cx.strokeStyle = "#fff"; cx.lineWidth = Math.max(1.4, SCALE * 1.2); }
   for (const seg of segs) {
     if (!strokeCat && !seg.closed && !seg.isFill) continue;
+    if (!strokeCat && isBgSeg(seg)) continue; // skip sheet-spanning background fills
     for (const sp of seg.subpaths) {
       if (sp.length < (strokeCat ? 2 : 3)) continue;
       cx.beginPath();

@@ -93,6 +93,24 @@ export function renderDrawingFills(
   const H = Math.ceil((maxY - minY) * opts.renderScale);
   const effCat = opts.effCat ?? ((s: DrawingSegment) => s.category);
 
+  // A polygon whose bounding box spans most of BOTH page dimensions is a
+  // sheet-covering background (e.g. a site/landscape base or a page rectangle)
+  // - filling it opaque blankets everything beneath, which is the "one solid
+  // layer" symptom. We skip the FILL for such polygons (their outline still
+  // draws in outline mode) so the real detail underneath shows through.
+  const boundsW = Math.max(maxX - minX, 1);
+  const boundsH = Math.max(maxY - minY, 1);
+  const BG_SPAN = 0.7;
+  const isBackgroundSpan = (pts: number[]): boolean => {
+    let xmn = pts[0], ymn = pts[1], xmx = pts[0], ymx = pts[1];
+    for (let i = 2; i < pts.length; i += 2) {
+      const x = pts[i], y = pts[i + 1];
+      if (x < xmn) xmn = x; else if (x > xmx) xmx = x;
+      if (y < ymn) ymn = y; else if (y > ymx) ymx = y;
+    }
+    return (xmx - xmn) > boundsW * BG_SPAN && (ymx - ymn) > boundsH * BG_SPAN;
+  };
+
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.clearRect(0, 0, W, H);
   ctx.fillStyle = opts.background ?? "#0f172a";
@@ -166,7 +184,8 @@ export function renderDrawingFills(
         else ctx.lineTo(px, py);
       }
       ctx.closePath();
-      ctx.fill();
+      // Skip the opaque fill for sheet-spanning backgrounds; keep the outline.
+      if (!isBackgroundSpan(pts)) ctx.fill();
       if (outline) ctx.stroke();
     }
   }

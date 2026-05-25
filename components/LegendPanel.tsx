@@ -37,6 +37,8 @@ interface Props {
   pickingCategory: RoadCategory | null;
   onStartPick: (cat: RoadCategory | null) => void;
   swatchOverrides: Partial<Record<RoadCategory, [number, number, number]>>;
+  showOutlines?: boolean;
+  onToggleOutlines?: (v: boolean) => void;
 }
 
 export function LegendPanel({
@@ -46,6 +48,8 @@ export function LegendPanel({
   pickingCategory,
   onStartPick,
   swatchOverrides,
+  showOutlines,
+  onToggleOutlines,
 }: Props) {
   // Aggregate segment / length stats per category for the right-hand stats column.
   const stats = useMemo(() => {
@@ -102,11 +106,27 @@ export function LegendPanel({
         <div style={{ fontSize: 10, letterSpacing: 1.6, color: "#94a3b8", textTransform: "uppercase" }}>
           Layers · {presentCats.length}
         </div>
-        {pickingCategory && (
-          <button className="btn btn-sm" onClick={() => onStartPick(null)}>
-            Cancel
-          </button>
-        )}
+        <div style={{ display: "flex", gap: 6 }}>
+          {onToggleOutlines && (
+            <button
+              className="btn btn-sm"
+              onClick={() => onToggleOutlines(!showOutlines)}
+              title="Show polygon outlines + hatch lines over the solid fills"
+              style={
+                showOutlines
+                  ? { background: "var(--accent)", borderColor: "var(--accent)", color: "#fff" }
+                  : undefined
+              }
+            >
+              Outlines
+            </button>
+          )}
+          {pickingCategory && (
+            <button className="btn btn-sm" onClick={() => onStartPick(null)}>
+              Cancel
+            </button>
+          )}
+        </div>
       </div>
 
       {pickingCategory && (

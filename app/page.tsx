@@ -144,6 +144,7 @@ export default function Page() {
   // Scale calibration: the length (drawing units) of the last completed
   // measurement, awaiting the user's real-world distance to derive the scale.
   const [calibUnits, setCalibUnits] = useState<number | null>(null);
+  const [showOutlines, setShowOutlines] = useState(false);
   const [calibMetres, setCalibMetres] = useState("");
   const [zoomPct, setZoomPct] = useState<number | null>(null);
   const [viewportCmd, setViewportCmd] = useState<ViewportCommand | null>(null);
@@ -786,6 +787,8 @@ export default function Page() {
                       if (c) setTool("pick");
                     }}
                     swatchOverrides={swatchOverrides}
+                    showOutlines={showOutlines}
+                    onToggleOutlines={setShowOutlines}
                   />
                 </div>
               </div>
@@ -848,6 +851,7 @@ export default function Page() {
               drawing={result.drawing}
               visibleCategories={visibleCategories}
               groupCategory={groupCategory}
+              showOutlines={showOutlines}
               pageRotation={pageRotation}
               tool={tool}
               command={viewportCmd}

@@ -55,6 +55,8 @@ interface Props {
   visibleCategories: Record<RoadCategory, boolean>;
   /** Optional per-group category override (re-pick updates this map). */
   groupCategory?: Record<string, RoadCategory>;
+  /** Draw polygon outlines + hatch lines over the solid fills. */
+  showOutlines?: boolean;
   /** PDF page /Rotate value in degrees (0 / 90 / 180 / 270). */
   pageRotation?: number;
   /** Active interaction tool. */
@@ -74,6 +76,7 @@ export function CadViewer({
   drawing,
   visibleCategories,
   groupCategory,
+  showOutlines = false,
   pageRotation = 0,
   tool = "pan",
   command,
@@ -311,6 +314,7 @@ export function CadViewer({
       visibleCategories,
       categoryColors: CATEGORY_COLORS,
       effCat,
+      showOutlines,
     });
     // Signal the blit effect that the offscreen pixels changed.
     setOffscreenVersion((v) => v + 1);
@@ -320,7 +324,7 @@ export function CadViewer({
     // the per-frame pan/zoom blit below is gated separately so it never lands
     // here.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [drawing, groupCategory, visibleCategories]);
+  }, [drawing, groupCategory, visibleCategories, showOutlines]);
 
   // Display loop: blit the offscreen layer with pan/zoom.
   useEffect(() => {
