@@ -47,6 +47,15 @@ export function HighwayDimsPanel({
       selOverride.width != null ||
       selOverride.ffsKmh != null);
 
+  // Cap the rendered rows: a huge network would otherwise create tens of
+  // thousands of <tr> nodes and freeze the main thread. Show the longest
+  // links (the ones that matter) and note the truncation.
+  const MAX_ROWS = 400;
+  const linkRows =
+    dims.links.length > MAX_ROWS
+      ? [...dims.links].sort((a, b) => b.length - a.length).slice(0, MAX_ROWS)
+      : dims.links;
+
   return (
     <div style={{ padding: "14px 16px", color: "#e2e8f0", fontSize: 12 }}>
       {/* Assumptions */}
@@ -235,6 +244,12 @@ export function HighwayDimsPanel({
       {/* Per-link table */}
       <div style={{ marginBottom: 6, fontSize: 10, letterSpacing: 1.4, color: "#64748b", textTransform: "uppercase" }}>
         Links ({dims.links.length})
+        {linkRows.length < dims.links.length && (
+          <span style={{ textTransform: "none", letterSpacing: 0, color: "#475569" }}>
+            {" "}
+            · showing longest {linkRows.length}
+          </span>
+        )}
       </div>
       <div style={{ maxHeight: 260, overflowY: "auto", border: "1px solid #1e293b", borderRadius: 6 }}>
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11 }}>
@@ -252,7 +267,7 @@ export function HighwayDimsPanel({
             </tr>
           </thead>
           <tbody>
-            {dims.links.map((l) => {
+            {linkRows.map((l) => {
               const sel = l.linkId === selectedLinkId;
               return (
                 <tr

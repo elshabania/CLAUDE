@@ -847,7 +847,12 @@ export function buildRoadNetwork(
     }
   }
 
-  const movements = buildMovementTable(nodeArr, linkArr);
+  // The movement (turn) table is only consumed by the vehicle simulation,
+  // which is deactivated. Building it is O(degree^2) per junction and can be
+  // a major cost (or, on an over-coalesced super-node, a blow-up) on the
+  // Highway build, so skip it entirely while it has no consumer.
+  const movements: Movement[] = [];
+  void buildMovementTable; // kept for when the simulation is re-enabled
 
   return {
     nodes: nodeArr,
