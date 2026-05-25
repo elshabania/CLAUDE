@@ -332,50 +332,71 @@ export function buildRoadNetwork(
   const linkMap = new Map(links.map((l) => [l.id, l]));
   if (!opts.skipStitching) {
     const angleTol = opts.stitchAngleToleranceDeg ?? 12;
-    let changed = true;
-    while (changed) {
-      changed = false;
-      for (const node of nodes.values()) {
-        if (node.links.length !== 2) continue;
-        const linkA = linkMap.get(node.links[0]);
-        const linkB = linkMap.get(node.links[1]);
-        if (!linkA || !linkB) continue;
-        if (linkA === linkB) continue; // self-loop guard
+    // Worklist stitch: process each degree-2 node once. A merge deletes the
+    // in-between node and rewires the two far nodes; only those far nodes can
+    // become newly mergeable (e.g. along a dashed chain), so we re-enqueue
+    // them. This reaches the same fixed point as a naive restart-on-each-merge
+    // loop but in ~O(nodes + merges) instead of O(nodes x merges). A hard cap
+    // guarantees termination on any pathological input.
+    const queue: string[] = [];
+    const queued = new Set<string>();
+    const enqueue = (id: string) => {
+      const n = nodes.get(id);
+      if (n && n.links.length === 2 && !queued.has(id)) {
+        queued.add(id);
+        queue.push(id);
+      }
+    };
+    for (const node of nodes.values()) enqueue(node.id);
 
-        const inBearing = bearingApproachingNode(linkA, node.id);
-        const outBearing = bearingLeavingNode(linkB, node.id);
-        const turn = Math.abs(((outBearing - inBearing + 540) % 360) - 180);
-        if (turn > angleTol) continue;
+    let guard = 0;
+    const maxOps = links.length * 4 + nodes.size * 4 + 16;
+    while (queue.length > 0) {
+      if (++guard > maxOps) break; // safety: never spin forever
+      const nodeId = queue.pop()!;
+      queued.delete(nodeId);
+      const node = nodes.get(nodeId);
+      if (!node || node.links.length !== 2) continue;
 
-        const merged = mergeAtNode(linkA, linkB, node.id);
-        if (!merged) continue;
+      const linkA = linkMap.get(node.links[0]);
+      const linkB = linkMap.get(node.links[1]);
+      if (!linkA || !linkB) continue;
+      if (linkA === linkB) continue; // self-loop guard
 
-        linkMap.delete(linkA.id);
-        linkMap.delete(linkB.id);
-        linkMap.set(merged.id, merged);
+      const inBearing = bearingApproachingNode(linkA, node.id);
+      const outBearing = bearingLeavingNode(linkB, node.id);
+      const turn = Math.abs(((outBearing - inBearing + 540) % 360) - 180);
+      if (turn > angleTol) continue;
 
-        const farA = linkA.fromNode === node.id ? linkA.toNode : linkA.fromNode;
-        const farB = linkB.fromNode === node.id ? linkB.toNode : linkB.fromNode;
+      const merged = mergeAtNode(linkA, linkB, node.id);
+      if (!merged) continue;
 
-        const farANode = nodes.get(farA);
-        if (farANode) {
-          farANode.links = farANode.links
+      linkMap.delete(linkA.id);
+      linkMap.delete(linkB.id);
+      linkMap.set(merged.id, merged);
+
+      const farA = linkA.fromNode === node.id ? linkA.toNode : linkA.fromNode;
+      const farB = linkB.fromNode === node.id ? linkB.toNode : linkB.fromNode;
+
+      const farANode = nodes.get(farA);
+      if (farANode) {
+        farANode.links = farANode.links
+          .filter((id) => id !== linkA.id && id !== linkB.id)
+          .concat(merged.id);
+      }
+      if (farA !== farB) {
+        const farBNode = nodes.get(farB);
+        if (farBNode) {
+          farBNode.links = farBNode.links
             .filter((id) => id !== linkA.id && id !== linkB.id)
             .concat(merged.id);
         }
-        if (farA !== farB) {
-          const farBNode = nodes.get(farB);
-          if (farBNode) {
-            farBNode.links = farBNode.links
-              .filter((id) => id !== linkA.id && id !== linkB.id)
-              .concat(merged.id);
-          }
-        }
-
-        nodes.delete(node.id);
-        changed = true;
-        break; // restart with mutated maps
       }
+
+      nodes.delete(node.id);
+      // Far nodes may now be collinear degree-2 joints; revisit them.
+      enqueue(farA);
+      if (farA !== farB) enqueue(farB);
     }
   }
 
