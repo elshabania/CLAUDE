@@ -860,17 +860,24 @@ export default function Page() {
               onPickGroup={tool === "pick" && pickingCategory ? handlePickGroup : undefined}
             />
           )}
-          {tab === "highway" && hasNetwork && dims && (
-            <HighwayPlanViewer
-              network={network!}
-              dims={dims}
-              pageRotation={pageRotation}
-              colorBy={colorBy}
-              selectedLinkId={selectedLinkId}
-              onSelectLink={setSelectedLinkId}
-            />
-          )}
-          {!isPlanTab && hasNetwork && (
+          {(tab === "highway" ||
+            tab === "movements" ||
+            tab === "phasing" ||
+            tab === "ai") &&
+            hasNetwork &&
+            dims && (
+              <HighwayPlanViewer
+                network={network!}
+                dims={dims}
+                pageRotation={pageRotation}
+                colorBy={colorBy}
+                selectedLinkId={selectedLinkId}
+                onSelectLink={setSelectedLinkId}
+              />
+            )}
+          {/* The Three.js scene is heavy, so it loads only on the Network 3D
+              tab - never on the 2D-backed Junctions/Phasing/Optimise tabs. */}
+          {tab === "network" && hasNetwork && (
             <Simulation3DViewer
               drawing={result!.drawing}
               groupCategory={groupCategory}
