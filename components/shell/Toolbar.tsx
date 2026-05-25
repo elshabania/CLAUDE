@@ -15,12 +15,11 @@ interface Props {
   hasDrawing: boolean;
 }
 
-// Junction-analysis views (Junctions / Phasing / Optimise) are deactivated for
-// now to keep the app focused on drawing review + highway dimensions.
+// Focused to the two reliable 2D views. The Network 3D and junction-analysis
+// views are deactivated for now.
 const VIEWS: { id: DashTab; label: string }[] = [
   { id: "drawing", label: "Layers" },
   { id: "highway", label: "Highway" },
-  { id: "network", label: "Network 3D" },
 ];
 
 export function Toolbar({

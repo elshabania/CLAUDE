@@ -252,7 +252,8 @@ export default function Page() {
   const [network, setNetwork] = useState<RoadNetwork | null>(null);
   const [networkBuilding, setNetworkBuilding] = useState(false);
   const [networkSlow, setNetworkSlow] = useState(false);
-  const needsNetwork = tab === "highway" || tab === "network";
+  const [networkError, setNetworkError] = useState<string | null>(null);
+  const needsNetwork = tab === "highway";
 
   // Drop a stale network as soon as a new drawing loads.
   useEffect(() => {
@@ -264,6 +265,7 @@ export default function Page() {
     let cancelled = false;
     setNetworkBuilding(true);
     setNetworkSlow(false);
+    setNetworkError(null);
     // After a few seconds on a big drawing, reassure rather than look hung.
     const slowTimer = setTimeout(() => {
       if (!cancelled) setNetworkSlow(true);
@@ -275,7 +277,12 @@ export default function Page() {
       .catch((err) => {
         // eslint-disable-next-line no-console
         console.error("buildNetwork failed:", err);
-        if (!cancelled) setNetwork(null);
+        if (!cancelled) {
+          setNetwork(null);
+          setNetworkError(
+            err instanceof Error ? err.message : "Couldn't build the highway network."
+          );
+        }
       })
       .finally(() => {
         if (!cancelled) {
@@ -930,15 +937,18 @@ export default function Page() {
               onSelectJunction={setSelectedJunctionId}
             />
           )}
-          {tab !== "drawing" && !hasNetwork && (
-            <SceneEmptyState
-              status={status}
-              error={error}
-              warning={warning}
-              rasterPreview={rasterPreview}
-            />
-          )}
-          {!isPlanTab && networkBuilding && !hasNetwork && (
+          {tab !== "drawing" &&
+            !hasNetwork &&
+            !networkBuilding &&
+            !networkError && (
+              <SceneEmptyState
+                status={status}
+                error={error}
+                warning={warning}
+                rasterPreview={rasterPreview}
+              />
+            )}
+          {needsNetwork && networkBuilding && !hasNetwork && (
             <div
               style={{
                 position: "absolute",
@@ -954,6 +964,34 @@ export default function Page() {
               {networkSlow
                 ? "Still building — large drawing, hang tight…"
                 : "Building road network…"}
+            </div>
+          )}
+          {needsNetwork && networkError && !hasNetwork && !networkBuilding && (
+            <div
+              style={{
+                position: "absolute",
+                inset: 0,
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 12,
+                padding: 24,
+                textAlign: "center",
+              }}
+            >
+              <div style={{ color: "#fca5a5", fontSize: 13, maxWidth: 420 }}>
+                {networkError}
+              </div>
+              <button
+                className="btn btn-sm"
+                onClick={() => {
+                  setTab("drawing");
+                  setTimeout(() => setTab("highway"), 0);
+                }}
+              >
+                Try again
+              </button>
             </div>
           )}
           </ErrorBoundary>
