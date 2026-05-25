@@ -5,7 +5,7 @@
 
 import type { ParsedDrawing, RoadCategory } from "@/lib/road-detect";
 import type { JunctionInputs } from "@/lib/hcm";
-import type { DimensionAssumptions } from "@/lib/highway-dims";
+import type { DimensionAssumptions, LinkOverride } from "@/lib/highway-dims";
 
 export const PROJECT_VERSION = 1;
 export const PROJECT_MAGIC = "masterplan-highway-analyzer";
@@ -20,6 +20,7 @@ export interface ProjectDoc {
   visibleCategories: Record<RoadCategory, boolean>;
   swatchOverrides: Partial<Record<RoadCategory, [number, number, number]>>;
   junctionInputs: Record<string, JunctionInputs>;
+  linkOverrides: Record<string, LinkOverride>;
   dimAssumptions: DimensionAssumptions;
   pageRotation: number;
   colorBy: "los" | "class";
@@ -61,6 +62,7 @@ export function parseProject(text: string): ProjectDoc {
   if (!d.drawing || !Array.isArray(d.drawing.segments)) {
     throw new Error("This project is missing its drawing data.");
   }
+  if (!d.linkOverrides) d.linkOverrides = {};
   return d as ProjectDoc;
 }
 

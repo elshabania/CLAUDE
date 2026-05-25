@@ -27,6 +27,7 @@ import type { ViewportSignals, ViewportCommand } from "@/components/CadViewer";
 import {
   computeNetworkDimensions,
   type DimensionAssumptions,
+  type LinkOverride,
 } from "@/lib/highway-dims";
 import {
   extractPdfPathsInBrowser,
@@ -102,6 +103,9 @@ export default function Page() {
     peakHourVolumePerLane: 0,
   });
   const [colorBy, setColorBy] = useState<"los" | "class">("class");
+  const [linkOverrides, setLinkOverrides] = useState<
+    Record<string, LinkOverride>
+  >({});
   const [selectedLinkId, setSelectedLinkId] = useState<string | null>(null);
   const [tool, setTool] = useState<ViewTool>("pan");
   const [cursor, setCursor] = useState<{ x: number; y: number } | null>(null);
@@ -139,6 +143,7 @@ export default function Page() {
     const c: Record<string, RoadCategory> = {};
     for (const g of result.drawing.groups) c[g.id] = g.category;
     setGroupCategory(c);
+    setLinkOverrides({});
   }, [result]);
 
   // Group-level visibility AND category-level visibility, combined.
@@ -238,8 +243,8 @@ export default function Page() {
 
   const dims = useMemo(() => {
     if (!network) return null;
-    return computeNetworkDimensions(network, dimAssumptions);
-  }, [network, dimAssumptions]);
+    return computeNetworkDimensions(network, dimAssumptions, linkOverrides);
+  }, [network, dimAssumptions, linkOverrides]);
 
   // Seed default junction inputs when new junctions appear.
   useEffect(() => {
@@ -400,6 +405,7 @@ export default function Page() {
     setVisibleCategories(doc.visibleCategories);
     setSwatchOverrides(doc.swatchOverrides);
     setJunctionInputs(doc.junctionInputs);
+    setLinkOverrides(doc.linkOverrides ?? {});
     setDimAssumptions(doc.dimAssumptions);
     setPageRotation(doc.pageRotation);
     setColorBy(doc.colorBy);
@@ -432,6 +438,7 @@ export default function Page() {
       visibleCategories,
       swatchOverrides,
       junctionInputs,
+      linkOverrides,
       dimAssumptions,
       pageRotation,
       colorBy,
@@ -491,6 +498,7 @@ export default function Page() {
       visibleCategories,
       swatchOverrides,
       junctionInputs,
+      linkOverrides,
       dimAssumptions,
       pageRotation,
       colorBy,
@@ -500,6 +508,7 @@ export default function Page() {
       visibleCategories,
       swatchOverrides,
       junctionInputs,
+      linkOverrides,
       dimAssumptions,
       pageRotation,
       colorBy,
@@ -542,6 +551,7 @@ export default function Page() {
     setVisibleCategories(d.visibleCategories);
     setSwatchOverrides(d.swatchOverrides);
     setJunctionInputs(d.junctionInputs);
+    setLinkOverrides(d.linkOverrides);
     setDimAssumptions(d.dimAssumptions);
     setPageRotation(d.pageRotation);
     setColorBy(d.colorBy);
@@ -648,6 +658,14 @@ export default function Page() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Reflect the open file in the native window title.
+  useEffect(() => {
+    const name = result?.filename;
+    window.desktop?.setTitle(
+      name ? `${name} — Masterplan Highway Analyzer` : "Masterplan Highway Analyzer"
+    );
+  }, [result?.filename]);
 
   const hasNetwork = !!network && network.links.length > 0;
   const isPlanTab = tab === "drawing" || tab === "highway";
@@ -854,6 +872,20 @@ export default function Page() {
                     onChangeColorBy={setColorBy}
                     selectedLinkId={selectedLinkId}
                     onSelectLink={setSelectedLinkId}
+                    overrides={linkOverrides}
+                    onChangeOverride={(id, patch) =>
+                      setLinkOverrides((prev) => ({
+                        ...prev,
+                        [id]: { ...prev[id], ...patch },
+                      }))
+                    }
+                    onResetOverride={(id) =>
+                      setLinkOverrides((prev) => {
+                        const next = { ...prev };
+                        delete next[id];
+                        return next;
+                      })
+                    }
                   />
                 </div>
               </div>

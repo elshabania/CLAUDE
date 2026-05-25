@@ -1,6 +1,10 @@
 "use client";
 
-import type { NetworkDimensions, DimensionAssumptions } from "@/lib/highway-dims";
+import type {
+  NetworkDimensions,
+  DimensionAssumptions,
+  LinkOverride,
+} from "@/lib/highway-dims";
 import { LOS_COLORS, type LOS } from "@/lib/hcm";
 
 interface Props {
@@ -11,6 +15,9 @@ interface Props {
   onChangeColorBy: (v: "los" | "class") => void;
   selectedLinkId?: string | null;
   onSelectLink?: (id: string | null) => void;
+  overrides?: Record<string, LinkOverride>;
+  onChangeOverride?: (linkId: string, patch: LinkOverride) => void;
+  onResetOverride?: (linkId: string) => void;
 }
 
 const fmt = (n: number, d = 0) =>
@@ -24,9 +31,21 @@ export function HighwayDimsPanel({
   onChangeColorBy,
   selectedLinkId,
   onSelectLink,
+  overrides,
+  onChangeOverride,
+  onResetOverride,
 }: Props) {
   const u = dims.units === "m" ? "m" : "u";
   const totals = dims.totals;
+  const selectedLink = selectedLinkId
+    ? dims.links.find((l) => l.linkId === selectedLinkId) ?? null
+    : null;
+  const selOverride = selectedLinkId ? overrides?.[selectedLinkId] : undefined;
+  const isOverridden =
+    !!selOverride &&
+    (selOverride.lanesPerDir != null ||
+      selOverride.width != null ||
+      selOverride.ffsKmh != null);
 
   return (
     <div style={{ padding: "14px 16px", color: "#e2e8f0", fontSize: 12 }}>
@@ -131,6 +150,87 @@ export function HighwayDimsPanel({
             </div>
           ))}
       </div>
+
+      {/* Selected-link editor: correct detected attributes. */}
+      {selectedLink && onChangeOverride && (
+        <div
+          style={{
+            border: "1px solid #334155",
+            borderRadius: 6,
+            padding: "10px 12px",
+            marginBottom: 14,
+            background: "#0b1120",
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+            <div style={{ fontSize: 11, color: "#cbd5e1" }}>
+              Edit link <b>{selectedLink.linkId.replace(/^link_?/, "")}</b>
+              {isOverridden && (
+                <span style={{ marginLeft: 8, fontSize: 9.5, color: "#fbbf24", letterSpacing: 1 }}>
+                  EDITED
+                </span>
+              )}
+            </div>
+            {isOverridden && (
+              <button
+                onClick={() => onResetOverride?.(selectedLink.linkId)}
+                style={{ ...pillStyle, background: "#1e293b", color: "#cbd5e1" }}
+              >
+                Reset
+              </button>
+            )}
+          </div>
+          <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+            <Field label="Lanes / direction">
+              <input
+                type="number"
+                min={1}
+                max={6}
+                step={1}
+                value={selectedLink.lanesPerDir}
+                onChange={(e) => {
+                  const v = parseInt(e.target.value, 10);
+                  onChangeOverride(selectedLink.linkId, {
+                    lanesPerDir: Number.isFinite(v) ? Math.max(1, Math.min(6, v)) : undefined,
+                  });
+                }}
+                style={{ ...inputStyle, width: 90 }}
+              />
+            </Field>
+            <Field label={`Width (${u})`}>
+              <input
+                type="number"
+                min={0}
+                step="0.5"
+                value={selectedLink.width != null ? Math.round(selectedLink.width * 10) / 10 : ""}
+                onChange={(e) => {
+                  const v = parseFloat(e.target.value);
+                  onChangeOverride(selectedLink.linkId, {
+                    width: Number.isFinite(v) && v > 0 ? v : undefined,
+                  });
+                }}
+                style={{ ...inputStyle, width: 90 }}
+              />
+            </Field>
+            <Field label="FFS (km/h)">
+              <input
+                type="number"
+                min={10}
+                max={130}
+                step={5}
+                value={selectedLink.ffsKmh}
+                onChange={(e) => {
+                  const v = parseFloat(e.target.value);
+                  onChangeOverride(selectedLink.linkId, {
+                    ffsKmh: Number.isFinite(v) && v > 0 ? v : undefined,
+                  });
+                }}
+                style={{ ...inputStyle, width: 90 }}
+              />
+            </Field>
+          </div>
+        </div>
+      )}
 
       {/* Per-link table */}
       <div style={{ marginBottom: 6, fontSize: 10, letterSpacing: 1.4, color: "#64748b", textTransform: "uppercase" }}>

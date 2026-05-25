@@ -28,4 +28,6 @@ contextBridge.exposeInMainWorld("desktop", {
     ipcRenderer.invoke("save-text", { defaultName, text, filterName, ext }),
   saveBinary: (defaultName, data, filterName, ext) =>
     ipcRenderer.invoke("save-binary", { defaultName, data, filterName, ext }),
+
+  setTitle: (title) => ipcRenderer.send("set-title", title),
 });

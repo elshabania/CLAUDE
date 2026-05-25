@@ -19,6 +19,7 @@ export interface DesktopBridge {
     filterName: string,
     ext: string
   ): Promise<boolean>;
+  setTitle(title: string): void;
 }
 
 declare global {

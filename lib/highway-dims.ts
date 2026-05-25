@@ -135,9 +135,18 @@ const CLASS_FFS: Record<FunctionalClass, number> = {
   unknown: 50,
 };
 
+/** Manual corrections an engineer applies to a detected link. Values are in
+ *  the displayed unit (metres when a scale is set) and km/h for speed. */
+export interface LinkOverride {
+  lanesPerDir?: number;
+  width?: number;
+  ffsKmh?: number;
+}
+
 export function computeNetworkDimensions(
   network: RoadNetwork,
-  opts: DimensionAssumptions = {}
+  opts: DimensionAssumptions = {},
+  overrides: Record<string, LinkOverride> = {}
 ): NetworkDimensions {
   const upm = opts.unitsPerMetre && opts.unitsPerMetre > 0 ? opts.unitsPerMetre : 1;
   const toLen = (u: number) => u / upm; // PDF units -> metres (or units if upm=1)
@@ -169,9 +178,11 @@ export function computeNetworkDimensions(
   let widthN = 0;
 
   for (const link of network.links) {
+    const ov = overrides[link.id] ?? {};
     const lengthM = toLen(link.length);
-    const widthM = link.width != null ? toLen(link.width) : null;
-    const lanesPerDir = link.lanesPerDir ?? 1;
+    const widthM =
+      ov.width != null ? ov.width : link.width != null ? toLen(link.width) : null;
+    const lanesPerDir = ov.lanesPerDir ?? link.lanesPerDir ?? 1;
     const totalLanes = lanesPerDir * 2;
     const curv = curvature(link.points);
     const minRUnits = curv?.min ?? null;
@@ -179,11 +190,11 @@ export function computeNetworkDimensions(
     const minRm = minRUnits != null ? toLen(minRUnits) : null;
     const meanRm = meanRUnits != null ? toLen(meanRUnits) : null;
     const fclass = classifyFunctional(link, medianWidth);
-    const ffs = CLASS_FFS[fclass];
+    const ffs = ov.ffsKmh ?? CLASS_FFS[fclass];
 
     let los: SegmentLOSResult | undefined;
     if (volPerLane > 0) {
-      const ffsForLos = estimateFreeFlowSpeed(ffs, widthM, fclass);
+      const ffsForLos = ov.ffsKmh ?? estimateFreeFlowSpeed(ffs, widthM, fclass);
       // Demand on this link = per-lane volume x lanes (both directions share
       // the carriageway; segment LOS is per direction).
       los = segmentLOS({

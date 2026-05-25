@@ -181,6 +181,12 @@ function registerIpc() {
     return true;
   });
 
+  ipcMain.on("set-title", (_e, title) => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.setTitle(title || "Masterplan Highway Analyzer");
+    }
+  });
+
   ipcMain.handle("save-binary", async (_e, { defaultName, data, filterName, ext }) => {
     const r = await dialog.showSaveDialog(mainWindow, {
       title: "Export",
