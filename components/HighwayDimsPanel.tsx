@@ -5,7 +5,6 @@ import type {
   DimensionAssumptions,
   LinkOverride,
 } from "@/lib/highway-dims";
-import { LOS_COLORS, type LOS } from "@/lib/hcm";
 
 interface Props {
   dims: NetworkDimensions;
@@ -47,18 +46,9 @@ export function HighwayDimsPanel({
       selOverride.width != null ||
       selOverride.ffsKmh != null);
 
-  // Cap the rendered rows: a huge network would otherwise create tens of
-  // thousands of <tr> nodes and freeze the main thread. Show the longest
-  // links (the ones that matter) and note the truncation.
-  const MAX_ROWS = 400;
-  const linkRows =
-    dims.links.length > MAX_ROWS
-      ? [...dims.links].sort((a, b) => b.length - a.length).slice(0, MAX_ROWS)
-      : dims.links;
-
   return (
     <div style={{ padding: "14px 16px", color: "#e2e8f0", fontSize: 12 }}>
-      {/* Assumptions */}
+      {/* Scale (the only assumption that affects geometry) */}
       <div style={{ display: "flex", gap: 16, flexWrap: "wrap", marginBottom: 14 }}>
         <Field label={`Scale (PDF units per metre)`}>
           <input
@@ -74,38 +64,6 @@ export function HighwayDimsPanel({
             }
             style={inputStyle}
           />
-        </Field>
-        <Field label="Peak vol (veh/h/lane)">
-          <input
-            type="number"
-            min={0}
-            step="50"
-            value={assumptions.peakHourVolumePerLane ?? 0}
-            onChange={(e) =>
-              onChangeAssumptions({
-                ...assumptions,
-                peakHourVolumePerLane: Math.max(0, parseFloat(e.target.value) || 0),
-              })
-            }
-            style={inputStyle}
-          />
-        </Field>
-        <Field label="Colour links by">
-          <div style={{ display: "flex", gap: 6 }}>
-            {(["los", "class"] as const).map((m) => (
-              <button
-                key={m}
-                onClick={() => onChangeColorBy(m)}
-                style={{
-                  ...pillStyle,
-                  background: colorBy === m ? "#2563eb" : "#1e293b",
-                  color: colorBy === m ? "#fff" : "#cbd5e1",
-                }}
-              >
-                {m === "los" ? "LOS" : "Class"}
-              </button>
-            ))}
-          </div>
         </Field>
       </div>
 
@@ -126,11 +84,7 @@ export function HighwayDimsPanel({
           marginBottom: 14,
         }}
       >
-        <Stat label="Links" value={fmt(totals.linkCount)} />
-        <Stat label="Junctions" value={fmt(totals.junctionCount)} />
-        <Stat label="Roundabouts" value={fmt(totals.roundaboutCount)} />
-        <Stat label="Signals" value={fmt(totals.signalCount)} />
-        <Stat label="Priority" value={fmt(totals.priorityCount)} />
+        <Stat label="Road segments" value={fmt(totals.linkCount)} />
         <Stat label={`Total length (${u})`} value={fmt(totals.totalLength)} />
         <Stat label={`Lane-length (${u})`} value={fmt(totals.totalLaneLength)} />
         <Stat
@@ -241,80 +195,9 @@ export function HighwayDimsPanel({
         </div>
       )}
 
-      {/* Per-link table */}
-      <div style={{ marginBottom: 6, fontSize: 10, letterSpacing: 1.4, color: "#64748b", textTransform: "uppercase" }}>
-        Links ({dims.links.length})
-        {linkRows.length < dims.links.length && (
-          <span style={{ textTransform: "none", letterSpacing: 0, color: "#475569" }}>
-            {" "}
-            · showing longest {linkRows.length}
-          </span>
-        )}
+      <div style={{ color: "#64748b", fontSize: 11, marginTop: 4 }}>
+        Click a road in the plan to edit its lanes / width / speed.
       </div>
-      <div style={{ maxHeight: 260, overflowY: "auto", border: "1px solid #1e293b", borderRadius: 6 }}>
-        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11 }}>
-          <thead>
-            <tr style={{ position: "sticky", top: 0, background: "#0f172a", color: "#94a3b8" }}>
-              <Th>ID</Th>
-              <Th>Class</Th>
-              <Th>{`Len (${u})`}</Th>
-              <Th>{`Width (${u})`}</Th>
-              <Th>Lanes</Th>
-              <Th>{`Min R (${u})`}</Th>
-              <Th>FFS</Th>
-              <Th>v/c</Th>
-              <Th>LOS</Th>
-            </tr>
-          </thead>
-          <tbody>
-            {linkRows.map((l) => {
-              const sel = l.linkId === selectedLinkId;
-              return (
-                <tr
-                  key={l.linkId}
-                  onClick={() => onSelectLink?.(sel ? null : l.linkId)}
-                  style={{
-                    cursor: "pointer",
-                    background: sel ? "#1e293b" : "transparent",
-                    borderTop: "1px solid #131c2e",
-                  }}
-                >
-                  <Td>{l.linkId.replace(/^link_?/, "")}</Td>
-                  <Td style={{ textTransform: "capitalize" }}>{l.functionalClass}</Td>
-                  <Td>{fmt(l.length)}</Td>
-                  <Td>{l.width != null ? fmt(l.width, 1) : "—"}</Td>
-                  <Td>{l.totalLanes}</Td>
-                  <Td>{l.minCurveRadius != null ? fmt(l.minCurveRadius) : "—"}</Td>
-                  <Td>{l.ffsKmh}</Td>
-                  <Td>{l.los ? l.los.vc.toFixed(2) : "—"}</Td>
-                  <Td>
-                    {l.los ? (
-                      <span
-                        style={{
-                          background: LOS_COLORS[l.los.los as LOS],
-                          color: "#0f172a",
-                          borderRadius: 3,
-                          padding: "1px 6px",
-                          fontWeight: 700,
-                        }}
-                      >
-                        {l.los.los}
-                      </span>
-                    ) : (
-                      "—"
-                    )}
-                  </Td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-      {(!assumptions.peakHourVolumePerLane || assumptions.peakHourVolumePerLane <= 0) && (
-        <div style={{ color: "#64748b", fontSize: 11, marginTop: 8 }}>
-          Enter a peak-hour volume per lane above to compute segment LOS (HCM Ch.18).
-        </div>
-      )}
     </div>
   );
 }
@@ -337,12 +220,6 @@ function Stat({ label, value }: { label: string; value: string }) {
     </div>
   );
 }
-const Th = ({ children }: { children: React.ReactNode }) => (
-  <th style={{ textAlign: "left", padding: "6px 8px", fontWeight: 600, whiteSpace: "nowrap" }}>{children}</th>
-);
-const Td = ({ children, style }: { children: React.ReactNode; style?: React.CSSProperties }) => (
-  <td style={{ padding: "5px 8px", whiteSpace: "nowrap", ...style }}>{children}</td>
-);
 const inputStyle: React.CSSProperties = {
   background: "#0f172a",
   border: "1px solid #334155",

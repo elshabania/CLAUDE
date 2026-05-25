@@ -257,6 +257,18 @@ export default function Page() {
     setNetwork(null);
   }, [result]);
 
+  // The network is built ONLY from the road categories currently shown in the
+  // Layers panel - so the highway network matches the selected layers, not the
+  // whole drawing.
+  const visibleRoadCats = useMemo(
+    () =>
+      (Array.from(ROAD_CATEGORIES) as RoadCategory[]).filter(
+        (c) => visibleCategories[c] !== false
+      ),
+    [visibleCategories]
+  );
+  const visibleRoadKey = visibleRoadCats.join(",");
+
   useEffect(() => {
     if (!result || !needsNetwork) return;
     let cancelled = false;
@@ -267,7 +279,7 @@ export default function Page() {
     const slowTimer = setTimeout(() => {
       if (!cancelled) setNetworkSlow(true);
     }, 8000);
-    buildNetwork(result.drawing, groupCategory)
+    buildNetwork(result.drawing, groupCategory, { roadCategories: visibleRoadCats })
       .then((n) => {
         if (!cancelled) setNetwork(n);
       })
@@ -291,7 +303,8 @@ export default function Page() {
       cancelled = true;
       clearTimeout(slowTimer);
     };
-  }, [result, groupCategory, needsNetwork]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [result, groupCategory, needsNetwork, visibleRoadKey]);
 
   const dims = useMemo(() => {
     if (!network) return null;
@@ -993,7 +1006,7 @@ export default function Page() {
             {tab === "highway" && dims && (
               <div className="panel">
                 <div className="panel-header">
-                  <span>Highway Dimensions &amp; LOS</span>
+                  <span>Road Network</span>
                 </div>
                 <div className="panel-body" style={{ padding: 0 }}>
                   <HighwayDimsPanel
