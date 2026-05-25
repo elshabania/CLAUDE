@@ -3,16 +3,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Simulation3DViewer } from "@/components/Simulation3DViewer";
 import { JunctionPanel } from "@/components/JunctionPanel";
-import { AppHeader } from "@/components/AppHeader";
 import { NetworkSummaryCard } from "@/components/NetworkSummaryCard";
-import { JunctionTabsStrip } from "@/components/JunctionTabsStrip";
-import { BottomNav, type DashTab } from "@/components/BottomNav";
+import { type DashTab } from "@/components/BottomNav";
 import { CadViewer } from "@/components/CadViewer";
 import { PhasingView } from "@/components/PhasingView";
 import { AiOptView } from "@/components/AiOptView";
-import { InterchgView } from "@/components/InterchgView";
 import {
-  detectFromPdf,
   classifyByLegendSwatch,
   CATEGORY_LABELS,
   type ParsedDrawing,
@@ -23,26 +19,26 @@ import { LegendPanel } from "@/components/LegendPanel";
 import { parseDxfInBrowser } from "@/lib/dxf-client";
 import { HighwayPlanViewer } from "@/components/HighwayPlanViewer";
 import { HighwayDimsPanel } from "@/components/HighwayDimsPanel";
+import { Topbar } from "@/components/shell/Topbar";
+import { Toolbar, type ViewTool } from "@/components/shell/Toolbar";
+import { StatusBar } from "@/components/shell/StatusBar";
+import type { ViewportSignals, ViewportCommand } from "@/components/CadViewer";
 import {
   computeNetworkDimensions,
   type DimensionAssumptions,
 } from "@/lib/highway-dims";
-import {
-  extractPdfPathsInBrowser,
-  extractPdfTextItemsInBrowser,
-  renderPdfPagePreview,
-  renderPdfPageToCanvas,
-  getPdfPageRotation,
-  type PdfRasterPage,
-} from "@/lib/pdf-extract-client";
+import { renderPdfPagePreview } from "@/lib/pdf-extract-client";
+import { extractInWorker } from "@/lib/extract-worker-client";
 import {
   buildRoadNetwork,
   classifyJunctionApproaches,
+  type RoadNetwork,
 } from "@/lib/road-network";
 import {
   analyzeJunction,
   defaultJunctionInputs,
   DIRS,
+  LOS_COLORS,
   type JunctionInputs,
   type JunctionResult,
 } from "@/lib/hcm";
@@ -82,7 +78,6 @@ export default function Page() {
     width: number;
     height: number;
   } | null>(null);
-  const [rasterPage, setRasterPage] = useState<PdfRasterPage | null>(null);
   const [pageRotation, setPageRotation] = useState(0);
   const [dimAssumptions, setDimAssumptions] = useState<DimensionAssumptions>({
     unitsPerMetre: 1,
@@ -90,7 +85,24 @@ export default function Page() {
   });
   const [colorBy, setColorBy] = useState<"los" | "class">("class");
   const [selectedLinkId, setSelectedLinkId] = useState<string | null>(null);
+  const [tool, setTool] = useState<ViewTool>("pan");
+  const [cursor, setCursor] = useState<{ x: number; y: number } | null>(null);
+  const [zoomPct, setZoomPct] = useState<number | null>(null);
+  const [viewportCmd, setViewportCmd] = useState<ViewportCommand | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
+
+  const sendVp = (kind: ViewportCommand["kind"]) =>
+    setViewportCmd({ kind, nonce: Date.now() });
+
+  const onViewportSignals = (sig: ViewportSignals) => {
+    setCursor(sig.cursor);
+    setZoomPct(sig.zoomPct);
+  };
+
+  // Pick tool drives the legend re-pick flow; keep them in sync.
+  useEffect(() => {
+    if (tool !== "pick") setPickingCategory(null);
+  }, [tool]);
 
   useEffect(() => {
     if (!result) return;
@@ -161,16 +173,45 @@ export default function Page() {
     if (changed) setGroupCategory(next);
   }, [swatchOverrides, result]);
 
-  const network = useMemo(() => {
-    if (!result) return null;
-    try {
-      return buildRoadNetwork(result.drawing, groupCategory);
-    } catch (err) {
-      // eslint-disable-next-line no-console
-      console.error("buildRoadNetwork failed:", err);
-      return null;
-    }
-  }, [result, groupCategory]);
+  // Network building runs the heavy medial-axis skeletonizer, so it's lazy:
+  // only built when a network-dependent tab is open, and deferred a tick so
+  // the tab switch paints first (with a "Building…" state) instead of
+  // freezing. The Drawing/Layers tab never triggers it.
+  const [network, setNetwork] = useState<RoadNetwork | null>(null);
+  const [networkBuilding, setNetworkBuilding] = useState(false);
+  const needsNetwork =
+    tab === "highway" ||
+    tab === "network" ||
+    tab === "movements" ||
+    tab === "phasing" ||
+    tab === "ai";
+
+  // Drop a stale network as soon as a new drawing loads.
+  useEffect(() => {
+    setNetwork(null);
+  }, [result]);
+
+  useEffect(() => {
+    if (!result || !needsNetwork) return;
+    let cancelled = false;
+    setNetworkBuilding(true);
+    const t = setTimeout(() => {
+      try {
+        const n = buildRoadNetwork(result.drawing, groupCategory);
+        if (!cancelled) setNetwork(n);
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.error("buildRoadNetwork failed:", err);
+        if (!cancelled) setNetwork(null);
+      } finally {
+        if (!cancelled) setNetworkBuilding(false);
+      }
+    }, 0);
+    return () => {
+      cancelled = true;
+      clearTimeout(t);
+    };
+  }, [result, groupCategory, needsNetwork]);
 
   const dims = useMemo(() => {
     if (!network) return null;
@@ -241,24 +282,16 @@ export default function Page() {
     setError(null);
     setWarning(null);
     setRasterPreview(null);
-    setRasterPage(null);
     setPageRotation(0);
     const isPdf = file.name.toLowerCase().endsWith(".pdf");
     try {
       if (isPdf) {
-        // Vector extraction + page rotation read in parallel; the raster
-        // render is kept around for the legacy fallback when no vectors
-        // are found.
-        const [paths, texts, raster, rotation] = await Promise.all([
-          extractPdfPathsInBrowser(file),
-          extractPdfTextItemsInBrowser(file).catch(() => []),
-          renderPdfPageToCanvas(file).catch(() => null),
-          getPdfPageRotation(file).catch(() => 0),
-        ]);
-        const drawing = detectFromPdf(paths, texts);
+        // Parse + classify in a background worker so the UI never freezes on
+        // a 400k-path masterplan. The buffer is transferred zero-copy.
+        const buffer = await file.arrayBuffer();
+        const { drawing, rotation } = await extractInWorker(buffer);
         setResult({ filename: file.name, drawing });
         setPageRotation(rotation);
-        if (raster) setRasterPage(raster);
         if (drawing.segments.length === 0) {
           setWarning(
             "No vector geometry found. The file is likely an 'optimized' / image-flattened export — upload the original CAD-exported PDF."
@@ -324,18 +357,21 @@ export default function Page() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const hasNetwork = !!network && network.links.length > 0;
+  const isPlanTab = tab === "drawing" || tab === "highway";
+  // Right dock holds the context-sensitive properties / analysis panel.
+  const rightDockWidth =
+    tab === "highway"
+      ? 440
+      : tab === "movements" || tab === "phasing" || tab === "ai" || tab === "interchg"
+      ? 360
+      : tab === "network"
+      ? 300
+      : 0;
+  const leftDockWidth = tab === "drawing" ? 300 : hasNetwork && !isPlanTab ? 220 : 0;
+
   return (
-    <main
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        height: "100vh",
-        width: "100vw",
-        background: "#070b14",
-        color: "#e2e8f0",
-        overflow: "hidden",
-      }}
-    >
+    <div className="app-root">
       <input
         ref={inputRef}
         type="file"
@@ -347,155 +383,243 @@ export default function Page() {
         }}
       />
 
-      <AppHeader
+      <Topbar
         filename={result?.filename ?? null}
         results={junctionResults}
         onUpload={() => inputRef.current?.click()}
       />
 
-      {/* Top: scene area - 2D drawing on the Drawing tab, 3D otherwise.
-          flex: 1 1 0 with min-height: 0 so the scene shrinks to fit when
-          the drawer is open and never overflows the page. */}
-      <div
-        style={{
-          flex: "1 1 0",
-          minHeight: 0,
-          position: "relative",
-          background: "#070b14",
-          borderBottom: "1px solid #1e293b",
-        }}
-      >
-        {tab === "drawing" && result && (
-          <CadViewer
-            drawing={result.drawing}
-            visibleCategories={visibleCategories}
-            groupCategory={groupCategory}
-            pageRotation={pageRotation}
-            onPickGroup={pickingCategory ? handlePickGroup : undefined}
-          />
+      <Toolbar
+        tab={tab}
+        onTab={setTab}
+        tool={tool}
+        onTool={setTool}
+        onZoomFit={() => sendVp("fit")}
+        onZoomIn={() => sendVp("in")}
+        onZoomOut={() => sendVp("out")}
+        hasDrawing={!!result}
+      />
+
+      <div className="workspace">
+        {/* LEFT DOCK */}
+        {leftDockWidth > 0 && (
+          <div className="dock left" style={{ width: leftDockWidth }}>
+            {tab === "drawing" && result && (
+              <div className="panel">
+                <div className="panel-header">
+                  <span>Layers</span>
+                </div>
+                <div className="panel-body" style={{ padding: 0 }}>
+                  <LegendPanel
+                    drawing={result.drawing}
+                    visibleCategories={visibleCategories}
+                    onToggleCategory={(cat, v) =>
+                      setVisibleCategories((m) => ({ ...m, [cat]: v }))
+                    }
+                    pickingCategory={pickingCategory}
+                    onStartPick={(c) => {
+                      setPickingCategory(c);
+                      if (c) setTool("pick");
+                    }}
+                    swatchOverrides={swatchOverrides}
+                  />
+                </div>
+              </div>
+            )}
+            {!isPlanTab && hasNetwork && (
+              <div className="panel">
+                <div className="panel-header">
+                  <span>Junctions ({network!.junctions.length})</span>
+                </div>
+                <div className="panel-body" style={{ padding: 6 }}>
+                  {network!.junctions.map((j, i) => {
+                    const r = junctionResults[j.id];
+                    const sel = j.id === selectedJunctionId;
+                    return (
+                      <button
+                        key={j.id}
+                        onClick={() => setSelectedJunctionId(j.id)}
+                        className="btn btn-sm"
+                        style={{
+                          width: "100%",
+                          justifyContent: "space-between",
+                          marginBottom: 4,
+                          background: sel ? "var(--bg-4)" : "var(--bg-1)",
+                          borderColor: sel ? "var(--accent)" : "var(--line)",
+                        }}
+                      >
+                        <span style={{ color: "var(--text-2)" }}>
+                          {j.kind ?? "junction"} {i + 1}
+                        </span>
+                        {r && (
+                          <span
+                            className="los-chip"
+                            style={{ background: LOS_COLORS[r.los] }}
+                          >
+                            {r.los}
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
         )}
-        {tab === "highway" && network && network.links.length > 0 && dims && (
-          <HighwayPlanViewer
-            network={network}
-            dims={dims}
-            pageRotation={pageRotation}
-            colorBy={colorBy}
-            selectedLinkId={selectedLinkId}
-            onSelectLink={setSelectedLinkId}
-          />
-        )}
-        {tab !== "drawing" && tab !== "highway" && network && network.links.length > 0 && (
-          <Simulation3DViewer
-            drawing={result!.drawing}
-            groupCategory={groupCategory}
-            network={network}
-            junctionResults={junctionResults}
-            selectedJunctionId={selectedJunctionId}
-            onSelectJunction={setSelectedJunctionId}
-          />
-        )}
-        {tab !== "drawing" && (!network || network.links.length === 0) && (
-          <SceneEmptyState
-            status={status}
-            error={error}
-            warning={warning}
-            rasterPreview={rasterPreview}
-          />
-        )}
-        {tab !== "drawing" && tab !== "highway" && network && (
-          <NetworkSummaryCard
-            results={junctionResults}
-            junctionCount={network.junctions.length}
-          />
+
+        {/* VIEWPORT */}
+        <div className="viewport">
+          {tab === "drawing" && result && (
+            <CadViewer
+              drawing={result.drawing}
+              visibleCategories={visibleCategories}
+              groupCategory={groupCategory}
+              pageRotation={pageRotation}
+              tool={tool}
+              command={viewportCmd}
+              onSignals={onViewportSignals}
+              onPickGroup={tool === "pick" && pickingCategory ? handlePickGroup : undefined}
+            />
+          )}
+          {tab === "highway" && hasNetwork && dims && (
+            <HighwayPlanViewer
+              network={network!}
+              dims={dims}
+              pageRotation={pageRotation}
+              colorBy={colorBy}
+              selectedLinkId={selectedLinkId}
+              onSelectLink={setSelectedLinkId}
+            />
+          )}
+          {!isPlanTab && hasNetwork && (
+            <Simulation3DViewer
+              drawing={result!.drawing}
+              groupCategory={groupCategory}
+              network={network!}
+              junctionResults={junctionResults}
+              selectedJunctionId={selectedJunctionId}
+              onSelectJunction={setSelectedJunctionId}
+            />
+          )}
+          {tab !== "drawing" && !hasNetwork && (
+            <SceneEmptyState
+              status={status}
+              error={error}
+              warning={warning}
+              rasterPreview={rasterPreview}
+            />
+          )}
+          {!isPlanTab && networkBuilding && !hasNetwork && (
+            <div
+              style={{
+                position: "absolute",
+                inset: 0,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                color: "var(--text-2)",
+                fontSize: 13,
+                pointerEvents: "none",
+              }}
+            >
+              Building road network…
+            </div>
+          )}
+        </div>
+
+        {/* RIGHT DOCK */}
+        {rightDockWidth > 0 && (
+          <div className="dock right" style={{ width: rightDockWidth }}>
+            {tab === "highway" && dims && (
+              <div className="panel">
+                <div className="panel-header">
+                  <span>Highway Dimensions &amp; LOS</span>
+                </div>
+                <div className="panel-body" style={{ padding: 0 }}>
+                  <HighwayDimsPanel
+                    dims={dims}
+                    assumptions={dimAssumptions}
+                    onChangeAssumptions={setDimAssumptions}
+                    colorBy={colorBy}
+                    onChangeColorBy={setColorBy}
+                    selectedLinkId={selectedLinkId}
+                    onSelectLink={setSelectedLinkId}
+                  />
+                </div>
+              </div>
+            )}
+            {tab === "network" && hasNetwork && (
+              <div className="panel">
+                <div className="panel-header">
+                  <span>Network Summary</span>
+                </div>
+                <div className="panel-body">
+                  <NetworkSummaryCard
+                    results={junctionResults}
+                    junctionCount={network!.junctions.length}
+                  />
+                </div>
+              </div>
+            )}
+            {tab === "movements" && selectedInputs && selectedResult && (
+              <div className="panel">
+                <div className="panel-body" style={{ padding: 0 }}>
+                  <JunctionPanelInline
+                    junctionLabel={`Junction ${selectedJunctionIndex + 1}`}
+                    inputs={selectedInputs}
+                    result={selectedResult}
+                    onChange={setSelectedInputs}
+                  />
+                </div>
+              </div>
+            )}
+            {tab === "phasing" && selectedInputs && selectedResult && (
+              <div className="panel">
+                <div className="panel-body" style={{ padding: 0 }}>
+                  <PhasingView
+                    inputs={selectedInputs}
+                    result={selectedResult}
+                    onChange={setSelectedInputs}
+                  />
+                </div>
+              </div>
+            )}
+            {tab === "ai" && selectedInputs && selectedResult && (
+              <div className="panel">
+                <div className="panel-body" style={{ padding: 0 }}>
+                  <AiOptView
+                    junctionLabel={`J${selectedJunctionIndex + 1}`}
+                    inputs={selectedInputs}
+                    result={selectedResult}
+                    onApply={setSelectedInputs}
+                  />
+                </div>
+              </div>
+            )}
+            {(tab === "movements" || tab === "phasing" || tab === "ai") &&
+              (!selectedInputs || !selectedResult) && (
+                <div className="panel">
+                  <div className="panel-body">
+                    <NoSelection />
+                  </div>
+                </div>
+              )}
+          </div>
         )}
       </div>
 
-      {/* Junction tabs - hidden on the Drawing and Highway tabs. */}
-      {tab !== "drawing" && tab !== "highway" && network && (
-        <JunctionTabsStrip
-          junctions={network.junctions}
-          results={junctionResults}
-          selectedId={selectedJunctionId}
-          onSelect={setSelectedJunctionId}
-        />
-      )}
-
-      {/* Tab content - uses flex shorthand so it can never push BottomNav
-          off the bottom of the viewport. The drawer's content scrolls
-          internally instead. */}
-      <div
-        style={{
-          flex:
-            tab === "network"
-              ? "0 0 0px"
-              : tab === "highway"
-              ? "0 0 420px"
-              : tab === "drawing"
-              ? "0 0 280px"
-              : "0 0 280px",
-          overflowY: "auto",
-          background: "#070b14",
-          transition: "flex-basis 220ms ease",
-          minHeight: 0,
-        }}
-      >
-        {tab === "drawing" && result && (
-          <LegendPanel
-            drawing={result.drawing}
-            visibleCategories={visibleCategories}
-            onToggleCategory={(cat, v) =>
-              setVisibleCategories((m) => ({ ...m, [cat]: v }))
-            }
-            pickingCategory={pickingCategory}
-            onStartPick={setPickingCategory}
-            swatchOverrides={swatchOverrides}
-          />
-        )}
-        {tab === "highway" && dims && (
-          <HighwayDimsPanel
-            dims={dims}
-            assumptions={dimAssumptions}
-            onChangeAssumptions={setDimAssumptions}
-            colorBy={colorBy}
-            onChangeColorBy={setColorBy}
-            selectedLinkId={selectedLinkId}
-            onSelectLink={setSelectedLinkId}
-          />
-        )}
-        {tab === "movements" && selectedJunctionId && selectedInputs && selectedResult && (
-          <JunctionPanelInline
-            junctionLabel={`Junction ${selectedJunctionIndex + 1}`}
-            inputs={selectedInputs}
-            result={selectedResult}
-            onChange={setSelectedInputs}
-          />
-        )}
-        {tab === "phasing" && selectedInputs && selectedResult && (
-          <PhasingView
-            inputs={selectedInputs}
-            result={selectedResult}
-            onChange={setSelectedInputs}
-          />
-        )}
-        {tab === "ai" && selectedJunctionId && selectedInputs && selectedResult && (
-          <AiOptView
-            junctionLabel={`J${selectedJunctionIndex + 1} · Junction ${selectedJunctionId}`}
-            inputs={selectedInputs}
-            result={selectedResult}
-            onApply={setSelectedInputs}
-          />
-        )}
-        {tab === "interchg" && selectedInputs && (
-          <InterchgView inputs={selectedInputs} onChange={setSelectedInputs} />
-        )}
-        {tab !== "network" &&
-          tab !== "drawing" &&
-          tab !== "highway" &&
-          (!selectedInputs || !selectedResult) && <NoSelection />}
-      </div>
-
-      <BottomNav active={tab} onChange={setTab} />
-    </main>
+      <StatusBar
+        status={status}
+        segmentCount={result ? result.drawing.segments.length : null}
+        groupCount={result ? result.drawing.groups.length : null}
+        linkCount={network ? network.links.length : null}
+        junctionCount={network ? network.junctions.length : null}
+        cursor={cursor}
+        zoomPct={zoomPct}
+        units={dims?.units === "m" ? "m" : "pdf u"}
+      />
+    </div>
   );
 }
 
