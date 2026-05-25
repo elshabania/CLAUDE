@@ -808,6 +808,7 @@ export default function Page() {
 
         {/* VIEWPORT */}
         <div className="viewport">
+          <ErrorBoundary key={tab}>
           {tab === "drawing" && result && (
             <CadViewer
               drawing={result.drawing}
@@ -866,6 +867,7 @@ export default function Page() {
                 : "Building road network…"}
             </div>
           )}
+          </ErrorBoundary>
         </div>
 
         {/* RIGHT DOCK */}

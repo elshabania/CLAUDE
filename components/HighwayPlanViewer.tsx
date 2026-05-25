@@ -97,51 +97,58 @@ export function HighwayPlanViewer({
     const rot = (pageRotation * Math.PI) / 180;
 
     ctx.save();
-    ctx.translate(screenCx, screenCy);
-    ctx.rotate(rot);
-    // Now draw in a frame where (0,0) is the drawing centre; project a point
-    // (x,y) in drawing units to this rotated frame.
-    const px = (x: number) => (x - cx) * scale;
-    const py = (y: number) => -(y - cy) * scale;
+    try {
+      ctx.translate(screenCx, screenCy);
+      ctx.rotate(rot);
+      // Now draw in a frame where (0,0) is the drawing centre; project a point
+      // (x,y) in drawing units to this rotated frame.
+      const px = (x: number) => (x - cx) * scale;
+      const py = (y: number) => -(y - cy) * scale;
 
-    // Links coloured by LOS or functional class.
-    ctx.lineCap = "round";
-    ctx.lineJoin = "round";
-    for (const link of network.links) {
-      const d = dimsByLink.get(link.id);
-      let colour = "#64748b";
-      if (colorBy === "los" && d?.los) colour = LOS_COLORS[d.los.los as LOS];
-      else if (d) colour = CLASS_COLORS[d.functionalClass];
-      const isSel = selectedLinkId === link.id;
-      ctx.strokeStyle = isSel ? "#ffffff" : colour;
-      ctx.lineWidth = isSel ? 5 : Math.max(2, (link.lanesPerDir ?? 1) * 1.6);
-      const pts = link.points;
-      if (pts.length < 4) continue;
-      ctx.beginPath();
-      for (let i = 0; i < pts.length; i += 2) {
-        if (i === 0) ctx.moveTo(px(pts[i]), py(pts[i + 1]));
-        else ctx.lineTo(px(pts[i]), py(pts[i + 1]));
-      }
-      ctx.stroke();
-    }
-
-    // Junction markers.
-    for (const j of network.junctions) {
-      const x = px(j.x);
-      const y = py(j.y);
-      ctx.beginPath();
-      if (j.kind === "roundabout") {
-        ctx.strokeStyle = "#fbbf24";
-        ctx.lineWidth = 2.5;
-        ctx.arc(x, y, 9, 0, Math.PI * 2);
+      // Links coloured by LOS or functional class.
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+      for (const link of network.links) {
+        const pts = link.points;
+        if (!pts || pts.length < 4) continue;
+        const d = dimsByLink.get(link.id);
+        let colour = "#64748b";
+        if (colorBy === "los" && d?.los) colour = LOS_COLORS[d.los.los as LOS] ?? colour;
+        else if (d) colour = CLASS_COLORS[d.functionalClass] ?? colour;
+        const isSel = selectedLinkId === link.id;
+        ctx.strokeStyle = isSel ? "#ffffff" : colour;
+        ctx.lineWidth = isSel ? 5 : Math.max(2, (link.lanesPerDir ?? 1) * 1.6);
+        ctx.beginPath();
+        ctx.moveTo(px(pts[0]), py(pts[1]));
+        for (let i = 2; i < pts.length; i += 2) ctx.lineTo(px(pts[i]), py(pts[i + 1]));
         ctx.stroke();
-      } else {
-        ctx.fillStyle = j.kind === "signal" ? "#f87171" : "#38bdf8";
-        ctx.arc(x, y, 5, 0, Math.PI * 2);
-        ctx.fill();
       }
+
+      // Junction markers.
+      for (const j of network.junctions) {
+        const x = px(j.x);
+        const y = py(j.y);
+        if (!Number.isFinite(x) || !Number.isFinite(y)) continue;
+        ctx.beginPath();
+        if (j.kind === "roundabout") {
+          ctx.strokeStyle = "#fbbf24";
+          ctx.lineWidth = 2.5;
+          ctx.arc(x, y, 9, 0, Math.PI * 2);
+          ctx.stroke();
+        } else {
+          ctx.fillStyle = j.kind === "signal" ? "#f87171" : "#38bdf8";
+          ctx.arc(x, y, 5, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+    } catch (err) {
+      // A draw failure must never crash the app; the ErrorBoundary covers
+      // render-time throws, this covers anything odd in the 2D context.
+      // eslint-disable-next-line no-console
+      console.error("HighwayPlanViewer draw failed:", err);
+    } finally {
+      ctx.restore();
     }
-    ctx.restore();
   }, [
     network,
     dimsByLink,
