@@ -230,7 +230,10 @@ const darken = (hex, f) => {
   const r = Math.round(parseInt(hex.slice(1,3),16)*f), g = Math.round(parseInt(hex.slice(3,5),16)*f), b = Math.round(parseInt(hex.slice(5,7),16)*f);
   return `rgb(${r}, ${g}, ${b})`;
 };
+const ROADS_ONLY = process.env.ROADS_ONLY === "1";
+const ROAD_SET = new Set(["road_row","road_plot","taxi_layby","shuttle_layby","emergency_access","apartment_access","plot_access","bridge","bridge_ramp","tunnel","tunnel_ramp"]);
 for (const cat of DRAW_ORDER) {
+  if (ROADS_ONLY && !ROAD_SET.has(cat)) continue;
   const segs = buckets.get(cat) ?? [];
   if (!segs.length) continue;
   const hex = categoryHex(cat);

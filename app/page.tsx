@@ -11,6 +11,7 @@ import {
   detectFromPdf,
   classifyByLegendSwatch,
   CATEGORY_LABELS,
+  ROAD_CATEGORIES,
   type ParsedDrawing,
   type RoadCategory,
 } from "@/lib/road-detect";
@@ -108,9 +109,12 @@ export default function Page() {
   const [visibleCategories, setVisibleCategories] = useState<
     Record<RoadCategory, boolean>
   >(() => {
+    // Default to roads only - the driveable network. Non-road layers
+    // (buildings, greenery, plots, context…) start hidden and can be toggled
+    // on from the Layers panel.
     const v = {} as Record<RoadCategory, boolean>;
     for (const c of Object.keys(CATEGORY_LABELS) as RoadCategory[]) {
-      v[c] = c !== "context" && c !== "other";
+      v[c] = ROAD_CATEGORIES.has(c);
     }
     return v;
   });
