@@ -252,12 +252,7 @@ export default function Page() {
   const [network, setNetwork] = useState<RoadNetwork | null>(null);
   const [networkBuilding, setNetworkBuilding] = useState(false);
   const [networkSlow, setNetworkSlow] = useState(false);
-  const needsNetwork =
-    tab === "highway" ||
-    tab === "network" ||
-    tab === "movements" ||
-    tab === "phasing" ||
-    tab === "ai";
+  const needsNetwork = tab === "highway" || tab === "network";
 
   // Drop a stale network as soon as a new drawing loads.
   useEffect(() => {
@@ -722,16 +717,11 @@ export default function Page() {
 
   const hasNetwork = !!network && network.links.length > 0;
   const isPlanTab = tab === "drawing" || tab === "highway";
-  // Right dock holds the context-sensitive properties / analysis panel.
-  const rightDockWidth =
-    tab === "highway"
-      ? 440
-      : tab === "movements" || tab === "phasing" || tab === "ai" || tab === "interchg"
-      ? 360
-      : tab === "network"
-      ? 300
-      : 0;
-  const leftDockWidth = tab === "drawing" ? 300 : hasNetwork && !isPlanTab ? 220 : 0;
+  // Right dock holds the context-sensitive properties / analysis panel. The
+  // junction-analysis tabs are deactivated for now, so only the Highway
+  // dimensions panel uses it.
+  const rightDockWidth = tab === "highway" ? 440 : 0;
+  const leftDockWidth = tab === "drawing" ? 300 : 0;
 
   return (
     <ErrorBoundary>
@@ -756,7 +746,7 @@ export default function Page() {
 
       <Topbar
         filename={result?.filename ?? null}
-        results={junctionResults}
+        results={{}}
         onUpload={() => void doOpenDrawing()}
         onOpenProject={() => void doOpenProject()}
         onSaveProject={() => void doSaveProject()}
