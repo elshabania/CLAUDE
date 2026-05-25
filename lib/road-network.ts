@@ -151,6 +151,53 @@ function polygonPerimeter(points: number[]): number {
   return p;
 }
 
+/** Mean vertex of a flat point array, or null when empty/degenerate. */
+function flatCentroid(points: number[]): { x: number; y: number } | null {
+  if (points.length < 2) return null;
+  let sx = 0,
+    sy = 0,
+    n = 0;
+  for (let i = 0; i < points.length; i += 2) {
+    const x = points[i];
+    const y = points[i + 1];
+    if (!Number.isFinite(x) || !Number.isFinite(y)) continue;
+    sx += x;
+    sy += y;
+    n += 1;
+  }
+  if (n === 0) return null;
+  return { x: sx / n, y: sy / n };
+}
+
+/**
+ * Circularity of a closed flat point array on 0..1, where 1 is a perfect
+ * circle. Uses the isoperimetric ratio 4πA / P², which is scale-invariant and
+ * peaks at 1 for a circle, falling off for elongated or jagged outlines. A
+ * roundabout's central-island / ring polygon should score high (~0.7+); a
+ * rectangular plaza or a squashed loop scores low. Returns 0 when the polygon
+ * is too small or degenerate to judge.
+ */
+function circularity(points: number[]): number {
+  const perim = polygonPerimeter(points);
+  if (!Number.isFinite(perim) || perim <= 1e-9) return 0;
+  const area = polygonArea(points);
+  if (!Number.isFinite(area) || area <= 0) return 0;
+  const ratio = (4 * Math.PI * area) / (perim * perim);
+  return Number.isFinite(ratio) ? Math.max(0, Math.min(1, ratio)) : 0;
+}
+
+/** Max radial distance of any vertex from the centroid of a flat polyline. */
+function maxRadiusFromCentroid(points: number[]): number {
+  const c = flatCentroid(points);
+  if (!c) return 0;
+  let r = 0;
+  for (let i = 0; i < points.length; i += 2) {
+    const d = Math.hypot(points[i] - c.x, points[i + 1] - c.y);
+    if (d > r) r = d;
+  }
+  return r;
+}
+
 /**
  * Convert the parsed drawing into a node–link road graph plus building
  * footprints. Endpoints within `snapTolerance · diag` of each other are
@@ -439,6 +486,92 @@ export function buildRoadNetwork(
     }
   }
 
+  // Coalesce near-coincident nodes that the per-endpoint snap missed. The
+  // original snap runs per endpoint, so a single real junction whose incoming
+  // centerlines stop at slightly different points can yield two distinct nodes
+  // a hair apart — splitting a true 4-way into two adjacent 3-ways (or a 3-way
+  // into a pair of degree-2 stubs). We make a second, bounded pass that merges
+  // any two surviving nodes closer than a small fraction of the snap tolerance.
+  // We DON'T reuse the full snap tolerance here (that would over-merge genuine
+  // closely-spaced junctions); we use a much tighter radius so only true
+  // duplicates collapse. Bounded: one grid build + each unordered close pair
+  // examined at most once, with a hard merge cap.
+  const coalesceRadius = Math.min(tolerance * 0.5, diag * 0.01);
+  if (coalesceRadius > 0 && nodes.size > 1) {
+    const mcell = Math.max(coalesceRadius, 1e-6);
+    const mkey = (x: number, y: number) =>
+      `${Math.round(x / mcell)}_${Math.round(y / mcell)}`;
+    // Union-find over node ids so a cluster of >2 duplicates collapses to one.
+    const parent = new Map<string, string>();
+    const find = (id: string): string => {
+      let r = id;
+      while (parent.get(r) !== r) r = parent.get(r)!;
+      // Path-compress (bounded by tree height; safe, no recursion).
+      let cur = id;
+      while (parent.get(cur) !== r) {
+        const nxt = parent.get(cur)!;
+        parent.set(cur, r);
+        cur = nxt;
+      }
+      return r;
+    };
+    for (const id of nodes.keys()) parent.set(id, id);
+
+    const mgrid = new Map<string, NetworkNode[]>();
+    for (const n of nodes.values()) {
+      const k = mkey(n.x, n.y);
+      const arr = mgrid.get(k);
+      if (arr) arr.push(n);
+      else mgrid.set(k, [n]);
+    }
+
+    let mergeGuard = 0;
+    const maxMerges = nodes.size + 16;
+    outer: for (const n of nodes.values()) {
+      const cx = Math.round(n.x / mcell);
+      const cy = Math.round(n.y / mcell);
+      for (let dx = -1; dx <= 1; dx++) {
+        for (let dy = -1; dy <= 1; dy++) {
+          const bucket = mgrid.get(`${cx + dx}_${cy + dy}`);
+          if (!bucket) continue;
+          for (const m of bucket) {
+            if (m.id === n.id) continue;
+            // Examine each unordered pair once (only when n sorts before m).
+            if (n.id >= m.id) continue;
+            const d = Math.hypot(m.x - n.x, m.y - n.y);
+            if (!Number.isFinite(d) || d >= coalesceRadius) continue;
+            if (find(n.id) === find(m.id)) continue;
+            parent.set(find(m.id), find(n.id));
+            if (++mergeGuard > maxMerges) break outer;
+          }
+        }
+      }
+    }
+
+    if (mergeGuard > 0) {
+      // Rewire links and merge link lists onto each cluster's representative.
+      for (const link of linkMap.values()) {
+        link.fromNode = find(link.fromNode);
+        link.toNode = find(link.toNode);
+      }
+      for (const [id, node] of Array.from(nodes)) {
+        const root = find(id);
+        if (root === id) continue;
+        const rep = nodes.get(root);
+        if (rep) {
+          rep.links.push(...node.links);
+          if (!rep.region && node.region) rep.region = node.region;
+        }
+        nodes.delete(id);
+      }
+      // De-duplicate each representative's link list (a link whose two ends
+      // collapsed into the same node would otherwise appear twice).
+      for (const node of nodes.values()) {
+        node.links = Array.from(new Set(node.links));
+      }
+    }
+  }
+
   for (const node of nodes.values()) {
     if (node.region) continue;
     node.isJunction = node.links.length >= 3;
@@ -446,16 +579,179 @@ export function buildRoadNetwork(
   }
 
   // Tag every closed-loop link (fromNode === toNode) as a roundabout ring,
-  // and mark its endpoint node as kind: "roundabout". This is the ONLY
-  // junction-typology heuristic that survives the rewrite — it follows
-  // directly from the geometry of the medial axis of a roundabout's
-  // asphalt: the skeleton walks once around the central island and
-  // closes back on itself, producing a single self-loop link.
+  // and mark its endpoint node as kind: "roundabout". This follows directly
+  // from the geometry of the medial axis of a roundabout's asphalt: the
+  // skeleton walks once around the central island and closes back on itself,
+  // producing a single self-loop link.
   for (const link of linkMap.values()) {
-    if (link.fromNode === link.toNode && link.length > diag * 0.005) {
+    if (
+      link.fromNode === link.toNode &&
+      Number.isFinite(link.length) &&
+      link.length > diag * 0.005
+    ) {
       link.kind = "ring";
       const node = nodes.get(link.fromNode);
-      if (node) node.kind = "roundabout";
+      if (node) {
+        node.kind = "roundabout";
+        // The self-loop polyline IS the ring; expose it as the node region so
+        // the 3D viewer can size the central island from it (matching the
+        // existing region-driven roundabout rendering).
+        if (!node.region) node.region = link.points.slice();
+      }
+    }
+  }
+
+  // Robust roundabout detection for the (common) case where the skeleton does
+  // NOT close into one self-loop link. Curb-pairing usually breaks at the
+  // entry/exit throats, so a roundabout often surfaces as a small *cycle* of
+  // 2..4 arcs forming a near-circular ring rather than a single self-loop.
+  // We find such cycles with a depth-bounded search, validate that the
+  // assembled loop is closed, circular and small relative to the drawing, then
+  // model it like the self-loop case: orient every arc consistently around the
+  // ring, tag the arcs kind:"ring" (so the movement table enforces one-way
+  // circulation, preventing illegal wrong-way travel round the island), and
+  // mark ONE representative ring node kind:"roundabout" with the loop polygon
+  // as its region. Marking a single node keeps the roundabout COUNT correct
+  // (one ring == one roundabout) and matches the self-loop model. Everything
+  // here is bounded: per-start DFS depth <= MAX_RING_LINKS, a global operation
+  // cap, and each link is committed to at most one ring.
+  if (linkMap.size > 1) {
+    const MAX_RING_LINKS = 4; // a roundabout's medial axis rarely splits >4 ways
+    const MIN_RING_LEN = diag * 0.005; // ignore micro-loops (digitiser noise)
+    const MAX_RING_RADIUS = diag * 0.08; // a roundabout is a small local feature
+    const MIN_CIRCULARITY = 0.6; // reject square blocks / squashed loops
+    const ringLinkIds = new Set<string>();
+    const otherEnd = (l: NetworkLink, nodeId: string): string =>
+      l.fromNode === nodeId ? l.toNode : l.fromNode;
+
+    // Adjacency: node id -> incident link ids (snapshot of the final node set
+    // so it reflects all prior stitching/coalescing).
+    const incident = new Map<string, string[]>();
+    for (const n of nodes.values()) incident.set(n.id, n.links.slice());
+
+    let ringGuard = 0;
+    const maxRingOps = linkMap.size * 8 + 64;
+    // Assemble the flat polygon of a closed chain of link ids by walking from
+    // startNode, orienting each arc head-to-tail. Returns null if the chain
+    // doesn't actually close or a link is missing.
+    const loopPolygon = (chain: string[], startNode: string): number[] | null => {
+      const poly: number[] = [];
+      let cur = startNode;
+      for (const lid of chain) {
+        const l = linkMap.get(lid);
+        if (!l) return null;
+        if (l.fromNode !== cur && l.toNode !== cur) return null;
+        const pts = l.fromNode === cur ? l.points : reverseFlat(l.points);
+        // Skip the duplicated joint vertex shared with the previous arc.
+        const startIdx = poly.length === 0 ? 0 : 2;
+        for (let i = startIdx; i < pts.length; i++) poly.push(pts[i]);
+        cur = otherEnd(l, cur);
+      }
+      return cur === startNode ? poly : null;
+    };
+
+    for (const startLink of Array.from(linkMap.values())) {
+      if (ringGuard > maxRingOps) break;
+      if (startLink.kind === "ring" || ringLinkIds.has(startLink.id)) continue;
+      if (startLink.fromNode === startLink.toNode) continue; // self-loops handled above
+      const startNode = startLink.fromNode;
+
+      // Depth-bounded DFS for a cycle that returns to startNode using distinct,
+      // not-yet-committed links. Iterative stack carries the chain per frame.
+      type Frame = { node: string; chain: string[]; used: Set<string> };
+      const stack: Frame[] = [
+        {
+          node: startLink.toNode,
+          chain: [startLink.id],
+          used: new Set([startLink.id]),
+        },
+      ];
+      let foundChain: string[] | null = null;
+      while (stack.length > 0 && ringGuard <= maxRingOps) {
+        ringGuard++;
+        const fr = stack.pop()!;
+        if (fr.node === startNode && fr.chain.length >= 2) {
+          foundChain = fr.chain;
+          break;
+        }
+        if (fr.chain.length >= MAX_RING_LINKS) continue;
+        for (const nlid of incident.get(fr.node) ?? []) {
+          if (fr.used.has(nlid) || ringLinkIds.has(nlid)) continue;
+          const nl = linkMap.get(nlid);
+          if (!nl || nl.kind === "ring") continue;
+          if (nl.fromNode === nl.toNode) continue;
+          const nxt = otherEnd(nl, fr.node);
+          const used = new Set(fr.used);
+          used.add(nlid);
+          stack.push({ node: nxt, chain: [...fr.chain, nlid], used });
+        }
+      }
+      if (!foundChain) continue;
+
+      const poly = loopPolygon(foundChain, startNode);
+      if (!poly || poly.length < 6) continue;
+      const radius = maxRadiusFromCentroid(poly);
+      const totalLen = foundChain.reduce(
+        (s, id) => s + (linkMap.get(id)?.length ?? 0),
+        0
+      );
+      if (
+        !Number.isFinite(radius) ||
+        radius <= 0 ||
+        radius > MAX_RING_RADIUS ||
+        !Number.isFinite(totalLen) ||
+        totalLen < MIN_RING_LEN ||
+        circularity(poly) < MIN_CIRCULARITY
+      ) {
+        continue;
+      }
+
+      // Accept the ring. Orient each arc to follow the walk direction used to
+      // build the (consistently-wound) polygon, so the +1-only ring movement
+      // logic can carry a vehicle the whole way around.
+      let cur = startNode;
+      for (const lid of foundChain) {
+        const l = linkMap.get(lid);
+        if (!l) break;
+        if (l.fromNode !== cur) {
+          // Reverse so fromNode === cur (the +1 traversal == the walk dir).
+          l.points = reverseFlat(l.points);
+          const f = l.fromNode;
+          l.fromNode = l.toNode;
+          l.toNode = f;
+          l.bearing = bearingFromTo(
+            l.points[0],
+            l.points[1],
+            l.points[l.points.length - 2],
+            l.points[l.points.length - 1]
+          );
+        }
+        l.kind = "ring";
+        ringLinkIds.add(lid);
+        cur = l.toNode;
+      }
+      // Representative roundabout node: the ring node with the highest degree
+      // (most likely an entry/exit junction) so it is already a junction and
+      // shows up in network.junctions exactly once.
+      let rep: NetworkNode | null = null;
+      const ringNodeIds = new Set<string>();
+      for (const lid of foundChain) {
+        const l = linkMap.get(lid);
+        if (l) {
+          ringNodeIds.add(l.fromNode);
+          ringNodeIds.add(l.toNode);
+        }
+      }
+      for (const nid of ringNodeIds) {
+        const n = nodes.get(nid);
+        if (!n) continue;
+        if (!rep || n.links.length > rep.links.length) rep = n;
+      }
+      if (rep) {
+        rep.kind = "roundabout";
+        rep.isJunction = true; // a roundabout is a junction even if degree 2
+        if (!rep.region) rep.region = poly;
+      }
     }
   }
 
@@ -475,29 +771,80 @@ export function buildRoadNetwork(
   const linkArr = Array.from(linkMap.values());
 
   // Tag each link with its lanesPerDir, derived from its width vs the
-  // network's median link width. The lane unit is half the median width
-  // because we assume the median road carries 1 lane per direction. Wider
-  // links scale up (2 / 3 / 4 lanes per dir, capped at 4 to avoid runaway
-  // estimates on weirdly-shaped polygons).
+  // network's median link width. Master-plan PDFs carry no scale stamp, so
+  // an absolute metre-based lane width (as highway-dims.ts uses once a scale
+  // is set) can't be applied here in raw PDF units; instead we anchor to the
+  // median carriageway, which we assume carries 1 lane per direction. This is
+  // scale-free, so it works at any PDF scale.
+  //
+  // Only finite, strictly-positive widths feed the median: a degenerate
+  // skeleton polygon can emit width 0 or NaN, which would otherwise corrupt
+  // both the median and (via NaN propagating through Math.min/Math.max) the
+  // per-link lane count.
   const widths: number[] = [];
-  for (const l of linkArr) if (l.width != null) widths.push(l.width);
+  for (const l of linkArr) {
+    if (l.width != null && Number.isFinite(l.width) && l.width > 0) {
+      widths.push(l.width);
+    }
+  }
   let medianWidth = 0;
   if (widths.length > 0) {
     widths.sort((a, b) => a - b);
     medianWidth = widths[Math.floor(widths.length / 2)];
   }
+  // Half the median = one lane per direction on the typical road.
   const laneUnit = medianWidth > 0 ? Math.max(1e-3, medianWidth / 2) : diag * 0.001;
 
-  // Master-plan PDFs have no separate lane-marking layer, so lane counts
-  // come from the link width alone: lanes = round(width / laneUnit),
-  // clamped to a sensible range. The result is split evenly across the
-  // two directions.
+  // Master-plan PDFs have no separate lane-marking layer, so lane counts come
+  // from the link width alone: total lanes = round(width / laneUnit), then
+  // split evenly across the two directions. We keep this (well-tuned) total-
+  // then-halve scheme and its 1->2/dir boundary (a road must be ~1.75x the
+  // median to read as two lanes per direction) so existing outputs don't
+  // shift; the only behavioural change is robustness: a width that is null,
+  // NaN, +/-Infinity or <= 0 now cleanly falls back to a single carriageway
+  // (1 lane/dir) instead of letting NaN propagate through Math.min/Math.max
+  // and corrupt lanesPerDir. Clamp per direction to 1..4, the same bound
+  // highway-dims.ts applies, so a mis-measured polygon can't run away.
   for (const link of linkArr) {
     let totalLanes = 2;
-    if (link.width != null) {
+    if (link.width != null && Number.isFinite(link.width) && link.width > 0) {
       totalLanes = Math.max(2, Math.min(8, Math.round(link.width / laneUnit)));
     }
-    link.lanesPerDir = Math.max(1, Math.floor(totalLanes / 2));
+    link.lanesPerDir = Math.max(1, Math.min(4, Math.floor(totalLanes / 2)));
+  }
+
+  // Signal-vs-priority typing. Pure topology can't prove a junction is
+  // signalised, but in an urban master-plan the strong cue is geometry: a
+  // crossing of two MAJOR carriageways with 4+ legs is overwhelmingly
+  // signal-controlled, whereas 3-leg or minor-road junctions are normally
+  // priority / two-way-stop (TWSC) controlled. We therefore upgrade only those
+  // clear major 4-leg+ crossings to kind:"signal" and leave everything else as
+  // the conservative "priority" default. This is gated on widths actually
+  // existing (medianWidth > 0); with no width information we can't tell a major
+  // road from a minor one, so we make no claim and keep "priority". Downstream
+  // this only affects the roundabout/signal/priority summary counts and the
+  // junction marker colour — it does NOT pick the HCM control type, which the
+  // engineer sets per junction. Bounded: one pass over junctions.
+  if (medianWidth > 0) {
+    const linkById = new Map(linkArr.map((l) => [l.id, l]));
+    // "Major" = clearly above the median carriageway, or already inferred to
+    // carry 2+ lanes per direction.
+    const majorWidth = medianWidth * 1.1;
+    for (const node of nodeArr) {
+      if (!node.isJunction || node.kind === "roundabout") continue;
+      if (node.links.length < 4) continue; // 3-leg stays priority/TWSC
+      let majorLegs = 0;
+      for (const lid of node.links) {
+        const l = linkById.get(lid);
+        if (!l || l.kind === "ring") continue;
+        const isMajor =
+          (l.width != null && Number.isFinite(l.width) && l.width >= majorWidth) ||
+          (l.lanesPerDir != null && l.lanesPerDir >= 2);
+        if (isMajor) majorLegs += 1;
+      }
+      // Need two major roads crossing (>=2 major legs) to call it a signal.
+      if (majorLegs >= 2) node.kind = "signal";
+    }
   }
 
   const movements = buildMovementTable(nodeArr, linkArr);
