@@ -6,6 +6,7 @@ import {
   type RoadCategory,
 } from "@/lib/road-detect";
 import { LEGEND_SWATCHES } from "@/lib/legend-swatches";
+import { renderDrawingFills, type Ctx2D } from "@/lib/render-drawing";
 
 function swatchHex(cat: RoadCategory, fallback = "#475569"): string {
   const sw = LEGEND_SWATCHES.find((s) => s.category === cat);
@@ -36,31 +37,6 @@ export const CATEGORY_COLORS: Record<RoadCategory, string> = {
   plot_fill: swatchHex("plot_fill", "#fde68a"),
   other: "#475569",
 };
-
-/** Categories drawn from bottom (background) to top (foreground). */
-const DRAW_ORDER: RoadCategory[] = [
-  "context",
-  "greenery",
-  "water",
-  "plot_fill",
-  "building",
-  "road_row",
-  "road_plot",
-  "emergency_access",
-  "apartment_access",
-  "plot_access",
-  "taxi_layby",
-  "shuttle_layby",
-  "bridge",
-  "bridge_ramp",
-  "tunnel",
-  "tunnel_ramp",
-  "raised_crossing",
-  "other",
-];
-
-/** Categories drawn as line strokes (pedestrian crossings) rather than fills. */
-const STROKE_CATEGORIES: ReadonlySet<RoadCategory> = new Set(["raised_crossing"]);
 
 interface Props {
   drawing: ParsedDrawing;
@@ -145,15 +121,17 @@ export function CadViewer({
   }, [drawing, pageRotation, size.width, size.height]);
 
   // Re-render the offscreen layer whenever the drawing, classification, or
-  // category visibility changes. The render is at fixed high resolution so
-  // hatch tiles fuse cleanly regardless of display pan/zoom.
+  // category visibility changes. Uses the shared renderDrawingFills so the
+  // headless verification harness paints byte-identical output.
   useEffect(() => {
     const { minX, minY, maxX, maxY } = drawing.bounds;
     const drawW = Math.max(maxX - minX, 1);
     const drawH = Math.max(maxY - minY, 1);
-    // Target ~3500px on the long edge; cap at 4096 for memory.
     const targetLong = 3500;
-    const renderScale = Math.min(targetLong / Math.max(drawW, drawH), 4096 / Math.max(drawW, drawH));
+    const renderScale = Math.min(
+      targetLong / Math.max(drawW, drawH),
+      4096 / Math.max(drawW, drawH)
+    );
     const W = Math.ceil(drawW * renderScale);
     const H = Math.ceil(drawH * renderScale);
 
@@ -168,63 +146,14 @@ export function CadViewer({
     }
     const octx = off.getContext("2d");
     if (!octx) return;
-    octx.setTransform(1, 0, 0, 1, 0, 0);
-    octx.clearRect(0, 0, W, H);
-    octx.fillStyle = "#0f172a";
-    octx.fillRect(0, 0, W, H);
 
-    // Project drawing units (y-up) -> offscreen pixels (y-down).
-    const ox = (x: number) => (x - minX) * renderScale;
-    const oy = (y: number) => (maxY - y) * renderScale;
-
-    // Draw each category in order. For fill categories, fill all closed
-    // polygons with the legend colour - the hundreds-of-thousands of tiny
-    // hatch tiles each become a small filled region; their union forms a
-    // clean coloured corridor at this resolution. For stroke categories
-    // (raised_crossing) we trace the polylines.
-    for (const cat of DRAW_ORDER) {
-      if (visibleCategories[cat] === false) continue;
-      const segs = segmentsByCategory.get(cat);
-      if (!segs || segs.length === 0) continue;
-      const colour = CATEGORY_COLORS[cat];
-      octx.fillStyle = colour;
-      octx.strokeStyle = colour;
-      octx.lineCap = "round";
-      octx.lineJoin = "round";
-
-      if (STROKE_CATEGORIES.has(cat)) {
-        octx.lineWidth = Math.max(1.4, renderScale * 0.6);
-        for (const seg of segs) {
-          const pts = seg.points;
-          if (pts.length < 4) continue;
-          octx.beginPath();
-          for (let i = 0; i < pts.length; i += 2) {
-            const px = ox(pts[i]);
-            const py = oy(pts[i + 1]);
-            if (i === 0) octx.moveTo(px, py);
-            else octx.lineTo(px, py);
-          }
-          if (seg.closed) octx.closePath();
-          octx.stroke();
-        }
-        continue;
-      }
-
-      for (const seg of segs) {
-        const pts = seg.points;
-        if (pts.length < 4) continue;
-        if (!seg.closed) continue;
-        octx.beginPath();
-        for (let i = 0; i < pts.length; i += 2) {
-          const px = ox(pts[i]);
-          const py = oy(pts[i + 1]);
-          if (i === 0) octx.moveTo(px, py);
-          else octx.lineTo(px, py);
-        }
-        octx.closePath();
-        octx.fill();
-      }
-    }
+    renderDrawingFills(octx as unknown as Ctx2D, drawing.segments, {
+      bounds: drawing.bounds,
+      renderScale,
+      visibleCategories,
+      categoryColors: CATEGORY_COLORS,
+      effCat,
+    });
   }, [drawing, segmentsByCategory, visibleCategories]);
 
   // Display loop: blit the offscreen layer with pan/zoom.

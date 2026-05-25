@@ -1,0 +1,143 @@
+import type { DrawingSegment, RoadCategory } from "@/lib/road-detect";
+
+/** Minimal 2D-context surface we need - satisfied by both the browser
+ *  CanvasRenderingContext2D and @napi-rs/canvas, so the same drawing code
+ *  runs in the app and in headless verification. */
+export interface Ctx2D {
+  fillStyle: string;
+  strokeStyle: string;
+  lineWidth: number;
+  lineCap: string;
+  lineJoin: string;
+  setTransform(a: number, b: number, c: number, d: number, e: number, f: number): void;
+  clearRect(x: number, y: number, w: number, h: number): void;
+  fillRect(x: number, y: number, w: number, h: number): void;
+  beginPath(): void;
+  moveTo(x: number, y: number): void;
+  lineTo(x: number, y: number): void;
+  closePath(): void;
+  fill(): void;
+  stroke(): void;
+}
+
+/** Categories drawn from bottom (background) to top (foreground). */
+export const DRAW_ORDER: RoadCategory[] = [
+  "context",
+  "greenery",
+  "water",
+  "plot_fill",
+  "building",
+  "road_row",
+  "road_plot",
+  "emergency_access",
+  "apartment_access",
+  "plot_access",
+  "taxi_layby",
+  "shuttle_layby",
+  "bridge",
+  "bridge_ramp",
+  "tunnel",
+  "tunnel_ramp",
+  "raised_crossing",
+  "other",
+];
+
+/** Categories drawn as line strokes (pedestrian crossings) rather than fills. */
+export const STROKE_CATEGORIES: ReadonlySet<RoadCategory> = new Set([
+  "raised_crossing",
+]);
+
+export interface RenderDrawingOptions {
+  bounds: { minX: number; minY: number; maxX: number; maxY: number };
+  /** Pixels per drawing unit on the offscreen canvas. */
+  renderScale: number;
+  /** Whether each category is visible. */
+  visibleCategories: Record<RoadCategory, boolean>;
+  /** Hex colour per category. */
+  categoryColors: Record<RoadCategory, string>;
+  /** Background fill (default deep navy). */
+  background?: string;
+  /** Per-group category override resolver. */
+  effCat?: (seg: DrawingSegment) => RoadCategory;
+}
+
+/**
+ * Draw a parsed drawing's category fills onto a 2D context sized
+ * width x height = (maxX-minX)*renderScale x (maxY-minY)*renderScale.
+ *
+ * This is the SINGLE source of truth for the Drawing-tab visuals: the
+ * CadViewer renders its offscreen layer with it, and the headless
+ * verification harness renders with the exact same code so what I inspect
+ * is what the app paints.
+ */
+export function renderDrawingFills(
+  ctx: Ctx2D,
+  segments: DrawingSegment[],
+  opts: RenderDrawingOptions
+): void {
+  const { minX, maxX, minY, maxY } = opts.bounds;
+  const W = Math.ceil((maxX - minX) * opts.renderScale);
+  const H = Math.ceil((maxY - minY) * opts.renderScale);
+  const effCat = opts.effCat ?? ((s: DrawingSegment) => s.category);
+
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.clearRect(0, 0, W, H);
+  ctx.fillStyle = opts.background ?? "#0f172a";
+  ctx.fillRect(0, 0, W, H);
+
+  // Bin segments by effective category once.
+  const byCat = new Map<RoadCategory, DrawingSegment[]>();
+  for (const seg of segments) {
+    const c = effCat(seg);
+    const arr = byCat.get(c) ?? [];
+    arr.push(seg);
+    byCat.set(c, arr);
+  }
+
+  const ox = (x: number) => (x - minX) * opts.renderScale;
+  const oy = (y: number) => (maxY - y) * opts.renderScale;
+
+  for (const cat of DRAW_ORDER) {
+    if (opts.visibleCategories[cat] === false) continue;
+    const segs = byCat.get(cat);
+    if (!segs || segs.length === 0) continue;
+    const colour = opts.categoryColors[cat];
+    ctx.fillStyle = colour;
+    ctx.strokeStyle = colour;
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+
+    if (STROKE_CATEGORIES.has(cat)) {
+      ctx.lineWidth = Math.max(1.4, opts.renderScale * 0.6);
+      for (const seg of segs) {
+        const pts = seg.points;
+        if (pts.length < 4) continue;
+        ctx.beginPath();
+        for (let i = 0; i < pts.length; i += 2) {
+          const px = ox(pts[i]);
+          const py = oy(pts[i + 1]);
+          if (i === 0) ctx.moveTo(px, py);
+          else ctx.lineTo(px, py);
+        }
+        if (seg.closed) ctx.closePath();
+        ctx.stroke();
+      }
+      continue;
+    }
+
+    for (const seg of segs) {
+      const pts = seg.points;
+      if (pts.length < 4) continue;
+      if (!seg.closed) continue;
+      ctx.beginPath();
+      for (let i = 0; i < pts.length; i += 2) {
+        const px = ox(pts[i]);
+        const py = oy(pts[i + 1]);
+        if (i === 0) ctx.moveTo(px, py);
+        else ctx.lineTo(px, py);
+      }
+      ctx.closePath();
+      ctx.fill();
+    }
+  }
+}

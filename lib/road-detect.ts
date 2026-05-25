@@ -398,12 +398,25 @@ export function detectFromPdf(
 
   const diag = Math.hypot(maxX - minX, maxY - minY) || 1;
 
-  // Stitch end-to-end collinear polylines inside each group. Master-plan
-  // PDFs usually have one filled polygon per road class so the stitcher
-  // is mostly a no-op here, but kept on for resilience.
-  const stitched0 = stitchSegmentsByGroup(segments, diag);
+  // Master-plan PDFs render every coloured region as a swarm of tiny SOLID
+  // hatch tiles (closed polygons). Those must NOT be stitched - the stitcher
+  // is for chaining open lane-stripe polylines end-to-end, and running it on
+  // closed tiles fuses unrelated tiles into garbage blobs. Likewise they must
+  // NOT be capped, or roads render with big holes. So: pass closed fill tiles
+  // through untouched, and only stitch the open stroked polylines.
+  const closedFills: DrawingSegment[] = [];
+  const openStrokes: DrawingSegment[] = [];
+  for (const s of segments) {
+    if (s.closed) closedFills.push(s);
+    else openStrokes.push(s);
+  }
+  const stitchedOpen = stitchSegmentsByGroup(openStrokes, diag);
 
-  const POST_STITCH_CAP: Record<RoadCategory, number> = {
+  // Per-category cap applies only to the open stroked polylines (which can be
+  // genuinely huge in lane-striped CAD PDFs). Fill tiles are uncapped so the
+  // coloured regions stay complete; a high global guard prevents pathological
+  // memory on a degenerate file.
+  const OPEN_CAP: Record<RoadCategory, number> = {
     road_row: 6000,
     road_plot: 6000,
     taxi_layby: 2000,
@@ -415,7 +428,7 @@ export function detectFromPdf(
     bridge_ramp: 2000,
     tunnel: 2000,
     tunnel_ramp: 2000,
-    raised_crossing: 4000,
+    raised_crossing: 8000,
     building: 8000,
     context: 8000,
     greenery: 8000,
@@ -423,22 +436,34 @@ export function detectFromPdf(
     plot_fill: 8000,
     other: 4000,
   };
-  const byCat = new Map<RoadCategory, DrawingSegment[]>();
-  for (const s of stitched0) {
-    const arr = byCat.get(s.category) ?? [];
+  const openByCat = new Map<RoadCategory, DrawingSegment[]>();
+  for (const s of stitchedOpen) {
+    const arr = openByCat.get(s.category) ?? [];
     arr.push(s);
-    byCat.set(s.category, arr);
+    openByCat.set(s.category, arr);
   }
-  const stitched: DrawingSegment[] = [];
-  for (const [cat, arr] of byCat) {
-    const cap = POST_STITCH_CAP[cat] ?? 3000;
+  const cappedOpen: DrawingSegment[] = [];
+  for (const [cat, arr] of openByCat) {
+    const cap = OPEN_CAP[cat] ?? 3000;
     if (arr.length <= cap) {
-      stitched.push(...arr);
-      continue;
+      cappedOpen.push(...arr);
+    } else {
+      arr.sort((a, b) => b.length - a.length);
+      cappedOpen.push(...arr.slice(0, cap));
     }
-    arr.sort((a, b) => b.length - a.length);
-    stitched.push(...arr.slice(0, cap));
   }
+
+  // Fill tiles uncapped, but guard against a pathological file (>250k tiles).
+  const FILL_GUARD = 250000;
+  const fillsKept =
+    closedFills.length <= FILL_GUARD
+      ? closedFills
+      : closedFills
+          .slice()
+          .sort((a, b) => b.length - a.length)
+          .slice(0, FILL_GUARD);
+
+  const stitched: DrawingSegment[] = [...fillsKept, ...cappedOpen];
   // Recompute group counts / total length to reflect the merged segments.
   for (const g of groupMap.values()) {
     g.count = 0;

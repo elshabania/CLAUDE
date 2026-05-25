@@ -36,7 +36,7 @@ export const LEGEND_SWATCHES: LegendSwatch[] = [
       92,
       184
     ],
-    "tolerance": 35
+    "tolerance": 18
   },
   {
     "category": "shuttle_layby",
@@ -45,7 +45,7 @@ export const LEGEND_SWATCHES: LegendSwatch[] = [
       221,
       0
     ],
-    "tolerance": 35
+    "tolerance": 14
   },
   {
     "category": "emergency_access",
@@ -99,7 +99,7 @@ export const LEGEND_SWATCHES: LegendSwatch[] = [
       163,
       255
     ],
-    "tolerance": 35
+    "tolerance": 18
   },
   {
     "category": "tunnel_ramp",

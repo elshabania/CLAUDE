@@ -10,3 +10,4 @@ tsconfig.tsbuildinfo
 scripts/.verify-out/
 scripts/.preview-out/
 release/
+scripts/.render-real.mjs

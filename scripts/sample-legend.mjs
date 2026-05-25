@@ -23,6 +23,15 @@ const TMP_DIR = "/tmp/legend-sample";
 const RENDER_DPI = 200;
 const MAX_ALIAS_DELTA_E = 55;
 const ROAD_TOLERANCE = 35;
+// Per-category tolerance overrides. Saturated greens/blues collide with
+// landscaping and water tints in the body, so the bright legend greens use a
+// tight tolerance to avoid grabbing planting fills (which would render as big
+// over-saturated blobs that aren't green in the source).
+const TOLERANCE_OVERRIDE = {
+  shuttle_layby: 14,
+  taxi_layby: 18,
+  tunnel: 18,
+};
 const SITE_TOLERANCE = 22;
 /** Categories that accept auto-aliasing from the body palette. Road
  *  classes don't get aliases because their pale variants overlap each
@@ -176,7 +185,7 @@ for (const { name, yTop, yBot } of LEGEND_ROWS) {
   swatches.push({
     category: name,
     rgb,
-    tolerance: ROAD_TOLERANCE,
+    tolerance: TOLERANCE_OVERRIDE[name] ?? ROAD_TOLERANCE,
     aliases: [],
   });
   console.log(`legend ${name.padEnd(20)} ${rgb.join(",")}`);
