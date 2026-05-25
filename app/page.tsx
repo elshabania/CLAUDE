@@ -8,6 +8,7 @@ import { type DashTab } from "@/components/BottomNav";
 import { CadViewer } from "@/components/CadViewer";
 import { PhasingView } from "@/components/PhasingView";
 import { AiOptView } from "@/components/AiOptView";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import {
   detectFromPdf,
   classifyByLegendSwatch,
@@ -207,6 +208,7 @@ export default function Page() {
   // freezing. The Drawing/Layers tab never triggers it.
   const [network, setNetwork] = useState<RoadNetwork | null>(null);
   const [networkBuilding, setNetworkBuilding] = useState(false);
+  const [networkSlow, setNetworkSlow] = useState(false);
   const needsNetwork =
     tab === "highway" ||
     tab === "network" ||
@@ -223,6 +225,11 @@ export default function Page() {
     if (!result || !needsNetwork) return;
     let cancelled = false;
     setNetworkBuilding(true);
+    setNetworkSlow(false);
+    // After a few seconds on a big drawing, reassure rather than look hung.
+    const slowTimer = setTimeout(() => {
+      if (!cancelled) setNetworkSlow(true);
+    }, 8000);
     buildNetwork(result.drawing, groupCategory)
       .then((n) => {
         if (!cancelled) setNetwork(n);
@@ -233,10 +240,14 @@ export default function Page() {
         if (!cancelled) setNetwork(null);
       })
       .finally(() => {
-        if (!cancelled) setNetworkBuilding(false);
+        if (!cancelled) {
+          setNetworkBuilding(false);
+          setNetworkSlow(false);
+        }
       });
     return () => {
       cancelled = true;
+      clearTimeout(slowTimer);
     };
   }, [result, groupCategory, needsNetwork]);
 
@@ -680,6 +691,7 @@ export default function Page() {
   const leftDockWidth = tab === "drawing" ? 300 : hasNetwork && !isPlanTab ? 220 : 0;
 
   return (
+    <ErrorBoundary>
     <div className="app-root">
       {dragOver && (
         <div className="drop-overlay">
@@ -849,7 +861,9 @@ export default function Page() {
                 pointerEvents: "none",
               }}
             >
-              Building road network…
+              {networkSlow
+                ? "Still building — large drawing, hang tight…"
+                : "Building road network…"}
             </div>
           )}
         </div>
@@ -960,6 +974,7 @@ export default function Page() {
         units={dims?.units === "m" ? "m" : "pdf u"}
       />
     </div>
+    </ErrorBoundary>
   );
 }
 
