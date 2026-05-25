@@ -84,6 +84,8 @@ export function CadViewer({
   const containerRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const fitScaleRef = useRef(1);
+  const signalRafRef = useRef<number | null>(null);
+  const pendingSignalRef = useRef<ViewportSignals | null>(null);
   const [measure, setMeasure] = useState<{
     a: { x: number; y: number };
     b: { x: number; y: number } | null;
@@ -379,13 +381,21 @@ export function CadViewer({
 
   const onPointerMove = (e: React.PointerEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
-    // Report cursor position in drawing units for the status bar.
+    // Report cursor position in drawing units for the status bar, coalesced
+    // to one update per animation frame so mouse-move doesn't spam parent
+    // re-renders faster than the screen refreshes.
     if (onSignals && canvas) {
       const rect = canvas.getBoundingClientRect();
       const p = screenToDrawing(e.clientX - rect.left, e.clientY - rect.top);
       const pct =
         fitScaleRef.current > 0 ? (transform.scale / fitScaleRef.current) * 100 : 100;
-      onSignals({ cursor: p, zoomPct: pct });
+      pendingSignalRef.current = { cursor: p, zoomPct: pct };
+      if (signalRafRef.current == null) {
+        signalRafRef.current = requestAnimationFrame(() => {
+          signalRafRef.current = null;
+          if (pendingSignalRef.current) onSignals(pendingSignalRef.current);
+        });
+      }
       // Live measure rubber-band.
       if (tool === "measure" && measure && !measure.b) {
         setMeasure({ a: measure.a, b: p });
