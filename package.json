@@ -11,6 +11,8 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
+    "build:wasm": "bash native/build.sh",
+    "test:wasm": "node native/test.mjs",
     "electron:dev": "next build && electron .",
     "dist:win": "next build && electron-builder --win --publish never",
     "dist:dir": "next build && electron-builder --dir --publish never"

@@ -6,6 +6,17 @@ import {
   type BuildNetworkOptions,
 } from "@/lib/road-network";
 import type { ParsedDrawing, RoadCategory } from "@/lib/road-detect";
+import { ensureGeo } from "@/lib/wasm/geo";
+
+// Build on the main thread (fallback), loading the C++ core first.
+async function buildOnMain(
+  drawing: ParsedDrawing,
+  groupCategory: Record<string, RoadCategory>,
+  opts: BuildNetworkOptions
+): Promise<RoadNetwork> {
+  await ensureGeo();
+  return buildRoadNetwork(drawing, groupCategory, opts);
+}
 
 let worker: Worker | null = null;
 let workerBroken = false;
@@ -43,14 +54,14 @@ export function buildNetwork(
 ): Promise<RoadNetwork> {
   const w = getWorker();
   if (!w) {
-    return Promise.resolve(buildRoadNetwork(drawing, groupCategory, opts));
+    return buildOnMain(drawing, groupCategory, opts);
   }
   const id = ++seq;
   return new Promise((resolve) => {
     const fallback = () => {
       w.removeEventListener("message", onMsg);
       w.removeEventListener("error", onErr);
-      resolve(buildRoadNetwork(drawing, groupCategory, opts));
+      resolve(buildOnMain(drawing, groupCategory, opts));
     };
     const onMsg = (e: MessageEvent) => {
       const d = e.data;

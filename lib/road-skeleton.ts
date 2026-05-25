@@ -2,6 +2,7 @@
 
 import type { DrawingSegment } from "@/lib/road-detect";
 import type { DerivedCenterline } from "@/lib/centerline-derivation";
+import { getGeo } from "@/lib/wasm/geo";
 
 /**
  * Image-based medial-axis road-skeleton extractor.
@@ -186,29 +187,39 @@ export function extractRoadSkeleton(
     keep[i] = 1;
   }
 
+  // The compiled C++ core (WASM), when loaded, runs the hot pixel kernels
+  // (distance transform + thinning). Falls back to the JS implementations
+  // when it isn't available - results are identical, only slower.
+  const geo = getGeo();
+
   // 3. Distance transform of the asphalt mask. Two-pass Manhattan (close
   // enough to Euclidean for our purpose; faster than the proper EDT).
-  const INF = W + H + 1;
-  const dist = new Int32Array(N);
-  for (let i = 0; i < N; i++) dist[i] = keep[i] === 1 ? INF : 0;
-  for (let y = 0; y < H; y++) {
-    for (let x = 0; x < W; x++) {
-      const idx = y * W + x;
-      if (keep[idx] === 0) continue;
-      let d = dist[idx];
-      if (x > 0) d = Math.min(d, dist[idx - 1] + 1);
-      if (y > 0) d = Math.min(d, dist[idx - W] + 1);
-      dist[idx] = d;
+  let dist: Int32Array;
+  if (geo) {
+    dist = geo.distanceL1(keep, W, H);
+  } else {
+    const INF = W + H + 1;
+    dist = new Int32Array(N);
+    for (let i = 0; i < N; i++) dist[i] = keep[i] === 1 ? INF : 0;
+    for (let y = 0; y < H; y++) {
+      for (let x = 0; x < W; x++) {
+        const idx = y * W + x;
+        if (keep[idx] === 0) continue;
+        let d = dist[idx];
+        if (x > 0) d = Math.min(d, dist[idx - 1] + 1);
+        if (y > 0) d = Math.min(d, dist[idx - W] + 1);
+        dist[idx] = d;
+      }
     }
-  }
-  for (let y = H - 1; y >= 0; y--) {
-    for (let x = W - 1; x >= 0; x--) {
-      const idx = y * W + x;
-      if (keep[idx] === 0) continue;
-      let d = dist[idx];
-      if (x < W - 1) d = Math.min(d, dist[idx + 1] + 1);
-      if (y < H - 1) d = Math.min(d, dist[idx + W] + 1);
-      dist[idx] = d;
+    for (let y = H - 1; y >= 0; y--) {
+      for (let x = W - 1; x >= 0; x--) {
+        const idx = y * W + x;
+        if (keep[idx] === 0) continue;
+        let d = dist[idx];
+        if (x < W - 1) d = Math.min(d, dist[idx + 1] + 1);
+        if (y < H - 1) d = Math.min(d, dist[idx + W] + 1);
+        dist[idx] = d;
+      }
     }
   }
 
@@ -220,6 +231,7 @@ export function extractRoadSkeleton(
   if (thinner === "guo-hall") guoHall(skel, W, H, thinCap);
   else if (thinner === "distance-ridge") distanceRidge(skel, dist, W, H);
   else if (thinner === "erosion") morphologicalErosion(skel, W, H, thinCap);
+  else if (geo) geo.thinZhangSuen(skel, W, H, thinCap);
   else zhangSuen(skel, W, H, thinCap);
 
   // 5. Trace skeleton -> polylines.
