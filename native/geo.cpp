@@ -16,6 +16,22 @@ static unsigned long g_bump = 0;
 
 static inline unsigned long align8(unsigned long p) { return (p + 7UL) & ~7UL; }
 
+// Freestanding intrinsics the optimizer may emit calls to (no libc here).
+// no_builtin stops clang from turning these loops into calls to themselves.
+extern "C" __attribute__((no_builtin("memset")))
+void* memset(void* dst, int v, unsigned long n) {
+  u8* p = (u8*)dst;
+  for (unsigned long i = 0; i < n; i++) p[i] = (u8)v;
+  return dst;
+}
+extern "C" __attribute__((no_builtin("memcpy")))
+void* memcpy(void* dst, const void* src, unsigned long n) {
+  u8* d = (u8*)dst;
+  const u8* s = (const u8*)src;
+  for (unsigned long i = 0; i < n; i++) d[i] = s[i];
+  return dst;
+}
+
 extern "C" {
 
 void __attribute__((export_name("reset"))) geo_reset() {
@@ -117,6 +133,53 @@ distance_l1(const u8* keep, int* dist, int W, int H) {
       dist[idx] = d;
     }
   }
+}
+
+// 4-connected connected-component labelling (BFS flood fill), matching the
+// reference JS in lib/road-skeleton.ts exactly: raster scan order, neighbour
+// order left/right/up/down, labels starting at 1 (0 = non-mask). `labels`
+// (int32, size W*H) and `queue` (int32, size W*H) are caller scratch; `sizes`
+// (int32, size maxSizes) receives sizes[label] (sizes[0] unused). Returns the
+// number of components found.
+int __attribute__((export_name("connected_components")))
+connected_components(const u8* mask, int* labels, int* queue, int* sizes,
+                     int maxSizes, int W, int H) {
+  const int N = W * H;
+  for (int i = 0; i < N; i++) labels[i] = 0;
+  if (maxSizes > 0) sizes[0] = 0;
+  int nextLabel = 1;
+  for (int i = 0; i < N; i++) {
+    if (mask[i] != 1 || labels[i] != 0) continue;
+    labels[i] = nextLabel;
+    int qHead = 0, qTail = 0;
+    queue[qTail++] = i;
+    int size = 0;
+    while (qHead < qTail) {
+      const int idx = queue[qHead++];
+      size++;
+      const int x = idx % W;
+      const int y = idx / W;
+      if (x > 0) {
+        const int n = idx - 1;
+        if (mask[n] == 1 && labels[n] == 0) { labels[n] = nextLabel; queue[qTail++] = n; }
+      }
+      if (x < W - 1) {
+        const int n = idx + 1;
+        if (mask[n] == 1 && labels[n] == 0) { labels[n] = nextLabel; queue[qTail++] = n; }
+      }
+      if (y > 0) {
+        const int n = idx - W;
+        if (mask[n] == 1 && labels[n] == 0) { labels[n] = nextLabel; queue[qTail++] = n; }
+      }
+      if (y < H - 1) {
+        const int n = idx + W;
+        if (mask[n] == 1 && labels[n] == 0) { labels[n] = nextLabel; queue[qTail++] = n; }
+      }
+    }
+    if (nextLabel < maxSizes) sizes[nextLabel] = size;
+    nextLabel++;
+  }
+  return nextLabel - 1;
 }
 
 } // extern "C"

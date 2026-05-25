@@ -14,6 +14,15 @@ interface GeoExports {
   alloc(n: number): number;
   thin_zhang_suen(mask: number, list: number, W: number, H: number, cap: number): void;
   distance_l1(keep: number, dist: number, W: number, H: number): void;
+  connected_components(
+    mask: number,
+    labels: number,
+    queue: number,
+    sizes: number,
+    maxSizes: number,
+    W: number,
+    H: number
+  ): number;
 }
 
 export interface GeoModule {
@@ -21,6 +30,12 @@ export interface GeoModule {
   thinZhangSuen(mask: Uint8Array, W: number, H: number, cap: number): void;
   /** L1 distance transform of `keep` (0/1) into a fresh Int32Array. */
   distanceL1(keep: Uint8Array, W: number, H: number): Int32Array;
+  /** 4-connected labelling. Returns labels (1-based, 0=non-mask) + sizes[]. */
+  connectedComponents(
+    mask: Uint8Array,
+    W: number,
+    H: number
+  ): { count: number; labels: Int32Array; sizes: number[] };
 }
 
 let modPromise: Promise<GeoModule | null> | null = null;
@@ -56,6 +71,30 @@ function wrap(ex: GeoExports): GeoModule {
       new Uint8Array(ex.memory.buffer, keepPtr, N).set(keep);
       ex.distance_l1(keepPtr, distPtr, W, H);
       return new Int32Array(ex.memory.buffer, distPtr, N).slice();
+    },
+    connectedComponents(mask, W, H) {
+      ex.reset();
+      const N = W * H;
+      const maxSizes = N + 1; // worst case: every pixel its own component
+      const maskPtr = ex.alloc(N) >>> 0;
+      const labelsPtr = ex.alloc(N * 4) >>> 0;
+      const queuePtr = ex.alloc(N * 4) >>> 0;
+      const sizesPtr = ex.alloc(maxSizes * 4) >>> 0;
+      new Uint8Array(ex.memory.buffer, maskPtr, N).set(mask);
+      const count = ex.connected_components(
+        maskPtr,
+        labelsPtr,
+        queuePtr,
+        sizesPtr,
+        maxSizes,
+        W,
+        H
+      );
+      const labels = new Int32Array(ex.memory.buffer, labelsPtr, N).slice();
+      const sizesArr = new Int32Array(ex.memory.buffer, sizesPtr, count + 1);
+      const sizes: number[] = [];
+      for (let i = 0; i <= count; i++) sizes.push(sizesArr[i]);
+      return { count, labels, sizes };
     },
   };
 }

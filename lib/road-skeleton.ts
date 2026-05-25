@@ -118,9 +118,18 @@ export function extractRoadSkeleton(
   // 2. Connected-component label all white pixels (4-connected). Drop the
   // largest (page background) and tiny components. The remaining is/are the
   // asphalt.
-  const labels = new Int32Array(N);
-  const sizes: number[] = [0];
-  {
+  // The compiled C++ core (WASM) runs the hot pixel kernels (labelling,
+  // distance transform, thinning) when loaded; otherwise identical JS runs.
+  const geo = getGeo();
+  let labels: Int32Array;
+  let sizes: number[];
+  if (geo) {
+    const cc = geo.connectedComponents(mask, W, H);
+    labels = cc.labels;
+    sizes = cc.sizes;
+  } else {
+    labels = new Int32Array(N);
+    sizes = [0];
     const queue = new Int32Array(N);
     let nextLabel = 1;
     for (let i = 0; i < N; i++) {
@@ -186,11 +195,6 @@ export function extractRoadSkeleton(
     if (sizes[l] < minComponent) continue;
     keep[i] = 1;
   }
-
-  // The compiled C++ core (WASM), when loaded, runs the hot pixel kernels
-  // (distance transform + thinning). Falls back to the JS implementations
-  // when it isn't available - results are identical, only slower.
-  const geo = getGeo();
 
   // 3. Distance transform of the asphalt mask. Two-pass Manhattan (close
   // enough to Euclidean for our purpose; faster than the proper EDT).

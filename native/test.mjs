@@ -17,6 +17,48 @@ function wasmThin(mask, W, H, cap) {
   return new Uint8Array(ex.memory.buffer, mp, N).slice();
 }
 
+function wasmCC(mask, W, H) {
+  ex.reset();
+  const N = W * H;
+  const maxSizes = N + 1;
+  const mp = ex.alloc(N) >>> 0;
+  const lp = ex.alloc(N * 4) >>> 0;
+  const qp = ex.alloc(N * 4) >>> 0;
+  const sp = ex.alloc(maxSizes * 4) >>> 0;
+  new Uint8Array(ex.memory.buffer, mp, N).set(mask);
+  const count = ex.connected_components(mp, lp, qp, sp, maxSizes, W, H);
+  const labels = new Int32Array(ex.memory.buffer, lp, N).slice();
+  const sizes = Array.from(new Int32Array(ex.memory.buffer, sp, count + 1));
+  return { count, labels, sizes };
+}
+
+function jsCC(mask, W, H) {
+  const N = W * H;
+  const labels = new Int32Array(N);
+  const sizes = [0];
+  const queue = new Int32Array(N);
+  let nextLabel = 1;
+  for (let i = 0; i < N; i++) {
+    if (mask[i] !== 1 || labels[i] !== 0) continue;
+    labels[i] = nextLabel;
+    let qHead = 0, qTail = 0;
+    queue[qTail++] = i;
+    let size = 0;
+    while (qHead < qTail) {
+      const idx = queue[qHead++];
+      size++;
+      const x = idx % W, y = (idx / W) | 0;
+      if (x > 0) { const n = idx - 1; if (mask[n] === 1 && labels[n] === 0) { labels[n] = nextLabel; queue[qTail++] = n; } }
+      if (x < W - 1) { const n = idx + 1; if (mask[n] === 1 && labels[n] === 0) { labels[n] = nextLabel; queue[qTail++] = n; } }
+      if (y > 0) { const n = idx - W; if (mask[n] === 1 && labels[n] === 0) { labels[n] = nextLabel; queue[qTail++] = n; } }
+      if (y < H - 1) { const n = idx + W; if (mask[n] === 1 && labels[n] === 0) { labels[n] = nextLabel; queue[qTail++] = n; } }
+    }
+    sizes.push(size);
+    nextLabel++;
+  }
+  return { count: nextLabel - 1, labels, sizes };
+}
+
 function wasmDist(keep, W, H) {
   ex.reset();
   const N = W * H;
@@ -132,10 +174,16 @@ for (let trial = 0; trial < 12; trial++) {
   let distDiff = 0;
   for (let i = 0; i < N; i++) if (dc[i] !== dj[i]) distDiff++;
 
-  const ok = thinDiff === 0 && distDiff === 0;
+  const cw = wasmCC(mask, W, H);
+  const cj = jsCC(mask, W, H);
+  let ccDiff = cw.count !== cj.count ? 1 : 0;
+  for (let i = 0; i < N; i++) if (cw.labels[i] !== cj.labels[i]) ccDiff++;
+  for (let i = 0; i <= cj.count; i++) if (cw.sizes[i] !== cj.sizes[i]) ccDiff++;
+
+  const ok = thinDiff === 0 && distDiff === 0 && ccDiff === 0;
   if (!ok) failures++;
   console.log(
-    `trial ${trial} ${W}x${H}: thin diff=${thinDiff} dist diff=${distDiff} ${ok ? "OK" : "FAIL"}`
+    `trial ${trial} ${W}x${H}: thin=${thinDiff} dist=${distDiff} cc=${ccDiff} ${ok ? "OK" : "FAIL"}`
   );
 }
 console.log(failures === 0 ? "\nALL EQUIVALENT ✓" : `\n${failures} FAILURES ✗`);
