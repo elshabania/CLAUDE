@@ -133,8 +133,64 @@ function rgbToLab(r: number, g: number, b: number): [number, number, number] {
   return [116 * fy - 16, 500 * (fx - fy), 200 * (fy - fz)];
 }
 
-function deltaE(a: [number, number, number], b: [number, number, number]): number {
-  return Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
+/**
+ * Flattened, Lab-precomputed view of a swatch list. The legend swatch RGB
+ * values are constant for the lifetime of a swatches array, but the original
+ * implementation re-ran rgbToLab() (with its Math.pow/Math.cbrt) for every
+ * swatch *and every alias* on every single classify call — tens of millions
+ * of redundant transcendental ops over 400k paths. We compute each
+ * candidate's Lab once and cache it keyed by the swatches array identity
+ * (which is stable across a detectFromPdf run). The arrays preserve the exact
+ * iteration order (primary rgb first, then aliases) so tie-breaking — which
+ * keeps the first-seen candidate on equal distance — is byte-for-byte
+ * identical to the previous nested-loop version.
+ */
+interface PreparedSwatches {
+  labL: Float64Array;
+  labA: Float64Array;
+  labB: Float64Array;
+  tol: Float64Array;
+  cats: RoadCategory[];
+}
+
+const swatchCache = new WeakMap<readonly LegendSwatch[], PreparedSwatches>();
+
+function prepareSwatches(swatches: readonly LegendSwatch[]): PreparedSwatches {
+  const cached = swatchCache.get(swatches);
+  if (cached) return cached;
+
+  const labL: number[] = [];
+  const labA: number[] = [];
+  const labB: number[] = [];
+  const tol: number[] = [];
+  const cats: RoadCategory[] = [];
+  for (const sw of swatches) {
+    const lab = rgbToLab(sw.rgb[0], sw.rgb[1], sw.rgb[2]);
+    labL.push(lab[0]);
+    labA.push(lab[1]);
+    labB.push(lab[2]);
+    tol.push(sw.tolerance);
+    cats.push(sw.category);
+    if (sw.aliases) {
+      for (const c of sw.aliases) {
+        const al = rgbToLab(c[0], c[1], c[2]);
+        labL.push(al[0]);
+        labA.push(al[1]);
+        labB.push(al[2]);
+        tol.push(sw.tolerance);
+        cats.push(sw.category);
+      }
+    }
+  }
+  const prepared: PreparedSwatches = {
+    labL: Float64Array.from(labL),
+    labA: Float64Array.from(labA),
+    labB: Float64Array.from(labB),
+    tol: Float64Array.from(tol),
+    cats,
+  };
+  swatchCache.set(swatches, prepared);
+  return prepared;
 }
 
 export function classifyByLegendSwatch(
@@ -144,17 +200,26 @@ export function classifyByLegendSwatch(
   swatches: readonly LegendSwatch[] = LEGEND_SWATCHES
 ): RoadCategory {
   const lab = rgbToLab(r, g, b);
-  let best: { cat: RoadCategory; d: number } | null = null;
-  for (const sw of swatches) {
-    const candidates: [number, number, number][] = [sw.rgb];
-    if (sw.aliases) candidates.push(...sw.aliases);
-    for (const c of candidates) {
-      const d = deltaE(lab, rgbToLab(c[0], c[1], c[2]));
-      if (d > sw.tolerance) continue;
-      if (!best || d < best.d) best = { cat: sw.category, d };
+  const l0 = lab[0];
+  const a0 = lab[1];
+  const b0 = lab[2];
+  const { labL, labA, labB, tol, cats } = prepareSwatches(swatches);
+
+  let bestCat: RoadCategory = "other";
+  let bestD = Infinity;
+  let found = false;
+  for (let i = 0; i < cats.length; i++) {
+    // Inlined deltaE (Math.hypot) — avoids the per-candidate array allocation
+    // and call overhead of the original rgbToLab()/deltaE() pair.
+    const d = Math.hypot(l0 - labL[i], a0 - labA[i], b0 - labB[i]);
+    if (d > tol[i]) continue;
+    if (!found || d < bestD) {
+      bestD = d;
+      bestCat = cats[i];
+      found = true;
     }
   }
-  return best?.cat ?? "other";
+  return bestCat;
 }
 
 function entityPoints(entity: DxfEntity): DxfPoint[] {
@@ -281,14 +346,41 @@ export function detectFromPdf(
   const dropWhite = opts.dropWhite ?? true;
   const minFilledArea = opts.minFilledArea ?? 25;
 
-  // Apply runtime swatch overrides on top of the compiled-in legend.
-  const swatches: LegendSwatch[] = LEGEND_SWATCHES.map((sw) => {
-    const override = opts.swatchOverrides?.[sw.category];
-    return override ? { ...sw, rgb: override } : sw;
-  });
+  // Apply runtime swatch overrides on top of the compiled-in legend. When no
+  // override actually applies, reuse the shared LEGEND_SWATCHES array as-is:
+  // this avoids allocating 18 fresh objects per call AND keeps the swatches
+  // array identity stable so the precomputed-Lab cache (see prepareSwatches)
+  // persists across detectFromPdf invocations. The resulting swatch contents
+  // are identical either way.
+  const overrides = opts.swatchOverrides;
+  let swatches: readonly LegendSwatch[] = LEGEND_SWATCHES;
+  if (overrides) {
+    let hasOverride = false;
+    for (const sw of LEGEND_SWATCHES) {
+      if (overrides[sw.category]) {
+        hasOverride = true;
+        break;
+      }
+    }
+    if (hasOverride) {
+      swatches = LEGEND_SWATCHES.map((sw) => {
+        const override = overrides[sw.category];
+        return override ? { ...sw, rgb: override } : sw;
+      });
+    }
+  }
 
   const segments: DrawingSegment[] = [];
   const groupMap = new Map<string, DrawingGroup>();
+
+  // The same quantised colour recurs across most of the ~400k paths (there are
+  // at most 32^3 quantised triples, and far fewer in practice). classify is a
+  // pure function of (r, g, b, swatches) and `swatches` is fixed for this run,
+  // so memoise the category AND its derived groupId per packed colour key.
+  // Keyed by (filledBit<<24)|(r<<16)|(g<<8)|b because the "_f" suffix — which
+  // distinguishes filled-only "other" groups — depends on the fill flag.
+  const catCache = new Map<number, RoadCategory>();
+  const groupIdCache = new Map<number, string>();
 
   let minX = Infinity,
     minY = Infinity,
@@ -311,16 +403,28 @@ export function detectFromPdf(
     const b = Math.min(255, Math.round((color[2] * 255) / 8) * 8);
     if (dropWhite && r >= 248 && g >= 248 && b >= 248) continue;
 
-    const filledSuffix = path.isFilled && !path.isStroked ? "_f" : "";
-    const category = classifyByLegendSwatch(r, g, b, swatches);
+    const isFilledOnly = path.isFilled && !path.isStroked;
+    const filledSuffix = isFilledOnly ? "_f" : "";
+    const key = ((isFilledOnly ? 1 : 0) << 24) | (r << 16) | (g << 8) | b;
+
+    let category = catCache.get(key);
+    if (category === undefined) {
+      category = classifyByLegendSwatch(r, g, b, swatches);
+      catCache.set(key, category);
+    }
     // Group by category so the Legend panel lists one row per legend class.
     // Paths that didn't match any swatch go into per-colour "other" groups
     // so the user can still see and re-pick them.
-    const groupId =
-      category === "other"
-        ? `other_rgb_${r}_${g}_${b}${filledSuffix}`
-        : `cat_${category}`;
+    let groupId = groupIdCache.get(key);
+    if (groupId === undefined) {
+      groupId =
+        category === "other"
+          ? `other_rgb_${r}_${g}_${b}${filledSuffix}`
+          : `cat_${category}`;
+      groupIdCache.set(key, groupId);
+    }
 
+    const pathLineWidth = path.lineWidth;
     path.subpaths.forEach((sub, si) => {
       if (sub.length < 2) return;
       const flat = flatPoints(sub);
@@ -438,9 +542,9 @@ export function detectFromPdf(
   };
   const openByCat = new Map<RoadCategory, DrawingSegment[]>();
   for (const s of stitchedOpen) {
-    const arr = openByCat.get(s.category) ?? [];
-    arr.push(s);
-    openByCat.set(s.category, arr);
+    const arr = openByCat.get(s.category);
+    if (arr === undefined) openByCat.set(s.category, [s]);
+    else arr.push(s);
   }
   const cappedOpen: DrawingSegment[] = [];
   for (const [cat, arr] of openByCat) {
@@ -518,9 +622,10 @@ function stitchSegmentsByGroup(
 
   const byGroup = new Map<string, number[]>();
   for (let i = 0; i < segments.length; i++) {
-    const arr = byGroup.get(segments[i].groupId) ?? [];
-    arr.push(i);
-    byGroup.set(segments[i].groupId, arr);
+    const gid = segments[i].groupId;
+    const arr = byGroup.get(gid);
+    if (arr === undefined) byGroup.set(gid, [i]);
+    else arr.push(i);
   }
 
   const dropped = new Set<number>();
@@ -541,24 +646,46 @@ function stitchSegmentsByGroup(
     if (indices.length < 2) continue;
 
     type EndRef = { idx: number; end: 0 | 1 };
-    const grid = new Map<string, EndRef[]>();
-    const cellKey = (x: number, y: number) =>
-      `${Math.floor(x / cell)}_${Math.floor(y / cell)}`;
+    // Spatial hash keyed by integer (cellX, cellY). The previous version built
+    // a `${x}_${y}` template-string key for every grid get/set AND for each of
+    // the nine neighbour-cell lookups per merge attempt — on a 51k-stripe
+    // layer that is millions of transient string allocations. A nested
+    // number-keyed Map is collision-free for arbitrary (incl. negative) cell
+    // indices and allocates no strings on the hot path. Lookups visit cells in
+    // the identical order, so candidate tie-breaking is unchanged.
+    const grid = new Map<number, Map<number, EndRef[]>>();
+    const gridGet = (cx: number, cy: number): EndRef[] | undefined => {
+      const col = grid.get(cx);
+      return col === undefined ? undefined : col.get(cy);
+    };
+    const gridAdd = (cx: number, cy: number, ref: EndRef) => {
+      let col = grid.get(cx);
+      if (col === undefined) {
+        col = new Map<number, EndRef[]>();
+        grid.set(cx, col);
+      }
+      const arr = col.get(cy);
+      if (arr === undefined) col.set(cy, [ref]);
+      else arr.push(ref);
+    };
     const addEnd = (i: number, end: 0 | 1) => {
       const pts = segCopy[i].points;
       const x = end === 0 ? pts[0] : pts[pts.length - 2];
       const y = end === 0 ? pts[1] : pts[pts.length - 1];
-      const k = cellKey(x, y);
-      const arr = grid.get(k) ?? [];
-      arr.push({ idx: i, end });
-      grid.set(k, arr);
+      gridAdd(Math.floor(x / cell), Math.floor(y / cell), { idx: i, end });
     };
     const removeEnd = (i: number, end: 0 | 1, prevX: number, prevY: number) => {
-      const k = cellKey(prevX, prevY);
-      const arr = grid.get(k);
+      const arr = gridGet(Math.floor(prevX / cell), Math.floor(prevY / cell));
       if (!arr) return;
-      const j = arr.findIndex((r) => r.idx === i && r.end === end);
-      if (j >= 0) arr.splice(j, 1);
+      // Plain loop instead of Array.findIndex(closure) to avoid allocating a
+      // predicate closure on every one of the (up to 3) removals per merge.
+      for (let j = 0; j < arr.length; j++) {
+        const r = arr[j];
+        if (r.idx === i && r.end === end) {
+          arr.splice(j, 1);
+          return;
+        }
+      }
     };
     for (const i of indices) {
       addEnd(i, 0);
@@ -591,7 +718,7 @@ function stitchSegmentsByGroup(
       let best: { j: number; reverse: boolean; d: number } | null = null;
       for (let dx = -1; dx <= 1; dx++) {
         for (let dy = -1; dy <= 1; dy++) {
-          const refs = grid.get(`${cx + dx}_${cy + dy}`);
+          const refs = gridGet(cx + dx, cy + dy);
           if (!refs) continue;
           for (const ref of refs) {
             if (ref.idx === i || dropped.has(ref.idx)) continue;
@@ -646,10 +773,10 @@ function stitchSegmentsByGroup(
       // Re-add a's NEW tail to the grid so it can chain again.
       const newTx = a.points[a.points.length - 2];
       const newTy = a.points[a.points.length - 1];
-      const k = cellKey(newTx, newTy);
-      const arr = grid.get(k) ?? [];
-      arr.push({ idx: i, end: 1 });
-      grid.set(k, arr);
+      gridAdd(Math.floor(newTx / cell), Math.floor(newTy / cell), {
+        idx: i,
+        end: 1,
+      });
 
       mergesDone += 1;
       queue.push(i);

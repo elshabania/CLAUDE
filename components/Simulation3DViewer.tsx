@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
+import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import {
   ROAD_CATEGORIES,
   type ParsedDrawing,
@@ -92,7 +93,7 @@ export function Simulation3DViewer({
     camera: THREE.PerspectiveCamera;
     renderer: THREE.WebGLRenderer;
     controls: OrbitControls;
-    vehicleMeshes: THREE.Mesh[];
+    vehicles: VehicleInstances | null;
     vehicleGroup: THREE.Group;
     junctionLabels: { sprite: THREE.Sprite; nodeId: string; canvasState: { los: LOS | null } }[];
     junctionPickMeshes: THREE.Mesh[];
@@ -278,7 +279,7 @@ export function Simulation3DViewer({
       camera,
       renderer,
       controls,
-      vehicleMeshes: [],
+      vehicles: null,
       vehicleGroup,
       junctionLabels,
       junctionPickMeshes,
@@ -311,7 +312,7 @@ export function Simulation3DViewer({
       lastT = now;
       const s = stateRef.current;
       if (s && runningRef.current) step(s, dt);
-      syncVehicles(scene, vehicleGroup, sceneRef.current!.vehicleMeshes, stateRef.current, network, worldTransform);
+      syncVehicles(sceneRef.current!, vehicleGroup, stateRef.current, network, worldTransform);
       syncSignals(stateRef.current, signalLights);
       syncLinkColors(linkAsphalt, resultsRef.current ?? null, losRef.current);
       syncJunctionLabels(junctionLabels, resultsRef.current ?? null, selectedRef.current ?? null, camera);
@@ -337,12 +338,31 @@ export function Simulation3DViewer({
       renderer.domElement.removeEventListener("click", onClick);
       renderer.dispose();
       renderer.domElement.remove();
+      const disposeMaterial = (mat: THREE.Material) => {
+        // Free any GPU textures the material owns (e.g. per-junction
+        // CanvasTextures on the LOS sprite labels) before the material itself.
+        const withMaps = mat as unknown as Record<string, unknown>;
+        for (const key of ["map", "alphaMap", "emissiveMap", "normalMap"]) {
+          const tex = withMaps[key];
+          if (tex && (tex as THREE.Texture).isTexture) (tex as THREE.Texture).dispose();
+        }
+        mat.dispose();
+      };
       scene.traverse((obj) => {
         const mesh = obj as THREE.Mesh;
         if (mesh.geometry) mesh.geometry.dispose();
         const mat = mesh.material;
-        if (Array.isArray(mat)) mat.forEach((m) => m.dispose());
-        else if (mat) mat.dispose();
+        if (Array.isArray(mat)) mat.forEach(disposeMaterial);
+        else if (mat) disposeMaterial(mat);
+        // InstancedMesh / Sprite carry extra GPU buffers (instanceMatrix,
+        // instanceColor) that geometry.dispose() does not release.
+        const disposable = obj as unknown as { dispose?: () => void };
+        if (
+          (obj as THREE.InstancedMesh).isInstancedMesh &&
+          typeof disposable.dispose === "function"
+        ) {
+          disposable.dispose();
+        }
       });
       sceneRef.current = null;
     };
@@ -759,14 +779,22 @@ function pushBandStrip(
 }
 
 function addBuildings(group: THREE.Group, network: RoadNetwork, wt: WorldTransform) {
-  // Cap building meshes for the same reason as roads. Buildings render as
-  // FLAT 2D footprints on the ground plane (the user wants the roads to be
-  // the visual hero, not the buildings); a thin extrude for vertical
+  // Cap building footprints for the same reason as roads. Buildings render
+  // as FLAT 2D footprints on the ground plane (the user wants the roads to
+  // be the visual hero, not the buildings); a thin extrude for vertical
   // separation is intentional (~0.2% of span) so they don't z-fight with
   // the asphalt.
+  //
+  // Buildings are static (never re-coloured per-object at runtime), so all
+  // footprints of a given type are batched into ONE merged BufferGeometry
+  // sharing ONE material. This collapses up to 1200 individual draw
+  // calls/materials down to <=12 (one per BuildingType) with identical
+  // appearance, since each footprint geometry is already baked into world
+  // space before merging.
   const MAX_BUILDING_MESHES = 1200;
   const FLAT_HEIGHT = wt.span * 0.002;
   const sorted = [...network.buildings].sort((a, b) => b.area - a.area);
+  const byType = new Map<BuildingType, THREE.BufferGeometry[]>();
   let added = 0;
   for (const b of sorted) {
     if (added >= MAX_BUILDING_MESHES) break;
@@ -786,6 +814,19 @@ function addBuildings(group: THREE.Group, network: RoadNetwork, wt: WorldTransfo
       bevelEnabled: false,
     });
     geom.rotateX(-Math.PI / 2);
+    let bucket = byType.get(type);
+    if (!bucket) {
+      bucket = [];
+      byType.set(type, bucket);
+    }
+    bucket.push(geom);
+  }
+
+  for (const [type, geoms] of byType) {
+    const merged = mergeGeometries(geoms, false);
+    // Source geometries are no longer needed once copied into the merge.
+    for (const g of geoms) g.dispose();
+    if (!merged) continue;
     const mat = new THREE.MeshStandardMaterial({
       color: BUILDING_COLOR[type],
       roughness: 0.85,
@@ -793,8 +834,7 @@ function addBuildings(group: THREE.Group, network: RoadNetwork, wt: WorldTransfo
       transparent: true,
       opacity: 0.42,
     });
-    const mesh = new THREE.Mesh(geom, mat);
-    group.add(mesh);
+    group.add(new THREE.Mesh(merged, mat));
   }
 }
 
@@ -943,7 +983,6 @@ function addSignalsAndPickers(
   wt: WorldTransform
 ) {
   const lights: { mesh: THREE.Mesh; nodeId: string; cardinal: "NB" | "EB" | "SB" | "WB" }[] = [];
-  const pickMeshes: THREE.Mesh[] = [];
 
   const poleH = wt.span * 0.022;
   const poleR = wt.span * 0.0018;
@@ -957,23 +996,52 @@ function addSignalsAndPickers(
     { card: "WB", dx: -1, dz: 0 },
   ];
 
+  // One click-pick disc per junction. They are identical, invisible and
+  // never mutated, so they collapse into a single InstancedMesh; the raycast
+  // returns the hit instanceId, which we map back to a node id via the
+  // parallel `pickNodeIds` array.
+  const junctionCount = network.junctions.length;
+  const pickGeom = new THREE.CircleGeometry(wt.span * 0.012, 24);
+  pickGeom.rotateX(-Math.PI / 2);
+  const pickMat = new THREE.MeshBasicMaterial({
+    color: 0xfde68a,
+    transparent: true,
+    opacity: 0.0,
+    depthWrite: false,
+  });
+  const pickInstanced = new THREE.InstancedMesh(pickGeom, pickMat, junctionCount);
+  pickInstanced.instanceMatrix.setUsage(THREE.StaticDrawUsage);
+  const pickNodeIds: string[] = [];
+
+  // Signal poles are also identical and static -> one InstancedMesh sized to
+  // the number of signal poles (4 per signalised junction). Lamps stay as
+  // individual meshes because each is re-coloured (and re-emitted) at runtime
+  // by syncSignals, but they all SHARE one lamp geometry to save memory.
+  const poleGeom = new THREE.CylinderGeometry(poleR, poleR, poleH, 8);
+  const poleMat = new THREE.MeshStandardMaterial({
+    color: 0x1f2937,
+    metalness: 0.4,
+    roughness: 0.5,
+  });
+  const lampGeom = new THREE.SphereGeometry(lampR, 16, 12);
+  let signalPoleCount = 0;
+  for (const node of network.junctions) {
+    if (node.isJunction && node.kind !== "roundabout") signalPoleCount += dirs.length;
+  }
+  const poleInstanced = new THREE.InstancedMesh(poleGeom, poleMat, signalPoleCount);
+  poleInstanced.instanceMatrix.setUsage(THREE.StaticDrawUsage);
+
+  const m = new THREE.Matrix4();
+  let pickIdx = 0;
+  let poleIdx = 0;
   for (const node of network.junctions) {
     const [wx, wz] = wt.project(node.x, node.y);
 
     // Click-pick disc, invisible-ish, sits at junction level.
-    const pickGeom = new THREE.CircleGeometry(wt.span * 0.012, 24);
-    pickGeom.rotateX(-Math.PI / 2);
-    const pickMat = new THREE.MeshBasicMaterial({
-      color: 0xfde68a,
-      transparent: true,
-      opacity: 0.0,
-      depthWrite: false,
-    });
-    const pick = new THREE.Mesh(pickGeom, pickMat);
-    pick.position.set(wx, 0.02, wz);
-    pick.userData = { nodeId: node.id };
-    group.add(pick);
-    pickMeshes.push(pick);
+    m.makeTranslation(wx, 0.02, wz);
+    pickInstanced.setMatrixAt(pickIdx, m);
+    pickNodeIds[pickIdx] = node.id;
+    pickIdx += 1;
 
     if (!node.isJunction) continue;
 
@@ -1004,19 +1072,12 @@ function addSignalsAndPickers(
     }
 
     for (const d of dirs) {
-      // Pole.
-      const poleGeom = new THREE.CylinderGeometry(poleR, poleR, poleH, 8);
-      const poleMat = new THREE.MeshStandardMaterial({
-        color: 0x1f2937,
-        metalness: 0.4,
-        roughness: 0.5,
-      });
-      const pole = new THREE.Mesh(poleGeom, poleMat);
-      pole.position.set(wx + d.dx * offset, poleH / 2, wz + d.dz * offset);
-      group.add(pole);
+      // Pole (instanced).
+      m.makeTranslation(wx + d.dx * offset, poleH / 2, wz + d.dz * offset);
+      poleInstanced.setMatrixAt(poleIdx, m);
+      poleIdx += 1;
 
-      // Lamp head.
-      const lampGeom = new THREE.SphereGeometry(lampR, 16, 12);
+      // Lamp head: individual mesh (per-lamp colour/emissive), shared geom.
       const lampMat = new THREE.MeshStandardMaterial({
         color: 0xff3b30,
         emissive: 0xff3b30,
@@ -1030,7 +1091,12 @@ function addSignalsAndPickers(
     }
   }
 
-  return { lights, pickMeshes };
+  pickInstanced.instanceMatrix.needsUpdate = true;
+  poleInstanced.instanceMatrix.needsUpdate = true;
+  group.add(pickInstanced);
+  if (signalPoleCount > 0) group.add(poleInstanced);
+
+  return { lights, pickMeshes: [pickInstanced] as THREE.Mesh[], pickNodeIds };
 }
 
 function syncSignals(
@@ -1050,18 +1116,31 @@ function syncSignals(
   }
 }
 
-function syncVehicles(
-  scene: THREE.Scene,
+/**
+ * All vehicles share two InstancedMeshes (body + cabin) instead of two unique
+ * Mesh + Material pairs each. With up to 1500 cars this collapses ~6000
+ * geometries/materials and ~3000 draw calls down to 2 geometries, 2 materials
+ * and 2 draw calls. Per-car body colour rides on the instanceColor buffer; the
+ * cabin tint is uniform so it needs no per-instance colour. The cabin's local
+ * offset (which used to be a child of the rotating body) is baked into each
+ * cabin instance matrix so the silhouette is pixel-identical to before.
+ */
+interface VehicleInstances {
+  body: THREE.InstancedMesh;
+  cabin: THREE.InstancedMesh;
+  capacity: number;
+  carLength: number;
+  carHeight: number;
+}
+
+const VEHICLE_INSTANCE_CAP = 1500;
+
+function buildVehicleInstances(
   group: THREE.Group,
-  meshes: THREE.Mesh[],
-  state: SimulationState | null,
   network: RoadNetwork,
   wt: WorldTransform
-) {
-  void scene;
-  if (!state) return;
-
-  // Pick a vehicle size from the typical road width.
+): VehicleInstances {
+  // Pick a vehicle size from the typical road width (constant for a network).
   const widths: number[] = [];
   for (const link of network.links) if (link.width) widths.push(link.width * wt.scale);
   let medianWorldWidth: number;
@@ -1076,54 +1155,69 @@ function syncVehicles(
   const carWidth = laneW * 0.55;
   const carHeight = laneW * 0.45;
 
-  while (meshes.length < state.vehicles.length) {
-    const v = state.vehicles[meshes.length];
-    // Body (lower). A second smaller box on top makes the cabin.
-    const body = new THREE.Mesh(
-      new THREE.BoxGeometry(carLength, carHeight * 0.55, carWidth),
-      new THREE.MeshStandardMaterial({
-        color: new THREE.Color(v.color),
-        roughness: 0.45,
-        metalness: 0.35,
-      })
-    );
-    const cabin = new THREE.Mesh(
-      new THREE.BoxGeometry(carLength * 0.55, carHeight * 0.55, carWidth * 0.9),
-      new THREE.MeshStandardMaterial({
-        color: 0x111827,
-        roughness: 0.3,
-        metalness: 0.2,
-        transparent: true,
-        opacity: 0.85,
-      })
-    );
-    cabin.position.set(-carLength * 0.05, carHeight * 0.55, 0);
-    body.add(cabin);
-    group.add(body);
-    meshes.push(body);
-  }
-  while (meshes.length > state.vehicles.length) {
-    const m = meshes.pop()!;
-    group.remove(m);
-    m.geometry.dispose();
-    if (Array.isArray(m.material)) m.material.forEach((mt) => mt.dispose());
-    else m.material.dispose();
-    m.children.forEach((c) => {
-      const cm = c as THREE.Mesh;
-      if (cm.geometry) cm.geometry.dispose();
-      if (cm.material) {
-        if (Array.isArray(cm.material)) cm.material.forEach((mt) => mt.dispose());
-        else cm.material.dispose();
-      }
-    });
-  }
+  const capacity = VEHICLE_INSTANCE_CAP;
+  const bodyGeom = new THREE.BoxGeometry(carLength, carHeight * 0.55, carWidth);
+  const bodyMat = new THREE.MeshStandardMaterial({ roughness: 0.45, metalness: 0.35 });
+  const body = new THREE.InstancedMesh(bodyGeom, bodyMat, capacity);
+  body.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+  // Allocate the per-instance colour buffer so each car keeps its own hue.
+  body.setColorAt(0, new THREE.Color(0xffffff));
+
+  const cabinGeom = new THREE.BoxGeometry(
+    carLength * 0.55,
+    carHeight * 0.55,
+    carWidth * 0.9
+  );
+  const cabinMat = new THREE.MeshStandardMaterial({
+    color: 0x111827,
+    roughness: 0.3,
+    metalness: 0.2,
+    transparent: true,
+    opacity: 0.85,
+  });
+  const cabin = new THREE.InstancedMesh(cabinGeom, cabinMat, capacity);
+  cabin.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+
+  body.count = 0;
+  cabin.count = 0;
+  group.add(body);
+  group.add(cabin);
+  return { body, cabin, capacity, carLength, carHeight };
+}
+
+// Scratch objects reused every frame so the per-vehicle update allocates nothing.
+const _vehQuat = new THREE.Quaternion();
+const _vehScale = new THREE.Vector3(1, 1, 1);
+const _vehPos = new THREE.Vector3();
+const _vehMat = new THREE.Matrix4();
+const _vehColor = new THREE.Color();
+const _vehUp = new THREE.Vector3(0, 1, 0);
+
+function syncVehicles(
+  ctx: { vehicles: VehicleInstances | null },
+  group: THREE.Group,
+  state: SimulationState | null,
+  network: RoadNetwork,
+  wt: WorldTransform
+) {
+  if (!state) return;
+  if (!ctx.vehicles) ctx.vehicles = buildVehicleInstances(group, network, wt);
+  const vi = ctx.vehicles;
+  const { body, cabin, capacity, carLength, carHeight } = vi;
+
+  // Render at most `capacity` cars; the spawner is already capped to the same
+  // slider maximum so this guards only pathological states.
+  const count = Math.min(state.vehicles.length, capacity);
+  const bodyColorAttr = body.instanceColor;
 
   const linksById = new Map(network.links.map((l) => [l.id, l]));
-  for (let i = 0; i < state.vehicles.length; i++) {
+  let drawn = 0;
+  const cabinDX = -carLength * 0.05;
+  const cabinDY = carHeight * 0.55;
+  for (let i = 0; i < count; i++) {
     const v = state.vehicles[i];
     const link = linksById.get(v.linkId);
     const arc = state.linkArc.get(v.linkId);
-    const mesh = meshes[i];
     if (!link || !arc) continue;
     const pos = pointOnLink(link, arc, v.s);
     const tan = tangentOnLink(link, arc, v.s);
@@ -1131,9 +1225,6 @@ function syncVehicles(
     const fy = v.dir === 1 ? tan.dy : -tan.dy;
     const rx = fy;
     const ry = -fx;
-    // Multi-lane offset: lane 0 closest to outer kerb, higher = toward
-    // centerline. Falls back to width/4 single-lane behaviour when the
-    // link's lanesPerDir wasn't computed.
     const lanesPerDir = Math.max(1, link.lanesPerDir ?? 1);
     const halfW = (link.width ?? v.laneOffset * 4) / 2;
     const laneWidth = halfW / lanesPerDir;
@@ -1141,10 +1232,37 @@ function syncVehicles(
     const offX = pos.x + rx * laneOffset;
     const offY = pos.y + ry * laneOffset;
     const [wx, wz] = wt.project(offX, offY);
-    mesh.position.set(wx, carHeight * 0.27 + 0.06, wz);
+    const yBody = carHeight * 0.27 + 0.06;
     const heading = Math.atan2(-fy, fx);
-    mesh.rotation.set(0, heading, 0);
+    _vehQuat.setFromAxisAngle(_vehUp, heading);
+
+    // Body instance.
+    _vehPos.set(wx, yBody, wz);
+    _vehMat.compose(_vehPos, _vehQuat, _vehScale);
+    body.setMatrixAt(drawn, _vehMat);
+    if (bodyColorAttr) body.setColorAt(drawn, _vehColor.set(v.color));
+
+    // Cabin instance: same world transform as the body times the cabin's
+    // local offset, so it tracks the rotated body exactly as the old child
+    // mesh did. Rotating (cabinDX, 0) about +Y by `heading`:
+    const cosH = Math.cos(heading);
+    const sinH = Math.sin(heading);
+    _vehPos.set(
+      wx + cabinDX * cosH,
+      yBody + cabinDY,
+      wz - cabinDX * sinH
+    );
+    _vehMat.compose(_vehPos, _vehQuat, _vehScale);
+    cabin.setMatrixAt(drawn, _vehMat);
+
+    drawn += 1;
   }
+
+  body.count = drawn;
+  cabin.count = drawn;
+  body.instanceMatrix.needsUpdate = true;
+  cabin.instanceMatrix.needsUpdate = true;
+  if (bodyColorAttr) bodyColorAttr.needsUpdate = true;
 }
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {

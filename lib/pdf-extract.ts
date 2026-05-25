@@ -53,13 +53,6 @@ function multiply(a: number[], b: number[]): number[] {
   ];
 }
 
-function applyCTM(ctm: number[], x: number, y: number): { x: number; y: number } {
-  return {
-    x: ctm[0] * x + ctm[2] * y + ctm[4],
-    y: ctm[1] * x + ctm[3] * y + ctm[5],
-  };
-}
-
 function cloneState(s: GraphicsState): GraphicsState {
   return {
     ctm: [...s.ctm],
@@ -69,22 +62,36 @@ function cloneState(s: GraphicsState): GraphicsState {
   };
 }
 
+// Numeric (un-boxed) cubic flattener: control points are passed as raw
+// coordinates so curve evaluation allocates nothing but the emitted points.
+// Arithmetic order is identical to the boxed version, so output is unchanged.
 function flattenCubic(
-  p0: DxfPoint,
-  c1: { x: number; y: number },
-  c2: { x: number; y: number },
-  p1: { x: number; y: number },
+  p0x: number,
+  p0y: number,
+  c1x: number,
+  c1y: number,
+  c2x: number,
+  c2y: number,
+  p1x: number,
+  p1y: number,
   out: DxfPoint[],
   steps = 8
 ) {
   for (let s = 1; s <= steps; s++) {
     const t = s / steps;
     const u = 1 - t;
-    const x =
-      u * u * u * p0.x + 3 * u * u * t * c1.x + 3 * u * t * t * c2.x + t * t * t * p1.x;
-    const y =
-      u * u * u * p0.y + 3 * u * u * t * c1.y + 3 * u * t * t * c2.y + t * t * t * p1.y;
-    out.push({ x, y });
+    // Precompute the four Bernstein basis weights once and reuse for x and y.
+    // Multiplication order matches the original inlined expressions exactly
+    // (`u*u*u`, `3*u*u*t`, `3*u*t*t`, `t*t*t`) so results stay bit-identical
+    // — float multiply is not associative, so the grouping must not change.
+    const b0 = u * u * u;
+    const b1 = 3 * u * u * t;
+    const b2 = 3 * u * t * t;
+    const b3 = t * t * t;
+    out.push({
+      x: b0 * p0x + b1 * c1x + b2 * c2x + b3 * p1x,
+      y: b0 * p0y + b1 * c1y + b2 * c2y + b3 * p1y,
+    });
   }
 }
 
@@ -127,42 +134,97 @@ function decodeLegacyBuffer(
   let closed = false;
   const len = buffer.length;
   let i = 0;
-  const finish = () => {
-    if (current.length > 0) subpaths.push(current);
-    current = [];
-  };
+  // Hoist CTM components into locals so each transform reads them from the
+  // register file instead of re-indexing the array six times per point.
+  const m0 = ctm[0];
+  const m1 = ctm[1];
+  const m2 = ctm[2];
+  const m3 = ctm[3];
+  const m4 = ctm[4];
+  const m5 = ctm[5];
   while (i < len) {
     const op = buffer[i++];
     if (op === MINI_MOVE) {
-      finish();
-      const p = applyCTM(ctm, buffer[i], buffer[i + 1]);
-      current.push({ x: p.x, y: p.y });
+      if (current.length > 0) {
+        subpaths.push(current);
+        current = [];
+      }
+      const x = buffer[i];
+      const y = buffer[i + 1];
+      current.push({ x: m0 * x + m2 * y + m4, y: m1 * x + m3 * y + m5 });
       i += 2;
     } else if (op === MINI_LINE) {
-      const p = applyCTM(ctm, buffer[i], buffer[i + 1]);
-      current.push({ x: p.x, y: p.y });
+      const x = buffer[i];
+      const y = buffer[i + 1];
+      current.push({ x: m0 * x + m2 * y + m4, y: m1 * x + m3 * y + m5 });
       i += 2;
     } else if (op === MINI_CURVE) {
       const last = current[current.length - 1];
-      const c1 = applyCTM(ctm, buffer[i], buffer[i + 1]);
-      const c2 = applyCTM(ctm, buffer[i + 2], buffer[i + 3]);
-      const end = applyCTM(ctm, buffer[i + 4], buffer[i + 5]);
-      if (last) flattenCubic(last, c1, c2, end, current);
-      else current.push({ x: end.x, y: end.y });
+      const c1x = buffer[i];
+      const c1y = buffer[i + 1];
+      const c2x = buffer[i + 2];
+      const c2y = buffer[i + 3];
+      const ex = buffer[i + 4];
+      const ey = buffer[i + 5];
+      const tex = m0 * ex + m2 * ey + m4;
+      const tey = m1 * ex + m3 * ey + m5;
+      if (last)
+        flattenCubic(
+          last.x,
+          last.y,
+          m0 * c1x + m2 * c1y + m4,
+          m1 * c1x + m3 * c1y + m5,
+          m0 * c2x + m2 * c2y + m4,
+          m1 * c2x + m3 * c2y + m5,
+          tex,
+          tey,
+          current
+        );
+      else current.push({ x: tex, y: tey });
       i += 6;
     } else if (op === MINI_CURVE2) {
       const last = current[current.length - 1];
-      const c2 = applyCTM(ctm, buffer[i], buffer[i + 1]);
-      const end = applyCTM(ctm, buffer[i + 2], buffer[i + 3]);
-      if (last) flattenCubic(last, last, c2, end, current);
-      else current.push({ x: end.x, y: end.y });
+      const c2x = buffer[i];
+      const c2y = buffer[i + 1];
+      const ex = buffer[i + 2];
+      const ey = buffer[i + 3];
+      const tex = m0 * ex + m2 * ey + m4;
+      const tey = m1 * ex + m3 * ey + m5;
+      if (last)
+        flattenCubic(
+          last.x,
+          last.y,
+          last.x,
+          last.y,
+          m0 * c2x + m2 * c2y + m4,
+          m1 * c2x + m3 * c2y + m5,
+          tex,
+          tey,
+          current
+        );
+      else current.push({ x: tex, y: tey });
       i += 4;
     } else if (op === MINI_CURVE3) {
       const last = current[current.length - 1];
-      const c1 = applyCTM(ctm, buffer[i], buffer[i + 1]);
-      const end = applyCTM(ctm, buffer[i + 2], buffer[i + 3]);
-      if (last) flattenCubic(last, c1, end, end, current);
-      else current.push({ x: end.x, y: end.y });
+      const c1x = buffer[i];
+      const c1y = buffer[i + 1];
+      const ex = buffer[i + 2];
+      const ey = buffer[i + 3];
+      const tex = m0 * ex + m2 * ey + m4;
+      const tey = m1 * ex + m3 * ey + m5;
+      if (last)
+        flattenCubic(
+          last.x,
+          last.y,
+          m0 * c1x + m2 * c1y + m4,
+          m1 * c1x + m3 * c1y + m5,
+          tex,
+          tey,
+          tex,
+          tey,
+          current
+        );
+      else current.push({ x: tex, y: tey });
       i += 4;
     } else if (op === MINI_CLOSE) {
       if (current.length > 0) {
@@ -171,22 +233,30 @@ function decodeLegacyBuffer(
       }
       closed = true;
     } else if (op === MINI_RECT) {
-      finish();
+      if (current.length > 0) {
+        subpaths.push(current);
+        current = [];
+      }
       const x = buffer[i];
       const y = buffer[i + 1];
       const w = buffer[i + 2];
       const h = buffer[i + 3];
-      const p1 = applyCTM(ctm, x, y);
-      const p2 = applyCTM(ctm, x + w, y);
-      const p3 = applyCTM(ctm, x + w, y + h);
-      const p4 = applyCTM(ctm, x, y + h);
-      subpaths.push([p1, p2, p3, p4, p1]);
+      const xw = x + w;
+      const yh = y + h;
+      const p1 = { x: m0 * x + m2 * y + m4, y: m1 * x + m3 * y + m5 };
+      subpaths.push([
+        p1,
+        { x: m0 * xw + m2 * y + m4, y: m1 * xw + m3 * y + m5 },
+        { x: m0 * xw + m2 * yh + m4, y: m1 * xw + m3 * yh + m5 },
+        { x: m0 * x + m2 * yh + m4, y: m1 * x + m3 * yh + m5 },
+        p1,
+      ]);
       i += 4;
     } else {
       break;
     }
   }
-  finish();
+  if (current.length > 0) subpaths.push(current);
   return { subpaths, closed };
 }
 
@@ -205,64 +275,135 @@ function decodeModernPath(
   let current: DxfPoint[] = [];
   let closed = false;
   let argIdx = 0;
-  const finish = () => {
-    if (current.length > 0) subpaths.push(current);
-    current = [];
-  };
-  for (let i = 0; i < ops.length; i++) {
+  const opsLen = ops.length;
+  // Hoist op codes and CTM components so the per-op loop compares/transforms
+  // against locals instead of repeatedly dereferencing `table` and `ctm`.
+  const moveOp = table.moveTo;
+  const lineOp = table.lineTo;
+  const curveOp = table.curveTo;
+  const curve2Op = table.curveTo2;
+  const curve3Op = table.curveTo3;
+  const closeOp = table.closePath;
+  const rectOp = table.rectangle;
+  const m0 = ctm[0];
+  const m1 = ctm[1];
+  const m2 = ctm[2];
+  const m3 = ctm[3];
+  const m4 = ctm[4];
+  const m5 = ctm[5];
+  for (let i = 0; i < opsLen; i++) {
     const op = ops[i];
-    if (op === table.moveTo) {
-      finish();
-      const p = applyCTM(ctm, args[argIdx], args[argIdx + 1]);
-      current.push({ x: p.x, y: p.y });
+    if (op === moveOp) {
+      if (current.length > 0) {
+        subpaths.push(current);
+        current = [];
+      }
+      const x = args[argIdx];
+      const y = args[argIdx + 1];
+      current.push({ x: m0 * x + m2 * y + m4, y: m1 * x + m3 * y + m5 });
       argIdx += 2;
-    } else if (op === table.lineTo) {
-      const p = applyCTM(ctm, args[argIdx], args[argIdx + 1]);
-      current.push({ x: p.x, y: p.y });
+    } else if (op === lineOp) {
+      const x = args[argIdx];
+      const y = args[argIdx + 1];
+      current.push({ x: m0 * x + m2 * y + m4, y: m1 * x + m3 * y + m5 });
       argIdx += 2;
-    } else if (op === table.curveTo) {
+    } else if (op === curveOp) {
       const last = current[current.length - 1];
-      const c1 = applyCTM(ctm, args[argIdx], args[argIdx + 1]);
-      const c2 = applyCTM(ctm, args[argIdx + 2], args[argIdx + 3]);
-      const end = applyCTM(ctm, args[argIdx + 4], args[argIdx + 5]);
-      if (last) flattenCubic(last, c1, c2, end, current);
-      else current.push({ x: end.x, y: end.y });
+      const c1x = args[argIdx];
+      const c1y = args[argIdx + 1];
+      const c2x = args[argIdx + 2];
+      const c2y = args[argIdx + 3];
+      const ex = args[argIdx + 4];
+      const ey = args[argIdx + 5];
+      const tex = m0 * ex + m2 * ey + m4;
+      const tey = m1 * ex + m3 * ey + m5;
+      if (last)
+        flattenCubic(
+          last.x,
+          last.y,
+          m0 * c1x + m2 * c1y + m4,
+          m1 * c1x + m3 * c1y + m5,
+          m0 * c2x + m2 * c2y + m4,
+          m1 * c2x + m3 * c2y + m5,
+          tex,
+          tey,
+          current
+        );
+      else current.push({ x: tex, y: tey });
       argIdx += 6;
-    } else if (op === table.curveTo2) {
+    } else if (op === curve2Op) {
       const last = current[current.length - 1];
-      const c2 = applyCTM(ctm, args[argIdx], args[argIdx + 1]);
-      const end = applyCTM(ctm, args[argIdx + 2], args[argIdx + 3]);
-      if (last) flattenCubic(last, last, c2, end, current);
-      else current.push({ x: end.x, y: end.y });
+      const c2x = args[argIdx];
+      const c2y = args[argIdx + 1];
+      const ex = args[argIdx + 2];
+      const ey = args[argIdx + 3];
+      const tex = m0 * ex + m2 * ey + m4;
+      const tey = m1 * ex + m3 * ey + m5;
+      if (last)
+        flattenCubic(
+          last.x,
+          last.y,
+          last.x,
+          last.y,
+          m0 * c2x + m2 * c2y + m4,
+          m1 * c2x + m3 * c2y + m5,
+          tex,
+          tey,
+          current
+        );
+      else current.push({ x: tex, y: tey });
       argIdx += 4;
-    } else if (op === table.curveTo3) {
+    } else if (op === curve3Op) {
       const last = current[current.length - 1];
-      const c1 = applyCTM(ctm, args[argIdx], args[argIdx + 1]);
-      const end = applyCTM(ctm, args[argIdx + 2], args[argIdx + 3]);
-      if (last) flattenCubic(last, c1, end, end, current);
-      else current.push({ x: end.x, y: end.y });
+      const c1x = args[argIdx];
+      const c1y = args[argIdx + 1];
+      const ex = args[argIdx + 2];
+      const ey = args[argIdx + 3];
+      const tex = m0 * ex + m2 * ey + m4;
+      const tey = m1 * ex + m3 * ey + m5;
+      if (last)
+        flattenCubic(
+          last.x,
+          last.y,
+          m0 * c1x + m2 * c1y + m4,
+          m1 * c1x + m3 * c1y + m5,
+          tex,
+          tey,
+          tex,
+          tey,
+          current
+        );
+      else current.push({ x: tex, y: tey });
       argIdx += 4;
-    } else if (op === table.closePath) {
+    } else if (op === closeOp) {
       if (current.length > 0) {
         const first = current[0];
         current.push({ x: first.x, y: first.y });
       }
       closed = true;
-    } else if (op === table.rectangle) {
-      finish();
+    } else if (op === rectOp) {
+      if (current.length > 0) {
+        subpaths.push(current);
+        current = [];
+      }
       const x = args[argIdx];
       const y = args[argIdx + 1];
       const w = args[argIdx + 2];
       const h = args[argIdx + 3];
-      const p1 = applyCTM(ctm, x, y);
-      const p2 = applyCTM(ctm, x + w, y);
-      const p3 = applyCTM(ctm, x + w, y + h);
-      const p4 = applyCTM(ctm, x, y + h);
-      subpaths.push([p1, p2, p3, p4, p1]);
+      const xw = x + w;
+      const yh = y + h;
+      const p1 = { x: m0 * x + m2 * y + m4, y: m1 * x + m3 * y + m5 };
+      subpaths.push([
+        p1,
+        { x: m0 * xw + m2 * y + m4, y: m1 * xw + m3 * y + m5 },
+        { x: m0 * xw + m2 * yh + m4, y: m1 * xw + m3 * yh + m5 },
+        { x: m0 * x + m2 * yh + m4, y: m1 * x + m3 * yh + m5 },
+        p1,
+      ]);
       argIdx += 4;
     }
   }
-  finish();
+  if (current.length > 0) subpaths.push(current);
   return { subpaths, closed };
 }
 
@@ -345,6 +486,21 @@ export async function walkPdfDocument(
     rectangle: OPS.rectangle,
   };
 
+  // Hoist the operator codes consulted by the hot per-op loop into locals.
+  // `OPS` is a plain record, so each `OPS.foo` is a property load; pulling them
+  // out once per document turns ~400k iterations' worth of dictionary lookups
+  // into register reads.
+  const OP_SAVE = OPS.save;
+  const OP_RESTORE = OPS.restore;
+  const OP_TRANSFORM = OPS.transform;
+  const OP_SET_LINE_WIDTH = OPS.setLineWidth;
+  const OP_SET_STROKE_RGB = OPS.setStrokeRGBColor;
+  const OP_SET_FILL_RGB = OPS.setFillRGBColor;
+  const OP_BEGIN_MC_PROPS = OPS.beginMarkedContentProps;
+  const OP_BEGIN_MC = OPS.beginMarkedContent;
+  const OP_END_MC = OPS.endMarkedContent;
+  const OP_CONSTRUCT_PATH = OPS.constructPath;
+
   const result: ExtractedPath[] = [];
 
   // Build OCG id -> clean layer name lookup once per document. AutoCAD-style
@@ -426,51 +582,20 @@ export async function walkPdfDocument(
       });
     };
 
-    for (let i = 0; i < opList.fnArray.length; i++) {
-      const op = opList.fnArray[i];
-      const args = opList.argsArray[i] as unknown[] | undefined;
-
-      if (op === OPS.save) {
-        stack.push(cloneState(state));
-      } else if (op === OPS.restore) {
-        const popped = stack.pop();
-        if (popped) state = popped;
-      } else if (op === OPS.transform && args) {
-        state.ctm = multiply(
-          [
-            args[0] as number,
-            args[1] as number,
-            args[2] as number,
-            args[3] as number,
-            args[4] as number,
-            args[5] as number,
-          ],
-          state.ctm
-        );
-      } else if (op === OPS.setLineWidth && args) {
-        state.lineWidth = args[0] as number;
-      } else if (op === OPS.setStrokeRGBColor && args) {
-        // Legacy build wraps the colour in a one-element array; modern build
-        // passes the Uint8ClampedArray directly as the args entry.
-        state.strokeColor = parseColor(args) ?? parseColor((args as unknown[])[0]);
-      } else if (op === OPS.setFillRGBColor && args) {
-        state.fillColor = parseColor(args) ?? parseColor((args as unknown[])[0]);
-      } else if (op === OPS.beginMarkedContentProps && args) {
-        // args is `[tag, properties]`. For OCG layers tag === "OC" and
-        // properties.id is the OCG group id. Anything else just balances
-        // the stack with a null entry.
-        const tag = args[0];
-        const props = args[1] as { id?: string; type?: string } | null;
-        if (tag === "OC" && props && typeof props.id === "string") {
-          layerStack.push(layerNameById.get(props.id) ?? null);
-        } else {
-          layerStack.push(null);
-        }
-      } else if (op === OPS.beginMarkedContent) {
-        layerStack.push(null);
-      } else if (op === OPS.endMarkedContent) {
-        layerStack.pop();
-      } else if (op === OPS.constructPath && args) {
+    // Hoist the operator/arg arrays and length so the hot loop reads them from
+    // locals instead of chasing `opList.fnArray` / re-evaluating `.length`
+    // every iteration.
+    const fnArray = opList.fnArray;
+    const argsArray = opList.argsArray;
+    const fnLen = fnArray.length;
+    for (let i = 0; i < fnLen; i++) {
+      const op = fnArray[i];
+      // `constructPath` and the paint operators dominate path-heavy PDFs, so
+      // test them before the rarer state/marked-content ops. OPS codes are
+      // distinct integers, so branch order does not affect results.
+      if (op === OP_CONSTRUCT_PATH) {
+        const args = argsArray[i] as unknown[] | undefined;
+        if (!args) continue;
         const arg0 = args[0];
         const lineWidthHere =
           state.lineWidth * Math.hypot(state.ctm[0], state.ctm[1]);
@@ -529,6 +654,55 @@ export async function walkPdfDocument(
           emit(isStroked, isFilled, isClosed, pendingPath);
         }
         pendingPath = null;
+      } else if (op === OP_SAVE) {
+        stack.push(cloneState(state));
+      } else if (op === OP_RESTORE) {
+        const popped = stack.pop();
+        if (popped) state = popped;
+      } else if (op === OP_TRANSFORM) {
+        const args = argsArray[i] as unknown[] | undefined;
+        if (args) {
+          state.ctm = multiply(
+            [
+              args[0] as number,
+              args[1] as number,
+              args[2] as number,
+              args[3] as number,
+              args[4] as number,
+              args[5] as number,
+            ],
+            state.ctm
+          );
+        }
+      } else if (op === OP_SET_LINE_WIDTH) {
+        const args = argsArray[i] as unknown[] | undefined;
+        if (args) state.lineWidth = args[0] as number;
+      } else if (op === OP_SET_STROKE_RGB) {
+        const args = argsArray[i] as unknown[] | undefined;
+        // Legacy build wraps the colour in a one-element array; modern build
+        // passes the Uint8ClampedArray directly as the args entry.
+        if (args) state.strokeColor = parseColor(args) ?? parseColor(args[0]);
+      } else if (op === OP_SET_FILL_RGB) {
+        const args = argsArray[i] as unknown[] | undefined;
+        if (args) state.fillColor = parseColor(args) ?? parseColor(args[0]);
+      } else if (op === OP_BEGIN_MC_PROPS) {
+        const args = argsArray[i] as unknown[] | undefined;
+        if (args) {
+          // args is `[tag, properties]`. For OCG layers tag === "OC" and
+          // properties.id is the OCG group id. Anything else just balances
+          // the stack with a null entry.
+          const tag = args[0];
+          const props = args[1] as { id?: string; type?: string } | null;
+          if (tag === "OC" && props && typeof props.id === "string") {
+            layerStack.push(layerNameById.get(props.id) ?? null);
+          } else {
+            layerStack.push(null);
+          }
+        }
+      } else if (op === OP_BEGIN_MC) {
+        layerStack.push(null);
+      } else if (op === OP_END_MC) {
+        layerStack.pop();
       }
     }
   }

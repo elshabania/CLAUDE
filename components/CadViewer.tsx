@@ -95,25 +95,94 @@ export function CadViewer({
    *  coloured regions. The display canvas just drawImages this with
    *  pan/zoom. */
   const offscreenRef = useRef<HTMLCanvasElement | null>(null);
+  /** Bumped whenever the offscreen layer's pixels change (new drawing,
+   *  re-classification, or visibility toggle). The blit effect depends on this
+   *  instead of the heavyweight `drawing`/`visibleCategories` objects so it
+   *  re-blits exactly when the offscreen content actually changed - and the
+   *  cheap per-frame pan/zoom path never touches the offscreen render at all. */
+  const [offscreenVersion, setOffscreenVersion] = useState(0);
   const [transform, setTransform] = useState({ scale: 1, tx: 0, ty: 0 });
   const [size, setSize] = useState({ width: 800, height: 600 });
   const dragRef = useRef<{ x: number; y: number; tx: number; ty: number } | null>(
     null
   );
 
-  // Pre-bin segments by *effective* category so the render loop only walks
-  // the segments it'll actually paint.
-  const segmentsByCategory = useMemo(() => {
-    const m = new Map<RoadCategory, ParsedDrawing["segments"]>();
-    for (const seg of drawing.segments) {
-      const cat = effCat(seg);
-      const arr = m.get(cat) ?? [];
-      arr.push(seg);
-      m.set(cat, arr);
+  // Build a uniform spatial grid over the drawing in a single pass. The grid
+  // lets pickGroupAt query only the handful of segments whose bounding box
+  // overlaps the click cell instead of linearly scanning all ~80k every click.
+  //
+  // Each segment's bounding box is rasterised into the cells it spans and we
+  // store the segment's index into `drawing.segments` (a plain number, not an
+  // object - keeps the structure allocation-light). Indexing by bbox (every
+  // overlapped cell) guarantees no false negatives: any closed polygon that
+  // contains the click, or any open polyline within tolerance of it, has a
+  // bbox covering the queried cell range, so it is always a candidate.
+  //
+  // We intentionally do NOT pre-bin segments by category here: the offscreen
+  // paint goes through the shared `renderDrawingFills`, which does its own
+  // category binning, so a second copy in this component would just allocate
+  // per-category arrays of all ~80k segment refs for nothing.
+  const spatialIndex = useMemo(() => {
+    const { minX, minY, maxX, maxY } = drawing.bounds;
+    const spanX = Math.max(maxX - minX, 1);
+    const spanY = Math.max(maxY - minY, 1);
+    const diag = Math.hypot(spanX, spanY) || 1;
+    // ~256 cells across the diagonal: a good balance between bucket size and
+    // grid memory for plans up to ~80k segments.
+    const cell = Math.max(diag / 256, 1e-6);
+    const invCell = 1 / cell;
+    const colsX = Math.max(1, Math.ceil(spanX * invCell) + 1);
+    const colsY = Math.max(1, Math.ceil(spanY * invCell) + 1);
+    const cells = new Map<number, number[]>();
+    const clampCol = (v: number) => (v < 0 ? 0 : v >= colsX ? colsX - 1 : v);
+    const clampRow = (v: number) => (v < 0 ? 0 : v >= colsY ? colsY - 1 : v);
+
+    const segs = drawing.segments;
+    for (let s = 0; s < segs.length; s++) {
+      const seg = segs[s];
+      const pts = seg.points;
+      if (pts.length < 2) continue;
+      // Segment bounding box in drawing units.
+      let sxMin = pts[0],
+        syMin = pts[1],
+        sxMax = pts[0],
+        syMax = pts[1];
+      for (let i = 2; i < pts.length; i += 2) {
+        const x = pts[i];
+        const y = pts[i + 1];
+        if (x < sxMin) sxMin = x;
+        else if (x > sxMax) sxMax = x;
+        if (y < syMin) syMin = y;
+        else if (y > syMax) syMax = y;
+      }
+      const c0 = clampCol(Math.floor((sxMin - minX) * invCell));
+      const c1 = clampCol(Math.floor((sxMax - minX) * invCell));
+      const r0 = clampRow(Math.floor((syMin - minY) * invCell));
+      const r1 = clampRow(Math.floor((syMax - minY) * invCell));
+      for (let cy = r0; cy <= r1; cy++) {
+        const base = cy * colsX;
+        for (let cx = c0; cx <= c1; cx++) {
+          const key = base + cx;
+          const bucket = cells.get(key);
+          if (bucket) bucket.push(s);
+          else cells.set(key, [s]);
+        }
+      }
     }
-    return m;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [drawing, groupCategory]);
+
+    return {
+      minX,
+      minY,
+      invCell,
+      colsX,
+      colsY,
+      cells,
+      clampCol,
+      clampRow,
+    };
+    // The grid is purely geometric (segment positions), so it only needs to
+    // rebuild when the drawing itself changes - not on re-classification.
+  }, [drawing]);
 
   // Clear a measurement when leaving the measure tool or loading a new file.
   useEffect(() => {
@@ -227,7 +296,15 @@ export function CadViewer({
       categoryColors: CATEGORY_COLORS,
       effCat,
     });
-  }, [drawing, segmentsByCategory, visibleCategories]);
+    // Signal the blit effect that the offscreen pixels changed.
+    setOffscreenVersion((v) => v + 1);
+    // Repaint when the drawing, the per-group classification override
+    // (`groupCategory`, which `effCat` reads to decide each segment's colour),
+    // or category visibility changes. This is the single expensive raster path;
+    // the per-frame pan/zoom blit below is gated separately so it never lands
+    // here.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [drawing, groupCategory, visibleCategories]);
 
   // Display loop: blit the offscreen layer with pan/zoom.
   useEffect(() => {
@@ -304,7 +381,13 @@ export function CadViewer({
       }
       ctx.restore();
     }
-  }, [drawing, transform, pageRotation, size.width, size.height, visibleCategories, segmentsByCategory, measure]);
+    // `offscreenVersion` stands in for the offscreen pixel content: it bumps
+    // after every offscreen re-render, so we re-blit on data/visibility changes
+    // without depending on the heavyweight `visibleCategories` / `groupCategory`
+    // objects (which don't otherwise affect the blit). The per-frame pan/zoom
+    // path only mutates `transform`, so it lands here and does the cheap blit -
+    // never the expensive offscreen raster above.
+  }, [drawing, transform, pageRotation, size.width, size.height, offscreenVersion, measure]);
 
   const dragMovedRef = useRef(false);
   const onPointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
@@ -336,45 +419,91 @@ export function CadViewer({
     return { x: ux / scale + dcx, y: dcy - uy / scale };
   }
 
+  /** Run the point/polygon hit-test for a single segment index against the
+   *  query point, folding any improvement into `best`. Pulled out of the loop
+   *  so the grid- and (fallback) full-scan code share one source of truth and
+   *  the semantics stay identical. */
+  function testSeg(
+    s: number,
+    x: number,
+    y: number,
+    tol: number,
+    best: { dist: number; groupId: string } | null
+  ): { dist: number; groupId: string } | null {
+    const seg = drawing.segments[s];
+    if (visibleCategories[effCat(seg)] === false) return best;
+    const pts = seg.points;
+    if (seg.closed && pts.length >= 6) {
+      let inside = false;
+      for (let i = 0, j = pts.length - 2; i < pts.length; j = i, i += 2) {
+        const xi = pts[i],
+          yi = pts[i + 1];
+        const xj = pts[j],
+          yj = pts[j + 1];
+        const intersect =
+          yi > y !== yj > y &&
+          x < ((xj - xi) * (y - yi)) / (yj - yi + 1e-9) + xi;
+        if (intersect) inside = !inside;
+      }
+      if (inside) {
+        if (!best || best.dist > 0) return { dist: 0, groupId: seg.groupId };
+      }
+    } else {
+      for (let i = 2; i < pts.length; i += 2) {
+        const dx = pts[i] - pts[i - 2];
+        const dy = pts[i + 1] - pts[i - 1];
+        const len2 = dx * dx + dy * dy;
+        if (len2 === 0) continue;
+        let t = ((x - pts[i - 2]) * dx + (y - pts[i - 1]) * dy) / len2;
+        t = Math.max(0, Math.min(1, t));
+        const px2 = pts[i - 2] + t * dx;
+        const py2 = pts[i - 1] + t * dy;
+        const d = Math.hypot(x - px2, y - py2);
+        if (d < tol && (!best || d < best.dist)) {
+          best = { dist: d, groupId: seg.groupId };
+        }
+      }
+    }
+    return best;
+  }
+
   function pickGroupAt(cx: number, cy: number): string | null {
     const { scale } = transform;
     const { x, y } = screenToDrawing(cx, cy);
     let best: { dist: number; groupId: string } | null = null;
     const tol = 6 / scale;
-    for (const seg of drawing.segments) {
-      if (visibleCategories[effCat(seg)] === false) continue;
-      const pts = seg.points;
-      if (seg.closed && pts.length >= 6) {
-        let inside = false;
-        for (let i = 0, j = pts.length - 2; i < pts.length; j = i, i += 2) {
-          const xi = pts[i],
-            yi = pts[i + 1];
-          const xj = pts[j],
-            yj = pts[j + 1];
-          const intersect =
-            yi > y !== yj > y &&
-            x < ((xj - xi) * (y - yi)) / (yj - yi + 1e-9) + xi;
-          if (intersect) inside = !inside;
-        }
-        if (inside) {
-          if (!best || best.dist > 0) best = { dist: 0, groupId: seg.groupId };
-        }
-      } else {
-        for (let i = 2; i < pts.length; i += 2) {
-          const dx = pts[i] - pts[i - 2];
-          const dy = pts[i + 1] - pts[i - 1];
-          const len2 = dx * dx + dy * dy;
-          if (len2 === 0) continue;
-          let t = ((x - pts[i - 2]) * dx + (y - pts[i - 1]) * dy) / len2;
-          t = Math.max(0, Math.min(1, t));
-          const px2 = pts[i - 2] + t * dx;
-          const py2 = pts[i - 1] + t * dy;
-          const d = Math.hypot(x - px2, y - py2);
-          if (d < tol && (!best || d < best.dist)) {
-            best = { dist: d, groupId: seg.groupId };
-          }
-        }
+
+    // Query the spatial grid: only segments whose bounding box overlaps a cell
+    // within `tol` of the click can possibly match (a closed polygon
+    // containing the point, or an open polyline passing within tolerance, must
+    // have a bbox covering this cell range). This turns the per-click cost from
+    // O(all ~80k segments) into O(segments near the cursor).
+    const { minX, minY, invCell, colsX, clampCol, clampRow, cells } =
+      spatialIndex;
+    const c0 = clampCol(Math.floor((x - tol - minX) * invCell));
+    const c1 = clampCol(Math.floor((x + tol - minX) * invCell));
+    const r0 = clampRow(Math.floor((y - tol - minY) * invCell));
+    const r1 = clampRow(Math.floor((y + tol - minY) * invCell));
+
+    // De-dup candidate indices across the (small) overlapped cell range so a
+    // segment spanning several cells is hit-tested once, not once per cell.
+    const seen = new Set<number>();
+    for (let cyc = r0; cyc <= r1; cyc++) {
+      const base = cyc * colsX;
+      for (let cxc = c0; cxc <= c1; cxc++) {
+        const bucket = cells.get(base + cxc);
+        if (!bucket) continue;
+        for (let k = 0; k < bucket.length; k++) seen.add(bucket[k]);
       }
+    }
+    // Test candidates in ascending segment index, i.e. their order in
+    // `drawing.segments`. This makes ties break identically to the old full
+    // linear scan: among overlapping closed polygons that all contain the
+    // point (all dist 0), or open polylines at equal distance, the lowest-index
+    // segment wins - so the returned group id is unchanged from before.
+    const candidates = Array.from(seen).sort((a, b) => a - b);
+    for (let k = 0; k < candidates.length; k++) {
+      best = testSeg(candidates[k], x, y, tol, best);
     }
     return best?.groupId ?? null;
   }
