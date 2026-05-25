@@ -9,6 +9,7 @@ import { CadViewer } from "@/components/CadViewer";
 import { PhasingView } from "@/components/PhasingView";
 import { AiOptView } from "@/components/AiOptView";
 import {
+  detectFromPdf,
   classifyByLegendSwatch,
   CATEGORY_LABELS,
   type ParsedDrawing,
@@ -27,8 +28,12 @@ import {
   computeNetworkDimensions,
   type DimensionAssumptions,
 } from "@/lib/highway-dims";
-import { renderPdfPagePreview } from "@/lib/pdf-extract-client";
-import { extractInWorker } from "@/lib/extract-worker-client";
+import {
+  extractPdfPathsInBrowser,
+  extractPdfTextItemsInBrowser,
+  renderPdfPagePreview,
+  getPdfPageRotation,
+} from "@/lib/pdf-extract-client";
 import {
   buildRoadNetwork,
   classifyJunctionApproaches,
@@ -286,10 +291,14 @@ export default function Page() {
     const isPdf = file.name.toLowerCase().endsWith(".pdf");
     try {
       if (isPdf) {
-        // Parse + classify in a background worker so the UI never freezes on
-        // a 400k-path masterplan. The buffer is transferred zero-copy.
-        const buffer = await file.arrayBuffer();
-        const { drawing, rotation } = await extractInWorker(buffer);
+        // Vector extraction + text + page rotation, all client-side so the
+        // app needs no server.
+        const [paths, texts, rotation] = await Promise.all([
+          extractPdfPathsInBrowser(file),
+          extractPdfTextItemsInBrowser(file).catch(() => []),
+          getPdfPageRotation(file).catch(() => 0),
+        ]);
+        const drawing = detectFromPdf(paths, texts);
         setResult({ filename: file.name, drawing });
         setPageRotation(rotation);
         if (drawing.segments.length === 0) {
