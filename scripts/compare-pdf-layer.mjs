@@ -346,6 +346,53 @@ cpctx.drawImage(pdfCanvas, cx0, cy0, cw, ch, 0, 0, cw * cropZoom, ch * cropZoom)
 writeFileSync(resolve(OUT, "pdf-crop.png"), cropPdf.toBuffer("image/png"));
 console.log(`Wrote road-network.png, road-network-crop.png, pdf-crop.png`);
 
+// ---- BEFORE/AFTER of one corridor ------------------------------------------
+// BEFORE = old per-tile fill (each road hatch tile painted separately, no
+// morphology) -> patchy. AFTER = mask + close -> solid (rnCanvas).
+const beforeCanvas = createCanvas(VW, VH);
+const bctx = beforeCanvas.getContext("2d");
+bctx.fillStyle = rhex; bctx.lineCap = "round"; bctx.lineJoin = "round";
+for (const cat of DRAW_ORDER) {
+  if (!ROAD_SET.has(cat)) continue;
+  for (const seg of buckets.get(cat) ?? []) {
+    if (!seg.closed && !seg.isFill) continue;
+    for (const sp of seg.subpaths) {
+      if (sp.length < 3) continue;
+      bctx.beginPath();
+      for (let i = 0; i < sp.length; i++) { const p = vp(sp[i].x, sp[i].y); if (i===0) bctx.moveTo(p[0],p[1]); else bctx.lineTo(p[0],p[1]); }
+      bctx.closePath(); bctx.fill();
+    }
+  }
+}
+
+// Crop window for ONE corridor, as fractions x0,y0,w,h (env CORRIDOR=...).
+const cwSpec = (process.env.CORRIDOR || "0.78,0.20,0.16,0.16").split(",").map(Number);
+const wx = Math.floor(VW * cwSpec[0]), wy = Math.floor(VH * cwSpec[1]);
+const ww = Math.floor(VW * cwSpec[2]), wh = Math.floor(VH * cwSpec[3]);
+const zoom = 6;
+function cropOf(srcCanvas, label) {
+  const c = createCanvas(ww * zoom, wh * zoom);
+  const cx = c.getContext("2d");
+  cx.imageSmoothingEnabled = false;
+  cx.fillStyle = "#0f172a"; cx.fillRect(0, 0, c.width, c.height);
+  cx.drawImage(srcCanvas, wx, wy, ww, wh, 0, 0, ww * zoom, wh * zoom);
+  cx.fillStyle = "rgba(0,0,0,0.55)"; cx.fillRect(0, 0, 360, 54);
+  cx.fillStyle = "#fff"; cx.font = "32px sans-serif"; cx.fillText(label, 16, 38);
+  return c;
+}
+const beforeCrop = cropOf(beforeCanvas, "BEFORE - per-tile fill");
+const afterCrop = cropOf(rnView, "AFTER - solid (closed)");
+const pdfCrop2 = cropOf(pdfCanvas, "PDF (source)");
+const pad = 16;
+const baw = createCanvas(ww * zoom * 3 + pad * 2, wh * zoom);
+const bawc = baw.getContext("2d");
+bawc.fillStyle = "#0b1120"; bawc.fillRect(0, 0, baw.width, baw.height);
+bawc.drawImage(pdfCrop2, 0, 0);
+bawc.drawImage(beforeCrop, ww * zoom + pad, 0);
+bawc.drawImage(afterCrop, (ww * zoom + pad) * 2, 0);
+writeFileSync(resolve(OUT, "corridor-before-after.png"), baw.toBuffer("image/png"));
+console.log(`Wrote corridor-before-after.png  (window ${cwSpec.join(",")})`);
+
 
 // ---- per-category coverage: which layer blankets the page? -----------------
 console.log("\n=== Per-category painted coverage (% of page) ===");
