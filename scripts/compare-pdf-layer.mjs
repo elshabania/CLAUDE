@@ -266,6 +266,87 @@ for (const cat of DRAW_ORDER) {
 }
 writeFileSync(resolve(OUT, OUTLINES ? "layer-outlines.png" : "layer.png"), layerCanvas.toBuffer("image/png"));
 
+// ---- ROAD NETWORK as solid layer (replicates CadViewer's new pipeline) -----
+// Rasterise visible road polygons to a mask, morphologically CLOSE the hatch
+// gaps, paint solid in the dominant road colour. This is what the app now
+// shows; rendering it here confirms roads come out solid (not patchy).
+function boxPass(src, dst, W, H, r, max) {
+  const tmp = new Uint8Array(W * H);
+  for (let y = 0; y < H; y++) { const row = y*W; for (let x = 0; x < W; x++) { let v = max?0:1; const lo = x-r<0?0:x-r, hi = x+r>=W?W-1:x+r; for (let xx=lo; xx<=hi; xx++){ const s=src[row+xx]; if (max?s>v:s<v) v=s; } tmp[row+x]=v; } }
+  for (let x = 0; x < W; x++) { for (let y = 0; y < H; y++) { let v = max?0:1; const lo = y-r<0?0:y-r, hi = y+r>=H?H-1:y+r; for (let yy=lo; yy<=hi; yy++){ const s=tmp[yy*W+x]; if (max?s>v:s<v) v=s; } dst[y*W+x]=v; } }
+}
+function closeMask(mask, W, H, r) { if (r<=0) return mask.slice(); const d=new Uint8Array(W*H); boxPass(mask,d,W,H,r,true); const o=new Uint8Array(W*H); boxPass(d,o,W,H,r,false); return o; }
+
+const roadMaskCanvas = createCanvas(VW, VH);
+const rmc = roadMaskCanvas.getContext("2d");
+rmc.fillStyle = "#fff";
+let roadTilePx = 0;
+const roadCounts = new Map();
+for (const cat of DRAW_ORDER) {
+  if (!ROAD_SET.has(cat)) continue;
+  const segs = buckets.get(cat) ?? [];
+  for (const seg of segs) {
+    if (!seg.closed && !seg.isFill) continue;
+    roadCounts.set(cat, (roadCounts.get(cat) ?? 0) + 1);
+    for (const sp of seg.subpaths) {
+      if (sp.length < 3) continue;
+      rmc.beginPath();
+      for (let i = 0; i < sp.length; i++) { const p = vp(sp[i].x, sp[i].y); if (i===0) rmc.moveTo(p[0],p[1]); else rmc.lineTo(p[0],p[1]); }
+      rmc.closePath(); rmc.fill();
+    }
+  }
+}
+let domCat = "road_row", domN = -1;
+for (const [c, n] of roadCounts) if (n > domN) { domN = n; domCat = c; }
+const rsrc = rmc.getImageData(0, 0, VW, VH).data;
+const rmask = new Uint8Array(VW * VH);
+for (let i = 0; i < VW*VH; i++) { if (rsrc[i*4+3] > 10) { rmask[i] = 1; roadTilePx++; } }
+const radius = Number(process.env.RADIUS || Math.max(3, Math.round(SCALE * 2)));
+// Sweep diagnostics: show fill gain across radii so we can size the close.
+for (const rTest of [2, 4, 6, 8, 12, 16]) {
+  const c = closeMask(rmask, VW, VH, rTest);
+  let p = 0; for (let i = 0; i < VW*VH; i++) if (c[i]) p++;
+  console.log(`  radius ${String(rTest).padStart(2)}px -> ${(100*p/(VW*VH)).toFixed(2)}% solid  (${(p/Math.max(1,roadTilePx)).toFixed(2)}x)`);
+}
+const rclosed = closeMask(rmask, VW, VH, radius);
+let roadSolidPx = 0; for (let i = 0; i < VW*VH; i++) if (rclosed[i]) roadSolidPx++;
+const rnCanvas = createCanvas(VW, VH);
+const rnctx = rnCanvas.getContext("2d");
+const rhex = categoryHex(domCat);
+const rr = parseInt(rhex.slice(1,3),16), gg = parseInt(rhex.slice(3,5),16), bb = parseInt(rhex.slice(5,7),16);
+const rout = rnctx.createImageData(VW, VH); const rd = rout.data;
+for (let i = 0; i < VW*VH; i++) if (rclosed[i]) { const o=i*4; rd[o]=rr; rd[o+1]=gg; rd[o+2]=bb; rd[o+3]=255; }
+rnctx.putImageData(rout, 0, 0);
+// Compose on dark bg for viewing.
+const rnView = createCanvas(VW, VH);
+const rvc = rnView.getContext("2d");
+rvc.fillStyle = "#0f172a"; rvc.fillRect(0,0,VW,VH); rvc.drawImage(rnCanvas, 0, 0);
+writeFileSync(resolve(OUT, "road-network.png"), rnView.toBuffer("image/png"));
+console.log(`\n=== Road network (solid, closed) ===`);
+console.log(`road hatch tiles painted: ${(100*roadTilePx/(VW*VH)).toFixed(2)}% of page`);
+console.log(`after close (solid):      ${(100*roadSolidPx/(VW*VH)).toFixed(2)}% of page  (close radius ${radius}px)`);
+console.log(`fill ratio gain:          ${(roadSolidPx/Math.max(1,roadTilePx)).toFixed(2)}x  (>1 means gaps filled)`);
+console.log(`dominant road category:   ${domCat}`);
+
+// Zoomed crop (center quarter) at 3x to expose any residual hatch gaps.
+const cw = Math.floor(VW / 3), ch = Math.floor(VH / 3);
+const cx0 = Math.floor((VW - cw) / 2), cy0 = Math.floor((VH - ch) / 2);
+const cropZoom = 3;
+const crop = createCanvas(cw * cropZoom, ch * cropZoom);
+const cctx = crop.getContext("2d");
+cctx.imageSmoothingEnabled = false;
+cctx.fillStyle = "#0f172a"; cctx.fillRect(0, 0, crop.width, crop.height);
+cctx.drawImage(rnCanvas, cx0, cy0, cw, ch, 0, 0, cw * cropZoom, ch * cropZoom);
+writeFileSync(resolve(OUT, "road-network-crop.png"), crop.toBuffer("image/png"));
+// Same crop from the real PDF for side-by-side fidelity.
+const cropPdf = createCanvas(cw * cropZoom, ch * cropZoom);
+const cpctx = cropPdf.getContext("2d");
+cpctx.imageSmoothingEnabled = false;
+cpctx.drawImage(pdfCanvas, cx0, cy0, cw, ch, 0, 0, cw * cropZoom, ch * cropZoom);
+writeFileSync(resolve(OUT, "pdf-crop.png"), cropPdf.toBuffer("image/png"));
+console.log(`Wrote road-network.png, road-network-crop.png, pdf-crop.png`);
+
+
 // ---- per-category coverage: which layer blankets the page? -----------------
 console.log("\n=== Per-category painted coverage (% of page) ===");
 const catCov = [];
