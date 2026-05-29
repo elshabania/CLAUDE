@@ -80,8 +80,8 @@ for (const link of network.links) {
   const pts = link.points;
   if (!pts || pts.length < 4) continue;
   const lanes = (link as any).lanesPerDir ?? 1;
-  ctx.strokeStyle = "#e11d48";
-  ctx.lineWidth = Math.max(2.5, lanes * 2.2);
+  ctx.strokeStyle = lanes >= 3 ? "#dc2626" : lanes === 2 ? "#f59e0b" : "#22c55e";
+  ctx.lineWidth = Math.max(2.5, lanes * 2.6);
   ctx.beginPath();
   for (let i = 0; i < pts.length; i += 2) {
     const p = vp(pts[i], pts[i + 1]);
@@ -99,4 +99,7 @@ for (const n of network.junctions) {
 }
 
 writeFileSync(resolve(OUT, "network-over-pdf.png"), out.toBuffer("image/png"));
+const hist = new Map<number,number>();
+for (const l of network.links) { const k=(l as any).lanesPerDir ?? 1; hist.set(k,(hist.get(k)??0)+1); }
+console.log("lanes/dir distribution:", [...hist.entries()].sort((a,b)=>a[0]-b[0]).map(([k,v])=>`${k}L:${v}`).join("  "));
 console.log(`Wrote ${resolve(OUT, "network-over-pdf.png")}`);

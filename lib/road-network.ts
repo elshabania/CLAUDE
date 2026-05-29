@@ -35,6 +35,9 @@ export interface NetworkLink {
   bearing: number;
   /** Pavement width in source units, when available (derived from paired curbs). */
   width?: number;
+  /** Per-vertex carriageway width profile (source units; same count as
+   *  points/2) - preserves lane gains/drops along the corridor. */
+  widths?: number[];
   /** Closed polygon of the asphalt area for this link (between the two
    *  paired curbs that produced its centerline). Set when the link comes
    *  from the curb-pair derivation, omitted otherwise. */
@@ -132,6 +135,83 @@ export interface BuildNetworkOptions {
 
 const DEFAULT_ROAD: RoadCategory[] = Array.from(ROAD_CATEGORIES);
 const DEFAULT_BUILDING: RoadCategory[] = ["building"];
+
+/**
+ * Split a centerline into runs of constant lanes/direction, using its
+ * per-vertex width profile. A median filter + minimum-run-length suppress
+ * single-vertex noise so we only split at genuine lane changes. Consecutive
+ * runs SHARE their boundary vertex, so endpoint snapping later places a node
+ * exactly at each lane change - the graph stays connected and capacity is
+ * constant within each link.
+ */
+function splitByLanes(
+  points: number[],
+  widths: number[] | undefined,
+  lanesPerDirAt: (w: number) => number,
+  totalLength: number
+): { points: number[]; widths: number[]; length: number; width: number; lanesPerDir: number }[] {
+  const nv = points.length / 2;
+  if (nv < 2) return [];
+  // Fall back to a single link when no width profile is available.
+  if (!widths || widths.length !== nv) {
+    const w = widths && widths.length ? widths[(widths.length / 2) | 0] : 0;
+    return [{ points: points.slice(), widths: widths ?? [], length: totalLength, width: w, lanesPerDir: lanesPerDirAt(w) }];
+  }
+  // Per-vertex lane level, 3-tap median-filtered to kill single-pixel spikes.
+  const lane = new Array<number>(nv);
+  for (let i = 0; i < nv; i++) lane[i] = lanesPerDirAt(widths[i]);
+  // 3-tap median filter to kill single-vertex spikes.
+  const med = new Array<number>(nv);
+  for (let i = 0; i < nv; i++) {
+    const a = lane[i - 1] ?? lane[i], b = lane[i], c = lane[i + 1] ?? lane[i];
+    med[i] = [a, b, c].sort((x, y) => x - y)[1];
+  }
+  const MIN_RUN = 4; // vertices; shorter level-changes are merged out as noise
+  // Build run boundaries.
+  const runs: { start: number; end: number; lane: number }[] = [];
+  let start = 0;
+  for (let i = 1; i <= nv; i++) {
+    if (i === nv || med[i] !== med[start]) {
+      runs.push({ start, end: i - 1, lane: med[start] });
+      start = i;
+    }
+  }
+  // Merge runs shorter than MIN_RUN into the previous run's level.
+  const merged: typeof runs = [];
+  for (const r of runs) {
+    const len = r.end - r.start + 1;
+    if (merged.length && len < MIN_RUN) {
+      merged[merged.length - 1].end = r.end;
+    } else {
+      merged.push({ ...r });
+    }
+  }
+  if (merged.length === 0) merged.push({ start: 0, end: nv - 1, lane: med[0] });
+
+  const segLen = (i0: number, i1: number) => {
+    let L = 0;
+    for (let i = i0 + 1; i <= i1; i++) {
+      L += Math.hypot(points[i * 2] - points[(i - 1) * 2], points[i * 2 + 1] - points[(i - 1) * 2 + 1]);
+    }
+    return L;
+  };
+  const out: { points: number[]; widths: number[]; length: number; width: number; lanesPerDir: number }[] = [];
+  for (let r = 0; r < merged.length; r++) {
+    const s = merged[r].start;
+    // Share the boundary vertex with the next run so links connect at a node.
+    const e = r < merged.length - 1 ? merged[r + 1].start : merged[r].end;
+    if (e <= s) continue;
+    const pts: number[] = [];
+    const ws: number[] = [];
+    for (let i = s; i <= e; i++) { pts.push(points[i * 2], points[i * 2 + 1]); ws.push(widths[i]); }
+    const sortedW = ws.slice().sort((a, b) => a - b);
+    const medW = sortedW[(sortedW.length / 2) | 0] ?? 0;
+    // Lane count for the run = the level the run was built at (its bottleneck
+    // is captured by splitting; use the run level for constant capacity).
+    out.push({ points: pts, widths: ws, length: segLen(s, e), width: medW, lanesPerDir: merged[r].lane });
+  }
+  return out.length ? out : [{ points: points.slice(), widths, length: totalLength, width: widths[(nv / 2) | 0], lanesPerDir: med[0] }];
+}
 
 function polygonArea(points: number[]): number {
   let a = 0;
@@ -270,6 +350,10 @@ export function buildRoadNetwork(
     points: number[];
     length: number;
     width?: number;
+    /** Per-vertex carriageway width profile (source units). */
+    widths?: number[];
+    /** Constant lanes/direction for this (possibly lane-split) segment. */
+    lanesPerDir?: number;
     bodyPolygon?: number[];
   };
   let roadSegs: RoadSeg[];
@@ -283,6 +367,7 @@ export function buildRoadNetwork(
       points: number[];
       length: number;
       width: number;
+      widths?: number[];
       bodyPolygon: number[];
     }[] = [];
     // Fill mode: skeletonise the morphologically-closed road FOOTPRINT, so the
@@ -291,12 +376,27 @@ export function buildRoadNetwork(
     derived = extractRoadSkeleton(curbSegs, { minX, minY, maxX, maxY }, {
       fillMode: true,
     });
-    roadSegs = derived.map((d) => ({
-      points: d.points,
-      length: d.length,
-      width: d.width,
-      bodyPolygon: d.bodyPolygon,
-    }));
+    // Anchor lane width to the median corridor width (= 1 lane/direction),
+    // scale-free, then SPLIT each centerline where the lane count changes so a
+    // widening (turn pocket / approach lane) becomes its own constant-lane link
+    // with a node at the change. Capacity then reflects actual lanes, including
+    // gains/drops - essential for the mitigation analysis.
+    const dws = derived
+      .map((d) => d.width)
+      .filter((w) => Number.isFinite(w) && w > 0)
+      .sort((a, b) => a - b);
+    const dMedian = dws.length ? dws[Math.floor(dws.length / 2)] : 0;
+    const dLaneUnit = dMedian > 0 ? Math.max(1e-3, dMedian / 2) : diag * 0.001;
+    const lanesPerDirAt = (w: number): number => {
+      if (!Number.isFinite(w) || w <= 0) return 1;
+      const total = Math.max(2, Math.min(8, Math.round(w / dLaneUnit)));
+      return Math.max(1, Math.min(4, Math.floor(total / 2)));
+    };
+    roadSegs = [];
+    for (const d of derived) {
+      const split = splitByLanes(d.points, d.widths, lanesPerDirAt, d.length);
+      for (const s of split) roadSegs.push({ ...s, bodyPolygon: d.bodyPolygon });
+    }
   } else {
     roadSegs = preClassifiedRoads.map((s) => ({
       points: s.points,
@@ -370,6 +470,10 @@ export function buildRoadNetwork(
       length: seg.length,
       bearing,
       width: seg.width,
+      widths: seg.widths,
+      // Lane count from the lane-split (constant within this link); the later
+      // width->lanes pass leaves it alone when already set.
+      lanesPerDir: seg.lanesPerDir,
       bodyPolygon: seg.bodyPolygon,
     });
   }
@@ -812,6 +916,9 @@ export function buildRoadNetwork(
   // and corrupt lanesPerDir. Clamp per direction to 1..4, the same bound
   // highway-dims.ts applies, so a mis-measured polygon can't run away.
   for (const link of linkArr) {
+    // Lane-split derived links already carry a constant lanesPerDir; don't
+    // overwrite it. Only fill links that have none (e.g. pre-classified path).
+    if (link.lanesPerDir != null) continue;
     let totalLanes = 2;
     if (link.width != null && Number.isFinite(link.width) && link.width > 0) {
       totalLanes = Math.max(2, Math.min(8, Math.round(link.width / laneUnit)));

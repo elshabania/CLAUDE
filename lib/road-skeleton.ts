@@ -298,14 +298,23 @@ export function extractRoadSkeleton(
     for (let i = 2; i < points.length; i += 2) {
       length += Math.hypot(points[i] - points[i - 2], points[i + 1] - points[i - 1]);
     }
-    // Average half-width from distance field.
-    let totalDistPx = 0;
-    let n = 0;
+    // Per-vertex carriageway width from the distance field (2 x half-width),
+    // so lane gains/drops, turn pockets and approach widenings are preserved.
+    // Lightly smoothed (3-tap) to damp single-pixel distance-transform noise.
+    const rawW: number[] = [];
     for (let i = 0; i < px.length; i += 2) {
       const idx = px[i + 1] * W + px[i];
-      totalDistPx += dist[idx];
-      n++;
+      rawW.push(Math.max(0, (dist[idx] - 0.5) * 2 * pixelToUnit));
     }
+    const widths: number[] = rawW.map((_, k) => {
+      const a = rawW[k - 1] ?? rawW[k];
+      const b = rawW[k];
+      const c = rawW[k + 1] ?? rawW[k];
+      return (a + b + c) / 3;
+    });
+    let totalDistPx = 0;
+    for (let i = 0; i < px.length; i += 2) totalDistPx += dist[px[i + 1] * W + px[i]];
+    const n = px.length / 2;
     const avgHalfWidth = ((totalDistPx / n) - 0.5) * pixelToUnit;
     const width = Math.max(0, avgHalfWidth * 2);
 
@@ -313,7 +322,7 @@ export function extractRoadSkeleton(
     // local distance-field value to land exactly on the kerb.
     const bodyPolygon = sweepBody(px, dist, W, scale, x2px, y2py, px2x, py2y);
 
-    out.push({ points, width, length, bodyPolygon });
+    out.push({ points, width, widths, length, bodyPolygon });
   }
   return out;
 }

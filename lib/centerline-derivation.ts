@@ -10,6 +10,10 @@ export interface DerivedCenterline {
   points: number[];
   /** Average gap between paired curbs (= road body width) in source units. */
   width: number;
+  /** Local carriageway width at each centerline vertex (source units; same
+   *  count as points/2). Captures lane gains/drops, turn pockets and approach
+   *  widenings that the single `width` average throws away. */
+  widths?: number[];
   /** Cumulative arc length of the centerline. */
   length: number;
   /** Closed polygon (flat point array) of the asphalt area between the two

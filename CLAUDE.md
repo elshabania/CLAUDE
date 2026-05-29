@@ -37,6 +37,16 @@ means to that end, not the goal.
 - **Not yet built:** demand model, assignment engine, mitigation/scenario tools.
   This is the gap to the north-star and the priority.
 
+## Hard product requirements (from the user)
+- **Everything is shown in 2D** — the network, congestion results, and the
+  mitigation measures must be presented on the 2D plan (over the PDF). The 3D
+  view is deactivated and is not the medium for results.
+- **Lane counts must vary along a corridor.** A single centerline with one lane
+  value is insufficient; capture lane gains/drops, turn pockets and approach
+  widenings (capacity = lanes, and mitigation = adding lanes where short). DONE:
+  per-vertex width profile from the distance field; corridors split into
+  constant-lane links at each lane change (a node per change).
+
 ## Honest constraints
 - Auto-extraction of lanes/land-use from the PDF is approximate — design for
   *engineer confirmation*, not perfect automation.
