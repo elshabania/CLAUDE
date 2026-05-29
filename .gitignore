@@ -14,3 +14,5 @@ scripts/.render-real.mjs
 native/*.wasm
 .claude/worktrees/
 scripts/.compare-out/
+scripts/.network-out/
+scripts/.network-real.mjs

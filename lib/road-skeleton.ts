@@ -3,6 +3,7 @@
 import type { DrawingSegment } from "@/lib/road-detect";
 import type { DerivedCenterline } from "@/lib/centerline-derivation";
 import { getGeo } from "@/lib/wasm/geo";
+import { closeMask } from "@/lib/morphology";
 
 /**
  * Image-based medial-axis road-skeleton extractor.
@@ -44,6 +45,14 @@ interface ExtractOptions {
   /** Thinner: 'zhang-suen' (default) | 'guo-hall' | 'distance-ridge' |
    *  'erosion' (iterative one-px morphological erosion). */
   thinner?: "zhang-suen" | "guo-hall" | "distance-ridge" | "erosion";
+  /** FILL mode: rasterise the input polygons as FILLED areas and
+   *  morphologically close the hatch gaps, instead of stroking kerb outlines
+   *  and flood-filling enclosed interiors. This makes the skeleton cover the
+   *  full road FOOTPRINT (every hatch-filled corridor), giving full coverage
+   *  AND clean topology - the routable network we need. */
+  fillMode?: boolean;
+  /** Close radius (px) used in fillMode to bridge hatch-tile gaps. */
+  closeRadiusPx?: number;
 }
 
 type RasterCtx =
@@ -89,38 +98,70 @@ export function extractRoadSkeleton(
   const px2x = (px: number) => bounds.minX + px / scale;
   const py2y = (py: number) => bounds.maxY - py / scale;
 
+  const fillMode = opts.fillMode === true;
+  const N = W * H;
+
   // 1. Rasterize. Works on the main thread (HTMLCanvas) and inside a Web
   // Worker (OffscreenCanvas) so the heavy thinning can run off the UI thread.
   const ctx = createRasterContext(W, H);
   if (!ctx) return [];
-  ctx.fillStyle = "white";
-  ctx.fillRect(0, 0, W, H);
-  ctx.strokeStyle = "black";
-  ctx.lineWidth = stroke;
-  ctx.lineCap = "round";
-  ctx.lineJoin = "round";
-  for (const c of curbs) {
-    if (c.points.length < 4) continue;
-    ctx.beginPath();
-    ctx.moveTo(x2px(c.points[0]), y2py(c.points[1]));
-    for (let i = 2; i < c.points.length; i += 2) {
-      ctx.lineTo(x2px(c.points[i]), y2py(c.points[i + 1]));
+  const mask = new Uint8Array(N);
+
+  if (fillMode) {
+    // FILL the road polygons (white on black), so the mask IS the road
+    // footprint. Hatch tiles render as stripes; the close below fuses them.
+    ctx.fillStyle = "black";
+    ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = "white";
+    for (const c of curbs) {
+      const p = c.points;
+      if (p.length < 6) continue;
+      ctx.beginPath();
+      ctx.moveTo(x2px(p[0]), y2py(p[1]));
+      for (let i = 2; i < p.length; i += 2) ctx.lineTo(x2px(p[i]), y2py(p[i + 1]));
+      ctx.closePath();
+      ctx.fill();
     }
-    ctx.stroke();
+    const img = ctx.getImageData(0, 0, W, H);
+    for (let i = 0; i < N; i++) mask[i] = img.data[i * 4] > 128 ? 1 : 0;
+  } else {
+    ctx.fillStyle = "white";
+    ctx.fillRect(0, 0, W, H);
+    ctx.strokeStyle = "black";
+    ctx.lineWidth = stroke;
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    for (const c of curbs) {
+      if (c.points.length < 4) continue;
+      ctx.beginPath();
+      ctx.moveTo(x2px(c.points[0]), y2py(c.points[1]));
+      for (let i = 2; i < c.points.length; i += 2) {
+        ctx.lineTo(x2px(c.points[i]), y2py(c.points[i + 1]));
+      }
+      ctx.stroke();
+    }
+    const img = ctx.getImageData(0, 0, W, H);
+    // 1 = white (potential interior / asphalt); 0 = black (kerb) or unset.
+    for (let i = 0; i < N; i++) mask[i] = img.data[i * 4] > 128 ? 1 : 0;
   }
 
-  const img = ctx.getImageData(0, 0, W, H);
-  const N = W * H;
-  // 1 = white (potential interior / asphalt); 0 = black (kerb) or unset.
-  const mask = new Uint8Array(N);
-  for (let i = 0; i < N; i++) mask[i] = img.data[i * 4] > 128 ? 1 : 0;
-
-  // 2. Connected-component label all white pixels (4-connected). Drop the
-  // largest (page background) and tiny components. The remaining is/are the
-  // asphalt.
   // The compiled C++ core (WASM) runs the hot pixel kernels (labelling,
   // distance transform, thinning) when loaded; otherwise identical JS runs.
   const geo = getGeo();
+
+  // 2. Build the asphalt `keep` mask.
+  const keep = new Uint8Array(N);
+  if (fillMode) {
+    // Close the hatch gaps so the striped tiles fuse into solid corridors,
+    // then the closed footprint IS the asphalt. (No flood-fill / background
+    // drop needed: black = off-road, white = road.)
+    const radius = opts.closeRadiusPx ?? Math.max(2, Math.round(scale * 1.5));
+    const closed = closeMask(mask, W, H, radius);
+    keep.set(closed);
+  } else {
+  // Connected-component label all white pixels (4-connected). Drop the
+  // largest (page background) and tiny components. The remaining is/are the
+  // asphalt.
   let labels: Int32Array;
   let sizes: number[];
   if (geo) {
@@ -188,13 +229,13 @@ export function extractRoadSkeleton(
       largestLabel = l;
     }
   }
-  const keep = new Uint8Array(N);
   for (let i = 0; i < N; i++) {
     const l = labels[i];
     if (l === 0 || l === largestLabel) continue;
     if (sizes[l] < minComponent) continue;
     keep[i] = 1;
   }
+  } // end non-fill (kerb-flood) mode
 
   // 3. Distance transform of the asphalt mask. Two-pass Manhattan (close
   // enough to Euclidean for our purpose; faster than the proper EDT).

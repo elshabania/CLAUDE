@@ -259,9 +259,12 @@ export function buildRoadNetwork(
   // Decide whether to derive centerlines from paired curbs or use the
   // pre-classified centerline segments. Auto-mode picks derivation when the
   // PDF has substantially more curbs than centerlines.
-  const shouldDerive =
-    opts.deriveCenterlines ??
-    (curbSegs.length > preClassifiedRoads.length * 2 && curbSegs.length >= 50);
+  // Derive a clean routable centerline graph from the road FOOTPRINT whenever
+  // we have closed road polygons. (The old heuristic - more curbs than
+  // centerlines - never fired for masterplans where roads ARE filled polygons,
+  // so the builder fell back to treating every polygon as a link: tens of
+  // thousands of fragments, not a routable network.)
+  const shouldDerive = opts.deriveCenterlines ?? curbSegs.length >= 20;
 
   type RoadSeg = {
     points: number[];
@@ -282,9 +285,12 @@ export function buildRoadNetwork(
       width: number;
       bodyPolygon: number[];
     }[] = [];
-    if (typeof document !== "undefined") {
-      derived = extractRoadSkeleton(curbSegs, { minX, minY, maxX, maxY });
-    }
+    // Fill mode: skeletonise the morphologically-closed road FOOTPRINT, so the
+    // graph covers every corridor (full coverage) with clean topology. Runs on
+    // the main thread (HTMLCanvas) and in the Web Worker (OffscreenCanvas).
+    derived = extractRoadSkeleton(curbSegs, { minX, minY, maxX, maxY }, {
+      fillMode: true,
+    });
     roadSegs = derived.map((d) => ({
       points: d.points,
       length: d.length,
