@@ -55,7 +55,7 @@ console.log(`BEFORE (production):  ${before.links.length} links, ${before.nodes.
 console.log(`AFTER  (H2 fix):      ${after.links.length} links, ${after.nodes.length} nodes, ${after.junctions.length} junctions`);
 
 // --- Render side by side over the PDF underlay. ---
-const SCALE = 2.0;
+const SCALE = 1.2;
 const page = await doc.getPage(1);
 const viewport = page.getViewport({ scale: SCALE });
 const VW = Math.ceil(viewport.width), VH = Math.ceil(viewport.height);
@@ -95,4 +95,6 @@ cctx.fillStyle = "#0b1120"; cctx.fillRect(0, 0, combo.width, combo.height);
 cctx.drawImage(bCanvas, 0, 0);
 cctx.drawImage(aCanvas, VW + pad, 0);
 writeFileSync(resolve(OUT, "network-h2-beforeafter.png"), combo.toBuffer("image/png"));
-console.log(`Wrote network-h2-beforeafter.png`);
+writeFileSync(resolve(OUT, "network-h2-before.png"), bCanvas.toBuffer("image/png"));
+writeFileSync(resolve(OUT, "network-h2-after.png"), aCanvas.toBuffer("image/png"));
+console.log(`Wrote network-h2-beforeafter.png (${combo.width}x${combo.height}) + before/after panels`);
