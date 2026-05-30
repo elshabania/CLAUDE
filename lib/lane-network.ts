@@ -67,6 +67,9 @@ export interface LaneNetwork {
     directedPct: number;
     junctionCount: number;
     connectorCount: number;
+    /** Lanes whose raw lane-count exceeded the sane max and was clamped
+     *  (flagged for engineer review — likely a complex-junction artefact). */
+    clampedLaneCounts: number;
   };
 }
 
@@ -160,7 +163,7 @@ export function buildLaneNetwork(
       nodes: [],
       connectors: [],
       bounds: { minX: 0, minY: 0, maxX: 0, maxY: 0 },
-      stats: { railCount: 0, laneKm: 0, directedPct: 0, junctionCount: 0, connectorCount: 0 },
+      stats: { railCount: 0, laneKm: 0, directedPct: 0, junctionCount: 0, connectorCount: 0, clampedLaneCounts: 0 },
     };
   }
 
@@ -520,31 +523,64 @@ export function buildLaneNetwork(
   };
   const headingAt = (li: number, idx: number) => tan(lanePolys[li], idx);
 
+  // Lane count = the CONTIGUOUS band of parallel, same-direction lanes at the
+  // link midpoint. Gather same-direction neighbours with their SIGNED lateral
+  // offset, then count only those reachable from this lane (offset 0) without
+  // crossing a gap (a median / carriageway break). This stops the count
+  // bleeding across a dual carriageway into the opposing lanes — the cause of
+  // the spurious 12-15 lane readings at complex junctions — and we clamp to a
+  // sane maximum and flag clamped lanes for engineer review.
+  const MAX_LANES = 5; // per direction (urban carriageways virtually never exceed)
+  const GAP = 5; // lateral gap (units) that ends a contiguous carriageway band
+  const laneCountOf = (li: number): { count: number; clamped: boolean } => {
+    const l = lanePolys[li];
+    const mi = Math.floor(l.length / 2);
+    const p = l[mi];
+    const t = tan(l, mi);
+    const nx = -t.ty;
+    const ny = t.tx;
+    // One lateral offset per DISTINCT neighbour lane (its closest point at this
+    // cross-section). Require the neighbour to be near-parallel (heading dot
+    // > 0.95) so converging/turning lanes at a junction — which are NOT part of
+    // this cross-section — don't inflate the count.
+    const byLane = new Map<number, number>();
+    for (const o of lnear(p.x, p.y)) {
+      if (o.li === li) continue;
+      const vx = o.p.x - p.x;
+      const vy = o.p.y - p.y;
+      const along = Math.abs(vx * t.tx + vy * t.ty);
+      if (along >= 2.5) continue; // must be at this cross-section
+      const perp = vx * nx + vy * ny;
+      if (Math.abs(perp) > 18) continue;
+      const oh = headingAt(o.li, Math.floor(lanePolys[o.li].length / 2));
+      if (oh.tx * t.tx + oh.ty * t.ty < 0.95) continue; // near-parallel only
+      const prev = byLane.get(o.li);
+      if (prev === undefined || Math.abs(perp) < Math.abs(prev)) byLane.set(o.li, perp);
+    }
+    const offsets = [0, ...byLane.values()].sort((a, b) => a - b);
+    const zero = offsets.indexOf(0);
+    let count = 1;
+    for (let i = zero - 1; i >= 0; i--) {
+      if (offsets[i + 1] - offsets[i] > GAP) break;
+      count++;
+    }
+    for (let i = zero + 1; i < offsets.length; i++) {
+      if (offsets[i] - offsets[i - 1] > GAP) break;
+      count++;
+    }
+    return { count: Math.min(count, MAX_LANES), clamped: count > MAX_LANES };
+  };
+
   let minX = Infinity,
     minY = Infinity,
     maxX = -Infinity,
     maxY = -Infinity;
   let laneKm = 0;
   let directedCount = 0;
+  let clampedCount = 0;
   const lanes: Lane[] = lanePolys.map((l, li) => {
-    const mi = Math.floor(l.length / 2);
-    const p = l[mi];
-    const t = tan(l, mi);
-    const nx = -t.ty;
-    const ny = t.tx;
-    const seen = new Set<number>([li]);
-    for (const o of lnear(p.x, p.y)) {
-      if (seen.has(o.li)) continue;
-      const vx = o.p.x - p.x;
-      const vy = o.p.y - p.y;
-      const perp = Math.abs(vx * nx + vy * ny);
-      const along = Math.abs(vx * t.tx + vy * t.ty);
-      if (along >= 3 || perp > 14) continue;
-      // same direction only
-      const oh = headingAt(o.li, Math.floor(lanePolys[o.li].length / 2));
-      if (oh.tx * t.tx + oh.ty * t.ty <= 0.3) continue;
-      seen.add(o.li);
-    }
+    const lc = laneCountOf(li);
+    if (lc.clamped) clampedCount++;
     const flat: number[] = [];
     for (const q of l) {
       flat.push(q.x, q.y);
@@ -559,7 +595,7 @@ export function buildLaneNetwork(
     return {
       id: `lane${li}`,
       points: flat,
-      laneCount: seen.size,
+      laneCount: lc.count,
       length,
       directed: directedFlags[li],
       fromNode: -1,
@@ -617,6 +653,27 @@ export function buildLaneNetwork(
     if (deflDeg < -30) return "right";
     return "through";
   };
+  // Cubic Bézier connector geometry (tangents = in/out lane headings) so the
+  // turn path is driveable for microsim + gives realistic turn length, instead
+  // of a straight chord across the junction.
+  const bezier = (a: Pt, ad: Pt, b: Pt, bd: Pt): number[] => {
+    const h = dist(a, b) / 3;
+    const c1x = a.x + ad.x * h;
+    const c1y = a.y + ad.y * h;
+    const c2x = b.x - bd.x * h;
+    const c2y = b.y - bd.y * h;
+    const out: number[] = [];
+    const N = 8;
+    for (let i = 0; i <= N; i++) {
+      const u = i / N;
+      const m = 1 - u;
+      out.push(
+        m * m * m * a.x + 3 * m * m * u * c1x + 3 * m * u * u * c2x + u * u * u * b.x,
+        m * m * m * a.y + 3 * m * m * u * c1y + 3 * m * u * u * c2y + u * u * u * b.y
+      );
+    }
+    return out;
+  };
   let cid = 0;
   for (const node of nodes) {
     if (node.incoming.length === 0 || node.outgoing.length === 0) continue;
@@ -624,28 +681,42 @@ export function buildLaneNetwork(
       const inPts = lanes[inLi].points;
       const ihx = inPts[inPts.length - 2] - inPts[inPts.length - 4];
       const ihy = inPts[inPts.length - 1] - inPts[inPts.length - 3];
-      const ih = Math.hypot(ihx, ihy) || 1;
+      const ihn = Math.hypot(ihx, ihy) || 1;
+      const ih = { x: ihx / ihn, y: ihy / ihn };
+      // candidate movements from this incoming lane
+      const cands: { li: number; turn: Connector["turn"]; defl: number; oh: Pt }[] = [];
       for (const outLi of node.outgoing) {
         if (outLi === inLi) continue;
         const outPts = lanes[outLi].points;
         const ohx = outPts[2] - outPts[0];
         const ohy = outPts[3] - outPts[1];
-        const oh = Math.hypot(ohx, ohy) || 1;
-        // signed deflection (left positive)
-        const cross = (ihx / ih) * (ohy / oh) - (ihy / ih) * (ohx / oh);
-        const dot = (ihx / ih) * (ohx / oh) + (ihy / ih) * (ohy / oh);
+        const ohn = Math.hypot(ohx, ohy) || 1;
+        const oh = { x: ohx / ohn, y: ohy / ohn };
+        const cross = ih.x * oh.y - ih.y * oh.x;
+        const dot = ih.x * oh.x + ih.y * oh.y;
         const defl = (Math.atan2(cross, dot) * 180) / Math.PI;
-        // drop near-reversals that just go back where we came from
-        if (Math.abs(defl) > 160) continue;
-        const a = { x: inPts[inPts.length - 2], y: inPts[inPts.length - 1] };
-        const b = { x: outPts[0], y: outPts[1] };
+        if (Math.abs(defl) > 150) continue; // drop near-reversals
+        cands.push({ li: outLi, turn: turnOf(defl), defl, oh });
+      }
+      // Channelisation: keep ALL through movements, but only the single best
+      // (straightest) left and best right — prevents the illegal "every lane
+      // turns every way" cross-product the reviewers flagged.
+      const chosen = cands.filter((c) => c.turn === "through");
+      const left = cands.filter((c) => c.turn === "left").sort((p, q) => p.defl - q.defl)[0];
+      const right = cands.filter((c) => c.turn === "right").sort((p, q) => q.defl - p.defl)[0];
+      if (left) chosen.push(left);
+      if (right) chosen.push(right);
+      const a = { x: inPts[inPts.length - 2], y: inPts[inPts.length - 1] };
+      for (const c of chosen) {
+        const op = lanes[c.li].points;
+        const b = { x: op[0], y: op[1] };
         connectors.push({
           id: `c${cid++}`,
           fromLane: inLi,
-          toLane: outLi,
+          toLane: c.li,
           node: node.id,
-          turn: turnOf(defl),
-          points: [a.x, a.y, b.x, b.y],
+          turn: c.turn,
+          points: bezier(a, ih, b, c.oh),
         });
       }
     }
@@ -673,6 +744,7 @@ export function buildLaneNetwork(
       directedPct: lanes.length ? (directedCount / lanes.length) * 100 : 0,
       junctionCount,
       connectorCount: connectors.length,
+      clampedLaneCounts: clampedCount,
     },
   };
 }

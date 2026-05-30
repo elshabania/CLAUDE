@@ -880,6 +880,12 @@ export default function Page() {
                         {laneNetwork.stats.connectorCount} connectors ·{" "}
                         {laneNetwork.stats.directedPct.toFixed(0)}% directed
                       </div>
+                      {laneNetwork.stats.clampedLaneCounts > 0 && (
+                        <div style={{ marginBottom: 8, color: "#fbbf24", fontSize: 11 }}>
+                          ⚠ {laneNetwork.stats.clampedLaneCounts} lanes hit the
+                          5-lane cap (complex junctions) — confirm these.
+                        </div>
+                      )}
                       {[
                         ["1 lane", "#3b82f6"],
                         ["2 lanes", "#f97316"],
