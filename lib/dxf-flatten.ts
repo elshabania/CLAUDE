@@ -206,15 +206,17 @@ function emitEntity(
       basePoint,
       T
     );
-    // Lane-direction arrow? Record its world position + heading. `childT` maps
-    // block-definition coords to world, so the block origin and its local +X
-    // axis give the world insertion point and travel heading (including all
-    // parent + this insert's rotation/scale).
+    // Lane-direction arrow? Record its world position + travel heading. The
+    // arrow block art on WSP CAD (and most standards) is drawn pointing along
+    // the block's local +Y axis — the arrowhead is at `(0, h)` with the tail
+    // at the origin — so the world travel heading is obtained by mapping the
+    // basePoint and basePoint+Yhat through the full insert transform and
+    // taking their difference.
     if (ctx.markerLayer(layer)) {
       const o = childT(basePoint);
-      const ax = childT({ x: basePoint.x + 1, y: basePoint.y, z: 0 });
-      let dx = ax.x - o.x;
-      let dy = ax.y - o.y;
+      const ay = childT({ x: basePoint.x, y: basePoint.y + 1, z: 0 });
+      let dx = ay.x - o.x;
+      let dy = ay.y - o.y;
       const L = Math.hypot(dx, dy) || 1;
       dx /= L;
       dy /= L;

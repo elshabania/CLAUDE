@@ -29,3 +29,7 @@ scripts/.dxf-out/
 scripts/.lane-*
 scripts/.test-lanes.mts
 scripts/.dbg-*
+scripts/.connectivity.mts
+scripts/.lane-*
+scripts/.gt-*
+scripts/.dbg-*
