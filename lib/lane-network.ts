@@ -597,63 +597,15 @@ export function buildLaneNetwork(
 
   if (!isFinite(minX)) { minX = 0; minY = 0; maxX = 0; maxY = 0; }
 
-  // 7. Channelised, curved Bézier connectors
+  // 7. Connectors — DISABLED. The previous heuristic connector generator was
+  //    producing noise (over-eager joins, ambiguous turns at complex nodes).
+  //    We are de-scoping it until the lane layer is perfected. A later
+  //    revision will rebuild connectors from confirmed lane direction +
+  //    proper junction control geometry. For now, emit an empty list so the
+  //    routable-graph consumers see a clean lane-only network.
   const connectors: Connector[] = [];
-  const turnOf = (deflDeg: number): Connector["turn"] => {
-    if (Math.abs(deflDeg) > 135) return "uturn";
-    if (deflDeg > 30) return "left";
-    if (deflDeg < -30) return "right";
-    return "through";
-  };
-  const bezier = (a: Pt, ad: Pt, b: Pt, bd: Pt): number[] => {
-    const h = dist(a, b) / 3;
-    const c1x = a.x + ad.x * h, c1y = a.y + ad.y * h;
-    const c2x = b.x - bd.x * h, c2y = b.y - bd.y * h;
-    const out: number[] = [];
-    const N = 8;
-    for (let i = 0; i <= N; i++) {
-      const u = i / N; const m = 1 - u;
-      out.push(
-        m * m * m * a.x + 3 * m * m * u * c1x + 3 * m * u * u * c2x + u * u * u * b.x,
-        m * m * m * a.y + 3 * m * m * u * c1y + 3 * m * u * u * c2y + u * u * u * b.y
-      );
-    }
-    return out;
-  };
-  let cid = 0;
-  for (const node of nodes) {
-    if (node.incoming.length === 0 || node.outgoing.length === 0) continue;
-    for (const inLi of node.incoming) {
-      const inPts = lanes[inLi].points;
-      const ihx = inPts[inPts.length - 2] - inPts[inPts.length - 4];
-      const ihy = inPts[inPts.length - 1] - inPts[inPts.length - 3];
-      const ihn = Math.hypot(ihx, ihy) || 1;
-      const ih = { x: ihx / ihn, y: ihy / ihn };
-      const cands: { li: number; turn: Connector["turn"]; defl: number; oh: Pt }[] = [];
-      for (const outLi of node.outgoing) {
-        if (outLi === inLi) continue;
-        const outPts = lanes[outLi].points;
-        const ohx = outPts[2] - outPts[0]; const ohy = outPts[3] - outPts[1];
-        const ohn = Math.hypot(ohx, ohy) || 1; const oh = { x: ohx / ohn, y: ohy / ohn };
-        const cross = ih.x * oh.y - ih.y * oh.x;
-        const dot = ih.x * oh.x + ih.y * oh.y;
-        const defl = (Math.atan2(cross, dot) * 180) / Math.PI;
-        if (Math.abs(defl) > 150) continue;
-        cands.push({ li: outLi, turn: turnOf(defl), defl, oh });
-      }
-      const chosen = cands.filter(c => c.turn === "through");
-      const left = cands.filter(c => c.turn === "left").sort((p, q) => p.defl - q.defl)[0];
-      const right = cands.filter(c => c.turn === "right").sort((p, q) => q.defl - p.defl)[0];
-      if (left) chosen.push(left);
-      if (right) chosen.push(right);
-      const a = { x: inPts[inPts.length - 2], y: inPts[inPts.length - 1] };
-      for (const c of chosen) {
-        const op = lanes[c.li].points;
-        const b = { x: op[0], y: op[1] };
-        connectors.push({ id: `c${cid++}`, fromLane: inLi, toLane: c.li, node: node.id, turn: c.turn, points: bezier(a, ih, b, c.oh) });
-      }
-    }
-  }
+  // The lane endpoints remain wired into nodes via fromNode/toNode above, so
+  // a future connector pass can still find them.
 
   const junctionCount = nodes.filter(n => n.incoming.length + n.outgoing.length >= 3).length;
 
