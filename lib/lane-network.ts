@@ -333,7 +333,11 @@ export function buildLaneNetwork(
           const otherRail = nr.left && nr.right
             ? (nr.left.dist > nr.right.dist ? nr.left : nr.right)
             : (nr.left ?? nr.right);
-          if (!otherRail || otherRail.dist < 2.5 || otherRail.dist > 7.0) continue;
+          // Lane-width gate. Medians and turning bays between dual carriageways
+          // are typically 4.5-6 m and would otherwise be picked up as spurious
+          // "lanes". Travel lanes on a designed urban arterial are 2.8-4.0 m;
+          // cap at 4.2 m here to reject the median.
+          if (!otherRail || otherRail.dist < 2.5 || otherRail.dist > 4.2) continue;
           const midpt = { x: (p.x + otherRail.x) / 2, y: (p.y + otherRail.y) / 2 };
           if (coveredAt(midpt.x, midpt.y)) continue;
           const tr = traceFrom(midpt.x, midpt.y, hx, hy);
@@ -349,11 +353,136 @@ export function buildLaneNetwork(
   }
   const supLanes = dedupe(supplementary, 0.5);
 
+  // 4c2. Bridge lane fragments across small breaks (median openings, junction
+  //      gaps). Two traces whose ENDPOINTS are within 25 m, with aligned
+  //      headings (dot > 0.92), and whose connecting segment doesn't cross a
+  //      rail — fuse into one continuous trace. Iterate until stable.
+  const tryBridge = (traces: Pt[][]): Pt[][] => {
+    // index endpoints
+    const G = 6;
+    type EndIdx = { ti: number; end: 0 | 1; p: Pt };
+    const grid = new Map<string, EndIdx[]>();
+    const live = traces.map((_, i) => i);
+    const out = traces.slice();
+    const addEnd = (e: EndIdx) => {
+      const k = `${Math.floor(e.p.x / G)},${Math.floor(e.p.y / G)}`;
+      let a = grid.get(k); if (!a) grid.set(k, (a = [])); a.push(e);
+    };
+    for (const i of live) {
+      const t = out[i]; if (!t || t.length < 2) continue;
+      addEnd({ ti: i, end: 0, p: t[0] });
+      addEnd({ ti: i, end: 1, p: t[t.length - 1] });
+    }
+    const endingDir = (t: Pt[], end: 0 | 1): Pt => {
+      // unit heading "going out" from this end
+      if (end === 1) return norm(t[t.length - 2], t[t.length - 1]);
+      return norm(t[1], t[0]);
+    };
+    let merged = true; let pass = 0;
+    while (merged && pass < 8) {
+      merged = false; pass++;
+      for (let i = 0; i < out.length; i++) {
+        const A = out[i]; if (!A || A.length < 2) continue;
+        for (const aEnd of [0, 1] as const) {
+          const aP = A[aEnd === 0 ? 0 : A.length - 1];
+          const aDir = endingDir(A, aEnd);
+          // search nearby endpoints
+          const gx = Math.floor(aP.x / G), gy = Math.floor(aP.y / G);
+          const span = Math.ceil(25 / G);
+          let best: EndIdx | null = null; let bestD = 25;
+          for (let dx = -span; dx <= span; dx++) for (let dy = -span; dy <= span; dy++) {
+            const arr = grid.get(`${gx + dx},${gy + dy}`); if (!arr) continue;
+            for (const e of arr) {
+              if (e.ti === i) continue;
+              const B = out[e.ti]; if (!B || B.length < 2) continue;
+              const d = Math.hypot(e.p.x - aP.x, e.p.y - aP.y);
+              if (d < 1 || d > bestD) continue;
+              // need the OTHER trace's outgoing heading at its end to oppose
+              // aDir (we're connecting tip-to-tail). End-0 means the trace
+              // continues FROM e.p along norm(B[0],B[1]); for merging, that
+              // continuation direction should match aDir (one out-arrow).
+              const bContinuesAlong = e.end === 0
+                ? norm(B[0], B[1])         // from B[0] going into B[1]
+                : norm(B[B.length - 1], B[B.length - 2]); // from B[last] going back
+              // For A.aDir to chain into B at e.p smoothly, the GAP heading
+              // (aP → e.p) must align with aDir, and B's continuation
+              // (away from e.p inside B) must also align with aDir.
+              const gapDx = e.p.x - aP.x, gapDy = e.p.y - aP.y;
+              const gapLen = Math.hypot(gapDx, gapDy) || 1;
+              const gapDir = { x: gapDx / gapLen, y: gapDy / gapLen };
+              if (gapDir.x * aDir.x + gapDir.y * aDir.y < 0.85) continue;
+              // B's tangent INTO the trace from e.p (i.e. flipped vs bContinuesAlong)
+              const bIn = { x: -bContinuesAlong.x, y: -bContinuesAlong.y };
+              if (aDir.x * bIn.x + aDir.y * bIn.y < 0.92) continue;
+              bestD = d; best = e;
+            }
+          }
+          if (!best) continue;
+          // Splice A and out[best.ti] into one polyline.
+          const B = out[best.ti]!;
+          let merged_poly: Pt[];
+          // Build oriented copies: A from aEnd-OUT (so its end matching the new gap is at the end)
+          const Aend = aEnd === 1 ? A : A.slice().reverse();
+          const Bstart = best.end === 0 ? B : B.slice().reverse();
+          merged_poly = Aend.concat(Bstart);
+          out[i] = merged_poly;
+          out[best.ti] = null as unknown as Pt[]; // mark removed
+          // refresh endpoint grid for trace i (cheap: just re-add new endpoints)
+          addEnd({ ti: i, end: 0, p: merged_poly[0] });
+          addEnd({ ti: i, end: 1, p: merged_poly[merged_poly.length - 1] });
+          merged = true;
+          break;
+        }
+      }
+    }
+    return out.filter(t => t && t.length >= 2);
+  };
+
+  // 4d. Smooth traces: the midline = (leftRail + rightRail)/2 inherits the
+  //     tiny irregularities of both rails (a 1 m bump on one rail produces a
+  //     0.5 m bump in the midline), giving the lanes a visible wobble. A
+  //     short moving average preserves curvature while removing high-freq
+  //     jitter. We also resample to constant 1 m spacing so the result has a
+  //     uniform vertex density (helps downstream rendering + connector geometry).
+  const smoothTrace = (t: Pt[]): Pt[] => {
+    if (t.length < 5) return t;
+    // 5-point centred moving average (preserves endpoints)
+    const sm: Pt[] = [t[0]];
+    for (let i = 1; i < t.length - 1; i++) {
+      let sx = 0, sy = 0, n = 0;
+      for (let k = Math.max(0, i - 2); k <= Math.min(t.length - 1, i + 2); k++) {
+        sx += t[k].x; sy += t[k].y; n++;
+      }
+      sm.push({ x: sx / n, y: sy / n });
+    }
+    sm.push(t[t.length - 1]);
+    // Resample to 1 m
+    const out: Pt[] = [sm[0]];
+    let acc = 0; const STEP = 1;
+    for (let i = 1; i < sm.length; i++) {
+      let a = out[out.length - 1], b = sm[i];
+      let d = dist(a, b);
+      while (acc + d >= STEP) {
+        const t2 = (STEP - acc) / d;
+        const p = { x: a.x + (b.x - a.x) * t2, y: a.y + (b.y - a.y) * t2 };
+        out.push(p);
+        a = p; d = dist(a, b); acc = 0;
+      }
+      acc += d;
+    }
+    if (dist(out[out.length - 1], sm[sm.length - 1]) > 0.5) out.push(sm[sm.length - 1]);
+    return out;
+  };
+
   // 5. Materialise lanes + per-lane lane count
   type LaneWithMeta = { trace: Pt[]; directed: boolean };
+  // Bridge primary and supplementary fragments separately (so directed lanes
+  // only merge with directed; undirected only with undirected).
+  const bridgedPrimary = tryBridge(primaryLanes);
+  const bridgedSup = tryBridge(supLanes);
   const lanePolys: LaneWithMeta[] = [
-    ...primaryLanes.map(t => ({ trace: t, directed: true })),
-    ...supLanes.map(t => ({ trace: t, directed: false })),
+    ...bridgedPrimary.map(t => ({ trace: smoothTrace(t), directed: true })),
+    ...bridgedSup.map(t => ({ trace: smoothTrace(t), directed: false })),
   ];
 
   // Lane count: contiguous band of same-direction parallel neighbours at link
