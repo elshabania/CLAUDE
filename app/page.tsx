@@ -428,18 +428,27 @@ export default function Page() {
     }
   }
 
-  // The sample masterplan is loaded ON DEMAND (button / drag-drop), never
-  // automatically on launch - parsing a 6 MB / 400k-path PDF on the main
-  // thread would otherwise freeze the window on every startup.
+  // The sample masterplan (the WSP DXF road network) is shipped gzipped in
+  // public/ and loaded on demand / on first launch. We decompress it in the
+  // browser via DecompressionStream (Chromium-native) and route it through the
+  // normal DXF path. A ref guard makes the launch-time auto-load fire once.
+  const sampleLoadedRef = useRef(false);
   async function loadSample() {
     try {
       setStatus("loading");
       setError(null);
-      const res = await fetch("/ju_compressed_1.pdf");
+      const res = await fetch("/sample-masterplan.dxf.gz");
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const blob = await res.blob();
-      const file = new File([blob], "ju_compressed_1.pdf", {
-        type: "application/pdf",
+      let blob: Blob;
+      if (res.body && typeof DecompressionStream !== "undefined") {
+        const stream = res.body.pipeThrough(new DecompressionStream("gzip"));
+        blob = await new Response(stream).blob();
+      } else {
+        // Fallback: no streaming decompression available — fetch raw bytes.
+        blob = await res.blob();
+      }
+      const file = new File([blob], "sample-masterplan.dxf", {
+        type: "application/dxf",
       });
       await handleFile(file);
     } catch (err) {
@@ -447,6 +456,15 @@ export default function Page() {
       setStatus("error");
     }
   }
+
+  // Auto-load the bundled WSP masterplan once on first launch so the app opens
+  // straight into the latest CAD drawing.
+  useEffect(() => {
+    if (sampleLoadedRef.current) return;
+    sampleLoadedRef.current = true;
+    void loadSample();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // ----- Project save / open -----------------------------------------------
   function applyProject(doc: ProjectDoc) {
@@ -1177,7 +1195,7 @@ function WelcomeScreen({
                 Open drawing (PDF / DXF)
               </button>
               <button className="btn btn-sm" onClick={onSample}>
-                Load sample masterplan
+                Reload WSP masterplan (DXF)
               </button>
             </div>
           )}
