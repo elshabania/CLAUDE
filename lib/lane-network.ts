@@ -98,8 +98,15 @@ type Pt = { x: number; y: number };
 const DEFAULT_RAIL_LAYER = (layer: string): boolean => {
   const u = layer.toUpperCase();
   if (/(?:^|[_\-\s])(?:EXI|EXIST(?:ING)?|SURVEY|SURV)(?:[_\-\s]|$)|^EXI/.test(u)) return false;
-  return /ROAD_EDGE|ROAD_LANE(?![01])/.test(u)
-    || /(?:^|[_\-\s])(?:EDGE|EOP|KERB|CURB|LANE)(?:[_\-\s]|$)/.test(u);
+  // Carriageway boundaries: outer kerbs (EDGE / KERB / EOP), intra-carriageway
+  // lane dividers (LANE — but not the LANE0/LANE1 arrow blocks), AND the
+  // SOLID PAINTED CENTERLINE that separates the two travel directions of a
+  // two-way street. The WSP CAD encodes this last one on the NO_CR (no-
+  // crossing) layer; including it as a rail means lanes traced on either side
+  // never share their inner boundary, so the two directions of a two-way
+  // street naturally come out as separate corridors.
+  return /ROAD_EDGE|ROAD_LANE(?![01])|ROAD_NO_CR/.test(u)
+    || /(?:^|[_\-\s])(?:EDGE|EOP|KERB|CURB|LANE|NO[_\-\s]?CR(?:OSS)?|CENTRELINE|CENTERLINE)(?:[_\-\s]|$)/.test(u);
 };
 
 const dist = (a: Pt, b: Pt) => Math.hypot(a.x - b.x, a.y - b.y);
@@ -476,9 +483,10 @@ export function buildLaneNetwork(
     const rgk = (x: number, y: number) => `${Math.floor(x / RG)},${Math.floor(y / RG)}`;
     const rGrid = new Map<string, DS[]>();
     for (const ds of dirIdx) { const k = rgk(ds.p.x, ds.p.y); let a = rGrid.get(k); if (!a) rGrid.set(k, (a = [])); a.push(ds); }
-    const NEIGHBOUR_RADIUS = 4.5; // < typical two-way centerline gap (~7m) but
-                                  // > one lane half-width (~1.75m)
-    const PERP_LIMIT = 4.0;       // ≈ one lane width perpendicular
+    const NEIGHBOUR_RADIUS = 8.0; // captures further-along same-side neighbours
+    const PERP_LIMIT = 4.0;       // STAYS within one lane width perp → never
+                                  // reaches the opposing lane across the painted
+                                  // centerline (~7 m away).
     for (let li = 0; li < laneTraces.length; li++) {
       const L = laneTraces[li];
       if (L.directed) continue;
@@ -502,8 +510,14 @@ export function buildLaneNetwork(
           }
         }
       }
-      // Strong-majority gate: against must beat agree 3:1 with min 4 votes
-      if (against >= 4 && against > agree * 3) laneTraces[li].trace = p.slice().reverse();
+      // 2:1 majority with min 3 votes. Still beats single-vote noise but
+      // catches lanes whose only directed neighbours are on the same side.
+      if (against >= 3 && against > agree * 2) laneTraces[li].trace = p.slice().reverse();
+      else if (agree >= 3 && agree > against * 2) {
+        // already oriented correctly — explicitly mark as directed so it
+        // participates in carriageway grouping
+        laneTraces[li].directed = true;
+      }
     }
   }
 
