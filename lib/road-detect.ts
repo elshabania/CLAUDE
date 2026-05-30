@@ -96,6 +96,15 @@ export interface DrawingTextItem {
   height: number;
 }
 
+/** A lane-direction arrow captured from a detailed CAD (world coords). */
+export interface LaneArrow {
+  x: number;
+  y: number;
+  /** Unit travel-heading vector. */
+  dx: number;
+  dy: number;
+}
+
 export interface ParsedDrawing {
   source: "dxf" | "pdf";
   bounds: { minX: number; minY: number; maxX: number; maxY: number };
@@ -103,6 +112,8 @@ export interface ParsedDrawing {
   groups: DrawingGroup[];
   entityCount: number;
   texts: DrawingTextItem[];
+  /** DXF only: lane-direction arrows for building a directed lane network. */
+  laneArrows?: LaneArrow[];
 }
 
 /**
@@ -376,7 +387,27 @@ export function detectFromDxf(dxf: Dxf): ParsedDrawing {
     groups: Array.from(groupMap.values()).sort((a, b) => b.count - a.count),
     entityCount: dxf.entities.length,
     texts: [],
+    laneArrows: dedupeArrows(flat.markers),
   };
+}
+
+/**
+ * Nested block expansion re-emits the same lane arrow many times (≈33× on the
+ * WSP plan: 28,743 markers → 866 distinct). Collapse markers that share a
+ * position (to 0.5 units) and heading so downstream code isn't swamped.
+ */
+function dedupeArrows(
+  markers: { x: number; y: number; dx: number; dy: number }[]
+): LaneArrow[] {
+  const seen = new Set<string>();
+  const out: LaneArrow[] = [];
+  for (const m of markers) {
+    const k = `${Math.round(m.x * 2)},${Math.round(m.y * 2)},${Math.round(m.dx * 4)},${Math.round(m.dy * 4)}`;
+    if (seen.has(k)) continue;
+    seen.add(k);
+    out.push({ x: m.x, y: m.y, dx: m.dx, dy: m.dy });
+  }
+  return out;
 }
 
 /**

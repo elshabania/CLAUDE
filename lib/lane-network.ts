@@ -12,23 +12,62 @@
 // output. Operates on ParsedDrawing.segments (already block-expanded, world
 // coords, tagged with their source layer via `groupId`).
 
-import type { ParsedDrawing } from "@/lib/road-detect";
+import type { ParsedDrawing, LaneArrow } from "@/lib/road-detect";
 
 export interface Lane {
   id: string;
-  /** Flat [x0, y0, x1, y1, ...] centerline in world coords. */
+  /** Flat [x0, y0, x1, y1, ...] centerline in world coords, ORIENTED in the
+   *  travel direction (start = upstream, end = downstream). */
   points: number[];
-  /** Local number of parallel lanes in this lane's corridor cross-section. */
+  /** Parallel lanes carrying the SAME travel direction at this cross-section. */
   laneCount: number;
   /** Centerline length in drawing units. */
   length: number;
+  /** Travel direction confidence: true when an arrow oriented this lane. */
+  directed: boolean;
+  /** Graph node id at the upstream end. */
+  fromNode: number;
+  /** Graph node id at the downstream end. */
+  toNode: number;
+}
+
+/** A lane-to-lane connector through a junction (turning movement geometry). */
+export interface Connector {
+  id: string;
+  fromLane: number; // index into lanes[]
+  toLane: number; // index into lanes[]
+  /** Junction node both lanes meet at. */
+  node: number;
+  /** Turn classification by deflection angle. */
+  turn: "through" | "left" | "right" | "uturn";
+  /** Short bezier-ish polyline joining the lane ends, flat [x,y,...]. */
+  points: number[];
+}
+
+/** A graph node — a junction point or a lane terminus. */
+export interface LaneNode {
+  id: number;
+  x: number;
+  y: number;
+  /** Lane indices entering (downstream end here). */
+  incoming: number[];
+  /** Lane indices leaving (upstream end here). */
+  outgoing: number[];
 }
 
 export interface LaneNetwork {
   lanes: Lane[];
+  nodes: LaneNode[];
+  connectors: Connector[];
   bounds: { minX: number; minY: number; maxX: number; maxY: number };
   /** Diagnostics for the verification harness / status bar. */
-  stats: { railCount: number; laneKm: number };
+  stats: {
+    railCount: number;
+    laneKm: number;
+    directedPct: number;
+    junctionCount: number;
+    connectorCount: number;
+  };
 }
 
 export interface LaneNetworkOptions {
@@ -116,7 +155,13 @@ export function buildLaneNetwork(
     }
   }
   if (railSegs.length === 0) {
-    return { lanes: [], bounds: { minX: 0, minY: 0, maxX: 0, maxY: 0 }, stats: { railCount: 0, laneKm: 0 } };
+    return {
+      lanes: [],
+      nodes: [],
+      connectors: [],
+      bounds: { minX: 0, minY: 0, maxX: 0, maxY: 0 },
+      stats: { railCount: 0, laneKm: 0, directedPct: 0, junctionCount: 0, connectorCount: 0 },
+    };
   }
 
   // 2. Chain segments into continuous rails: at junctions follow the most
@@ -343,7 +388,114 @@ export function buildLaneNetwork(
     lanePolys = (lanePolys as (Pt[] | null)[]).filter(Boolean) as Pt[][];
   }
 
-  // 5. Local lane count per lane (parallel lanes within ~14m laterally).
+  // 5. Orient each lane in its travel direction using the lane arrows. Arrows
+  //    are sparse along a lane (~every 20-30m) and offset from the centerline,
+  //    so instead of each lane hunting for arrows we ASSIGN each arrow to its
+  //    nearest lane sample point and let it vote on that lane's direction.
+  const arrows: LaneArrow[] = drawing.laneArrows ?? [];
+  // index lane sample points in a grid for nearest-lane queries. Arrows mark
+  // lane centres but sit up to ~1.5 lane-widths from the extracted centerline,
+  // so the match radius is generous; adjacent lanes in a carriageway share a
+  // travel direction, so a slightly-wrong assignment still orients correctly.
+  const ARROW_MATCH = 18;
+  const PG = ARROW_MATCH;
+  const pgk = (x: number, y: number) => `${Math.floor(x / PG)},${Math.floor(y / PG)}`;
+  const pGrid = new Map<string, { li: number; idx: number; p: Pt }[]>();
+  lanePolys.forEach((l, li) =>
+    l.forEach((p, idx) => {
+      const k = pgk(p.x, p.y);
+      let arr = pGrid.get(k);
+      if (!arr) pGrid.set(k, (arr = []));
+      arr.push({ li, idx, p });
+    })
+  );
+  const votes: { agree: number; against: number }[] = lanePolys.map(() => ({ agree: 0, against: 0 }));
+
+  for (const a of arrows) {
+    let bestLi = -1;
+    let bestIdx = 0;
+    let bd = ARROW_MATCH;
+    const gx = Math.floor(a.x / PG);
+    const gy = Math.floor(a.y / PG);
+    for (let dx = -1; dx <= 1; dx++)
+      for (let dy = -1; dy <= 1; dy++) {
+        for (const o of pGrid.get(`${gx + dx},${gy + dy}`) ?? []) {
+          const d = Math.hypot(o.p.x - a.x, o.p.y - a.y);
+          if (d < bd) {
+            bd = d;
+            bestLi = o.li;
+            bestIdx = o.idx;
+          }
+        }
+      }
+    if (bestLi < 0) continue;
+    const t = tan(lanePolys[bestLi], bestIdx);
+    const dot = a.dx * t.tx + a.dy * t.ty;
+    if (dot > 0.3) votes[bestLi].agree++;
+    else if (dot < -0.3) votes[bestLi].against++;
+  }
+  const directedFlags: boolean[] = [];
+  for (let li = 0; li < lanePolys.length; li++) {
+    const v = votes[li];
+    if (v.against > v.agree) lanePolys[li] = lanePolys[li].slice().reverse();
+    directedFlags[li] = v.agree + v.against > 0;
+  }
+
+  // 5b. Propagate direction across the corridor. Arrows land on the main
+  //     through lanes (~9% of fragments); flow their direction into nearby
+  //     undirected lanes that run parallel within a lane-width (same corridor,
+  //     same way). Build/refresh a grid of DIRECTED lane sample points with
+  //     their heading; each pass, an undirected lane votes its orientation
+  //     against the nearest directed points and is flipped/marked accordingly.
+  //     Iterate to stable so direction spreads lane-by-lane across a carriage.
+  const PROP_RADIUS = 5; // within ~1.4 lane-widths → same direction
+  let propPass = 0;
+  let propChanged = true;
+  while (propChanged && propPass < 16) {
+    propChanged = false;
+    propPass++;
+    const dGrid = new Map<string, { dir: Pt }[]>();
+    const dgk = (x: number, y: number) =>
+      `${Math.floor(x / PROP_RADIUS)},${Math.floor(y / PROP_RADIUS)}`;
+    for (let li = 0; li < lanePolys.length; li++) {
+      if (!directedFlags[li]) continue;
+      const l = lanePolys[li];
+      for (let i = 0; i < l.length; i++) {
+        const t = tan(l, i);
+        const k = dgk(l[i].x, l[i].y);
+        let a = dGrid.get(k);
+        if (!a) dGrid.set(k, (a = []));
+        a.push({ dir: { x: t.tx, y: t.ty } });
+      }
+    }
+    if (dGrid.size === 0) break;
+    for (let li = 0; li < lanePolys.length; li++) {
+      if (directedFlags[li]) continue;
+      const l = lanePolys[li];
+      let agree = 0;
+      let against = 0;
+      for (let i = 0; i < l.length; i += 2) {
+        const t = tan(l, i);
+        const gx = Math.floor(l[i].x / PROP_RADIUS);
+        const gy = Math.floor(l[i].y / PROP_RADIUS);
+        for (let dx = -1; dx <= 1; dx++)
+          for (let dy = -1; dy <= 1; dy++) {
+            for (const e of dGrid.get(`${gx + dx},${gy + dy}`) ?? []) {
+              const dot = e.dir.x * t.tx + e.dir.y * t.ty;
+              if (dot > 0.7) agree++;
+              else if (dot < -0.7) against++;
+            }
+          }
+      }
+      if (agree + against < 3) continue; // need real support
+      if (against > agree) lanePolys[li] = l.slice().reverse();
+      directedFlags[li] = true;
+      propChanged = true;
+    }
+  }
+
+  // 6. Direction-split lane count: count parallel neighbours that travel the
+  //    SAME way (heading dot > 0), so a 2+2 dual reads 2 per direction.
   const LGRID = 8;
   const lgk = (x: number, y: number) => `${Math.floor(x / LGRID)},${Math.floor(y / LGRID)}`;
   const lgrid = new Map<string, { li: number; p: Pt }[]>();
@@ -366,12 +518,14 @@ export function buildLaneNetwork(
       }
     return out;
   };
+  const headingAt = (li: number, idx: number) => tan(lanePolys[li], idx);
 
   let minX = Infinity,
     minY = Infinity,
     maxX = -Infinity,
     maxY = -Infinity;
   let laneKm = 0;
+  let directedCount = 0;
   const lanes: Lane[] = lanePolys.map((l, li) => {
     const mi = Math.floor(l.length / 2);
     const p = l[mi];
@@ -385,7 +539,11 @@ export function buildLaneNetwork(
       const vy = o.p.y - p.y;
       const perp = Math.abs(vx * nx + vy * ny);
       const along = Math.abs(vx * t.tx + vy * t.ty);
-      if (along < 3 && perp <= 14) seen.add(o.li);
+      if (along >= 3 || perp > 14) continue;
+      // same direction only
+      const oh = headingAt(o.li, Math.floor(lanePolys[o.li].length / 2));
+      if (oh.tx * t.tx + oh.ty * t.ty <= 0.3) continue;
+      seen.add(o.li);
     }
     const flat: number[] = [];
     for (const q of l) {
@@ -397,8 +555,101 @@ export function buildLaneNetwork(
     }
     const length = polyLen(l);
     laneKm += length / 1000;
-    return { id: `lane${li}`, points: flat, laneCount: seen.size, length };
+    if (directedFlags[li]) directedCount++;
+    return {
+      id: `lane${li}`,
+      points: flat,
+      laneCount: seen.size,
+      length,
+      directed: directedFlags[li],
+      fromNode: -1,
+      toNode: -1,
+    };
   });
+
+  // 7. Build graph nodes by clustering lane endpoints, then wire up the
+  //    fromNode/toNode of each lane.
+  const NODE_SNAP = 12; // world units; lane ends within this fuse to one node
+  const nodes: LaneNode[] = [];
+  const nGrid = new Map<string, number[]>();
+  const ngk = (x: number, y: number) => `${Math.floor(x / NODE_SNAP)},${Math.floor(y / NODE_SNAP)}`;
+  const findOrAddNode = (x: number, y: number): number => {
+    const gx = Math.floor(x / NODE_SNAP);
+    const gy = Math.floor(y / NODE_SNAP);
+    let best = -1;
+    let bd = NODE_SNAP;
+    for (let dx = -1; dx <= 1; dx++)
+      for (let dy = -1; dy <= 1; dy++) {
+        for (const id of nGrid.get(`${gx + dx},${gy + dy}`) ?? []) {
+          const d = Math.hypot(nodes[id].x - x, nodes[id].y - y);
+          if (d < bd) {
+            bd = d;
+            best = id;
+          }
+        }
+      }
+    if (best >= 0) return best;
+    const id = nodes.length;
+    nodes.push({ id, x, y, incoming: [], outgoing: [] });
+    const k = ngk(x, y);
+    let arr = nGrid.get(k);
+    if (!arr) nGrid.set(k, (arr = []));
+    arr.push(id);
+    return id;
+  };
+  lanes.forEach((lane, li) => {
+    const p = lane.points;
+    const from = findOrAddNode(p[0], p[1]);
+    const to = findOrAddNode(p[p.length - 2], p[p.length - 1]);
+    lane.fromNode = from;
+    lane.toNode = to;
+    nodes[from].outgoing.push(li);
+    nodes[to].incoming.push(li);
+  });
+
+  // 8. Connectors: at every node with both incoming and outgoing lanes, join
+  //    each incoming lane to each plausible outgoing lane (not a U-turn back
+  //    down the same lane), classified by turn angle.
+  const connectors: Connector[] = [];
+  const turnOf = (deflDeg: number): Connector["turn"] => {
+    if (deflDeg > 135) return "uturn";
+    if (deflDeg > 30) return "left";
+    if (deflDeg < -30) return "right";
+    return "through";
+  };
+  let cid = 0;
+  for (const node of nodes) {
+    if (node.incoming.length === 0 || node.outgoing.length === 0) continue;
+    for (const inLi of node.incoming) {
+      const inPts = lanes[inLi].points;
+      const ihx = inPts[inPts.length - 2] - inPts[inPts.length - 4];
+      const ihy = inPts[inPts.length - 1] - inPts[inPts.length - 3];
+      const ih = Math.hypot(ihx, ihy) || 1;
+      for (const outLi of node.outgoing) {
+        if (outLi === inLi) continue;
+        const outPts = lanes[outLi].points;
+        const ohx = outPts[2] - outPts[0];
+        const ohy = outPts[3] - outPts[1];
+        const oh = Math.hypot(ohx, ohy) || 1;
+        // signed deflection (left positive)
+        const cross = (ihx / ih) * (ohy / oh) - (ihy / ih) * (ohx / oh);
+        const dot = (ihx / ih) * (ohx / oh) + (ihy / ih) * (ohy / oh);
+        const defl = (Math.atan2(cross, dot) * 180) / Math.PI;
+        // drop near-reversals that just go back where we came from
+        if (Math.abs(defl) > 160) continue;
+        const a = { x: inPts[inPts.length - 2], y: inPts[inPts.length - 1] };
+        const b = { x: outPts[0], y: outPts[1] };
+        connectors.push({
+          id: `c${cid++}`,
+          fromLane: inLi,
+          toLane: outLi,
+          node: node.id,
+          turn: turnOf(defl),
+          points: [a.x, a.y, b.x, b.y],
+        });
+      }
+    }
+  }
 
   if (!isFinite(minX)) {
     minX = 0;
@@ -407,9 +658,21 @@ export function buildLaneNetwork(
     maxY = 0;
   }
 
+  const junctionCount = nodes.filter(
+    (n) => n.incoming.length + n.outgoing.length >= 3
+  ).length;
+
   return {
     lanes,
+    nodes,
+    connectors,
     bounds: { minX, minY, maxX, maxY },
-    stats: { railCount: R.length, laneKm },
+    stats: {
+      railCount: R.length,
+      laneKm,
+      directedPct: lanes.length ? (directedCount / lanes.length) * 100 : 0,
+      junctionCount,
+      connectorCount: connectors.length,
+    },
   };
 }

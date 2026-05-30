@@ -34,9 +34,21 @@ export interface FlatSolid {
   points: number[]; // flat [x0, y0, x1, y1, x2, y2, (x3, y3)?]
 }
 
+/** A lane-direction marker (block-insert arrow) captured at world coords. */
+export interface FlatMarker {
+  layer: string;
+  x: number;
+  y: number;
+  /** Unit world-direction the marker's local +X axis points (travel heading). */
+  dx: number;
+  dy: number;
+}
+
 export interface FlattenResult {
   strokes: FlatStroke[];
   solids: FlatSolid[];
+  /** Block-insert markers on layers matched by `markerLayer` (lane arrows). */
+  markers: FlatMarker[];
   /** Source entity types we encountered (for diagnostics). */
   typeCounts: Record<string, number>;
   /** How many INSERTs we expanded in total (top-level + nested). */
@@ -44,6 +56,10 @@ export interface FlattenResult {
   /** Recursion guard hits (extreme depth or missing block). */
   expansionSkipped: number;
 }
+
+/** Default: WSP lane-arrow layers (ROAD_LANE0 / ROAD_LANE1). */
+const DEFAULT_MARKER_LAYER = (layer: string): boolean =>
+  /ROAD_LANE[01]/i.test(layer) || /(?:^|[_\-\s])LANE[_\-\s]?(?:ARROW|DIR|0|1)(?:[_\-\s]|$)/i.test(layer);
 
 type Transform = (p: DxfPoint) => { x: number; y: number };
 
@@ -146,6 +162,8 @@ interface EmitContext {
   blocks: Record<string, { entities?: DxfEntity[]; position?: DxfPoint }>;
   strokes: FlatStroke[];
   solids: FlatSolid[];
+  markers: FlatMarker[];
+  markerLayer: (layer: string) => boolean;
   typeCounts: Record<string, number>;
   insertsExpanded: { n: number };
   expansionSkipped: { n: number };
@@ -188,6 +206,20 @@ function emitEntity(
       basePoint,
       T
     );
+    // Lane-direction arrow? Record its world position + heading. `childT` maps
+    // block-definition coords to world, so the block origin and its local +X
+    // axis give the world insertion point and travel heading (including all
+    // parent + this insert's rotation/scale).
+    if (ctx.markerLayer(layer)) {
+      const o = childT(basePoint);
+      const ax = childT({ x: basePoint.x + 1, y: basePoint.y, z: 0 });
+      let dx = ax.x - o.x;
+      let dy = ax.y - o.y;
+      const L = Math.hypot(dx, dy) || 1;
+      dx /= L;
+      dy /= L;
+      ctx.markers.push({ layer, x: o.x, y: o.y, dx, dy });
+    }
     ctx.insertsExpanded.n++;
     for (const child of blk.entities) {
       emitEntity(ctx, child, childT, layer, depth + 1);
@@ -287,7 +319,10 @@ function emitEntity(
  * Walk every entity in a parsed DXF, expanding INSERTs and tessellating
  * arcs/circles/bulges, and return the flattened world-space primitives.
  */
-export function flattenDxf(dxf: Dxf): FlattenResult {
+export function flattenDxf(
+  dxf: Dxf,
+  opts: { markerLayer?: (layer: string) => boolean } = {}
+): FlattenResult {
   // `dxf-parser`'s `Dxf.blocks` is typed as `Record<string, unknown>`; in
   // practice each block is `{ entities?: DxfEntity[]; position?: DxfPoint }`.
   const blocks = (dxf.blocks ?? {}) as Record<
@@ -298,6 +333,8 @@ export function flattenDxf(dxf: Dxf): FlattenResult {
     blocks,
     strokes: [],
     solids: [],
+    markers: [],
+    markerLayer: opts.markerLayer ?? DEFAULT_MARKER_LAYER,
     typeCounts: {},
     insertsExpanded: { n: 0 },
     expansionSkipped: { n: 0 },
@@ -307,6 +344,7 @@ export function flattenDxf(dxf: Dxf): FlattenResult {
   return {
     strokes: ctx.strokes,
     solids: ctx.solids,
+    markers: ctx.markers,
     typeCounts: ctx.typeCounts,
     insertsExpanded: ctx.insertsExpanded.n,
     expansionSkipped: ctx.expansionSkipped.n,

@@ -476,18 +476,47 @@ export function CadViewer({
       };
     };
 
-    // Lane-network overlay: discrete lane centerlines coloured by lane count,
-    // with a direction arrowhead at each lane's midpoint. This is the
-    // VISSIM-style lane model derived from the CAD edge/divider geometry.
+    // Lane-network overlay: the VISSIM-style lane model derived from the CAD —
+    // lane centerlines coloured by lane count, junction connectors (turning
+    // movements), junction nodes, and a direction arrowhead on every lane that
+    // has a known travel direction.
     if (showLanes && laneNetwork && laneNetwork.lanes.length > 0) {
       ctx.save();
       ctx.lineCap = "round";
       ctx.lineJoin = "round";
+
+      // Connectors first (under the lanes): faint curves joining lane ends.
+      if (scale > 0.02 && laneNetwork.connectors.length > 0) {
+        ctx.lineWidth = 1;
+        for (const con of laneNetwork.connectors) {
+          const cp = con.points;
+          if (cp.length < 4) continue;
+          ctx.strokeStyle =
+            con.turn === "left"
+              ? "rgba(56,189,248,0.55)"
+              : con.turn === "right"
+                ? "rgba(250,204,21,0.55)"
+                : con.turn === "uturn"
+                  ? "rgba(244,114,182,0.55)"
+                  : "rgba(148,163,184,0.5)";
+          const a = toScreenPt(cp[0], cp[1]);
+          const b = toScreenPt(cp[2], cp[3]);
+          ctx.beginPath();
+          ctx.moveTo(a.x, a.y);
+          ctx.lineTo(b.x, b.y);
+          ctx.stroke();
+        }
+      }
+
+      // Lanes.
       ctx.lineWidth = 2;
       for (const lane of laneNetwork.lanes) {
         const pts = lane.points;
         if (pts.length < 4) continue;
         ctx.strokeStyle = laneCountColor(lane.laneCount);
+        // Undirected lanes drawn slightly transparent so the routable
+        // (directed) network reads as the primary layer.
+        ctx.globalAlpha = lane.directed ? 1 : 0.55;
         ctx.beginPath();
         for (let i = 0; i < pts.length; i += 2) {
           const s = toScreenPt(pts[i], pts[i + 1]);
@@ -495,8 +524,8 @@ export function CadViewer({
           else ctx.lineTo(s.x, s.y);
         }
         ctx.stroke();
-        // direction arrowhead at midpoint (only when zoomed in enough to read)
-        if (scale > 0.04) {
+        // direction arrowhead — only on lanes with a known travel direction
+        if (scale > 0.04 && lane.directed) {
           const mi = (pts.length >> 2) * 2; // ~middle vertex (even index)
           const a = toScreenPt(pts[mi], pts[mi + 1]);
           const nIdx = Math.min(pts.length - 2, mi + 2);
@@ -513,6 +542,20 @@ export function CadViewer({
           ctx.closePath();
           ctx.fill();
           ctx.restore();
+        }
+      }
+      ctx.globalAlpha = 1;
+
+      // Junction nodes (degree >= 3) as small rings, when zoomed in.
+      if (scale > 0.05) {
+        ctx.strokeStyle = "#e2e8f0";
+        ctx.lineWidth = 1.2;
+        for (const node of laneNetwork.nodes) {
+          if (node.incoming.length + node.outgoing.length < 3) continue;
+          const s = toScreenPt(node.x, node.y);
+          ctx.beginPath();
+          ctx.arc(s.x, s.y, 3, 0, Math.PI * 2);
+          ctx.stroke();
         }
       }
       ctx.restore();

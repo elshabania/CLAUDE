@@ -872,8 +872,13 @@ export default function Page() {
                     <>
                       <div style={{ marginBottom: 8, color: "var(--text-2)" }}>
                         {laneNetwork.lanes.length.toLocaleString()} lanes ·{" "}
-                        {laneNetwork.stats.laneKm.toFixed(1)} lane-km, derived from the
-                        CAD edge &amp; lane-divider geometry.
+                        {laneNetwork.stats.laneKm.toFixed(1)} lane-km · derived from
+                        the CAD edge, lane-divider &amp; arrow geometry.
+                      </div>
+                      <div style={{ marginBottom: 8, color: "var(--text-2)" }}>
+                        {laneNetwork.stats.junctionCount} junctions ·{" "}
+                        {laneNetwork.stats.connectorCount} connectors ·{" "}
+                        {laneNetwork.stats.directedPct.toFixed(0)}% directed
                       </div>
                       {[
                         ["1 lane", "#3b82f6"],
@@ -894,6 +899,10 @@ export default function Page() {
                           {label}
                         </div>
                       ))}
+                      <div style={{ marginTop: 6, color: "var(--text-2)", fontSize: 11 }}>
+                        Arrowheads show travel direction; thin curves are junction
+                        connectors (turn movements).
+                      </div>
                     </>
                   ) : (
                     <div style={{ color: "var(--text-2)" }}>Deriving lanes from CAD…</div>
