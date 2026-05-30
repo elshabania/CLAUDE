@@ -1,6 +1,8 @@
-import type { Dxf, DxfEntity, DxfPoint } from "dxf-parser";
+import type { Dxf, DxfPoint } from "dxf-parser";
 import type { ExtractedPath } from "@/lib/pdf-extract";
 import { LEGEND_SWATCHES, type LegendSwatch } from "@/lib/legend-swatches";
+import { flattenDxf } from "@/lib/dxf-flatten";
+import { classifyLayers } from "@/lib/dxf-layer-rules";
 
 export type RoadCategory =
   | "road_row"
@@ -222,12 +224,6 @@ export function classifyByLegendSwatch(
   return bestCat;
 }
 
-function entityPoints(entity: DxfEntity): DxfPoint[] {
-  if (entity.vertices && entity.vertices.length > 0) return entity.vertices;
-  if (entity.startPoint && entity.endPoint) return [entity.startPoint, entity.endPoint];
-  return [];
-}
-
 function flatPoints(points: DxfPoint[]): number[] {
   const out: number[] = [];
   for (const p of points) {
@@ -249,6 +245,22 @@ function flatLength(flat: number[]): number {
 }
 
 export function detectFromDxf(dxf: Dxf): ParsedDrawing {
+  // Flatten the entity tree: expand INSERTs into block contents, tessellate
+  // arcs/circles/bulges, and pick up LINE endpoints from .vertices (where
+  // dxf-parser 1.1.2 actually puts them).
+  const flat = flattenDxf(dxf);
+
+  // Pre-classify every distinct layer name once via the layer-rule matcher.
+  // The flattener tags each primitive with its source layer; this turns each
+  // layer name into a RoadCategory so the viewer paints it in the right
+  // colour (instead of every segment falling through to dark-grey "other").
+  const layerNames = new Set<string>();
+  for (const s of flat.strokes) layerNames.add(s.layer);
+  for (const s of flat.solids) layerNames.add(s.layer);
+  const { byLayer } = classifyLayers(layerNames);
+  const categoryFor = (layer: string): RoadCategory =>
+    byLayer.get(layer)?.category ?? "other";
+
   const segments: DrawingSegment[] = [];
   const groupMap = new Map<string, DrawingGroup>();
   let minX = Infinity,
@@ -256,37 +268,31 @@ export function detectFromDxf(dxf: Dxf): ParsedDrawing {
     maxX = -Infinity,
     maxY = -Infinity;
 
-  const supported = new Set(["LINE", "LWPOLYLINE", "POLYLINE"]);
-
-  dxf.entities.forEach((entity, idx) => {
-    if (!supported.has(entity.type)) return;
-    const points = entityPoints(entity);
-    if (points.length < 2) return;
-
-    const layer = entity.layer ?? "0";
-    // DXF entities don't carry fill colour we can match against the legend;
-    // they're only used by the auxiliary upload path. Default to "other"
-    // so the user can re-classify per-group in the UI.
-    const category: RoadCategory = "other";
-    const flat = flatPoints(points);
-    const length = flatLength(flat);
-
-    for (const p of points) {
-      if (p.x < minX) minX = p.x;
-      if (p.y < minY) minY = p.y;
-      if (p.x > maxX) maxX = p.x;
-      if (p.y > maxY) maxY = p.y;
+  const pushSegment = (
+    id: string,
+    layer: string,
+    points: number[],
+    closed: boolean
+  ): void => {
+    if (points.length < 4) return;
+    const length = flatLength(points);
+    for (let i = 0; i < points.length; i += 2) {
+      const x = points[i];
+      const y = points[i + 1];
+      if (x < minX) minX = x;
+      if (y < minY) minY = y;
+      if (x > maxX) maxX = x;
+      if (y > maxY) maxY = y;
     }
-
+    const category = categoryFor(layer);
     segments.push({
-      id: entity.handle ?? `e${idx}`,
+      id,
       groupId: layer,
       category,
-      points: flat,
-      closed: Boolean((entity as { shape?: boolean }).shape),
+      points,
+      closed,
       length,
     });
-
     const existing = groupMap.get(layer);
     if (existing) {
       existing.count += 1;
@@ -300,13 +306,67 @@ export function detectFromDxf(dxf: Dxf): ParsedDrawing {
         totalLength: length,
       });
     }
-  });
+  };
+
+  for (const s of flat.strokes) pushSegment(s.id, s.layer, s.points, s.closed);
+  // SOLIDs are filled tris/quads — emit as a closed polyline so the viewer can
+  // outline them; downstream code can read `closed` to fill them.
+  for (const s of flat.solids) pushSegment(s.id, s.layer, s.points, true);
 
   if (!isFinite(minX)) {
     minX = 0;
     minY = 0;
     maxX = 0;
     maxY = 0;
+  } else {
+    // Real CAD files often contain stray geometry (forgotten title blocks
+    // at world origin, surveyors' control points far from site) that blow
+    // the bounding box up to millions of units while the masterplan itself
+    // is ~5km wide. The CAD viewer fits to these bounds, so the drawing
+    // shrinks to a dot. Tighten bounds to the dominant cluster: take the
+    // median XY across all segment vertices, then accept only points within
+    // a generous radius of it.
+    const xs: number[] = [];
+    const ys: number[] = [];
+    for (const s of segments) {
+      for (let i = 0; i < s.points.length; i += 2) {
+        xs.push(s.points[i]);
+        ys.push(s.points[i + 1]);
+      }
+    }
+    if (xs.length > 100) {
+      xs.sort((a, b) => a - b);
+      ys.sort((a, b) => a - b);
+      const mx = xs[xs.length >> 1];
+      const my = ys[ys.length >> 1];
+      // Use the interquartile range scaled up as the "in cluster" radius —
+      // very robust to outliers, and naturally adapts to drawing size.
+      const iqrX = xs[(xs.length * 3) >> 2] - xs[xs.length >> 2];
+      const iqrY = ys[(ys.length * 3) >> 2] - ys[ys.length >> 2];
+      const radius = Math.max(iqrX, iqrY) * 20 + 1;
+      let rMinX = Infinity,
+        rMinY = Infinity,
+        rMaxX = -Infinity,
+        rMaxY = -Infinity;
+      for (let i = 0; i < xs.length; i++) {
+        const x = xs[i];
+        if (Math.abs(x - mx) > radius) continue;
+        if (x < rMinX) rMinX = x;
+        if (x > rMaxX) rMaxX = x;
+      }
+      for (let i = 0; i < ys.length; i++) {
+        const y = ys[i];
+        if (Math.abs(y - my) > radius) continue;
+        if (y < rMinY) rMinY = y;
+        if (y > rMaxY) rMaxY = y;
+      }
+      if (isFinite(rMinX) && isFinite(rMinY)) {
+        minX = rMinX;
+        minY = rMinY;
+        maxX = rMaxX;
+        maxY = rMaxY;
+      }
+    }
   }
 
   return {

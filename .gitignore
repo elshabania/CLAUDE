@@ -23,3 +23,6 @@ scripts/.test-dxf-layer-rules.mjs
 scripts/.dxf-out/
 scripts/.dxf-*.mjs
 public/wsp-*
+scripts/.test-detect-wsp.mts
+scripts/.dxf-*
+scripts/.dxf-out/

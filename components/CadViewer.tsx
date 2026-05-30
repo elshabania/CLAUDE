@@ -344,17 +344,30 @@ export function CadViewer({
         let domCat: RoadCategory = roadCatsVisible[0];
         let domN = -1;
         const counts = new Map<RoadCategory, number>();
+        // Stroke width for OPEN road polylines (edges, kerbs, lane lines from
+        // DXF). The morph-close radius below fuses parallel kerbs into a solid
+        // corridor.
+        mctx.strokeStyle = "#fff";
+        mctx.lineWidth = Math.max(1, renderScale * 0.8);
+        mctx.lineCap = "round";
+        mctx.lineJoin = "round";
         for (const seg of drawing.segments) {
           const cat = effCat(seg);
           if (visibleCategories[cat] === false || !ROAD_CATEGORIES.has(cat)) continue;
           const pts = seg.points;
-          if (pts.length < 6 || !seg.closed) continue;
+          if (pts.length < 4) continue;
           counts.set(cat, (counts.get(cat) ?? 0) + 1);
           mctx.beginPath();
           mctx.moveTo(ox(pts[0]), oy(pts[1]));
           for (let i = 2; i < pts.length; i += 2) mctx.lineTo(ox(pts[i]), oy(pts[i + 1]));
-          mctx.closePath();
-          mctx.fill();
+          if (seg.closed) {
+            mctx.closePath();
+            mctx.fill();
+          } else {
+            // Open polyline (kerb, lane marking, edge) - stroke so the close
+            // operator fuses parallel edges into a single corridor.
+            mctx.stroke();
+          }
         }
         for (const [c, n] of counts) if (n > domN) { domN = n; domCat = c; }
 
