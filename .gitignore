@@ -39,3 +39,6 @@ scripts/.find-*
 scripts/.links-*
 scripts/.test-links.mts
 scripts/.diag-*
+scripts/.carriageway-*
+scripts/.cad-propo*
+scripts/.cad-inventory*
