@@ -19,3 +19,4 @@ scripts/.network-real.mjs
 scripts/.network-ba.mjs
 scripts/.tmp-*
 scripts/.network-h2-ba.mjs
+scripts/.test-dxf-layer-rules.mjs
