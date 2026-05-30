@@ -871,21 +871,19 @@ export default function Page() {
                   {laneNetwork ? (
                     <>
                       <div style={{ marginBottom: 8, color: "var(--text-2)" }}>
-                        {laneNetwork.lanes.length.toLocaleString()} lanes ·{" "}
-                        {laneNetwork.stats.laneKm.toFixed(1)} lane-km · derived from
-                        the CAD edge, lane-divider &amp; arrow geometry.
+                        {laneNetwork.links.length.toLocaleString()} one-way links ·{" "}
+                        {laneNetwork.stats.centerlineKm.toFixed(1)} centerline-km ·{" "}
+                        {laneNetwork.stats.laneKm.toFixed(1)} lane-km
                       </div>
                       <div style={{ marginBottom: 8, color: "var(--text-2)" }}>
                         {laneNetwork.stats.junctionCount} junctions ·{" "}
                         {laneNetwork.stats.connectorCount} connectors ·{" "}
                         {laneNetwork.stats.directedPct.toFixed(0)}% directed
                       </div>
-                      {laneNetwork.stats.clampedLaneCounts > 0 && (
-                        <div style={{ marginBottom: 8, color: "#fbbf24", fontSize: 11 }}>
-                          ⚠ {laneNetwork.stats.clampedLaneCounts} lanes hit the
-                          5-lane cap (complex junctions) — confirm these.
-                        </div>
-                      )}
+                      <div style={{ marginBottom: 8, color: "var(--text-2)", fontSize: 11 }}>
+                        VISSIM-style model: one Link per uniform-numLanes section,
+                        split where lanes are added/dropped.
+                      </div>
                       {[
                         ["1 lane", "#3b82f6"],
                         ["2 lanes", "#f97316"],
