@@ -452,10 +452,15 @@ export function buildLaneNetwork(
     ...bridgedSup.map(t => ({ trace: smoothTrace(t), directed: false })),
   ];
 
-  // --------- (8) Reorient undirected lanes from nearest directed neighbour ---------
-  // VISSIM requires every Link to have a travel direction. Undirected lanes
-  // were traced in arbitrary order from supplementary seeds; align each one
-  // with its nearest CONFIRMED direction (an arrow-derived lane within ~12 m).
+  // --------- (8) Reorient undirected lanes — SAME-SIDE-OF-CENTERLINE ONLY ---------
+  // Highway-engineer model: a TWO-WAY STREET has a painted centerline (not a
+  // physical median); opposite-direction lanes sit ~3.5 m apart, ONE lane
+  // width. A radius-based vote (the previous 12 m approach) captures both
+  // directions and is ambiguous. To stay on the correct side of the
+  // centerline, we only sample directed neighbours within ONE LANE WIDTH
+  // perpendicular at each station — that captures siblings in the same
+  // travel direction but excludes the opposing lane across the centerline.
+  // We also require a STRONG MAJORITY (3:1 with min 4 votes) before flipping.
   {
     type DS = { dx: number; dy: number; p: Pt };
     const dirIdx: DS[] = [];
@@ -467,10 +472,13 @@ export function buildLaneNetwork(
         dirIdx.push({ dx: d.x, dy: d.y, p: p[i] });
       }
     });
-    const RG = 12;
+    const RG = 4;
     const rgk = (x: number, y: number) => `${Math.floor(x / RG)},${Math.floor(y / RG)}`;
     const rGrid = new Map<string, DS[]>();
     for (const ds of dirIdx) { const k = rgk(ds.p.x, ds.p.y); let a = rGrid.get(k); if (!a) rGrid.set(k, (a = [])); a.push(ds); }
+    const NEIGHBOUR_RADIUS = 4.5; // < typical two-way centerline gap (~7m) but
+                                  // > one lane half-width (~1.75m)
+    const PERP_LIMIT = 4.0;       // ≈ one lane width perpendicular
     for (let li = 0; li < laneTraces.length; li++) {
       const L = laneTraces[li];
       if (L.directed) continue;
@@ -478,18 +486,24 @@ export function buildLaneNetwork(
       let agree = 0, against = 0;
       for (let i = 0; i < p.length; i += 5) {
         const t = norm(p[Math.max(0, i - 1)], p[Math.min(p.length - 1, i + 1)]);
+        const nxn = -t.y, nyn = t.x;
         const gx = Math.floor(p[i].x / RG), gy = Math.floor(p[i].y / RG);
         for (let dx = -2; dx <= 2; dx++) for (let dy = -2; dy <= 2; dy++) {
           const arr = rGrid.get(`${gx + dx},${gy + dy}`); if (!arr) continue;
           for (const ds of arr) {
-            const d = Math.hypot(ds.p.x - p[i].x, ds.p.y - p[i].y);
-            if (d > 12) continue;
+            const vx = ds.p.x - p[i].x, vy = ds.p.y - p[i].y;
+            const d = Math.hypot(vx, vy);
+            if (d > NEIGHBOUR_RADIUS) continue;
+            // perpendicular component (signed) — discard if > one lane width
+            const perp = Math.abs(vx * nxn + vy * nyn);
+            if (perp > PERP_LIMIT) continue;
             const dot = ds.dx * t.x + ds.dy * t.y;
             if (dot > 0.7) agree++; else if (dot < -0.7) against++;
           }
         }
       }
-      if (against > agree && against > 3) laneTraces[li].trace = p.slice().reverse();
+      // Strong-majority gate: against must beat agree 3:1 with min 4 votes
+      if (against >= 4 && against > agree * 3) laneTraces[li].trace = p.slice().reverse();
     }
   }
 
