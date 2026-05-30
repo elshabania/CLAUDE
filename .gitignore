@@ -20,4 +20,7 @@ scripts/.network-ba.mjs
 scripts/.tmp-*
 scripts/.network-h2-ba.mjs
 scripts/.test-dxf-layer-rules.mjs
+scripts/.dxf-out/
+scripts/.dxf-inventory.mjs
+scripts/.dxf-render-wsp.mjs
 public/wsp-*
