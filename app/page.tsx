@@ -15,6 +15,7 @@ import {
   type ParsedDrawing,
   type RoadCategory,
 } from "@/lib/road-detect";
+import { buildLaneNetwork, type LaneNetwork } from "@/lib/lane-network";
 import { LEGEND_SWATCHES } from "@/lib/legend-swatches";
 import { LegendPanel } from "@/components/LegendPanel";
 import { parseDxfInBrowser } from "@/lib/dxf-client";
@@ -104,6 +105,8 @@ export default function Page() {
   const [status, setStatus] = useState<"idle" | "loading" | "error">("idle");
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<ParseResponse | null>(null);
+  const [laneNetwork, setLaneNetwork] = useState<LaneNetwork | null>(null);
+  const [showLanes, setShowLanes] = useState(true);
   const [groupCategory, setGroupCategory] = useState<Record<string, RoadCategory>>({});
   const [visibleGroups, setVisibleGroups] = useState<Record<string, boolean>>({});
   const [visibleCategories, setVisibleCategories] = useState<
@@ -167,6 +170,29 @@ export default function Page() {
   useEffect(() => {
     if (tool !== "pick") setPickingCategory(null);
   }, [tool]);
+
+  // Derive the lane-level network from detailed CAD (DXF) drawings. PDFs don't
+  // carry per-lane geometry, so this only runs for DXF. Deferred a tick so the
+  // drawing paints first; the extraction is ~1-5s on a large plan.
+  useEffect(() => {
+    if (!result || result.drawing.source !== "dxf") {
+      setLaneNetwork(null);
+      return;
+    }
+    let cancelled = false;
+    const id = setTimeout(() => {
+      try {
+        const net = buildLaneNetwork(result.drawing);
+        if (!cancelled) setLaneNetwork(net);
+      } catch {
+        if (!cancelled) setLaneNetwork(null);
+      }
+    }, 50);
+    return () => {
+      cancelled = true;
+      clearTimeout(id);
+    };
+  }, [result]);
 
   useEffect(() => {
     if (!result) return;
@@ -828,6 +854,53 @@ export default function Page() {
                 </div>
               </div>
             )}
+            {tab === "drawing" && result && result.drawing.source === "dxf" && (
+              <div className="panel">
+                <div className="panel-header">
+                  <span>Lane Network</span>
+                  <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12 }}>
+                    <input
+                      type="checkbox"
+                      checked={showLanes}
+                      onChange={(e) => setShowLanes(e.target.checked)}
+                    />
+                    Show
+                  </label>
+                </div>
+                <div className="panel-body" style={{ fontSize: 12, lineHeight: 1.7 }}>
+                  {laneNetwork ? (
+                    <>
+                      <div style={{ marginBottom: 8, color: "var(--text-2)" }}>
+                        {laneNetwork.lanes.length.toLocaleString()} lanes ·{" "}
+                        {laneNetwork.stats.laneKm.toFixed(1)} lane-km, derived from the
+                        CAD edge &amp; lane-divider geometry.
+                      </div>
+                      {[
+                        ["1 lane", "#3b82f6"],
+                        ["2 lanes", "#f97316"],
+                        ["3 lanes", "#ef4444"],
+                        ["4+ lanes", "#a855f7"],
+                      ].map(([label, color]) => (
+                        <div key={label} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          <span
+                            style={{
+                              display: "inline-block",
+                              width: 16,
+                              height: 3,
+                              background: color,
+                              borderRadius: 2,
+                            }}
+                          />
+                          {label}
+                        </div>
+                      ))}
+                    </>
+                  ) : (
+                    <div style={{ color: "var(--text-2)" }}>Deriving lanes from CAD…</div>
+                  )}
+                </div>
+              </div>
+            )}
             {!isPlanTab && hasNetwork && (
               <div className="panel">
                 <div className="panel-header">
@@ -896,6 +969,8 @@ export default function Page() {
                 setCalibUnits(units);
                 setCalibMetres("");
               }}
+              laneNetwork={laneNetwork}
+              showLanes={showLanes}
             />
           )}
           {tab === "drawing" && calibUnits != null && (

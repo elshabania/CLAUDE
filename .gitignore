@@ -27,3 +27,4 @@ scripts/.test-detect-wsp.mts
 scripts/.dxf-*
 scripts/.dxf-out/
 scripts/.lane-*
+scripts/.test-lanes.mts

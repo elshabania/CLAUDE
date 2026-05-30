@@ -9,6 +9,16 @@ import {
 import { LEGEND_SWATCHES } from "@/lib/legend-swatches";
 import { renderDrawingFills, type Ctx2D } from "@/lib/render-drawing";
 import { closeMask } from "@/lib/morphology";
+import type { LaneNetwork } from "@/lib/lane-network";
+
+/** Lane centerline colour by lane count (matches the legend in the panel). */
+function laneCountColor(n: number): string {
+  if (n >= 4) return "#a855f7"; // 4+ lanes — main carriageway
+  if (n === 3) return "#ef4444";
+  if (n === 2) return "#f97316";
+  if (n === 1) return "#3b82f6";
+  return "#94a3b8";
+}
 
 const ROAD_CATEGORIES_ARR = Array.from(ROAD_CATEGORIES);
 
@@ -74,6 +84,10 @@ interface Props {
   /** Reports the length (in drawing units) of a completed measurement, for
    *  scale calibration. */
   onMeasure?: (distanceUnits: number) => void;
+  /** Lane-level network (from a detailed CAD) to overlay on the plan. */
+  laneNetwork?: LaneNetwork | null;
+  /** Whether to draw the lane overlay. */
+  showLanes?: boolean;
 }
 
 export function CadViewer({
@@ -87,6 +101,8 @@ export function CadViewer({
   onSignals,
   onPickGroup,
   onMeasure,
+  laneNetwork = null,
+  showLanes = true,
 }: Props) {
   function effCat(seg: { groupId: string; category: RoadCategory }): RoadCategory {
     return groupCategory?.[seg.groupId] ?? seg.category;
@@ -447,6 +463,61 @@ export function CadViewer({
     );
     ctx.restore();
 
+    // Forward-project drawing units → screen, through pan + page rotation.
+    const rotForProj = (pageRotation * Math.PI) / 180;
+    const cosRP = Math.cos(rotForProj);
+    const sinRP = Math.sin(rotForProj);
+    const toScreenPt = (px: number, py: number) => {
+      const ux = (px - cx) * scale;
+      const uy = -(py - cy) * scale;
+      return {
+        x: screenCx + (cosRP * ux - sinRP * uy),
+        y: screenCy + (sinRP * ux + cosRP * uy),
+      };
+    };
+
+    // Lane-network overlay: discrete lane centerlines coloured by lane count,
+    // with a direction arrowhead at each lane's midpoint. This is the
+    // VISSIM-style lane model derived from the CAD edge/divider geometry.
+    if (showLanes && laneNetwork && laneNetwork.lanes.length > 0) {
+      ctx.save();
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+      ctx.lineWidth = 2;
+      for (const lane of laneNetwork.lanes) {
+        const pts = lane.points;
+        if (pts.length < 4) continue;
+        ctx.strokeStyle = laneCountColor(lane.laneCount);
+        ctx.beginPath();
+        for (let i = 0; i < pts.length; i += 2) {
+          const s = toScreenPt(pts[i], pts[i + 1]);
+          if (i === 0) ctx.moveTo(s.x, s.y);
+          else ctx.lineTo(s.x, s.y);
+        }
+        ctx.stroke();
+        // direction arrowhead at midpoint (only when zoomed in enough to read)
+        if (scale > 0.04) {
+          const mi = (pts.length >> 2) * 2; // ~middle vertex (even index)
+          const a = toScreenPt(pts[mi], pts[mi + 1]);
+          const nIdx = Math.min(pts.length - 2, mi + 2);
+          const b = toScreenPt(pts[nIdx], pts[nIdx + 1]);
+          const ang = Math.atan2(b.y - a.y, b.x - a.x);
+          ctx.fillStyle = laneCountColor(lane.laneCount);
+          ctx.save();
+          ctx.translate(a.x, a.y);
+          ctx.rotate(ang);
+          ctx.beginPath();
+          ctx.moveTo(7, 0);
+          ctx.lineTo(-4, 4);
+          ctx.lineTo(-4, -4);
+          ctx.closePath();
+          ctx.fill();
+          ctx.restore();
+        }
+      }
+      ctx.restore();
+    }
+
     // Measure overlay (drawn in screen space). Forward-project drawing units
     // through pan + rotation.
     if (measure) {
@@ -485,7 +556,7 @@ export function CadViewer({
     // objects (which don't otherwise affect the blit). The per-frame pan/zoom
     // path only mutates `transform`, so it lands here and does the cheap blit -
     // never the expensive offscreen raster above.
-  }, [drawing, transform, pageRotation, size.width, size.height, offscreenVersion, measure]);
+  }, [drawing, transform, pageRotation, size.width, size.height, offscreenVersion, measure, laneNetwork, showLanes]);
 
   const dragMovedRef = useRef(false);
   const onPointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
