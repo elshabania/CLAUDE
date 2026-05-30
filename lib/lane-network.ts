@@ -414,6 +414,28 @@ export function buildLaneNetwork(
               // B's tangent INTO the trace from e.p (i.e. flipped vs bContinuesAlong)
               const bIn = { x: -bContinuesAlong.x, y: -bContinuesAlong.y };
               if (aDir.x * bIn.x + aDir.y * bIn.y < 0.92) continue;
+              // GAP MUST NOT CROSS A KERB. A hammer-head turnaround's exit
+              // can geometrically align with the main road, but there's a kerb
+              // between them — they're separate corridors and must not be
+              // fused. Walk the gap densely and check that no rail sample sits
+              // within 1.2m of the gap path AND runs ~⊥ to the gap (an actual
+              // kerb crossing, not a parallel rail running along the gap
+              // which is normal at an open median break).
+              let crosses = false;
+              const stepN = Math.max(4, Math.ceil(gapLen * 2));
+              for (let st = 1; st < stepN; st++) {
+                const u = st / stepN;
+                const gx = aP.x + gapDx * u, gy = aP.y + gapDy * u;
+                for (const si of sNear(gx, gy)) {
+                  const sm = samples[si];
+                  const dd = Math.hypot(sm.x - gx, sm.y - gy);
+                  if (dd > 1.2) continue;
+                  const dot = Math.abs(sm.tx * gapDir.x + sm.ty * gapDir.y);
+                  if (dot < 0.7) { crosses = true; break; }
+                }
+                if (crosses) break;
+              }
+              if (crosses) continue;
               bestD = d; best = e;
             }
           }
