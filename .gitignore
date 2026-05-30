@@ -38,3 +38,4 @@ scripts/.j2-*
 scripts/.find-*
 scripts/.links-*
 scripts/.test-links.mts
+scripts/.diag-*
