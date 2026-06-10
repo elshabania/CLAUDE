@@ -1,0 +1,1283 @@
+"use client";
+
+import { useEffect, useMemo, useRef, useState } from "react";
+import * as THREE from "three";
+import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
+import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
+import {
+  ROAD_CATEGORIES,
+  type ParsedDrawing,
+  type RoadCategory,
+} from "@/lib/road-detect";
+import type { RoadNetwork, BuildingType, NetworkLink } from "@/lib/road-network";
+import {
+  buildSimulationState,
+  spawnVehicles,
+  clearVehicles,
+  pointOnLink,
+  tangentOnLink,
+  step,
+  activeGreen,
+  type SimulationState,
+} from "@/lib/simulation";
+import { LOS_COLORS, type JunctionResult, type LOS } from "@/lib/hcm";
+
+interface Props {
+  drawing: ParsedDrawing;
+  groupCategory: Record<string, RoadCategory>;
+  network: RoadNetwork;
+  /** HCM analysis output keyed by junction id, when available. */
+  junctionResults?: Record<string, JunctionResult | undefined>;
+  selectedJunctionId?: string | null;
+  onSelectJunction?: (id: string | null) => void;
+}
+
+const BUILDING_COLOR: Record<BuildingType, number> = {
+  residential: 0x4ade80,
+  commercial: 0x38bdf8,
+  retail: 0xa78bfa,
+  office: 0x60a5fa,
+  school: 0xfbbf24,
+  mosque: 0x2dd4bf,
+  hospital: 0xf87171,
+  civic: 0xf472b6,
+  industrial: 0x78716c,
+  parking: 0x94a3b8,
+  amenity: 0xe879f9,
+  other: 0x94a3b8,
+};
+
+const BUILDING_HEIGHT: Record<BuildingType, number> = {
+  residential: 0.025,
+  commercial: 0.06,
+  retail: 0.04,
+  office: 0.08,
+  school: 0.04,
+  mosque: 0.06,
+  hospital: 0.07,
+  civic: 0.05,
+  industrial: 0.05,
+  parking: 0.02,
+  amenity: 0.045,
+  other: 0.025,
+};
+
+const LOS_COLOR_HEX: Record<LOS, number> = {
+  A: 0x22dd77,
+  B: 0x88ee44,
+  C: 0xfbbf24,
+  D: 0xff8c1a,
+  E: 0xff5544,
+  F: 0xee2244,
+};
+
+// Visible asphalt grey. Was much darker; bumped so the road reads against
+// a dark scene background. Junction-region asphalt and roundabout asphalt
+// step lighter so the typology reads from above.
+const ASPHALT_BASE_COLOR = 0x6b7280;
+const ASPHALT_JUNCTION_COLOR = 0x7a8294;
+const ASPHALT_ROUNDABOUT_COLOR = 0x8089a0;
+
+export function Simulation3DViewer({
+  drawing,
+  groupCategory,
+  network,
+  junctionResults,
+  selectedJunctionId,
+  onSelectJunction,
+}: Props) {
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const stateRef = useRef<SimulationState | null>(null);
+  const sceneRef = useRef<{
+    scene: THREE.Scene;
+    camera: THREE.PerspectiveCamera;
+    renderer: THREE.WebGLRenderer;
+    controls: OrbitControls;
+    vehicles: VehicleInstances | null;
+    vehicleGroup: THREE.Group;
+    junctionLabels: { sprite: THREE.Sprite; nodeId: string; canvasState: { los: LOS | null } }[];
+    junctionPickMeshes: THREE.Mesh[];
+    signalLights: { mesh: THREE.Mesh; nodeId: string; cardinal: "NB" | "EB" | "SB" | "WB" }[];
+    linkAsphalt: { mesh: THREE.Mesh; link: NetworkLink }[];
+    raf: number;
+  } | null>(null);
+
+  const [running, setRunning] = useState(true);
+  const [vehicleCount, setVehicleCount] = useState(220);
+  const [speedMul, setSpeedMul] = useState(1);
+  const [losColoring, setLosColoring] = useState(true);
+  const runningRef = useRef(running);
+  const speedRef = useRef(speedMul);
+  const losRef = useRef(losColoring);
+  const resultsRef = useRef(junctionResults);
+  const selectedRef = useRef(selectedJunctionId);
+  useEffect(() => {
+    runningRef.current = running;
+  }, [running]);
+  useEffect(() => {
+    speedRef.current = speedMul;
+  }, [speedMul]);
+  useEffect(() => {
+    losRef.current = losColoring;
+  }, [losColoring]);
+  useEffect(() => {
+    resultsRef.current = junctionResults;
+  }, [junctionResults]);
+  useEffect(() => {
+    selectedRef.current = selectedJunctionId;
+  }, [selectedJunctionId]);
+
+  // Compute world transform: PDF user units mapped into a unit-sized 3D
+  // scene with x=east, z=south (so y is up).
+  const worldTransform = useMemo(() => {
+    const { minX, minY, maxX, maxY } = network.bounds;
+    const w = Math.max(maxX - minX, 1);
+    const h = Math.max(maxY - minY, 1);
+    const span = Math.max(w, h);
+    const scale = 100 / span;
+    const cx = (minX + maxX) / 2;
+    const cy = (minY + maxY) / 2;
+    return {
+      project: (x: number, y: number): [number, number] => [
+        (x - cx) * scale,
+        -(y - cy) * scale,
+      ],
+      scale,
+      span: span * scale,
+    };
+  }, [network.bounds]);
+
+  useEffect(() => {
+    const fresh = buildSimulationState(network, { signalsEnabled: true });
+    const diag =
+      Math.hypot(
+        network.bounds.maxX - network.bounds.minX,
+        network.bounds.maxY - network.bounds.minY
+      ) || 1;
+    stateRef.current = spawnVehicles(fresh, vehicleCount, diag / 70);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [network]);
+
+  useEffect(() => {
+    const s = stateRef.current;
+    if (!s) return;
+    const diag =
+      Math.hypot(
+        network.bounds.maxX - network.bounds.minX,
+        network.bounds.maxY - network.bounds.minY
+      ) || 1;
+    if (vehicleCount > s.vehicles.length) {
+      stateRef.current = spawnVehicles(s, vehicleCount - s.vehicles.length, diag / 70);
+    } else if (vehicleCount < s.vehicles.length) {
+      stateRef.current = { ...s, vehicles: s.vehicles.slice(0, vehicleCount) };
+    }
+  }, [vehicleCount, network]);
+
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const scene = new THREE.Scene();
+
+    // Sky gradient via a large inverted sphere.
+    const skyGeom = new THREE.SphereGeometry(500, 32, 16);
+    const skyMat = new THREE.ShaderMaterial({
+      uniforms: {
+        topColor: { value: new THREE.Color(0x0b1220) },
+        bottomColor: { value: new THREE.Color(0x111827) },
+        offset: { value: 33 },
+        exponent: { value: 0.6 },
+      },
+      vertexShader: /* glsl */ `
+        varying vec3 vWorldPosition;
+        void main() {
+          vec4 worldPosition = modelMatrix * vec4(position, 1.0);
+          vWorldPosition = worldPosition.xyz;
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+      `,
+      fragmentShader: /* glsl */ `
+        uniform vec3 topColor;
+        uniform vec3 bottomColor;
+        uniform float offset;
+        uniform float exponent;
+        varying vec3 vWorldPosition;
+        void main() {
+          float h = normalize(vWorldPosition + vec3(0.0, offset, 0.0)).y;
+          gl_FragColor = vec4(mix(bottomColor, topColor, max(pow(max(h, 0.0), exponent), 0.0)), 1.0);
+        }
+      `,
+      side: THREE.BackSide,
+    });
+    scene.add(new THREE.Mesh(skyGeom, skyMat));
+    scene.fog = new THREE.Fog(0x0c1424, 90, 260);
+
+    const w = container.clientWidth || 800;
+    const h = container.clientHeight || 600;
+    const camera = new THREE.PerspectiveCamera(52, w / h, 0.1, 1000);
+    camera.position.set(50, 75, 95);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    renderer.setSize(w, h);
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.05;
+    container.appendChild(renderer.domElement);
+
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.08;
+    controls.maxPolarAngle = Math.PI * 0.485;
+    controls.minDistance = 6;
+    controls.maxDistance = 320;
+    controls.target.set(0, 0, 0);
+
+    // Warm three-point lighting.
+    const hemi = new THREE.HemisphereLight(0xb0c4de, 0x0e1521, 0.62);
+    scene.add(hemi);
+    const sun = new THREE.DirectionalLight(0xfff4d6, 1.15);
+    sun.position.set(80, 140, 60);
+    scene.add(sun);
+    const fill = new THREE.DirectionalLight(0x6ea0ff, 0.35);
+    fill.position.set(-80, 60, -60);
+    scene.add(fill);
+
+    // Ground plane sized to the drawing.
+    const ground = new THREE.Mesh(
+      new THREE.PlaneGeometry(worldTransform.span * 1.6, worldTransform.span * 1.6),
+      new THREE.MeshStandardMaterial({
+        color: 0x0b1220,
+        roughness: 0.95,
+        metalness: 0,
+      })
+    );
+    ground.rotation.x = -Math.PI / 2;
+    scene.add(ground);
+
+    const roadsGroup = new THREE.Group();
+    scene.add(roadsGroup);
+    const buildingsGroup = new THREE.Group();
+    scene.add(buildingsGroup);
+    const vehicleGroup = new THREE.Group();
+    scene.add(vehicleGroup);
+    const labelsGroup = new THREE.Group();
+    scene.add(labelsGroup);
+    const signalsGroup = new THREE.Group();
+    scene.add(signalsGroup);
+
+    const linkAsphalt = addRoads(roadsGroup, drawing, groupCategory, network, worldTransform);
+    addBuildings(buildingsGroup, network, worldTransform);
+    const junctionLabels = addJunctionLabels(labelsGroup, network, worldTransform);
+    const { lights: signalLights, pickMeshes: junctionPickMeshes } = addSignalsAndPickers(
+      signalsGroup,
+      network,
+      worldTransform
+    );
+
+    sceneRef.current = {
+      scene,
+      camera,
+      renderer,
+      controls,
+      vehicles: null,
+      vehicleGroup,
+      junctionLabels,
+      junctionPickMeshes,
+      signalLights,
+      linkAsphalt,
+      raf: 0,
+    };
+
+    // Click-to-select a junction via raycasting against the picker discs.
+    const raycaster = new THREE.Raycaster();
+    const pointer = new THREE.Vector2();
+    const onClick = (e: MouseEvent) => {
+      const rect = renderer.domElement.getBoundingClientRect();
+      pointer.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+      pointer.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+      raycaster.setFromCamera(pointer, camera);
+      const hits = raycaster.intersectObjects(junctionPickMeshes, false);
+      if (hits.length > 0) {
+        const id = (hits[0].object.userData as { nodeId?: string }).nodeId;
+        if (id && onSelectJunction) onSelectJunction(id);
+      } else if (onSelectJunction) {
+        onSelectJunction(null);
+      }
+    };
+    renderer.domElement.addEventListener("click", onClick);
+
+    let lastT = performance.now();
+    const tickFn = (now: number) => {
+      const dt = Math.min(0.1, (now - lastT) / 1000) * speedRef.current;
+      lastT = now;
+      const s = stateRef.current;
+      if (s && runningRef.current) step(s, dt);
+      syncVehicles(sceneRef.current!, vehicleGroup, stateRef.current, network, worldTransform);
+      syncSignals(stateRef.current, signalLights);
+      syncLinkColors(linkAsphalt, resultsRef.current ?? null, losRef.current);
+      syncJunctionLabels(junctionLabels, resultsRef.current ?? null, selectedRef.current ?? null, camera);
+      controls.update();
+      renderer.render(scene, camera);
+      sceneRef.current!.raf = requestAnimationFrame(tickFn);
+    };
+    sceneRef.current.raf = requestAnimationFrame(tickFn);
+
+    const ro = new ResizeObserver(() => {
+      const cw = container.clientWidth || 800;
+      const ch = container.clientHeight || 600;
+      camera.aspect = cw / ch;
+      camera.updateProjectionMatrix();
+      renderer.setSize(cw, ch);
+    });
+    ro.observe(container);
+
+    return () => {
+      ro.disconnect();
+      cancelAnimationFrame(sceneRef.current!.raf);
+      controls.dispose();
+      renderer.domElement.removeEventListener("click", onClick);
+      renderer.dispose();
+      renderer.domElement.remove();
+      const disposeMaterial = (mat: THREE.Material) => {
+        // Free any GPU textures the material owns (e.g. per-junction
+        // CanvasTextures on the LOS sprite labels) before the material itself.
+        const withMaps = mat as unknown as Record<string, unknown>;
+        for (const key of ["map", "alphaMap", "emissiveMap", "normalMap"]) {
+          const tex = withMaps[key];
+          if (tex && (tex as THREE.Texture).isTexture) (tex as THREE.Texture).dispose();
+        }
+        mat.dispose();
+      };
+      scene.traverse((obj) => {
+        const mesh = obj as THREE.Mesh;
+        if (mesh.geometry) mesh.geometry.dispose();
+        const mat = mesh.material;
+        if (Array.isArray(mat)) mat.forEach(disposeMaterial);
+        else if (mat) disposeMaterial(mat);
+        // InstancedMesh / Sprite carry extra GPU buffers (instanceMatrix,
+        // instanceColor) that geometry.dispose() does not release.
+        const disposable = obj as unknown as { dispose?: () => void };
+        if (
+          (obj as THREE.InstancedMesh).isInstancedMesh &&
+          typeof disposable.dispose === "function"
+        ) {
+          disposable.dispose();
+        }
+      });
+      sceneRef.current = null;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [drawing, network, groupCategory, worldTransform]);
+
+  return (
+    <div ref={containerRef} style={{ position: "absolute", inset: 0, background: "#0b1220" }}>
+      <div
+        style={{
+          position: "absolute",
+          left: 12,
+          top: 12,
+          padding: "10px 12px",
+          background: "rgba(15, 23, 42, 0.92)",
+          color: "#e2e8f0",
+          fontSize: 12,
+          borderRadius: 8,
+          border: "1px solid #1e293b",
+          display: "flex",
+          flexDirection: "column",
+          gap: 8,
+          minWidth: 240,
+          zIndex: 1,
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <button
+            onClick={() => setRunning((r) => !r)}
+            style={{
+              background: running ? "#dc2626" : "#22c55e",
+              color: "white",
+              border: 0,
+              borderRadius: 4,
+              padding: "4px 10px",
+              cursor: "pointer",
+              fontSize: 11,
+              fontWeight: 600,
+            }}
+          >
+            {running ? "Pause" : "Play"}
+          </button>
+          <button
+            onClick={() => {
+              const s = stateRef.current;
+              if (!s) return;
+              const diag =
+                Math.hypot(
+                  network.bounds.maxX - network.bounds.minX,
+                  network.bounds.maxY - network.bounds.minY
+                ) || 1;
+              stateRef.current = spawnVehicles(
+                clearVehicles(s),
+                vehicleCount,
+                diag / 70
+              );
+            }}
+            style={{
+              background: "#334155",
+              color: "white",
+              border: 0,
+              borderRadius: 4,
+              padding: "4px 10px",
+              cursor: "pointer",
+              fontSize: 11,
+            }}
+          >
+            Respawn
+          </button>
+          <span
+            style={{
+              marginLeft: "auto",
+              color: "#94a3b8",
+              fontSize: 11,
+              fontVariantNumeric: "tabular-nums",
+            }}
+          >
+            {network.junctions.length} junc · {network.links.length} links
+          </span>
+        </div>
+        <Field label="Vehicles">
+          <input
+            type="range"
+            min={0}
+            max={1500}
+            step={10}
+            value={vehicleCount}
+            onChange={(e) => setVehicleCount(Number(e.target.value))}
+            style={{ flex: 1 }}
+          />
+          <span style={{ minWidth: 36, textAlign: "right", fontVariantNumeric: "tabular-nums" }}>
+            {vehicleCount}
+          </span>
+        </Field>
+        <Field label="Speed">
+          <input
+            type="range"
+            min={0.25}
+            max={4}
+            step={0.05}
+            value={speedMul}
+            onChange={(e) => setSpeedMul(Number(e.target.value))}
+            style={{ flex: 1 }}
+          />
+          <span style={{ minWidth: 36, textAlign: "right", fontVariantNumeric: "tabular-nums" }}>
+            {speedMul.toFixed(2)}×
+          </span>
+        </Field>
+        <label
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            fontSize: 11,
+            color: "#94a3b8",
+            cursor: "pointer",
+          }}
+        >
+          <input
+            type="checkbox"
+            checked={losColoring}
+            onChange={(e) => setLosColoring(e.target.checked)}
+          />
+          Colour roads by LOS
+        </label>
+        <div style={{ color: "#94a3b8", fontSize: 10, lineHeight: 1.5 }}>
+          Drag = orbit · scroll = zoom · right-drag = pan · click a junction
+        </div>
+      </div>
+    </div>
+  );
+}
+
+interface WorldTransform {
+  project: (x: number, y: number) => [number, number];
+  scale: number;
+  span: number;
+}
+
+function buildLinkRibbon(
+  link: { points: number[]; width?: number },
+  fallbackWidth: number,
+  wt: WorldTransform,
+  yLevel: number
+): THREE.BufferGeometry | null {
+  const pts = link.points;
+  if (pts.length < 4) return null;
+  const halfW = (link.width ?? fallbackWidth) / 2;
+  const verts: number[] = [];
+  const indices: number[] = [];
+  for (let i = 0; i < pts.length; i += 2) {
+    let tx: number, ty: number;
+    if (i === 0) {
+      tx = pts[2] - pts[0];
+      ty = pts[3] - pts[1];
+    } else if (i === pts.length - 2) {
+      tx = pts[i] - pts[i - 2];
+      ty = pts[i + 1] - pts[i - 1];
+    } else {
+      tx = pts[i + 2] - pts[i - 2];
+      ty = pts[i + 3] - pts[i - 1];
+    }
+    const m = Math.hypot(tx, ty) || 1;
+    tx /= m;
+    ty /= m;
+    // Right-hand normal in source coords (y-up).
+    const nx = ty;
+    const ny = -tx;
+    const x = pts[i];
+    const y = pts[i + 1];
+    const [lwx, lwz] = wt.project(x - nx * halfW, y - ny * halfW);
+    const [rwx, rwz] = wt.project(x + nx * halfW, y + ny * halfW);
+    verts.push(lwx, yLevel, lwz);
+    verts.push(rwx, yLevel, rwz);
+  }
+  const ringCount = verts.length / 6;
+  for (let i = 0; i < ringCount - 1; i++) {
+    const a = i * 2;
+    const b = i * 2 + 1;
+    const c = (i + 1) * 2;
+    const d = (i + 1) * 2 + 1;
+    indices.push(a, c, b, b, c, d);
+  }
+  const geom = new THREE.BufferGeometry();
+  geom.setAttribute("position", new THREE.Float32BufferAttribute(verts, 3));
+  geom.setIndex(indices);
+  geom.computeVertexNormals();
+  return geom;
+}
+
+function buildPolygonGeom(
+  polygon: number[],
+  wt: WorldTransform,
+  yLevel: number
+): THREE.BufferGeometry | null {
+  if (polygon.length < 6) return null;
+  const shape = new THREE.Shape();
+  const [x0, z0] = wt.project(polygon[0], polygon[1]);
+  shape.moveTo(x0, z0);
+  for (let i = 2; i < polygon.length; i += 2) {
+    const [x, z] = wt.project(polygon[i], polygon[i + 1]);
+    shape.lineTo(x, z);
+  }
+  const geom = new THREE.ShapeGeometry(shape);
+  geom.rotateX(-Math.PI / 2);
+  geom.translate(0, yLevel, 0);
+  return geom;
+}
+
+function addRoads(
+  group: THREE.Group,
+  drawing: ParsedDrawing,
+  groupCategory: Record<string, RoadCategory>,
+  network: RoadNetwork,
+  wt: WorldTransform
+): { mesh: THREE.Mesh; link: NetworkLink }[] {
+  // Average pavement width for any link that didn't get one from the
+  // derivation, so the ribbon fallback still draws something sensible.
+  const widthsKnown = network.links.filter((l) => l.width).map((l) => l.width!);
+  const fallbackWidth =
+    widthsKnown.length > 0
+      ? widthsKnown.reduce((a, b) => a + b, 0) / widthsKnown.length
+      : (network.bounds.maxX - network.bounds.minX) * 0.005;
+
+  const linkAsphalt: { mesh: THREE.Mesh; link: NetworkLink }[] = [];
+  // Hard cap to keep WebGL draw calls and GPU memory bounded on machines
+  // with weaker GPUs. Sorted by descending length so the most important
+  // (longest) road bodies survive when we hit the cap.
+  const MAX_LINK_MESHES = 1500;
+  const sortedLinks = [...network.links].sort((a, b) => b.length - a.length);
+  for (const link of sortedLinks) {
+    if (linkAsphalt.length >= MAX_LINK_MESHES) break;
+    let geom: THREE.BufferGeometry | null = null;
+    if (link.bodyPolygon && link.bodyPolygon.length >= 6) {
+      geom = buildPolygonGeom(link.bodyPolygon, wt, 0.005);
+    }
+    if (!geom) {
+      geom = buildLinkRibbon(link, fallbackWidth, wt, 0.005);
+    }
+    if (!geom) continue;
+    const mat = new THREE.MeshStandardMaterial({
+      color: ASPHALT_BASE_COLOR,
+      roughness: 0.9,
+      metalness: 0.0,
+    });
+    const mesh = new THREE.Mesh(geom, mat);
+    group.add(mesh);
+    linkAsphalt.push({ mesh, link });
+  }
+
+  // Junction-region asphalt slabs in a slightly lighter / warmer tone so
+  // they read as junctions when viewed from above.
+  const regionMat = new THREE.MeshStandardMaterial({
+    color: ASPHALT_JUNCTION_COLOR,
+    roughness: 0.85,
+    metalness: 0.0,
+  });
+  // Roundabouts get a slightly warmer / more visible asphalt tone than
+  // signal junctions so the typology reads at a glance.
+  const roundaboutMat = new THREE.MeshStandardMaterial({
+    color: ASPHALT_ROUNDABOUT_COLOR,
+    roughness: 0.85,
+    metalness: 0.0,
+  });
+  for (const node of network.junctions) {
+    if (!node.region) continue;
+    const geom = buildPolygonGeom(node.region, wt, 0.012);
+    if (geom)
+      group.add(
+        new THREE.Mesh(
+          geom,
+          node.kind === "roundabout" ? roundaboutMat : regionMat
+        )
+      );
+  }
+
+  // Asphalt fallback: thicken every curb (edge) and every lane stripe
+  // into a wide light-grey ribbon at ground level. The UNION of those
+  // ribbons covers the drivable area even where the centerline-pair
+  // derivation didn't produce a clean bodyPolygon. Without this fallback
+  // most of the network is silently invisible because the curb-pair
+  // classifier rejects pairs that aren't perfectly parallel.
+  const medianWidth = (() => {
+    const ws = network.links.filter((l) => l.width).map((l) => l.width!);
+    if (ws.length === 0) return wt.span * 0.005;
+    ws.sort((a, b) => a - b);
+    return ws[Math.floor(ws.length / 2)];
+  })();
+  // Curb outlines: thin dark line drawn on top of the asphalt to make the
+  // road-edge boundary (Road Edge_MP_00 etc.) read as a real curb. The
+  // user wants this layer to always be visible in the 3D network.
+  const curbOutlineVerts: number[] = [];
+
+  // Asphalt fallback bands: ONLY curb segments thicken into wide grey bands
+  // so the closed bodyPolygon meshes from the centerline derivation are
+  // the primary visible asphalt and the bands just plug any gaps where
+  // pairing failed.
+  const edgeBandHalfWidth = medianWidth * 0.55;
+
+  const edgeVerts: number[] = [];
+  const edgeIndices: number[] = [];
+  let edgeBase = 0;
+
+  // Master-plan PDFs: every road-category closed polygon IS the asphalt
+  // surface. Treat its boundary as the curb outline and the polygon
+  // itself as the band. No separate lane / stop-line / zebra paint
+  // layers exist in this PDF family.
+  for (const seg of drawing.segments) {
+    const cat = groupCategory[seg.groupId] ?? seg.category;
+    const pts = seg.points;
+    if (pts.length < 4) continue;
+    if (!ROAD_CATEGORIES.has(cat)) continue;
+    edgeBase = pushBandStrip(
+      pts,
+      edgeBandHalfWidth,
+      wt,
+      0.003,
+      edgeVerts,
+      edgeIndices,
+      edgeBase
+    );
+    for (let i = 2; i < pts.length; i += 2) {
+      const [x1, z1] = wt.project(pts[i - 2], pts[i - 1]);
+      const [x2, z2] = wt.project(pts[i], pts[i + 1]);
+      curbOutlineVerts.push(x1, 0.018, z1, x2, 0.018, z2);
+    }
+  }
+
+  if (edgeIndices.length > 0) {
+    const g = new THREE.BufferGeometry();
+    g.setAttribute("position", new THREE.Float32BufferAttribute(edgeVerts, 3));
+    g.setIndex(edgeIndices);
+    g.computeVertexNormals();
+    group.add(
+      new THREE.Mesh(
+        g,
+        new THREE.MeshStandardMaterial({
+          color: ASPHALT_BASE_COLOR,
+          roughness: 0.92,
+          metalness: 0,
+        })
+      )
+    );
+  }
+
+  const addLines = (verts: number[], color: number, opacity: number) => {
+    if (verts.length === 0) return;
+    const g = new THREE.BufferGeometry();
+    g.setAttribute("position", new THREE.Float32BufferAttribute(verts, 3));
+    group.add(
+      new THREE.LineSegments(
+        g,
+        new THREE.LineBasicMaterial({ color, transparent: true, opacity })
+      )
+    );
+  };
+  // Curb outlines along every road polygon boundary.
+  addLines(curbOutlineVerts, 0x1e293b, 0.95);
+
+  return linkAsphalt;
+}
+
+/**
+ * Build a triangulated band along a polyline at fixed half-width and emit
+ * its triangles into the supplied vertex / index arrays. Returns the new
+ * vertex base index for chaining multiple polylines into one mesh.
+ */
+function pushBandStrip(
+  pts: number[],
+  halfW: number,
+  wt: WorldTransform,
+  yLevel: number,
+  verts: number[],
+  indices: number[],
+  base: number
+): number {
+  if (pts.length < 4) return base;
+  let ringStart = base;
+  let prevHadVerts = false;
+  for (let i = 0; i < pts.length; i += 2) {
+    let tx: number;
+    let ty: number;
+    if (i === 0) {
+      tx = pts[2] - pts[0];
+      ty = pts[3] - pts[1];
+    } else if (i === pts.length - 2) {
+      tx = pts[i] - pts[i - 2];
+      ty = pts[i + 1] - pts[i - 1];
+    } else {
+      tx = pts[i + 2] - pts[i - 2];
+      ty = pts[i + 3] - pts[i - 1];
+    }
+    const m = Math.hypot(tx, ty) || 1;
+    tx /= m;
+    ty /= m;
+    const nx = ty;
+    const ny = -tx;
+    const x = pts[i];
+    const y = pts[i + 1];
+    const [lwx, lwz] = wt.project(x - nx * halfW, y - ny * halfW);
+    const [rwx, rwz] = wt.project(x + nx * halfW, y + ny * halfW);
+    verts.push(lwx, yLevel, lwz);
+    verts.push(rwx, yLevel, rwz);
+    if (prevHadVerts) {
+      const a = ringStart + (i / 2 - 1) * 2;
+      const b = a + 1;
+      const c = a + 2;
+      const d = a + 3;
+      indices.push(a, c, b, b, c, d);
+    }
+    prevHadVerts = true;
+  }
+  return base + pts.length;
+}
+
+function addBuildings(group: THREE.Group, network: RoadNetwork, wt: WorldTransform) {
+  // Cap building footprints for the same reason as roads. Buildings render
+  // as FLAT 2D footprints on the ground plane (the user wants the roads to
+  // be the visual hero, not the buildings); a thin extrude for vertical
+  // separation is intentional (~0.2% of span) so they don't z-fight with
+  // the asphalt.
+  //
+  // Buildings are static (never re-coloured per-object at runtime), so all
+  // footprints of a given type are batched into ONE merged BufferGeometry
+  // sharing ONE material. This collapses up to 1200 individual draw
+  // calls/materials down to <=12 (one per BuildingType) with identical
+  // appearance, since each footprint geometry is already baked into world
+  // space before merging.
+  const MAX_BUILDING_MESHES = 1200;
+  const FLAT_HEIGHT = wt.span * 0.002;
+  const sorted = [...network.buildings].sort((a, b) => b.area - a.area);
+  const byType = new Map<BuildingType, THREE.BufferGeometry[]>();
+  let added = 0;
+  for (const b of sorted) {
+    if (added >= MAX_BUILDING_MESHES) break;
+    const pts = b.points;
+    if (pts.length < 6) continue;
+    added += 1;
+    const shape = new THREE.Shape();
+    const [x0, z0] = wt.project(pts[0], pts[1]);
+    shape.moveTo(x0, z0);
+    for (let i = 2; i < pts.length; i += 2) {
+      const [x, z] = wt.project(pts[i], pts[i + 1]);
+      shape.lineTo(x, z);
+    }
+    const type: BuildingType = b.buildingType ?? "other";
+    const geom = new THREE.ExtrudeGeometry(shape, {
+      depth: FLAT_HEIGHT,
+      bevelEnabled: false,
+    });
+    geom.rotateX(-Math.PI / 2);
+    let bucket = byType.get(type);
+    if (!bucket) {
+      bucket = [];
+      byType.set(type, bucket);
+    }
+    bucket.push(geom);
+  }
+
+  for (const [type, geoms] of byType) {
+    const merged = mergeGeometries(geoms, false);
+    // Source geometries are no longer needed once copied into the merge.
+    for (const g of geoms) g.dispose();
+    if (!merged) continue;
+    const mat = new THREE.MeshStandardMaterial({
+      color: BUILDING_COLOR[type],
+      roughness: 0.85,
+      metalness: 0.0,
+      transparent: true,
+      opacity: 0.42,
+    });
+    group.add(new THREE.Mesh(merged, mat));
+  }
+}
+
+function addJunctionLabels(
+  group: THREE.Group,
+  network: RoadNetwork,
+  wt: WorldTransform
+) {
+  const out: {
+    sprite: THREE.Sprite;
+    nodeId: string;
+    canvasState: { los: LOS | null };
+  }[] = [];
+  for (const node of network.junctions) {
+    const canvas = document.createElement("canvas");
+    canvas.width = 128;
+    canvas.height = 128;
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.minFilter = THREE.LinearFilter;
+    const mat = new THREE.SpriteMaterial({
+      map: tex,
+      transparent: true,
+      depthTest: false,
+    });
+    const sprite = new THREE.Sprite(mat);
+    const [wx, wz] = wt.project(node.x, node.y);
+    sprite.position.set(wx, wt.span * 0.025, wz);
+    const size = wt.span * 0.018;
+    sprite.scale.set(size, size, 1);
+    sprite.renderOrder = 1000;
+    group.add(sprite);
+    out.push({ sprite, nodeId: node.id, canvasState: { los: null } });
+  }
+  return out;
+}
+
+function paintLosBadge(canvas: HTMLCanvasElement, los: LOS | null, selected: boolean) {
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return;
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  if (!los) return;
+  const fill = `#${LOS_COLOR_HEX[los].toString(16).padStart(6, "0")}`;
+  ctx.fillStyle = fill;
+  const r = canvas.width / 2 - 8;
+  ctx.beginPath();
+  ctx.arc(canvas.width / 2, canvas.height / 2, r, 0, Math.PI * 2);
+  ctx.fill();
+  if (selected) {
+    ctx.strokeStyle = "#fde68a";
+    ctx.lineWidth = 6;
+    ctx.stroke();
+  }
+  ctx.fillStyle = "#0f172a";
+  ctx.font = "bold 64px ui-sans-serif, system-ui";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(los, canvas.width / 2, canvas.height / 2 + 4);
+}
+
+function syncJunctionLabels(
+  labels: { sprite: THREE.Sprite; nodeId: string; canvasState: { los: LOS | null } }[],
+  results: Record<string, JunctionResult | undefined> | null,
+  selectedId: string | null,
+  camera: THREE.Camera
+) {
+  for (const lbl of labels) {
+    const r = results?.[lbl.nodeId];
+    const newLos = r?.los ?? null;
+    const isSelected = selectedId === lbl.nodeId;
+    if (lbl.canvasState.los !== newLos || isSelected) {
+      const tex = (lbl.sprite.material as THREE.SpriteMaterial).map;
+      if (tex) {
+        const canvas = tex.image as HTMLCanvasElement;
+        paintLosBadge(canvas, newLos, isSelected);
+        tex.needsUpdate = true;
+      }
+      lbl.canvasState.los = newLos;
+    }
+  }
+  void camera;
+}
+
+function syncLinkColors(
+  asphalt: { mesh: THREE.Mesh; link: NetworkLink }[],
+  results: Record<string, JunctionResult | undefined> | null,
+  losColoring: boolean
+) {
+  if (!losColoring || !results) {
+    for (const a of asphalt) {
+      const m = a.mesh.material as THREE.MeshStandardMaterial;
+      if (m.color.getHex() !== ASPHALT_BASE_COLOR) m.color.setHex(ASPHALT_BASE_COLOR);
+    }
+    return;
+  }
+  const order: LOS[] = ["A", "B", "C", "D", "E", "F"];
+  for (const a of asphalt) {
+    const fr = results[a.link.fromNode];
+    const tr = results[a.link.toNode];
+    let worst: LOS | null = null;
+    for (const r of [fr, tr]) {
+      if (!r) continue;
+      if (!worst || order.indexOf(r.los) > order.indexOf(worst)) worst = r.los;
+    }
+    const target = worst ? LOS_COLOR_HEX[worst] : ASPHALT_BASE_COLOR;
+    // Mix the LOS hue with the asphalt base so the road still reads as a road.
+    const base = new THREE.Color(ASPHALT_BASE_COLOR);
+    const overlay = new THREE.Color(target);
+    const mixed = base.clone().lerp(overlay, worst ? 0.55 : 0);
+    const m = a.mesh.material as THREE.MeshStandardMaterial;
+    m.color.copy(mixed);
+  }
+}
+
+/** Approximate the smallest distance from a polygon's centroid to its
+ *  vertices, in world units. For a roughly circular roundabout this is the
+ *  inner radius of the kerb circle; we draw the central island slightly
+ *  smaller than that. */
+function roundaboutInnerRadius(
+  polygon: number[] | undefined,
+  wt: WorldTransform
+): number {
+  if (!polygon || polygon.length < 6) return 0;
+  let cx = 0,
+    cy = 0;
+  for (let i = 0; i < polygon.length; i += 2) {
+    cx += polygon[i];
+    cy += polygon[i + 1];
+  }
+  const n = polygon.length / 2;
+  cx /= n;
+  cy /= n;
+  let minD = Infinity;
+  for (let i = 0; i < polygon.length; i += 2) {
+    const d = Math.hypot(polygon[i] - cx, polygon[i + 1] - cy);
+    if (d < minD) minD = d;
+  }
+  if (!isFinite(minD)) return 0;
+  // Project from source-units to world-units and shrink by 30% so the dome
+  // sits cleanly inside the kerb ring.
+  return minD * wt.scale * 0.7;
+}
+
+function addSignalsAndPickers(
+  group: THREE.Group,
+  network: RoadNetwork,
+  wt: WorldTransform
+) {
+  const lights: { mesh: THREE.Mesh; nodeId: string; cardinal: "NB" | "EB" | "SB" | "WB" }[] = [];
+
+  const poleH = wt.span * 0.022;
+  const poleR = wt.span * 0.0018;
+  const lampR = wt.span * 0.0035;
+  const offset = wt.span * 0.012;
+
+  const dirs: Array<{ card: "NB" | "EB" | "SB" | "WB"; dx: number; dz: number }> = [
+    { card: "NB", dx: 0, dz: -1 },
+    { card: "EB", dx: 1, dz: 0 },
+    { card: "SB", dx: 0, dz: 1 },
+    { card: "WB", dx: -1, dz: 0 },
+  ];
+
+  // One click-pick disc per junction. They are identical, invisible and
+  // never mutated, so they collapse into a single InstancedMesh; the raycast
+  // returns the hit instanceId, which we map back to a node id via the
+  // parallel `pickNodeIds` array.
+  const junctionCount = network.junctions.length;
+  const pickGeom = new THREE.CircleGeometry(wt.span * 0.012, 24);
+  pickGeom.rotateX(-Math.PI / 2);
+  const pickMat = new THREE.MeshBasicMaterial({
+    color: 0xfde68a,
+    transparent: true,
+    opacity: 0.0,
+    depthWrite: false,
+  });
+  const pickInstanced = new THREE.InstancedMesh(pickGeom, pickMat, junctionCount);
+  pickInstanced.instanceMatrix.setUsage(THREE.StaticDrawUsage);
+  const pickNodeIds: string[] = [];
+
+  // Signal poles are also identical and static -> one InstancedMesh sized to
+  // the number of signal poles (4 per signalised junction). Lamps stay as
+  // individual meshes because each is re-coloured (and re-emitted) at runtime
+  // by syncSignals, but they all SHARE one lamp geometry to save memory.
+  const poleGeom = new THREE.CylinderGeometry(poleR, poleR, poleH, 8);
+  const poleMat = new THREE.MeshStandardMaterial({
+    color: 0x1f2937,
+    metalness: 0.4,
+    roughness: 0.5,
+  });
+  const lampGeom = new THREE.SphereGeometry(lampR, 16, 12);
+  let signalPoleCount = 0;
+  for (const node of network.junctions) {
+    if (node.isJunction && node.kind !== "roundabout") signalPoleCount += dirs.length;
+  }
+  const poleInstanced = new THREE.InstancedMesh(poleGeom, poleMat, signalPoleCount);
+  poleInstanced.instanceMatrix.setUsage(THREE.StaticDrawUsage);
+
+  const m = new THREE.Matrix4();
+  let pickIdx = 0;
+  let poleIdx = 0;
+  for (const node of network.junctions) {
+    const [wx, wz] = wt.project(node.x, node.y);
+
+    // Click-pick disc, invisible-ish, sits at junction level.
+    m.makeTranslation(wx, 0.02, wz);
+    pickInstanced.setMatrixAt(pickIdx, m);
+    pickNodeIds[pickIdx] = node.id;
+    pickIdx += 1;
+
+    if (!node.isJunction) continue;
+
+    // Roundabouts get a domed central island instead of signal poles.
+    if (node.kind === "roundabout") {
+      const radius = roundaboutInnerRadius(node.region, wt);
+      if (radius > 0.4) {
+        const domeGeom = new THREE.SphereGeometry(
+          radius,
+          24,
+          12,
+          0,
+          Math.PI * 2,
+          0,
+          Math.PI / 2
+        );
+        const domeMat = new THREE.MeshStandardMaterial({
+          color: 0x4ade80,
+          roughness: 0.7,
+          metalness: 0.0,
+        });
+        const dome = new THREE.Mesh(domeGeom, domeMat);
+        dome.position.set(wx, 0.05, wz);
+        dome.scale.set(1, 0.35, 1); // flat dome, like a real RAB island
+        group.add(dome);
+      }
+      continue;
+    }
+
+    for (const d of dirs) {
+      // Pole (instanced).
+      m.makeTranslation(wx + d.dx * offset, poleH / 2, wz + d.dz * offset);
+      poleInstanced.setMatrixAt(poleIdx, m);
+      poleIdx += 1;
+
+      // Lamp head: individual mesh (per-lamp colour/emissive), shared geom.
+      const lampMat = new THREE.MeshStandardMaterial({
+        color: 0xff3b30,
+        emissive: 0xff3b30,
+        emissiveIntensity: 0.7,
+        roughness: 0.4,
+      });
+      const lamp = new THREE.Mesh(lampGeom, lampMat);
+      lamp.position.set(wx + d.dx * offset, poleH + lampR, wz + d.dz * offset);
+      group.add(lamp);
+      lights.push({ mesh: lamp, nodeId: node.id, cardinal: d.card });
+    }
+  }
+
+  pickInstanced.instanceMatrix.needsUpdate = true;
+  poleInstanced.instanceMatrix.needsUpdate = true;
+  group.add(pickInstanced);
+  if (signalPoleCount > 0) group.add(poleInstanced);
+
+  return { lights, pickMeshes: [pickInstanced] as THREE.Mesh[], pickNodeIds };
+}
+
+function syncSignals(
+  state: SimulationState | null,
+  lights: { mesh: THREE.Mesh; nodeId: string; cardinal: "NB" | "EB" | "SB" | "WB" }[]
+) {
+  if (!state) return;
+  for (const l of lights) {
+    const greens = activeGreen(state, l.nodeId);
+    const isGreen = greens?.has(l.cardinal) ?? false;
+    const m = l.mesh.material as THREE.MeshStandardMaterial;
+    const target = isGreen ? 0x22dd77 : 0xff3b30;
+    if (m.color.getHex() !== target) {
+      m.color.setHex(target);
+      m.emissive.setHex(target);
+    }
+  }
+}
+
+/**
+ * All vehicles share two InstancedMeshes (body + cabin) instead of two unique
+ * Mesh + Material pairs each. With up to 1500 cars this collapses ~6000
+ * geometries/materials and ~3000 draw calls down to 2 geometries, 2 materials
+ * and 2 draw calls. Per-car body colour rides on the instanceColor buffer; the
+ * cabin tint is uniform so it needs no per-instance colour. The cabin's local
+ * offset (which used to be a child of the rotating body) is baked into each
+ * cabin instance matrix so the silhouette is pixel-identical to before.
+ */
+interface VehicleInstances {
+  body: THREE.InstancedMesh;
+  cabin: THREE.InstancedMesh;
+  capacity: number;
+  carLength: number;
+  carHeight: number;
+}
+
+const VEHICLE_INSTANCE_CAP = 1500;
+
+function buildVehicleInstances(
+  group: THREE.Group,
+  network: RoadNetwork,
+  wt: WorldTransform
+): VehicleInstances {
+  // Pick a vehicle size from the typical road width (constant for a network).
+  const widths: number[] = [];
+  for (const link of network.links) if (link.width) widths.push(link.width * wt.scale);
+  let medianWorldWidth: number;
+  if (widths.length > 0) {
+    widths.sort((a, b) => a - b);
+    medianWorldWidth = widths[Math.floor(widths.length / 2)];
+  } else {
+    medianWorldWidth = wt.span * 0.01;
+  }
+  const laneW = medianWorldWidth / 2;
+  const carLength = laneW * 1.4;
+  const carWidth = laneW * 0.55;
+  const carHeight = laneW * 0.45;
+
+  const capacity = VEHICLE_INSTANCE_CAP;
+  const bodyGeom = new THREE.BoxGeometry(carLength, carHeight * 0.55, carWidth);
+  const bodyMat = new THREE.MeshStandardMaterial({ roughness: 0.45, metalness: 0.35 });
+  const body = new THREE.InstancedMesh(bodyGeom, bodyMat, capacity);
+  body.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+  // Allocate the per-instance colour buffer so each car keeps its own hue.
+  body.setColorAt(0, new THREE.Color(0xffffff));
+
+  const cabinGeom = new THREE.BoxGeometry(
+    carLength * 0.55,
+    carHeight * 0.55,
+    carWidth * 0.9
+  );
+  const cabinMat = new THREE.MeshStandardMaterial({
+    color: 0x111827,
+    roughness: 0.3,
+    metalness: 0.2,
+    transparent: true,
+    opacity: 0.85,
+  });
+  const cabin = new THREE.InstancedMesh(cabinGeom, cabinMat, capacity);
+  cabin.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+
+  body.count = 0;
+  cabin.count = 0;
+  group.add(body);
+  group.add(cabin);
+  return { body, cabin, capacity, carLength, carHeight };
+}
+
+// Scratch objects reused every frame so the per-vehicle update allocates nothing.
+const _vehQuat = new THREE.Quaternion();
+const _vehScale = new THREE.Vector3(1, 1, 1);
+const _vehPos = new THREE.Vector3();
+const _vehMat = new THREE.Matrix4();
+const _vehColor = new THREE.Color();
+const _vehUp = new THREE.Vector3(0, 1, 0);
+
+function syncVehicles(
+  ctx: { vehicles: VehicleInstances | null },
+  group: THREE.Group,
+  state: SimulationState | null,
+  network: RoadNetwork,
+  wt: WorldTransform
+) {
+  if (!state) return;
+  if (!ctx.vehicles) ctx.vehicles = buildVehicleInstances(group, network, wt);
+  const vi = ctx.vehicles;
+  const { body, cabin, capacity, carLength, carHeight } = vi;
+
+  // Render at most `capacity` cars; the spawner is already capped to the same
+  // slider maximum so this guards only pathological states.
+  const count = Math.min(state.vehicles.length, capacity);
+  const bodyColorAttr = body.instanceColor;
+
+  const linksById = new Map(network.links.map((l) => [l.id, l]));
+  let drawn = 0;
+  const cabinDX = -carLength * 0.05;
+  const cabinDY = carHeight * 0.55;
+  for (let i = 0; i < count; i++) {
+    const v = state.vehicles[i];
+    const link = linksById.get(v.linkId);
+    const arc = state.linkArc.get(v.linkId);
+    if (!link || !arc) continue;
+    const pos = pointOnLink(link, arc, v.s);
+    const tan = tangentOnLink(link, arc, v.s);
+    const fx = v.dir === 1 ? tan.dx : -tan.dx;
+    const fy = v.dir === 1 ? tan.dy : -tan.dy;
+    const rx = fy;
+    const ry = -fx;
+    const lanesPerDir = Math.max(1, link.lanesPerDir ?? 1);
+    const halfW = (link.width ?? v.laneOffset * 4) / 2;
+    const laneWidth = halfW / lanesPerDir;
+    const laneOffset = halfW - (v.lane + 0.5) * laneWidth;
+    const offX = pos.x + rx * laneOffset;
+    const offY = pos.y + ry * laneOffset;
+    const [wx, wz] = wt.project(offX, offY);
+    const yBody = carHeight * 0.27 + 0.06;
+    const heading = Math.atan2(-fy, fx);
+    _vehQuat.setFromAxisAngle(_vehUp, heading);
+
+    // Body instance.
+    _vehPos.set(wx, yBody, wz);
+    _vehMat.compose(_vehPos, _vehQuat, _vehScale);
+    body.setMatrixAt(drawn, _vehMat);
+    if (bodyColorAttr) body.setColorAt(drawn, _vehColor.set(v.color));
+
+    // Cabin instance: same world transform as the body times the cabin's
+    // local offset, so it tracks the rotated body exactly as the old child
+    // mesh did. Rotating (cabinDX, 0) about +Y by `heading`:
+    const cosH = Math.cos(heading);
+    const sinH = Math.sin(heading);
+    _vehPos.set(
+      wx + cabinDX * cosH,
+      yBody + cabinDY,
+      wz - cabinDX * sinH
+    );
+    _vehMat.compose(_vehPos, _vehQuat, _vehScale);
+    cabin.setMatrixAt(drawn, _vehMat);
+
+    drawn += 1;
+  }
+
+  body.count = drawn;
+  cabin.count = drawn;
+  body.instanceMatrix.needsUpdate = true;
+  cabin.instanceMatrix.needsUpdate = true;
+  if (bodyColorAttr) bodyColorAttr.needsUpdate = true;
+}
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <label
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 8,
+        fontSize: 11,
+        color: "#94a3b8",
+      }}
+    >
+      <span style={{ minWidth: 60 }}>{label}</span>
+      {children}
+    </label>
+  );
+}

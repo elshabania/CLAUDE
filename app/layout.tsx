@@ -2,8 +2,9 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Road CAD Viewer",
-  description: "Upload DWG/DXF road drawings and inspect detected geometry.",
+  title: "Masterplan Highway Analyzer",
+  description:
+    "Extract the highway network from a masterplan PDF, estimate its dimensions, and grade HCM Level of Service.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

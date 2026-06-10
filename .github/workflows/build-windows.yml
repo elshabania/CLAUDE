@@ -1,0 +1,118 @@
+name: Build Windows App
+
+on:
+  push:
+    branches: ["**"]
+    paths:
+      - "electron/**"
+      - "app/**"
+      - "components/**"
+      - "lib/**"
+      - "public/**"
+      - "package.json"
+      - "next.config.mjs"
+      - ".github/workflows/build-windows.yml"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci || npm install
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Build static export + Windows installer
+        run: npm run dist:win
+        env:
+          # electron-builder: don't try to publish, just build artifacts.
+          GH_TOKEN: ""
+
+      - name: Verify artifacts exist
+        shell: pwsh
+        run: |
+          $exe = Get-ChildItem -Path release -Filter *.exe -Recurse -ErrorAction SilentlyContinue
+          if (-not $exe) {
+            Write-Error "No .exe produced in release/"
+            exit 1
+          }
+          Write-Host "Built artifacts:"
+          $exe | ForEach-Object { Write-Host (" - {0} ({1:N1} MB)" -f $_.Name, ($_.Length / 1MB)) }
+
+      - name: Smoke test - launch app headless and confirm window loads
+        continue-on-error: true
+        shell: pwsh
+        run: |
+          # Launch the portable exe briefly to confirm it starts without crashing.
+          $portable = Get-ChildItem -Path release -Filter "*portable*.exe" -Recurse | Select-Object -First 1
+          if (-not $portable) {
+            $portable = Get-ChildItem -Path release -Filter "*.exe" -Recurse |
+              Where-Object { $_.Name -notlike "*Setup*" } | Select-Object -First 1
+          }
+          if ($portable) {
+            Write-Host "Launching $($portable.FullName) for a 20s smoke test..."
+            $p = Start-Process -FilePath $portable.FullName -PassThru
+            Start-Sleep -Seconds 20
+            if ($p.HasExited) {
+              Write-Error "App exited prematurely (exit code $($p.ExitCode)) - likely a startup crash."
+              exit 1
+            }
+            Write-Host "App still running after 20s - startup OK. Stopping."
+            Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue
+          } else {
+            Write-Host "No portable exe found to smoke test (installer-only build)."
+          }
+
+      - name: Upload installer + portable exe (CI artifact)
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-app
+          path: |
+            release/*.exe
+          if-no-files-found: error
+          retention-days: 30
+
+      # GitHub's release-asset API occasionally 500s mid-upload (observed
+      # 2026-06-10: the Setup exe uploaded, then the Portable exe upload died
+      # with "Server Error" AFTER the old asset had been deleted, leaving the
+      # release without a portable build). gh-release actions can't retry, so
+      # publish with the gh CLI in an explicit retry loop; --clobber makes the
+      # upload idempotent across attempts.
+      - name: Publish to a GitHub Release (direct download link)
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $ErrorActionPreference = "Continue"
+          # Ensure the rolling release exists (no-op when it already does).
+          gh release view desktop-latest 2>$null
+          if ($LASTEXITCODE -ne 0) {
+            gh release create desktop-latest --title "Masterplan Highway Analyzer - latest desktop build" --notes "Windows desktop build. Setup .exe = installer; Portable .exe = run directly." --latest
+          }
+          $files = (Get-ChildItem -Path release -Filter *.exe).FullName
+          foreach ($attempt in 1..4) {
+            gh release upload desktop-latest @files --clobber
+            if ($LASTEXITCODE -eq 0) {
+              Write-Host "Release assets uploaded (attempt $attempt)."
+              exit 0
+            }
+            Write-Host "Upload attempt $attempt failed; retrying in 30s..."
+            Start-Sleep -Seconds 30
+          }
+          Write-Error "Release upload failed after 4 attempts."
+          exit 1

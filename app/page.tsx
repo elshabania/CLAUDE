@@ -1,17 +1,101 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
-import { CadViewer, CATEGORY_COLORS } from "@/components/CadViewer";
-import type { ParsedDrawing, RoadCategory } from "@/lib/road-detect";
+import { useEffect, useMemo, useRef, useState } from "react";
+import dynamic from "next/dynamic";
+import { JunctionPanel } from "@/components/JunctionPanel";
+import { NetworkSummaryCard } from "@/components/NetworkSummaryCard";
+import { type DashTab } from "@/components/BottomNav";
+import { CadViewer } from "@/components/CadViewer";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
+import {
+  detectFromPdf,
+  classifyByLegendSwatch,
+  CATEGORY_LABELS,
+  ROAD_CATEGORIES,
+  type ParsedDrawing,
+  type RoadCategory,
+} from "@/lib/road-detect";
+import { buildLaneNetwork, type LaneNetwork } from "@/lib/lane-network";
+import { runAssignment, type AssignmentResult } from "@/lib/assignment";
+import { LEGEND_SWATCHES } from "@/lib/legend-swatches";
+import { LegendPanel } from "@/components/LegendPanel";
+import { parseDxfInBrowser } from "@/lib/dxf-client";
+import { HighwayDimsPanel } from "@/components/HighwayDimsPanel";
+import { Topbar } from "@/components/shell/Topbar";
+import { Toolbar, type ViewTool } from "@/components/shell/Toolbar";
+import { StatusBar } from "@/components/shell/StatusBar";
+import type { ViewportSignals, ViewportCommand } from "@/components/CadViewer";
+import {
+  computeNetworkDimensions,
+  type DimensionAssumptions,
+  type LinkOverride,
+} from "@/lib/highway-dims";
+import {
+  extractPdfPathsInBrowser,
+  extractPdfTextItemsInBrowser,
+  renderPdfPagePreview,
+  getPdfPageRotation,
+} from "@/lib/pdf-extract-client";
+import {
+  classifyJunctionApproaches,
+  type RoadNetwork,
+} from "@/lib/road-network";
+import { buildNetwork } from "@/lib/network-worker-client";
+import {
+  serializeProject,
+  parseProject,
+  projectFileName,
+  type ProjectDoc,
+} from "@/lib/project";
+import { junctionResultsToCsv, dimensionsToCsv } from "@/lib/export-csv";
+import {
+  saveText,
+  saveBinary,
+  openDrawing as openDrawingFile,
+  openProjectText,
+} from "@/lib/io-client";
+import {
+  analyzeJunction,
+  defaultJunctionInputs,
+  DIRS,
+  LOS_COLORS,
+  type JunctionInputs,
+  type JunctionResult,
+} from "@/lib/hcm";
 
-const ALL_CATEGORIES: RoadCategory[] = [
-  "centerline",
-  "edge",
-  "lane",
-  "curb",
-  "shoulder",
-  "other",
-];
+// Tab views are loaded on demand so only the default drawing view ships in the
+// startup bundle. (The Three.js 3D network view is deactivated for now, so its
+// ~600 KB never enters the bundle at all.)
+const HighwayPlanViewer = dynamic(
+  () => import("@/components/HighwayPlanViewer").then((m) => m.HighwayPlanViewer),
+  { ssr: false, loading: () => <ViewLoading label="Loading highway view…" /> }
+);
+const PhasingView = dynamic(
+  () => import("@/components/PhasingView").then((m) => m.PhasingView),
+  { ssr: false, loading: () => <ViewLoading label="Loading…" /> }
+);
+const AiOptView = dynamic(
+  () => import("@/components/AiOptView").then((m) => m.AiOptView),
+  { ssr: false, loading: () => <ViewLoading label="Loading…" /> }
+);
+
+function ViewLoading({ label }: { label: string }) {
+  return (
+    <div
+      style={{
+        position: "absolute",
+        inset: 0,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        color: "var(--text-2)",
+        fontSize: 13,
+      }}
+    >
+      {label}
+    </div>
+  );
+}
 
 interface ParseResponse {
   filename: string;
@@ -22,190 +106,1479 @@ export default function Page() {
   const [status, setStatus] = useState<"idle" | "loading" | "error">("idle");
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<ParseResponse | null>(null);
-  const [visible, setVisible] = useState<Record<RoadCategory, boolean>>(() =>
-    Object.fromEntries(ALL_CATEGORIES.map((c) => [c, true])) as Record<RoadCategory, boolean>
-  );
-  const inputRef = useRef<HTMLInputElement | null>(null);
-
-  const stats = useMemo(() => {
-    if (!result) return null;
-    const byCategory = new Map<RoadCategory, { count: number; length: number }>();
-    for (const s of result.drawing.segments) {
-      const e = byCategory.get(s.category) ?? { count: 0, length: 0 };
-      e.count += 1;
-      e.length += s.length;
-      byCategory.set(s.category, e);
+  const [laneNetwork, setLaneNetwork] = useState<LaneNetwork | null>(null);
+  const [showLanes, setShowLanes] = useState(true);
+  // --- TIS traffic layer ---
+  const [assignment, setAssignment] = useState<AssignmentResult | null>(null);
+  const [assignBusy, setAssignBusy] = useState(false);
+  const [baselineTotals, setBaselineTotals] = useState<AssignmentResult["totals"] | null>(null);
+  const [demand, setDemand] = useState(6000);
+  const [laneOverrides, setLaneOverrides] = useState<Record<string, number>>({});
+  const [colorByLos, setColorByLos] = useState(true);
+  const [selectedLink, setSelectedLink] = useState<number | null>(null);
+  const [groupCategory, setGroupCategory] = useState<Record<string, RoadCategory>>({});
+  const [visibleGroups, setVisibleGroups] = useState<Record<string, boolean>>({});
+  const [visibleCategories, setVisibleCategories] = useState<
+    Record<RoadCategory, boolean>
+  >(() => {
+    // Default to roads only - the driveable network. Non-road layers
+    // (buildings, greenery, plots, context…) start hidden and can be toggled
+    // on from the Layers panel.
+    const v = {} as Record<RoadCategory, boolean>;
+    for (const c of Object.keys(CATEGORY_LABELS) as RoadCategory[]) {
+      v[c] = ROAD_CATEGORIES.has(c);
     }
-    return ALL_CATEGORIES.map((c) => ({
-      category: c,
-      count: byCategory.get(c)?.count ?? 0,
-      length: byCategory.get(c)?.length ?? 0,
-    }));
+    return v;
+  });
+  const [pickingCategory, setPickingCategory] = useState<RoadCategory | null>(
+    null
+  );
+  const [swatchOverrides, setSwatchOverrides] = useState<
+    Partial<Record<RoadCategory, [number, number, number]>>
+  >({});
+  const [tab, setTab] = useState<DashTab>("drawing");
+  const [selectedJunctionId, setSelectedJunctionId] = useState<string | null>(null);
+  const [junctionInputs, setJunctionInputs] = useState<Record<string, JunctionInputs>>({});
+  const [warning, setWarning] = useState<string | null>(null);
+  const [rasterPreview, setRasterPreview] = useState<{
+    dataUrl: string;
+    width: number;
+    height: number;
+  } | null>(null);
+  const [pageRotation, setPageRotation] = useState(0);
+  const [dimAssumptions, setDimAssumptions] = useState<DimensionAssumptions>({
+    unitsPerMetre: 1,
+    peakHourVolumePerLane: 0,
+  });
+  const [colorBy, setColorBy] = useState<"los" | "class">("class");
+  const [linkOverrides, setLinkOverrides] = useState<
+    Record<string, LinkOverride>
+  >({});
+  const [selectedLinkId, setSelectedLinkId] = useState<string | null>(null);
+  const [tool, setTool] = useState<ViewTool>("pan");
+  const [cursor, setCursor] = useState<{ x: number; y: number } | null>(null);
+  // Scale calibration: the length (drawing units) of the last completed
+  // measurement, awaiting the user's real-world distance to derive the scale.
+  const [calibUnits, setCalibUnits] = useState<number | null>(null);
+  const [showOutlines, setShowOutlines] = useState(false);
+  const [calibMetres, setCalibMetres] = useState("");
+  const [zoomPct, setZoomPct] = useState<number | null>(null);
+  const [viewportCmd, setViewportCmd] = useState<ViewportCommand | null>(null);
+  const inputRef = useRef<HTMLInputElement | null>(null);
+  const pendingProjectRef = useRef<ProjectDoc | null>(null);
+
+  const sendVp = (kind: ViewportCommand["kind"]) =>
+    setViewportCmd({ kind, nonce: Date.now() });
+
+  const onViewportSignals = (sig: ViewportSignals) => {
+    setCursor(sig.cursor);
+    setZoomPct(sig.zoomPct);
+  };
+
+  // Pick tool drives the legend re-pick flow; keep them in sync.
+  useEffect(() => {
+    if (tool !== "pick") setPickingCategory(null);
+  }, [tool]);
+
+  // Derive the lane-level network from detailed CAD (DXF) drawings. PDFs don't
+  // carry per-lane geometry, so this only runs for DXF. Deferred a tick so the
+  // drawing paints first; the extraction is ~1-5s on a large plan.
+  useEffect(() => {
+    if (!result || result.drawing.source !== "dxf") {
+      setLaneNetwork(null);
+      return;
+    }
+    let cancelled = false;
+    const id = setTimeout(() => {
+      try {
+        const net = buildLaneNetwork(result.drawing);
+        if (!cancelled) setLaneNetwork(net);
+      } catch {
+        if (!cancelled) setLaneNetwork(null);
+      }
+    }, 50);
+    return () => {
+      cancelled = true;
+      clearTimeout(id);
+    };
   }, [result]);
+
+  // Reset the traffic layer when the network changes.
+  useEffect(() => {
+    setAssignment(null);
+    setBaselineTotals(null);
+    setLaneOverrides({});
+    setSelectedLink(null);
+  }, [laneNetwork]);
+
+  // Run/refresh the traffic assignment whenever the network, demand level or
+  // a mitigation (lane override) changes. Deferred so the UI paints first;
+  // deterministic, so the baseline (no overrides) is directly comparable to
+  // any mitigated run.
+  useEffect(() => {
+    if (!laneNetwork || laneNetwork.links.length === 0) return;
+    let cancelled = false;
+    setAssignBusy(true);
+    const id = setTimeout(() => {
+      try {
+        const res = runAssignment(laneNetwork, {
+          totalDemand: demand,
+          iterations: 12,
+          laneOverrides,
+        });
+        if (cancelled) return;
+        setAssignment(res);
+        if (Object.keys(laneOverrides).length === 0) setBaselineTotals(res.totals);
+      } catch {
+        if (!cancelled) setAssignment(null);
+      } finally {
+        if (!cancelled) setAssignBusy(false);
+      }
+    }, 30);
+    return () => {
+      cancelled = true;
+      clearTimeout(id);
+    };
+  }, [laneNetwork, demand, laneOverrides]);
+
+  // Per-link colours for the viewer: LOS colours once an assignment exists.
+  const linkColors = useMemo(() => {
+    if (!colorByLos || !assignment || !laneNetwork) return null;
+    return assignment.perLink.map(r => LOS_COLORS[r.los]);
+  }, [colorByLos, assignment, laneNetwork]);
+
+  useEffect(() => {
+    if (!result) return;
+    const v: Record<string, boolean> = {};
+    for (const g of result.drawing.groups) v[g.id] = true;
+    setVisibleGroups(v);
+    // Loading a project: restore its saved classification rather than
+    // re-deriving the legend defaults.
+    const pending = pendingProjectRef.current;
+    if (pending && pending.drawing === result.drawing) {
+      setGroupCategory(pending.groupCategory);
+      pendingProjectRef.current = null;
+      return;
+    }
+    const c: Record<string, RoadCategory> = {};
+    for (const g of result.drawing.groups) c[g.id] = g.category;
+    setGroupCategory(c);
+    setLinkOverrides({});
+  }, [result]);
+
+  // Group-level visibility AND category-level visibility, combined.
+  // Either toggle off hides the group.
+  const effectiveVisibleGroups = useMemo(() => {
+    const out: Record<string, boolean> = {};
+    for (const [id, on] of Object.entries(visibleGroups)) {
+      const cat = groupCategory[id];
+      out[id] = on !== false && (cat ? visibleCategories[cat] !== false : true);
+    }
+    return out;
+  }, [visibleGroups, groupCategory, visibleCategories]);
+
+  /** Handle a click in the drawing while in pick mode: snap the picking
+   *  category's swatch to the clicked group's colour and re-classify all
+   *  groups against the updated swatch table. */
+  function handlePickGroup(groupId: string) {
+    if (!pickingCategory || !result) return;
+    const group = result.drawing.groups.find((g) => g.id === groupId);
+    if (!group?.color) return;
+    const rgb: [number, number, number] = [
+      Math.round(group.color[0] * 255),
+      Math.round(group.color[1] * 255),
+      Math.round(group.color[2] * 255),
+    ];
+    const targetCat = pickingCategory;
+    setSwatchOverrides((prev) => ({ ...prev, [targetCat]: rgb }));
+    setPickingCategory(null);
+  }
+
+  // Re-classify groups whenever swatchOverrides change. Each group has
+  // its representative colour stored at detection time; we re-run the
+  // legend-swatch classifier with the override map applied.
+  useEffect(() => {
+    if (!result) return;
+    if (Object.keys(swatchOverrides).length === 0) return;
+    const next: Record<string, RoadCategory> = {};
+    let changed = false;
+    for (const g of result.drawing.groups) {
+      if (!g.color) {
+        next[g.id] = g.category;
+        continue;
+      }
+      const r = Math.round(g.color[0] * 255);
+      const grn = Math.round(g.color[1] * 255);
+      const b = Math.round(g.color[2] * 255);
+      const swatches = LEGEND_SWATCHES.map((sw) => {
+        const ov = swatchOverrides[sw.category];
+        return ov ? { ...sw, rgb: ov } : sw;
+      });
+      const newCat = classifyByLegendSwatch(r, grn, b, swatches);
+      next[g.id] = newCat;
+      if (newCat !== g.category) changed = true;
+    }
+    if (changed) setGroupCategory(next);
+  }, [swatchOverrides, result]);
+
+  // Network building runs the heavy medial-axis skeletonizer, so it's lazy:
+  // only built when a network-dependent tab is open, and deferred a tick so
+  // the tab switch paints first (with a "Building…" state) instead of
+  // freezing. The Drawing/Layers tab never triggers it.
+  const [network, setNetwork] = useState<RoadNetwork | null>(null);
+  const [networkBuilding, setNetworkBuilding] = useState(false);
+  const [networkSlow, setNetworkSlow] = useState(false);
+  const [networkError, setNetworkError] = useState<string | null>(null);
+  const needsNetwork = tab === "highway";
+
+  // Drop a stale network as soon as a new drawing loads.
+  useEffect(() => {
+    setNetwork(null);
+  }, [result]);
+
+  // The network is built ONLY from the road categories currently shown in the
+  // Layers panel - so the highway network matches the selected layers, not the
+  // whole drawing.
+  const visibleRoadCats = useMemo(
+    () =>
+      (Array.from(ROAD_CATEGORIES) as RoadCategory[]).filter(
+        (c) => visibleCategories[c] !== false
+      ),
+    [visibleCategories]
+  );
+  const visibleRoadKey = visibleRoadCats.join(",");
+
+  useEffect(() => {
+    if (!result || !needsNetwork) return;
+    let cancelled = false;
+    setNetworkBuilding(true);
+    setNetworkSlow(false);
+    setNetworkError(null);
+    // After a few seconds on a big drawing, reassure rather than look hung.
+    const slowTimer = setTimeout(() => {
+      if (!cancelled) setNetworkSlow(true);
+    }, 8000);
+    buildNetwork(result.drawing, groupCategory, { roadCategories: visibleRoadCats })
+      .then((n) => {
+        if (!cancelled) setNetwork(n);
+      })
+      .catch((err) => {
+        // eslint-disable-next-line no-console
+        console.error("buildNetwork failed:", err);
+        if (!cancelled) {
+          setNetwork(null);
+          setNetworkError(
+            err instanceof Error ? err.message : "Couldn't build the highway network."
+          );
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setNetworkBuilding(false);
+          setNetworkSlow(false);
+        }
+      });
+    return () => {
+      cancelled = true;
+      clearTimeout(slowTimer);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [result, groupCategory, needsNetwork, visibleRoadKey]);
+
+  const dims = useMemo(() => {
+    if (!network) return null;
+    return computeNetworkDimensions(network, dimAssumptions, linkOverrides);
+  }, [network, dimAssumptions, linkOverrides]);
+
+  // Seed default junction inputs when new junctions appear.
+  useEffect(() => {
+    if (!network) return;
+    setJunctionInputs((prev) => {
+      const next = { ...prev };
+      let changed = false;
+      for (const j of network.junctions) {
+        if (next[j.id]) continue;
+        const seed = defaultJunctionInputs();
+        const present = new Set(
+          classifyJunctionApproaches(j, network).map((a) => a.cardinal)
+        );
+        for (const dir of DIRS) {
+          if (!present.has(dir)) {
+            seed.approaches[dir] = {
+              lanes: { L: 0, T: 0, R: 0 },
+              greenTime: 0,
+              volumes: { L: 0, T: 0, R: 0 },
+            };
+          }
+        }
+        next[j.id] = seed;
+        changed = true;
+      }
+      return changed ? next : prev;
+    });
+    // Auto-select the first junction.
+    if (!selectedJunctionId && network.junctions.length > 0) {
+      setSelectedJunctionId(network.junctions[0].id);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [network]);
+
+  const junctionResults = useMemo(() => {
+    if (!network) return {};
+    const out: Record<string, JunctionResult> = {};
+    for (const j of network.junctions) {
+      const inputs = junctionInputs[j.id];
+      if (!inputs) continue;
+      out[j.id] = analyzeJunction(inputs);
+    }
+    return out;
+  }, [network, junctionInputs]);
+
+  const selectedJunctionIndex =
+    network && selectedJunctionId
+      ? network.junctions.findIndex((j) => j.id === selectedJunctionId)
+      : -1;
+  const selectedInputs = selectedJunctionId
+    ? junctionInputs[selectedJunctionId]
+    : undefined;
+  const selectedResult = selectedJunctionId
+    ? junctionResults[selectedJunctionId]
+    : undefined;
+  const setSelectedInputs = (next: JunctionInputs) => {
+    if (!selectedJunctionId) return;
+    setJunctionInputs((m) => ({ ...m, [selectedJunctionId]: next }));
+  };
 
   async function handleFile(file: File) {
     setStatus("loading");
     setError(null);
-    const body = new FormData();
-    body.append("file", file);
+    setWarning(null);
+    setRasterPreview(null);
+    setPageRotation(0);
+    const isPdf = file.name.toLowerCase().endsWith(".pdf");
     try {
-      const res = await fetch("/api/parse", { method: "POST", body });
-      const data = await res.json();
-      if (!res.ok) {
-        setError(data.error ?? "Failed to parse file");
+      if (isPdf) {
+        // Vector extraction + text + page rotation, all client-side so the
+        // app needs no server.
+        const [paths, texts, rotation] = await Promise.all([
+          extractPdfPathsInBrowser(file),
+          extractPdfTextItemsInBrowser(file).catch(() => []),
+          getPdfPageRotation(file).catch(() => 0),
+        ]);
+        const drawing = detectFromPdf(paths, texts);
+        setResult({ filename: file.name, drawing });
+        setPageRotation(rotation);
+        if (drawing.segments.length === 0) {
+          setWarning(
+            "No vector geometry found. The file is likely an 'optimized' / image-flattened export — upload the original CAD-exported PDF."
+          );
+          try {
+            const preview = await renderPdfPagePreview(file);
+            if (preview) setRasterPreview(preview);
+          } catch {
+            // ignore preview failure.
+          }
+        }
+        setStatus("idle");
+        return;
+      }
+
+      const lower = file.name.toLowerCase();
+      if (lower.endsWith(".dwg")) {
+        setError(
+          "DWG isn't supported in the desktop app. Export the drawing as DXF or PDF and load that instead."
+        );
         setStatus("error");
         return;
       }
-      setResult(data);
-      setStatus("idle");
+      // DXF: parse client-side so the app needs no server.
+      try {
+        const drawing = await parseDxfInBrowser(file);
+        setResult({ filename: file.name, drawing });
+        setStatus("idle");
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Failed to parse DXF file");
+        setStatus("error");
+      }
+      return;
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Network error");
+      setError(err instanceof Error ? err.message : "Failed to process file");
       setStatus("error");
     }
   }
 
+  // The sample masterplan (the WSP DXF road network) is shipped gzipped in
+  // public/ and loaded on demand / on first launch. We decompress it in the
+  // browser via DecompressionStream (Chromium-native) and route it through the
+  // normal DXF path. A ref guard makes the launch-time auto-load fire once.
+  const sampleLoadedRef = useRef(false);
+  async function loadSample() {
+    try {
+      setStatus("loading");
+      setError(null);
+      const res = await fetch("/sample-masterplan.dxf.gz");
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      let blob: Blob;
+      if (res.body && typeof DecompressionStream !== "undefined") {
+        const stream = res.body.pipeThrough(new DecompressionStream("gzip"));
+        blob = await new Response(stream).blob();
+      } else {
+        // Fallback: no streaming decompression available — fetch raw bytes.
+        blob = await res.blob();
+      }
+      const file = new File([blob], "sample-masterplan.dxf", {
+        type: "application/dxf",
+      });
+      await handleFile(file);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load the sample drawing.");
+      setStatus("error");
+    }
+  }
+
+  // Auto-load the bundled WSP masterplan once on first launch so the app opens
+  // straight into the latest CAD drawing.
+  useEffect(() => {
+    if (sampleLoadedRef.current) return;
+    sampleLoadedRef.current = true;
+    void loadSample();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // ----- Project save / open -----------------------------------------------
+  function applyProject(doc: ProjectDoc) {
+    setError(null);
+    setWarning(null);
+    setRasterPreview(null);
+    setNetwork(null);
+    setSelectedLinkId(null);
+    setPickingCategory(null);
+    setTool("pan");
+    // Geometry first; the result-effect reads pendingProjectRef to restore
+    // the saved classification instead of re-deriving defaults.
+    pendingProjectRef.current = doc;
+    setResult({ filename: doc.filename ?? "untitled", drawing: doc.drawing });
+    setVisibleCategories(doc.visibleCategories);
+    setSwatchOverrides(doc.swatchOverrides);
+    setJunctionInputs(doc.junctionInputs);
+    setLinkOverrides(doc.linkOverrides ?? {});
+    setDimAssumptions(doc.dimAssumptions);
+    setPageRotation(doc.pageRotation);
+    setColorBy(doc.colorBy);
+    setSelectedJunctionId(doc.selectedJunctionId);
+    setStatus("idle");
+  }
+
+  async function doOpenDrawing() {
+    const file = await openDrawingFile();
+    if (file) void handleFile(file);
+  }
+
+  async function doOpenProject() {
+    try {
+      const text = await openProjectText();
+      if (text == null) return;
+      applyProject(parseProject(text));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to open project");
+      setStatus("error");
+    }
+  }
+
+  async function doSaveProject() {
+    if (!result) return;
+    const text = serializeProject({
+      filename: result.filename,
+      drawing: result.drawing,
+      groupCategory,
+      visibleCategories,
+      swatchOverrides,
+      junctionInputs,
+      linkOverrides,
+      dimAssumptions,
+      pageRotation,
+      colorBy,
+      selectedJunctionId,
+    });
+    await saveText(
+      projectFileName(result.filename),
+      text,
+      "Analyzer Project",
+      "mhp"
+    );
+  }
+
+  // ----- Exports -----------------------------------------------------------
+  const baseName = (result?.filename ?? "analysis").replace(/\.[^.]+$/, "");
+
+  async function doExportCsv() {
+    if (!network) return;
+    const labelOf = (id: string) => {
+      const i = network.junctions.findIndex((j) => j.id === id);
+      return i >= 0 ? `J${i + 1}` : id;
+    };
+    const csv = junctionResultsToCsv(junctionResults, labelOf);
+    await saveText(`${baseName}-LOS.csv`, csv, "CSV", "csv");
+  }
+
+  async function doExportDimsCsv() {
+    if (!dims) return;
+    await saveText(
+      `${baseName}-dimensions.csv`,
+      dimensionsToCsv(dims),
+      "CSV",
+      "csv"
+    );
+  }
+
+  async function doExportPng() {
+    const canvas = document.querySelector<HTMLCanvasElement>(".viewport canvas");
+    if (!canvas) {
+      setError("Nothing to export from the current view.");
+      return;
+    }
+    const blob = await new Promise<Blob | null>((res) =>
+      canvas.toBlob((b) => res(b), "image/png")
+    );
+    if (!blob) return;
+    const buf = await blob.arrayBuffer();
+    await saveBinary(`${baseName}-${tab}.png`, buf, "PNG Image", "png", "image/png");
+  }
+
+  // ----- Undo / redo -------------------------------------------------------
+  // Coarse-grained: snapshots the editable document (classifications, junction
+  // inputs, view options) on every change. Geometry isn't part of history.
+  const editDoc = useMemo(
+    () => ({
+      groupCategory,
+      visibleCategories,
+      swatchOverrides,
+      junctionInputs,
+      linkOverrides,
+      dimAssumptions,
+      pageRotation,
+      colorBy,
+    }),
+    [
+      groupCategory,
+      visibleCategories,
+      swatchOverrides,
+      junctionInputs,
+      linkOverrides,
+      dimAssumptions,
+      pageRotation,
+      colorBy,
+    ]
+  );
+  const histPast = useRef<string[]>([]);
+  const histFuture = useRef<string[]>([]);
+  const histApplying = useRef(false);
+  const histLast = useRef<string>("");
+  const [histVersion, setHistVersion] = useState(0);
+
+  // Reset history when a new drawing/project loads.
+  useEffect(() => {
+    histPast.current = [];
+    histFuture.current = [];
+    histLast.current = "";
+    setHistVersion((v) => v + 1);
+  }, [result]);
+
+  useEffect(() => {
+    const cur = JSON.stringify(editDoc);
+    if (histApplying.current) {
+      histApplying.current = false;
+      histLast.current = cur;
+      return;
+    }
+    if (histLast.current && histLast.current !== cur) {
+      histPast.current.push(histLast.current);
+      if (histPast.current.length > 100) histPast.current.shift();
+      histFuture.current = [];
+      setHistVersion((v) => v + 1);
+    }
+    histLast.current = cur;
+  }, [editDoc]);
+
+  function applyEditSnapshot(snap: string) {
+    const d = JSON.parse(snap) as typeof editDoc;
+    histApplying.current = true;
+    setGroupCategory(d.groupCategory);
+    setVisibleCategories(d.visibleCategories);
+    setSwatchOverrides(d.swatchOverrides);
+    setJunctionInputs(d.junctionInputs);
+    setLinkOverrides(d.linkOverrides);
+    setDimAssumptions(d.dimAssumptions);
+    setPageRotation(d.pageRotation);
+    setColorBy(d.colorBy);
+  }
+
+  function doUndo() {
+    const prev = histPast.current.pop();
+    if (prev == null) return;
+    histFuture.current.push(histLast.current);
+    applyEditSnapshot(prev);
+    setHistVersion((v) => v + 1);
+  }
+
+  function doRedo() {
+    const next = histFuture.current.pop();
+    if (next == null) return;
+    histPast.current.push(histLast.current);
+    applyEditSnapshot(next);
+    setHistVersion((v) => v + 1);
+  }
+
+  const canUndo = histPast.current.length > 0;
+  const canRedo = histFuture.current.length > 0;
+  void histVersion; // re-render trigger for canUndo/canRedo
+
+  // ----- Native menu + keyboard shortcuts ----------------------------------
+  useEffect(() => {
+    const dispatch = (command: string) => {
+      if (command.startsWith("tab:")) {
+        setTab(command.slice(4) as DashTab);
+        return;
+      }
+      switch (command) {
+        case "open-drawing": void doOpenDrawing(); break;
+        case "open-project": void doOpenProject(); break;
+        case "save-project": void doSaveProject(); break;
+        case "export-csv": void doExportCsv(); break;
+        case "export-dims-csv": void doExportDimsCsv(); break;
+        case "export-png": void doExportPng(); break;
+        case "undo": doUndo(); break;
+        case "redo": doRedo(); break;
+        case "zoom-fit": sendVp("fit"); break;
+        case "zoom-in": sendVp("in"); break;
+        case "zoom-out": sendVp("out"); break;
+      }
+    };
+    const offMenu = window.desktop?.onMenu(dispatch);
+    // In-browser keyboard shortcuts (also a fallback if menu accelerators miss).
+    const onKey = (e: KeyboardEvent) => {
+      const mod = e.ctrlKey || e.metaKey;
+      if (!mod) return;
+      const k = e.key.toLowerCase();
+      if (k === "z" && !e.shiftKey) { e.preventDefault(); doUndo(); }
+      else if ((k === "z" && e.shiftKey) || k === "y") { e.preventDefault(); doRedo(); }
+      else if (k === "s") { e.preventDefault(); void doSaveProject(); }
+      else if (k === "o" && e.shiftKey) { e.preventDefault(); void doOpenProject(); }
+      else if (k === "o") { e.preventDefault(); void doOpenDrawing(); }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => {
+      offMenu?.();
+      window.removeEventListener("keydown", onKey);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  });
+
+  // ----- Drag & drop a drawing or project onto the window -----------------
+  const [dragOver, setDragOver] = useState(false);
+  useEffect(() => {
+    const onDragOver = (e: DragEvent) => {
+      if (e.dataTransfer?.types.includes("Files")) {
+        e.preventDefault();
+        setDragOver(true);
+      }
+    };
+    const onDragLeave = (e: DragEvent) => {
+      if (e.relatedTarget == null) setDragOver(false);
+    };
+    const onDrop = (e: DragEvent) => {
+      e.preventDefault();
+      setDragOver(false);
+      const file = e.dataTransfer?.files?.[0];
+      if (!file) return;
+      if (/\.(mhp|json)$/i.test(file.name)) {
+        void file.text().then((text) => {
+          try {
+            applyProject(parseProject(text));
+          } catch (err) {
+            setError(err instanceof Error ? err.message : "Failed to open project");
+            setStatus("error");
+          }
+        });
+      } else {
+        void handleFile(file);
+      }
+    };
+    window.addEventListener("dragover", onDragOver);
+    window.addEventListener("dragleave", onDragLeave);
+    window.addEventListener("drop", onDrop);
+    return () => {
+      window.removeEventListener("dragover", onDragOver);
+      window.removeEventListener("dragleave", onDragLeave);
+      window.removeEventListener("drop", onDrop);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Reflect the open file in the native window title.
+  useEffect(() => {
+    const name = result?.filename;
+    window.desktop?.setTitle(
+      name ? `${name} — Masterplan Highway Analyzer` : "Masterplan Highway Analyzer"
+    );
+  }, [result?.filename]);
+
+  const hasNetwork = !!network && network.links.length > 0;
+  const isPlanTab = tab === "drawing" || tab === "highway";
+  // Right dock holds the context-sensitive properties / analysis panel. The
+  // junction-analysis tabs are deactivated for now, so only the Highway
+  // dimensions panel uses it.
+  const rightDockWidth = tab === "highway" ? 440 : 0;
+  const leftDockWidth = tab === "drawing" ? 300 : 0;
+
   return (
-    <main style={{ display: "flex", height: "100vh", width: "100vw" }}>
-      <aside
-        style={{
-          width: 320,
-          padding: 20,
-          borderRight: "1px solid #1e293b",
-          overflowY: "auto",
-          flexShrink: 0,
+    <ErrorBoundary>
+    <div className="app-root">
+      {dragOver && (
+        <div className="drop-overlay">
+          <div className="drop-overlay-card">
+            Drop a PDF / DXF drawing or .mhp project to open
+          </div>
+        </div>
+      )}
+      <input
+        ref={inputRef}
+        type="file"
+        accept=".dxf,.dwg,.pdf"
+        style={{ display: "none" }}
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          if (f) void handleFile(f);
         }}
-      >
-        <h1 style={{ margin: "0 0 4px", fontSize: 20 }}>Road CAD Viewer</h1>
-        <p style={{ margin: "0 0 20px", color: "#94a3b8", fontSize: 13 }}>
-          Upload a DXF or DWG drawing. The app detects road geometry from layer names and
-          renders it below.
-        </p>
+      />
 
-        <input
-          ref={inputRef}
-          type="file"
-          accept=".dxf,.dwg"
-          style={{ display: "none" }}
-          onChange={(e) => {
-            const f = e.target.files?.[0];
-            if (f) void handleFile(f);
-          }}
-        />
-        <button
-          onClick={() => inputRef.current?.click()}
-          disabled={status === "loading"}
-          style={{
-            width: "100%",
-            padding: "10px 14px",
-            background: "#2563eb",
-            color: "white",
-            border: 0,
-            borderRadius: 6,
-            cursor: "pointer",
-            opacity: status === "loading" ? 0.6 : 1,
-          }}
-        >
-          {status === "loading" ? "Parsing…" : "Choose DXF / DWG file"}
-        </button>
+      <Topbar
+        filename={result?.filename ?? null}
+        results={{}}
+        onUpload={() => void doOpenDrawing()}
+        onOpenProject={() => void doOpenProject()}
+        onSaveProject={() => void doSaveProject()}
+        onExportCsv={() => void doExportCsv()}
+        onExportPng={() => void doExportPng()}
+        onUndo={doUndo}
+        onRedo={doRedo}
+        canUndo={canUndo}
+        canRedo={canRedo}
+        hasProject={!!result}
+        hasNetwork={hasNetwork}
+      />
 
-        {error && (
-          <div
-            style={{
-              marginTop: 16,
-              padding: 12,
-              background: "#7f1d1d",
-              color: "#fee2e2",
-              borderRadius: 6,
-              fontSize: 13,
-              whiteSpace: "pre-wrap",
-            }}
-          >
-            {error}
+      <Toolbar
+        tab={tab}
+        onTab={setTab}
+        tool={tool}
+        onTool={setTool}
+        onZoomFit={() => sendVp("fit")}
+        onZoomIn={() => sendVp("in")}
+        onZoomOut={() => sendVp("out")}
+        hasDrawing={!!result}
+      />
+
+      <div className="workspace">
+        {/* LEFT DOCK */}
+        {leftDockWidth > 0 && (
+          <div className="dock left" style={{ width: leftDockWidth }}>
+            {tab === "drawing" && result && (
+              <div className="panel">
+                <div className="panel-header">
+                  <span>Layers</span>
+                </div>
+                <div className="panel-body" style={{ padding: 0 }}>
+                  <LegendPanel
+                    drawing={result.drawing}
+                    visibleCategories={visibleCategories}
+                    onToggleCategory={(cat, v) =>
+                      setVisibleCategories((m) => ({ ...m, [cat]: v }))
+                    }
+                    pickingCategory={pickingCategory}
+                    onStartPick={(c) => {
+                      setPickingCategory(c);
+                      if (c) setTool("pick");
+                    }}
+                    swatchOverrides={swatchOverrides}
+                    showOutlines={showOutlines}
+                    onToggleOutlines={setShowOutlines}
+                  />
+                </div>
+              </div>
+            )}
+            {tab === "drawing" && result && result.drawing.source === "dxf" && (
+              <div className="panel">
+                <div className="panel-header">
+                  <span>Road Network &amp; Traffic</span>
+                  <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12 }}>
+                    <input
+                      type="checkbox"
+                      checked={showLanes}
+                      onChange={(e) => setShowLanes(e.target.checked)}
+                    />
+                    Show
+                  </label>
+                </div>
+                <div className="panel-body" style={{ fontSize: 12, lineHeight: 1.7 }}>
+                  {laneNetwork ? (
+                    <>
+                      <div style={{ marginBottom: 6, color: "var(--text-2)" }}>
+                        {laneNetwork.links.length.toLocaleString()} carriageway links ·{" "}
+                        {laneNetwork.stats.centerlineKm.toFixed(1)} km ·{" "}
+                        {laneNetwork.stats.laneKm.toFixed(1)} lane-km ·{" "}
+                        {laneNetwork.stats.junctionCount} junctions
+                      </div>
+
+                      {/* ---- Demand ---- */}
+                      <div style={{ margin: "10px 0 4px", fontWeight: 600 }}>
+                        Development traffic
+                      </div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <input
+                          type="range"
+                          min={0}
+                          max={20000}
+                          step={500}
+                          value={demand}
+                          onChange={(e) => setDemand(Number(e.target.value))}
+                          style={{ flex: 1 }}
+                        />
+                        <span style={{ minWidth: 86, textAlign: "right" }}>
+                          {demand.toLocaleString()} veh/h
+                        </span>
+                      </div>
+
+                      {/* ---- Results ---- */}
+                      {assignBusy && (
+                        <div style={{ color: "var(--text-2)", marginTop: 6 }}>
+                          Assigning traffic…
+                        </div>
+                      )}
+                      {assignment && !assignBusy && (
+                        <>
+                          <div style={{ marginTop: 6, color: "var(--text-2)" }}>
+                            Routed {assignment.totals.routedDemand.toFixed(0)} veh/h via{" "}
+                            {assignment.gates.length} gates · VKT{" "}
+                            {assignment.totals.vkt.toFixed(0)} · delay{" "}
+                            {(assignment.totals.delay * 60).toFixed(0)} veh·min/h
+                          </div>
+                          <div
+                            style={{
+                              marginTop: 4,
+                              fontWeight: 600,
+                              color: assignment.totals.failingLinks > 0 ? "#f87171" : "#4ade80",
+                            }}
+                          >
+                            {assignment.totals.failingLinks > 0
+                              ? `${assignment.totals.failingLinks} links at LOS E/F`
+                              : "No failing links"}
+                          </div>
+                          {baselineTotals && Object.keys(laneOverrides).length > 0 && (
+                            <div style={{ marginTop: 4, color: "#93c5fd" }}>
+                              Mitigation Δ: delay{" "}
+                              {(baselineTotals.delay * 60).toFixed(0)} →{" "}
+                              {(assignment.totals.delay * 60).toFixed(0)} veh·min/h · failing{" "}
+                              {baselineTotals.failingLinks} → {assignment.totals.failingLinks}
+                            </div>
+                          )}
+                          <label
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 6,
+                              marginTop: 6,
+                            }}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={colorByLos}
+                              onChange={(e) => setColorByLos(e.target.checked)}
+                            />
+                            Colour links by LOS
+                          </label>
+                          {colorByLos && (
+                            <div style={{ display: "flex", gap: 8, marginTop: 4, flexWrap: "wrap" }}>
+                              {(["A", "B", "C", "D", "E", "F"] as const).map(l => (
+                                <span key={l} style={{ display: "flex", alignItems: "center", gap: 3 }}>
+                                  <span
+                                    style={{
+                                      display: "inline-block",
+                                      width: 12,
+                                      height: 4,
+                                      background: LOS_COLORS[l],
+                                      borderRadius: 2,
+                                    }}
+                                  />
+                                  {l}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                        </>
+                      )}
+
+                      {/* ---- Selected link inspector + mitigation ---- */}
+                      {selectedLink != null && laneNetwork.links[selectedLink] && (
+                        <div
+                          style={{
+                            marginTop: 10,
+                            padding: 8,
+                            border: "1px solid var(--border, #334155)",
+                            borderRadius: 6,
+                          }}
+                        >
+                          {(() => {
+                            const link = laneNetwork.links[selectedLink];
+                            const r = assignment?.perLink[selectedLink];
+                            const eff = laneOverrides[link.id] ?? link.numLanes;
+                            return (
+                              <>
+                                <div style={{ fontWeight: 600 }}>
+                                  {link.id} · {link.length.toFixed(0)} m ·{" "}
+                                  {link.oneWay ? "one-way" : "two-way"}
+                                </div>
+                                <div style={{ color: "var(--text-2)" }}>
+                                  Lanes: {eff}
+                                  {eff !== link.numLanes ? ` (CAD: ${link.numLanes})` : ""} · width{" "}
+                                  {link.width.toFixed(1)} m
+                                </div>
+                                {r && (
+                                  <div style={{ color: "var(--text-2)" }}>
+                                    Volume {r.volume.toFixed(0)} veh/h · V/C {r.vc.toFixed(2)} ·{" "}
+                                    <span style={{ color: LOS_COLORS[r.los], fontWeight: 700 }}>
+                                      LOS {r.los}
+                                    </span>
+                                  </div>
+                                )}
+                                <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
+                                  <button
+                                    className="btn btn-sm"
+                                    onClick={() =>
+                                      setLaneOverrides(o => ({ ...o, [link.id]: eff + 1 }))
+                                    }
+                                  >
+                                    + Add lane
+                                  </button>
+                                  <button
+                                    className="btn btn-sm"
+                                    disabled={eff <= 1}
+                                    onClick={() =>
+                                      setLaneOverrides(o => ({ ...o, [link.id]: Math.max(1, eff - 1) }))
+                                    }
+                                  >
+                                    − Remove
+                                  </button>
+                                  {laneOverrides[link.id] != null && (
+                                    <button
+                                      className="btn btn-sm"
+                                      onClick={() =>
+                                        setLaneOverrides(o => {
+                                          const c = { ...o };
+                                          delete c[link.id];
+                                          return c;
+                                        })
+                                      }
+                                    >
+                                      Reset
+                                    </button>
+                                  )}
+                                </div>
+                              </>
+                            );
+                          })()}
+                        </div>
+                      )}
+                      {selectedLink == null && assignment && (
+                        <div style={{ marginTop: 8, color: "var(--text-2)", fontSize: 11 }}>
+                          Click a link on the plan to inspect it and test mitigations
+                          (add / remove lanes).
+                        </div>
+                      )}
+                      {Object.keys(laneOverrides).length > 0 && (
+                        <button
+                          className="btn btn-sm"
+                          style={{ marginTop: 8 }}
+                          onClick={() => setLaneOverrides({})}
+                        >
+                          Clear all mitigations ({Object.keys(laneOverrides).length})
+                        </button>
+                      )}
+                    </>
+                  ) : (
+                    <div style={{ color: "var(--text-2)" }}>Building network from CAD…</div>
+                  )}
+                </div>
+              </div>
+            )}
+            {!isPlanTab && hasNetwork && (
+              <div className="panel">
+                <div className="panel-header">
+                  <span>Junctions ({network!.junctions.length})</span>
+                </div>
+                <div className="panel-body" style={{ padding: 6 }}>
+                  {network!.junctions.map((j, i) => {
+                    const r = junctionResults[j.id];
+                    const sel = j.id === selectedJunctionId;
+                    return (
+                      <button
+                        key={j.id}
+                        onClick={() => setSelectedJunctionId(j.id)}
+                        className="btn btn-sm"
+                        style={{
+                          width: "100%",
+                          justifyContent: "space-between",
+                          marginBottom: 4,
+                          background: sel ? "var(--bg-4)" : "var(--bg-1)",
+                          borderColor: sel ? "var(--accent)" : "var(--line)",
+                        }}
+                      >
+                        <span style={{ color: "var(--text-2)" }}>
+                          {j.kind ?? "junction"} {i + 1}
+                        </span>
+                        {r && (
+                          <span
+                            className="los-chip"
+                            style={{ background: LOS_COLORS[r.los] }}
+                          >
+                            {r.los}
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
         )}
 
-        {result && stats && (
-          <>
-            <h2 style={{ fontSize: 14, marginTop: 24, marginBottom: 8, color: "#cbd5e1" }}>
-              {result.filename}
-            </h2>
-            <div style={{ fontSize: 12, color: "#94a3b8", marginBottom: 16 }}>
-              {result.drawing.entityCount} entities · {result.drawing.segments.length} road
-              segments
-            </div>
-
-            <h3 style={{ fontSize: 13, color: "#cbd5e1", margin: "16px 0 8px" }}>Categories</h3>
-            {stats.map((s) => (
-              <label
-                key={s.category}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 8,
-                  fontSize: 13,
-                  padding: "4px 0",
-                  cursor: "pointer",
-                }}
-              >
+        {/* VIEWPORT */}
+        <div className="viewport">
+          <ErrorBoundary key={tab}>
+          {tab === "drawing" && !result && (
+            <WelcomeScreen
+              status={status}
+              error={error}
+              onOpen={() => void doOpenDrawing()}
+              onSample={() => void loadSample()}
+            />
+          )}
+          {tab === "drawing" && result && (
+            <CadViewer
+              drawing={result.drawing}
+              visibleCategories={visibleCategories}
+              groupCategory={groupCategory}
+              showOutlines={showOutlines}
+              pageRotation={pageRotation}
+              tool={tool}
+              command={viewportCmd}
+              onSignals={onViewportSignals}
+              onPickGroup={tool === "pick" && pickingCategory ? handlePickGroup : undefined}
+              onMeasure={(units) => {
+                setCalibUnits(units);
+                setCalibMetres("");
+              }}
+              laneNetwork={laneNetwork}
+              showLanes={showLanes}
+              linkColors={linkColors}
+              selectedLink={selectedLink}
+              onPickLink={setSelectedLink}
+            />
+          )}
+          {tab === "drawing" && calibUnits != null && (
+            <div className="vp-overlay" style={{ left: 12, bottom: 48, maxWidth: 320 }}>
+              <div style={{ fontSize: 12, marginBottom: 6 }}>
+                Measured <b>{calibUnits.toFixed(1)}</b> drawing units. Enter its
+                real length to set the scale:
+              </div>
+              <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
                 <input
-                  type="checkbox"
-                  checked={visible[s.category]}
-                  onChange={(e) =>
-                    setVisible((v) => ({ ...v, [s.category]: e.target.checked }))
-                  }
-                />
-                <span
-                  style={{
-                    width: 10,
-                    height: 10,
-                    background: CATEGORY_COLORS[s.category],
-                    borderRadius: 2,
+                  type="number"
+                  min={0}
+                  step="0.1"
+                  autoFocus
+                  value={calibMetres}
+                  onChange={(e) => setCalibMetres(e.target.value)}
+                  placeholder="metres"
+                  style={{ width: 90 }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      const m = parseFloat(calibMetres);
+                      if (m > 0 && calibUnits > 0) {
+                        setDimAssumptions((d) => ({ ...d, unitsPerMetre: calibUnits / m }));
+                        setCalibUnits(null);
+                      }
+                    }
                   }}
                 />
-                <span style={{ flex: 1, textTransform: "capitalize" }}>{s.category}</span>
-                <span style={{ color: "#64748b", fontVariantNumeric: "tabular-nums" }}>
-                  {s.count} · {s.length.toFixed(0)}
-                </span>
-              </label>
-            ))}
-
-            <h3 style={{ fontSize: 13, color: "#cbd5e1", margin: "20px 0 8px" }}>Layers</h3>
-            <div style={{ fontSize: 12, color: "#94a3b8" }}>
-              {result.drawing.layers
-                .slice()
-                .sort((a, b) => b.count - a.count)
-                .map((l) => (
-                  <div
-                    key={l.name}
-                    style={{ display: "flex", justifyContent: "space-between", padding: "2px 0" }}
-                  >
-                    <span style={{ color: CATEGORY_COLORS[l.category] }}>{l.name}</span>
-                    <span style={{ fontVariantNumeric: "tabular-nums" }}>{l.count}</span>
-                  </div>
-                ))}
+                <span style={{ fontSize: 12, color: "var(--text-2)" }}>m</span>
+                <button
+                  className="btn btn-primary btn-sm"
+                  onClick={() => {
+                    const m = parseFloat(calibMetres);
+                    if (m > 0 && calibUnits > 0) {
+                      setDimAssumptions((d) => ({ ...d, unitsPerMetre: calibUnits / m }));
+                      setCalibUnits(null);
+                    }
+                  }}
+                >
+                  Set scale
+                </button>
+                <button className="btn btn-sm" onClick={() => setCalibUnits(null)}>
+                  Cancel
+                </button>
+              </div>
             </div>
-          </>
-        )}
-      </aside>
+          )}
+          {(tab === "highway" ||
+            tab === "movements" ||
+            tab === "phasing" ||
+            tab === "ai") &&
+            hasNetwork &&
+            dims && (
+              <HighwayPlanViewer
+                network={network!}
+                dims={dims}
+                pageRotation={pageRotation}
+                colorBy={colorBy}
+                selectedLinkId={selectedLinkId}
+                onSelectLink={setSelectedLinkId}
+              />
+            )}
+          {tab !== "drawing" &&
+            !hasNetwork &&
+            !networkBuilding &&
+            !networkError && (
+              <SceneEmptyState
+                status={status}
+                error={error}
+                warning={warning}
+                rasterPreview={rasterPreview}
+              />
+            )}
+          {needsNetwork && networkBuilding && !hasNetwork && (
+            <div
+              style={{
+                position: "absolute",
+                inset: 0,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                color: "var(--text-2)",
+                fontSize: 13,
+                pointerEvents: "none",
+              }}
+            >
+              {networkSlow
+                ? "Still building — large drawing, hang tight…"
+                : "Building road network…"}
+            </div>
+          )}
+          {needsNetwork && networkError && !hasNetwork && !networkBuilding && (
+            <div
+              style={{
+                position: "absolute",
+                inset: 0,
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 12,
+                padding: 24,
+                textAlign: "center",
+              }}
+            >
+              <div style={{ color: "#fca5a5", fontSize: 13, maxWidth: 420 }}>
+                {networkError}
+              </div>
+              <button
+                className="btn btn-sm"
+                onClick={() => {
+                  setTab("drawing");
+                  setTimeout(() => setTab("highway"), 0);
+                }}
+              >
+                Try again
+              </button>
+            </div>
+          )}
+          </ErrorBoundary>
+        </div>
 
-      <section style={{ flex: 1, position: "relative" }}>
-        {result ? (
-          <CadViewer drawing={result.drawing} visible={visible} />
-        ) : (
-          <div
-            style={{
-              height: "100%",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              color: "#475569",
-              fontSize: 14,
-            }}
-          >
-            Upload a drawing to begin
+        {/* RIGHT DOCK */}
+        {rightDockWidth > 0 && (
+          <div className="dock right" style={{ width: rightDockWidth }}>
+            {tab === "highway" && dims && (
+              <div className="panel">
+                <div className="panel-header">
+                  <span>Road Network</span>
+                </div>
+                <div className="panel-body" style={{ padding: 0 }}>
+                  <HighwayDimsPanel
+                    dims={dims}
+                    assumptions={dimAssumptions}
+                    onChangeAssumptions={setDimAssumptions}
+                    colorBy={colorBy}
+                    onChangeColorBy={setColorBy}
+                    selectedLinkId={selectedLinkId}
+                    onSelectLink={setSelectedLinkId}
+                    overrides={linkOverrides}
+                    onChangeOverride={(id, patch) =>
+                      setLinkOverrides((prev) => ({
+                        ...prev,
+                        [id]: { ...prev[id], ...patch },
+                      }))
+                    }
+                    onResetOverride={(id) =>
+                      setLinkOverrides((prev) => {
+                        const next = { ...prev };
+                        delete next[id];
+                        return next;
+                      })
+                    }
+                  />
+                </div>
+              </div>
+            )}
+            {tab === "network" && hasNetwork && (
+              <div className="panel">
+                <div className="panel-header">
+                  <span>Network Summary</span>
+                </div>
+                <div className="panel-body">
+                  <NetworkSummaryCard
+                    results={junctionResults}
+                    junctionCount={network!.junctions.length}
+                  />
+                </div>
+              </div>
+            )}
+            {tab === "movements" && selectedInputs && selectedResult && (
+              <div className="panel">
+                <div className="panel-body" style={{ padding: 0 }}>
+                  <JunctionPanelInline
+                    junctionLabel={`Junction ${selectedJunctionIndex + 1}`}
+                    inputs={selectedInputs}
+                    result={selectedResult}
+                    onChange={setSelectedInputs}
+                  />
+                </div>
+              </div>
+            )}
+            {tab === "phasing" && selectedInputs && selectedResult && (
+              <div className="panel">
+                <div className="panel-body" style={{ padding: 0 }}>
+                  <PhasingView
+                    inputs={selectedInputs}
+                    result={selectedResult}
+                    onChange={setSelectedInputs}
+                  />
+                </div>
+              </div>
+            )}
+            {tab === "ai" && selectedInputs && selectedResult && (
+              <div className="panel">
+                <div className="panel-body" style={{ padding: 0 }}>
+                  <AiOptView
+                    junctionLabel={`J${selectedJunctionIndex + 1}`}
+                    inputs={selectedInputs}
+                    result={selectedResult}
+                    onApply={setSelectedInputs}
+                  />
+                </div>
+              </div>
+            )}
+            {(tab === "movements" || tab === "phasing" || tab === "ai") &&
+              (!selectedInputs || !selectedResult) && (
+                <div className="panel">
+                  <div className="panel-body">
+                    <NoSelection />
+                  </div>
+                </div>
+              )}
           </div>
         )}
-      </section>
-    </main>
+      </div>
+
+      <StatusBar
+        status={status}
+        segmentCount={result ? result.drawing.segments.length : null}
+        groupCount={result ? result.drawing.groups.length : null}
+        linkCount={network ? network.links.length : null}
+        junctionCount={network ? network.junctions.length : null}
+        cursor={cursor}
+        zoomPct={zoomPct}
+        units={dims?.units === "m" ? "m" : "pdf u"}
+      />
+    </div>
+    </ErrorBoundary>
+  );
+}
+
+/** Inlined bottom-sheet variant of JunctionPanel - no close button, no
+ *  position: absolute, sized to the bottom drawer. */
+function JunctionPanelInline(props: {
+  junctionLabel: string;
+  inputs: JunctionInputs;
+  result: JunctionResult;
+  onChange: (next: JunctionInputs) => void;
+}) {
+  return (
+    <div style={{ padding: "0 0 16px 0" }}>
+      <JunctionPanel
+        junctionLabel={props.junctionLabel}
+        inputs={props.inputs}
+        result={props.result}
+        onChange={props.onChange}
+        onClose={() => {
+          /* no-op in dashboard mode */
+        }}
+      />
+    </div>
+  );
+}
+
+function WelcomeScreen({
+  status,
+  error,
+  onOpen,
+  onSample,
+}: {
+  status: "idle" | "loading" | "error";
+  error: string | null;
+  onOpen: () => void;
+  onSample: () => void;
+}) {
+  const loading = status === "loading";
+  return (
+    <div
+      style={{
+        position: "absolute",
+        inset: 0,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: 24,
+      }}
+    >
+      <div className="panel" style={{ maxWidth: 460, width: "100%" }}>
+        <div className="panel-header">
+          <span>Masterplan Highway Analyzer</span>
+        </div>
+        <div className="panel-body" style={{ fontSize: 13, lineHeight: 1.5 }}>
+          <p style={{ marginTop: 0, color: "var(--text-2)" }}>
+            Open a masterplan drawing to extract its road network and highway
+            dimensions. You can also drag a PDF, DXF or .mhp project onto the
+            window.
+          </p>
+          {loading ? (
+            <div style={{ color: "var(--text-2)", padding: "8px 0" }}>
+              Loading &amp; parsing the drawing… this can take a few seconds on
+              a large plan.
+            </div>
+          ) : (
+            <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+              <button className="btn btn-primary btn-sm" onClick={onOpen}>
+                Open drawing (PDF / DXF)
+              </button>
+              <button className="btn btn-sm" onClick={onSample}>
+                Reload WSP masterplan (DXF)
+              </button>
+            </div>
+          )}
+          {error && (
+            <div style={{ color: "#fca5a5", fontSize: 12, marginTop: 10 }}>
+              {error}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SceneEmptyState({
+  status,
+  error,
+  warning,
+  rasterPreview,
+}: {
+  status: "idle" | "loading" | "error";
+  error: string | null;
+  warning: string | null;
+  rasterPreview: { dataUrl: string; width: number; height: number } | null;
+}) {
+  return (
+    <div
+      style={{
+        position: "absolute",
+        inset: 0,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        flexDirection: "column",
+        textAlign: "center",
+        padding: 32,
+        color: "#94a3b8",
+      }}
+    >
+      {status === "loading" && (
+        <div style={{ fontSize: 13 }}>Loading the master plan…</div>
+      )}
+      {status === "error" && error && (
+        <div
+          style={{
+            background: "#7f1d1d",
+            color: "#fee2e2",
+            padding: 12,
+            borderRadius: 6,
+            maxWidth: 480,
+          }}
+        >
+          {error}
+        </div>
+      )}
+      {warning && (
+        <div
+          style={{
+            color: "#fde68a",
+            fontSize: 12,
+            maxWidth: 480,
+            marginTop: 12,
+          }}
+        >
+          {warning}
+        </div>
+      )}
+      {rasterPreview && (
+        <img
+          src={rasterPreview.dataUrl}
+          alt="PDF preview"
+          style={{
+            maxWidth: "60%",
+            marginTop: 12,
+            border: "1px solid #1e293b",
+            borderRadius: 6,
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+
+function NoSelection() {
+  return (
+    <div
+      style={{
+        padding: 24,
+        textAlign: "center",
+        color: "#64748b",
+        fontSize: 12,
+      }}
+    >
+      Select a junction in the strip above to inspect its analysis.
+    </div>
   );
 }
