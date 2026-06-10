@@ -26,10 +26,12 @@ the Google Maps JavaScript API.
 No build step — it's a static page:
 
 ```bash
-cd abu-dhabi-streets
+cd public/abu-dhabi-streets
 python3 -m http.server 8080
 # open http://localhost:8080
 ```
+
+It also ships with the repo's Next.js deployment at `/abu-dhabi-streets`.
 
 On first launch the app asks for a **Google Maps JavaScript API key**
 (create one in the [Google Cloud Console](https://developers.google.com/maps/documentation/javascript/get-api-key)
