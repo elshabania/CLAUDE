@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Abu Dhabi Streets — Interactive Street Network</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap"
+    rel="stylesheet"
+  />
+  <link rel="stylesheet" href="styles.css" />
+  <script src="https://unpkg.com/deck.gl@8.9.36/dist.min.js"></script>
+</head>
+<body>
+  <!-- API key onboarding -->
+  <div id="key-overlay" class="key-overlay hidden">
+    <div class="key-card">
+      <div class="key-glow"></div>
+      <div class="brand-mark">AD</div>
+      <h1>Abu&nbsp;Dhabi <span>Streets</span></h1>
+      <p class="key-sub">
+        An interactive map of Abu Dhabi's street network on a Google&nbsp;Maps
+        basemap. Paste a Google&nbsp;Maps JavaScript API key to launch.
+      </p>
+      <div id="key-error" class="key-error hidden"></div>
+      <div class="key-input-row">
+        <input
+          id="key-input"
+          type="text"
+          spellcheck="false"
+          autocomplete="off"
+          placeholder="AIza..."
+        />
+        <button id="key-launch">Launch&nbsp;Map</button>
+      </div>
+      <p class="key-hint">
+        The key is stored only in your browser (localStorage). You can also pass
+        it in the URL: <code>?key=YOUR_KEY</code>.
+        <a
+          href="https://developers.google.com/maps/documentation/javascript/get-api-key"
+          target="_blank"
+          rel="noopener"
+          >Get an API key&nbsp;&rarr;</a
+        >
+      </p>
+    </div>
+  </div>
+
+  <!-- Map -->
+  <div id="map"></div>
+  <div id="tooltip" class="tooltip hidden"></div>
+
+  <!-- Control panel -->
+  <aside id="panel" class="panel hidden">
+    <div class="panel-header">
+      <div class="brand-mark small">AD</div>
+      <div>
+        <h2>Abu&nbsp;Dhabi <span>Streets</span></h2>
+        <p class="panel-sub">Live street network &middot; OpenStreetMap data</p>
+      </div>
+      <button id="panel-collapse" class="collapse-btn" title="Collapse panel">&#x2039;</button>
+    </div>
+
+    <div id="loading-bar" class="loading-bar"><div></div></div>
+
+    <section class="panel-section">
+      <h3>Street Layers</h3>
+
+      <label class="layer-row" for="toggle-main">
+        <span class="layer-swatch main-swatch"></span>
+        <span class="layer-info">
+          <span class="layer-name">Main Streets</span>
+          <span class="layer-meta" id="meta-main">&mdash;</span>
+        </span>
+        <span class="switch">
+          <input type="checkbox" id="toggle-main" checked />
+          <span class="slider"></span>
+        </span>
+      </label>
+
+      <label class="layer-row" for="toggle-local">
+        <span class="layer-swatch local-swatch"></span>
+        <span class="layer-info">
+          <span class="layer-name">Local Streets</span>
+          <span class="layer-meta" id="meta-local">&mdash;</span>
+        </span>
+        <span class="switch">
+          <input type="checkbox" id="toggle-local" checked />
+          <span class="slider"></span>
+        </span>
+      </label>
+
+      <p id="zoom-hint" class="zoom-hint hidden">
+        Zoom in to load local streets
+      </p>
+    </section>
+
+    <section class="panel-section">
+      <h3>Basemap</h3>
+      <div class="seg" id="basemap-seg">
+        <button data-style="dark" class="active">Dark</button>
+        <button data-style="light">Light</button>
+        <button data-style="satellite">Satellite</button>
+      </div>
+    </section>
+
+    <section class="panel-section">
+      <h3>Fly To</h3>
+      <div class="chips">
+        <button class="chip" data-lat="24.4764" data-lng="54.3705" data-zoom="14">Corniche</button>
+        <button class="chip" data-lat="24.4983" data-lng="54.6075" data-zoom="13">Yas Island</button>
+        <button class="chip" data-lat="24.5456" data-lng="54.4344" data-zoom="13">Saadiyat</button>
+        <button class="chip" data-lat="24.4944" data-lng="54.4055" data-zoom="14">Al Reem</button>
+        <button class="chip" data-lat="24.4203" data-lng="54.4744" data-zoom="13">Khalifa City</button>
+        <button class="chip" data-lat="24.4539" data-lng="54.3773" data-zoom="12">City Centre</button>
+      </div>
+    </section>
+
+    <footer class="panel-footer">
+      <span>Street data &copy; OpenStreetMap contributors</span>
+      <button id="key-reset" title="Change Google Maps API key">API key</button>
+    </footer>
+  </aside>
+
+  <button id="panel-expand" class="expand-btn hidden" title="Open panel">&#x203A;</button>
+
+  <script src="app.js"></script>
+</body>
+</html>
