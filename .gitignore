@@ -44,3 +44,5 @@ scripts/.cad-propo*
 scripts/.cad-inventory*
 scripts/.test-conn.mts
 scripts/.test-tis.mts
+scripts/.build-artifact.mts
+scripts/.artifact-out/
