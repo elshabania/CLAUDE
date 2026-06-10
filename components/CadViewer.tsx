@@ -494,6 +494,20 @@ export function CadViewer({
       ctx.save();
       ctx.lineCap = "round";
       ctx.lineJoin = "round";
+      // Junction-interior connectors first, so coloured carriageways draw on top.
+      if (laneNetwork.connectors.length > 0) {
+        ctx.strokeStyle = "rgba(160, 180, 210, 0.55)";
+        ctx.lineWidth = 1.6;
+        const nodes = laneNetwork.nodes;
+        ctx.beginPath();
+        for (const c of laneNetwork.connectors) {
+          const a = toScreenPt(nodes[c.from].x, nodes[c.from].y);
+          const b = toScreenPt(nodes[c.to].x, nodes[c.to].y);
+          ctx.moveTo(a.x, a.y);
+          ctx.lineTo(b.x, b.y);
+        }
+        ctx.stroke();
+      }
       const links = laneNetwork.links;
       for (let li = 0; li < links.length; li++) {
         const link = links[li];

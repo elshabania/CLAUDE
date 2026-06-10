@@ -66,9 +66,23 @@ export interface LaneNode {
   links: number[];
 }
 
+/**
+ * Junction-interior connector — a virtual straight segment between two nodes
+ * that sit inside the same physical intersection. The carriageway-pair
+ * extraction stops at junction mouths (parallel-edge pairing breaks across
+ * the kerb radii), so a 4-arm junction lands as 4-8 unconnected endpoint
+ * nodes 15-40 m apart. Connectors stitch them together visually and form a
+ * continuous network without altering the per-direction carriageway model.
+ */
+export interface JunctionConnector {
+  from: number;
+  to: number;
+}
+
 export interface LaneNetwork {
   links: Link[];
   nodes: LaneNode[];
+  connectors: JunctionConnector[];
   bounds: { minX: number; minY: number; maxX: number; maxY: number };
   stats: {
     linkCount: number;
@@ -135,7 +149,7 @@ export function buildLaneNetwork(
   }
   if (edgeSegs.length === 0) {
     return {
-      links: [], nodes: [],
+      links: [], nodes: [], connectors: [],
       bounds: { minX: 0, minY: 0, maxX: 0, maxY: 0 },
       stats: { linkCount: 0, laneKm: 0, centerlineKm: 0, directedPct: 0, junctionCount: 0, oneWayCount: 0, twoWayCount: 0 },
     };
@@ -643,9 +657,49 @@ export function buildLaneNetwork(
 
   const junctionCount = nodes.filter(n => n.links.length >= 3).length;
 
+  // ---- Junction-interior connectors ----
+  // Nodes within JUNCTION_RADIUS of each other that aren't already directly
+  // joined by a link sit inside the same intersection. Stitch them with
+  // straight connectors so the network reads as a continuous graph (visually
+  // and in any downstream routing).
+  const JUNCTION_RADIUS = 40;
+  const connectors: JunctionConnector[] = [];
+  {
+    const directLinked = new Set<string>();
+    for (const link of links) {
+      if (link.fromNode === link.toNode) continue;
+      const a = Math.min(link.fromNode, link.toNode);
+      const b = Math.max(link.fromNode, link.toNode);
+      directLinked.add(`${a}|${b}`);
+    }
+    const G = JUNCTION_RADIUS;
+    const grid = new Map<string, number[]>();
+    nodes.forEach(n => {
+      const k = `${Math.floor(n.x / G)},${Math.floor(n.y / G)}`;
+      let a = grid.get(k);
+      if (!a) grid.set(k, (a = []));
+      a.push(n.id);
+    });
+    for (const n of nodes) {
+      if (n.links.length === 0) continue;
+      const gx = Math.floor(n.x / G), gy = Math.floor(n.y / G);
+      for (let dx = -1; dx <= 1; dx++)
+        for (let dy = -1; dy <= 1; dy++)
+          for (const mid of grid.get(`${gx + dx},${gy + dy}`) ?? []) {
+            if (mid <= n.id) continue;
+            const m = nodes[mid];
+            if (m.links.length === 0) continue;
+            if (Math.hypot(m.x - n.x, m.y - n.y) > JUNCTION_RADIUS) continue;
+            if (directLinked.has(`${n.id}|${mid}`)) continue;
+            connectors.push({ from: n.id, to: mid });
+          }
+    }
+  }
+
   return {
     links,
     nodes,
+    connectors,
     bounds: { minX, minY, maxX, maxY },
     stats: {
       linkCount: links.length,
