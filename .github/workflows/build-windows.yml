@@ -87,20 +87,32 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
+      # GitHub's release-asset API occasionally 500s mid-upload (observed
+      # 2026-06-10: the Setup exe uploaded, then the Portable exe upload died
+      # with "Server Error" AFTER the old asset had been deleted, leaving the
+      # release without a portable build). gh-release actions can't retry, so
+      # publish with the gh CLI in an explicit retry loop; --clobber makes the
+      # upload idempotent across attempts.
       - name: Publish to a GitHub Release (direct download link)
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: desktop-latest
-          name: Masterplan Highway Analyzer - latest desktop build
-          body: |
-            Windows desktop build of the Masterplan Highway Analyzer.
-
-            - **Setup .exe** - installer (Start Menu + desktop shortcut).
-            - **portable .exe** - run directly, no install.
-
-            Built automatically from the latest commit on the development
-            branch by GitHub Actions on a windows-latest runner.
-          files: release/*.exe
-          draft: false
-          prerelease: false
-          make_latest: "true"
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $ErrorActionPreference = "Continue"
+          # Ensure the rolling release exists (no-op when it already does).
+          gh release view desktop-latest 2>$null
+          if ($LASTEXITCODE -ne 0) {
+            gh release create desktop-latest --title "Masterplan Highway Analyzer - latest desktop build" --notes "Windows desktop build. Setup .exe = installer; Portable .exe = run directly." --latest
+          }
+          $files = (Get-ChildItem -Path release -Filter *.exe).FullName
+          foreach ($attempt in 1..4) {
+            gh release upload desktop-latest @files --clobber
+            if ($LASTEXITCODE -eq 0) {
+              Write-Host "Release assets uploaded (attempt $attempt)."
+              exit 0
+            }
+            Write-Host "Upload attempt $attempt failed; retrying in 30s..."
+            Start-Sleep -Seconds 30
+          }
+          Write-Error "Release upload failed after 4 attempts."
+          exit 1
