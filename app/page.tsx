@@ -16,6 +16,7 @@ import {
   type RoadCategory,
 } from "@/lib/road-detect";
 import { buildLaneNetwork, type LaneNetwork } from "@/lib/lane-network";
+import { runAssignment, type AssignmentResult } from "@/lib/assignment";
 import { LEGEND_SWATCHES } from "@/lib/legend-swatches";
 import { LegendPanel } from "@/components/LegendPanel";
 import { parseDxfInBrowser } from "@/lib/dxf-client";
@@ -107,6 +108,14 @@ export default function Page() {
   const [result, setResult] = useState<ParseResponse | null>(null);
   const [laneNetwork, setLaneNetwork] = useState<LaneNetwork | null>(null);
   const [showLanes, setShowLanes] = useState(true);
+  // --- TIS traffic layer ---
+  const [assignment, setAssignment] = useState<AssignmentResult | null>(null);
+  const [assignBusy, setAssignBusy] = useState(false);
+  const [baselineTotals, setBaselineTotals] = useState<AssignmentResult["totals"] | null>(null);
+  const [demand, setDemand] = useState(6000);
+  const [laneOverrides, setLaneOverrides] = useState<Record<string, number>>({});
+  const [colorByLos, setColorByLos] = useState(true);
+  const [selectedLink, setSelectedLink] = useState<number | null>(null);
   const [groupCategory, setGroupCategory] = useState<Record<string, RoadCategory>>({});
   const [visibleGroups, setVisibleGroups] = useState<Record<string, boolean>>({});
   const [visibleCategories, setVisibleCategories] = useState<
@@ -193,6 +202,50 @@ export default function Page() {
       clearTimeout(id);
     };
   }, [result]);
+
+  // Reset the traffic layer when the network changes.
+  useEffect(() => {
+    setAssignment(null);
+    setBaselineTotals(null);
+    setLaneOverrides({});
+    setSelectedLink(null);
+  }, [laneNetwork]);
+
+  // Run/refresh the traffic assignment whenever the network, demand level or
+  // a mitigation (lane override) changes. Deferred so the UI paints first;
+  // deterministic, so the baseline (no overrides) is directly comparable to
+  // any mitigated run.
+  useEffect(() => {
+    if (!laneNetwork || laneNetwork.links.length === 0) return;
+    let cancelled = false;
+    setAssignBusy(true);
+    const id = setTimeout(() => {
+      try {
+        const res = runAssignment(laneNetwork, {
+          totalDemand: demand,
+          iterations: 12,
+          laneOverrides,
+        });
+        if (cancelled) return;
+        setAssignment(res);
+        if (Object.keys(laneOverrides).length === 0) setBaselineTotals(res.totals);
+      } catch {
+        if (!cancelled) setAssignment(null);
+      } finally {
+        if (!cancelled) setAssignBusy(false);
+      }
+    }, 30);
+    return () => {
+      cancelled = true;
+      clearTimeout(id);
+    };
+  }, [laneNetwork, demand, laneOverrides]);
+
+  // Per-link colours for the viewer: LOS colours once an assignment exists.
+  const linkColors = useMemo(() => {
+    if (!colorByLos || !assignment || !laneNetwork) return null;
+    return assignment.perLink.map(r => LOS_COLORS[r.los]);
+  }, [colorByLos, assignment, laneNetwork]);
 
   useEffect(() => {
     if (!result) return;
@@ -857,7 +910,7 @@ export default function Page() {
             {tab === "drawing" && result && result.drawing.source === "dxf" && (
               <div className="panel">
                 <div className="panel-header">
-                  <span>Lane Network</span>
+                  <span>Road Network &amp; Traffic</span>
                   <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12 }}>
                     <input
                       type="checkbox"
@@ -870,48 +923,190 @@ export default function Page() {
                 <div className="panel-body" style={{ fontSize: 12, lineHeight: 1.7 }}>
                   {laneNetwork ? (
                     <>
-                      <div style={{ marginBottom: 8, color: "var(--text-2)" }}>
-                        {laneNetwork.lanes.length.toLocaleString()} lanes ·{" "}
-                        {laneNetwork.stats.laneKm.toFixed(1)} lane-km · derived from
-                        the CAD edge, lane-divider &amp; arrow geometry.
+                      <div style={{ marginBottom: 6, color: "var(--text-2)" }}>
+                        {laneNetwork.links.length.toLocaleString()} carriageway links ·{" "}
+                        {laneNetwork.stats.centerlineKm.toFixed(1)} km ·{" "}
+                        {laneNetwork.stats.laneKm.toFixed(1)} lane-km ·{" "}
+                        {laneNetwork.stats.junctionCount} junctions
                       </div>
-                      <div style={{ marginBottom: 8, color: "var(--text-2)" }}>
-                        {laneNetwork.stats.junctionCount} junctions ·{" "}
-                        {laneNetwork.stats.connectorCount} connectors ·{" "}
-                        {laneNetwork.stats.directedPct.toFixed(0)}% directed
+
+                      {/* ---- Demand ---- */}
+                      <div style={{ margin: "10px 0 4px", fontWeight: 600 }}>
+                        Development traffic
                       </div>
-                      {laneNetwork.stats.clampedLaneCounts > 0 && (
-                        <div style={{ marginBottom: 8, color: "#fbbf24", fontSize: 11 }}>
-                          ⚠ {laneNetwork.stats.clampedLaneCounts} lanes hit the
-                          5-lane cap (complex junctions) — confirm these.
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <input
+                          type="range"
+                          min={0}
+                          max={20000}
+                          step={500}
+                          value={demand}
+                          onChange={(e) => setDemand(Number(e.target.value))}
+                          style={{ flex: 1 }}
+                        />
+                        <span style={{ minWidth: 86, textAlign: "right" }}>
+                          {demand.toLocaleString()} veh/h
+                        </span>
+                      </div>
+
+                      {/* ---- Results ---- */}
+                      {assignBusy && (
+                        <div style={{ color: "var(--text-2)", marginTop: 6 }}>
+                          Assigning traffic…
                         </div>
                       )}
-                      {[
-                        ["1 lane", "#3b82f6"],
-                        ["2 lanes", "#f97316"],
-                        ["3 lanes", "#ef4444"],
-                        ["4+ lanes", "#a855f7"],
-                      ].map(([label, color]) => (
-                        <div key={label} style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                          <span
+                      {assignment && !assignBusy && (
+                        <>
+                          <div style={{ marginTop: 6, color: "var(--text-2)" }}>
+                            Routed {assignment.totals.routedDemand.toFixed(0)} veh/h via{" "}
+                            {assignment.gates.length} gates · VKT{" "}
+                            {assignment.totals.vkt.toFixed(0)} · delay{" "}
+                            {(assignment.totals.delay * 60).toFixed(0)} veh·min/h
+                          </div>
+                          <div
                             style={{
-                              display: "inline-block",
-                              width: 16,
-                              height: 3,
-                              background: color,
-                              borderRadius: 2,
+                              marginTop: 4,
+                              fontWeight: 600,
+                              color: assignment.totals.failingLinks > 0 ? "#f87171" : "#4ade80",
                             }}
-                          />
-                          {label}
+                          >
+                            {assignment.totals.failingLinks > 0
+                              ? `${assignment.totals.failingLinks} links at LOS E/F`
+                              : "No failing links"}
+                          </div>
+                          {baselineTotals && Object.keys(laneOverrides).length > 0 && (
+                            <div style={{ marginTop: 4, color: "#93c5fd" }}>
+                              Mitigation Δ: delay{" "}
+                              {(baselineTotals.delay * 60).toFixed(0)} →{" "}
+                              {(assignment.totals.delay * 60).toFixed(0)} veh·min/h · failing{" "}
+                              {baselineTotals.failingLinks} → {assignment.totals.failingLinks}
+                            </div>
+                          )}
+                          <label
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 6,
+                              marginTop: 6,
+                            }}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={colorByLos}
+                              onChange={(e) => setColorByLos(e.target.checked)}
+                            />
+                            Colour links by LOS
+                          </label>
+                          {colorByLos && (
+                            <div style={{ display: "flex", gap: 8, marginTop: 4, flexWrap: "wrap" }}>
+                              {(["A", "B", "C", "D", "E", "F"] as const).map(l => (
+                                <span key={l} style={{ display: "flex", alignItems: "center", gap: 3 }}>
+                                  <span
+                                    style={{
+                                      display: "inline-block",
+                                      width: 12,
+                                      height: 4,
+                                      background: LOS_COLORS[l],
+                                      borderRadius: 2,
+                                    }}
+                                  />
+                                  {l}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                        </>
+                      )}
+
+                      {/* ---- Selected link inspector + mitigation ---- */}
+                      {selectedLink != null && laneNetwork.links[selectedLink] && (
+                        <div
+                          style={{
+                            marginTop: 10,
+                            padding: 8,
+                            border: "1px solid var(--border, #334155)",
+                            borderRadius: 6,
+                          }}
+                        >
+                          {(() => {
+                            const link = laneNetwork.links[selectedLink];
+                            const r = assignment?.perLink[selectedLink];
+                            const eff = laneOverrides[link.id] ?? link.numLanes;
+                            return (
+                              <>
+                                <div style={{ fontWeight: 600 }}>
+                                  {link.id} · {link.length.toFixed(0)} m ·{" "}
+                                  {link.oneWay ? "one-way" : "two-way"}
+                                </div>
+                                <div style={{ color: "var(--text-2)" }}>
+                                  Lanes: {eff}
+                                  {eff !== link.numLanes ? ` (CAD: ${link.numLanes})` : ""} · width{" "}
+                                  {link.width.toFixed(1)} m
+                                </div>
+                                {r && (
+                                  <div style={{ color: "var(--text-2)" }}>
+                                    Volume {r.volume.toFixed(0)} veh/h · V/C {r.vc.toFixed(2)} ·{" "}
+                                    <span style={{ color: LOS_COLORS[r.los], fontWeight: 700 }}>
+                                      LOS {r.los}
+                                    </span>
+                                  </div>
+                                )}
+                                <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
+                                  <button
+                                    className="btn btn-sm"
+                                    onClick={() =>
+                                      setLaneOverrides(o => ({ ...o, [link.id]: eff + 1 }))
+                                    }
+                                  >
+                                    + Add lane
+                                  </button>
+                                  <button
+                                    className="btn btn-sm"
+                                    disabled={eff <= 1}
+                                    onClick={() =>
+                                      setLaneOverrides(o => ({ ...o, [link.id]: Math.max(1, eff - 1) }))
+                                    }
+                                  >
+                                    − Remove
+                                  </button>
+                                  {laneOverrides[link.id] != null && (
+                                    <button
+                                      className="btn btn-sm"
+                                      onClick={() =>
+                                        setLaneOverrides(o => {
+                                          const c = { ...o };
+                                          delete c[link.id];
+                                          return c;
+                                        })
+                                      }
+                                    >
+                                      Reset
+                                    </button>
+                                  )}
+                                </div>
+                              </>
+                            );
+                          })()}
                         </div>
-                      ))}
-                      <div style={{ marginTop: 6, color: "var(--text-2)", fontSize: 11 }}>
-                        Arrowheads show travel direction; thin curves are junction
-                        connectors (turn movements).
-                      </div>
+                      )}
+                      {selectedLink == null && assignment && (
+                        <div style={{ marginTop: 8, color: "var(--text-2)", fontSize: 11 }}>
+                          Click a link on the plan to inspect it and test mitigations
+                          (add / remove lanes).
+                        </div>
+                      )}
+                      {Object.keys(laneOverrides).length > 0 && (
+                        <button
+                          className="btn btn-sm"
+                          style={{ marginTop: 8 }}
+                          onClick={() => setLaneOverrides({})}
+                        >
+                          Clear all mitigations ({Object.keys(laneOverrides).length})
+                        </button>
+                      )}
                     </>
                   ) : (
-                    <div style={{ color: "var(--text-2)" }}>Deriving lanes from CAD…</div>
+                    <div style={{ color: "var(--text-2)" }}>Building network from CAD…</div>
                   )}
                 </div>
               </div>
@@ -986,6 +1181,9 @@ export default function Page() {
               }}
               laneNetwork={laneNetwork}
               showLanes={showLanes}
+              linkColors={linkColors}
+              selectedLink={selectedLink}
+              onPickLink={setSelectedLink}
             />
           )}
           {tab === "drawing" && calibUnits != null && (

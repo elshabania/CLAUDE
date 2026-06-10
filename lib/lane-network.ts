@@ -1,523 +1,660 @@
-// Lane-level network extraction from a CAD drawing.
+// Carriageway-level network extraction from a CAD drawing.
 //
-// Algorithm — arrow-led centerline tracing (v5):
-//   (1) Chain edge + lane-divider segments into long parallel "rails".
-//   (2) Densely sample each rail (0.5 m) with its local tangent.
-//   (3) For each lane-direction arrow, trace forward + backward staying
-//       equidistant between the two nearest parallel rails on opposite sides.
-//       This produces a DIRECTED lane centerline with travel heading.
-//   (4) Fill gaps with a rail-pair supplementary pass: for every long rail
-//       at 5 m stations, find the nearest parallel rail and seed a trace at
-//       their midpoint if that midpoint is not already covered. These traces
-//       are marked UNDIRECTED (engineer confirms direction).
-//   (5) Build a routable graph: cluster lane endpoints into nodes; wire
-//       fromNode/toNode; emit channelised, curved Bézier connectors between
-//       incoming and outgoing lanes at each junction.
+// Model (validated against the WSP masterplan with the user):
+//   * The CAD draws carriageway EDGES (outer kerbs AND median kerbs on the
+//     same EDGE layer), LANE DIVIDERS (dashed paint between same-direction
+//     lanes), and LANE-DIRECTION ARROWS (block inserts).
+//   * A CARRIAGEWAY is the strip of pavement between two parallel EDGE
+//     lines. A median is also a strip between two EDGE lines - but it
+//     contains no arrows and no lane dividers, which is how we tell them
+//     apart.
+//   * A Link here = one carriageway strip: centerline (midline between the
+//     two edges), numLanes (from divider count and width), and direction
+//     (from the arrows inside the strip: consistently one way -> one-way
+//     link; both ways -> two-way undivided street).
 //
-// This replaces the older rail-pairing approach which fragmented at every
-// junction and over-counted lanes by 5-10×. Each lane here is between two
-// physically distinct rails (validated geometrically against the CAD), with
-// length and lane width derived directly from the source geometry.
+// This is the abstraction a TIS needs: capacity lives on the carriageway
+// (numLanes x saturation flow), and the core mitigation ("add a lane")
+// edits numLanes on a Link.
+//
+// Pipeline:
+//   (1) Chain EDGE segments into long rails (collinear continuation + 4 m
+//       gap bridging across driveway breaks).
+//   (2) Resample each rail at 1 m with local tangents; spatial-index.
+//   (3) At every rail station, find the nearest PARALLEL rail on each
+//       perpendicular side (2.5-15 m). Continuous runs of the same
+//       (railA, railB) pairing = candidate strips.
+//   (4) Dedupe (A,B) vs (B,A); classify each strip by its contents:
+//       arrows -> travel direction; lane-divider points -> lane count;
+//       neither + narrow -> median (dropped).
+//   (5) Smooth the midline, build endpoint nodes, wire the graph.
 
 import type { ParsedDrawing, LaneArrow } from "@/lib/road-detect";
 
-export interface Lane {
-  id: string;
-  /** Flat [x0, y0, x1, y1, ...] centerline in world coords, ORIENTED in the
-   *  travel direction (start = upstream, end = downstream) when `directed`. */
-  points: number[];
-  /** Parallel same-direction lanes at this lane's midpoint (1..MAX_LANES). */
-  laneCount: number;
-  /** Centerline length in drawing units. */
-  length: number;
-  /** Confirmed travel direction (true) vs derived without an arrow (false). */
-  directed: boolean;
-  /** Graph node id at the upstream end. */
-  fromNode: number;
-  /** Graph node id at the downstream end. */
-  toNode: number;
-}
+/** Default lane width (m) used to infer lane count from strip width. */
+const LANE_WIDTH = 3.5;
 
-export interface Connector {
+export interface Link {
   id: string;
-  fromLane: number;
-  toLane: number;
-  node: number;
-  turn: "through" | "left" | "right" | "uturn";
+  /** Carriageway centerline [x0,y0,x1,y1,...]. For one-way links, oriented
+   *  in the travel direction. */
   points: number[];
+  /** Total marked lanes across the carriageway (both directions if twoWay). */
+  numLanes: number;
+  /** Average carriageway width (m). */
+  width: number;
+  /** Centerline length (m). */
+  length: number;
+  /** True when arrows in the strip all point one way (a one-way carriageway -
+   *  e.g. one side of a divided road). False = two-way undivided street. */
+  oneWay: boolean;
+  /** Arrows found inside the strip (direction evidence). */
+  arrowCount: number;
+  /** Distinct lane-divider lines found inside the strip. */
+  dividerCount: number;
+  /** Graph node at the start of `points`. */
+  fromNode: number;
+  /** Graph node at the end of `points`. */
+  toNode: number;
 }
 
 export interface LaneNode {
   id: number;
   x: number;
   y: number;
-  incoming: number[];
-  outgoing: number[];
+  /** Link indices incident to this node. */
+  links: number[];
 }
 
 export interface LaneNetwork {
-  lanes: Lane[];
+  links: Link[];
   nodes: LaneNode[];
-  connectors: Connector[];
   bounds: { minX: number; minY: number; maxX: number; maxY: number };
   stats: {
-    railCount: number;
+    linkCount: number;
+    /** Sum of length*numLanes (km) - drivable lane length. */
     laneKm: number;
+    /** Sum of length (km). */
+    centerlineKm: number;
+    /** % of links whose direction is confirmed by arrows. */
     directedPct: number;
     junctionCount: number;
-    connectorCount: number;
-    /** Lanes whose raw same-direction-lane count exceeded MAX_LANES and was
-     *  clamped (flag for engineer review — likely junction artefact). */
-    clampedLaneCounts: number;
+    oneWayCount: number;
+    twoWayCount: number;
   };
 }
 
 export interface LaneNetworkOptions {
-  /** Layer-name test for carriageway edges + lane dividers. */
   isRailLayer?: (layer: string) => boolean;
 }
 
 type Pt = { x: number; y: number };
 
-const DEFAULT_RAIL_LAYER = (layer: string): boolean => {
-  const u = layer.toUpperCase();
-  if (/(?:^|[_\-\s])(?:EXI|EXIST(?:ING)?|SURVEY|SURV)(?:[_\-\s]|$)|^EXI/.test(u)) return false;
-  return /ROAD_EDGE|ROAD_LANE(?![01])/.test(u)
-    || /(?:^|[_\-\s])(?:EDGE|EOP|KERB|CURB|LANE)(?:[_\-\s]|$)/.test(u);
+const isExi = (l: string) =>
+  /(?:^|[_\-\s])(?:EXI|EXIST(?:ING)?|SURVEY|SURV)(?:[_\-\s]|$)|^EXI/i.test(l);
+const DEFAULT_EDGE_LAYER = (l: string): boolean => {
+  if (isExi(l)) return false;
+  const u = l.toUpperCase();
+  return /MAIN_ROAD_EDGE/.test(u)
+    || /(?:^|[_\-\s])(?:EDGE|EOP|KERB|CURB)(?:[_\-\s]|$)/.test(u);
+};
+const isLaneDividerLayer = (l: string): boolean => {
+  if (isExi(l)) return false;
+  const u = l.toUpperCase();
+  // The negative lookahead excludes the LANE0/LANE1 arrow-block layers.
+  return /MAIN_ROAD_LANE(?![01])/.test(u);
 };
 
 const dist = (a: Pt, b: Pt) => Math.hypot(a.x - b.x, a.y - b.y);
-const norm = (a: Pt, b: Pt): Pt => { const dx = b.x - a.x, dy = b.y - a.y; const L = Math.hypot(dx, dy) || 1; return { x: dx / L, y: dy / L }; };
-const polyLen = (p: Pt[]) => { let L = 0; for (let i = 1; i < p.length; i++) L += dist(p[i - 1], p[i]); return L; };
-const tangentAt = (r: Pt[], i: number) => { const a = r[Math.max(0, i - 1)], b = r[Math.min(r.length - 1, i + 1)]; const d = norm(a, b); return { tx: d.x, ty: d.y }; };
+const norm = (a: Pt, b: Pt): Pt => {
+  const dx = b.x - a.x, dy = b.y - a.y;
+  const L = Math.hypot(dx, dy) || 1;
+  return { x: dx / L, y: dy / L };
+};
+const polyLen = (p: Pt[]) => {
+  let L = 0;
+  for (let i = 1; i < p.length; i++) L += dist(p[i - 1], p[i]);
+  return L;
+};
 
 export function buildLaneNetwork(
   drawing: ParsedDrawing,
   opts: LaneNetworkOptions = {}
 ): LaneNetwork {
-  const isRail = opts.isRailLayer ?? DEFAULT_RAIL_LAYER;
-  // 1. Gather rail segments
-  const railSegs: [Pt, Pt][] = [];
+  const isEdge = opts.isRailLayer ?? DEFAULT_EDGE_LAYER;
+  const arrows: LaneArrow[] = drawing.laneArrows ?? [];
+
+  // ---- (1) Gather EDGE segments and chain into rails ----
+  const edgeSegs: [Pt, Pt][] = [];
   for (const seg of drawing.segments) {
-    if (!isRail(seg.groupId)) continue;
+    if (!isEdge(seg.groupId)) continue;
     const p = seg.points;
     for (let i = 2; i < p.length; i += 2) {
-      railSegs.push([{ x: p[i - 2], y: p[i - 1] }, { x: p[i], y: p[i + 1] }]);
+      edgeSegs.push([{ x: p[i - 2], y: p[i - 1] }, { x: p[i], y: p[i + 1] }]);
     }
   }
-  if (railSegs.length === 0) {
+  if (edgeSegs.length === 0) {
     return {
-      lanes: [], nodes: [], connectors: [],
+      links: [], nodes: [],
       bounds: { minX: 0, minY: 0, maxX: 0, maxY: 0 },
-      stats: { railCount: 0, laneKm: 0, directedPct: 0, junctionCount: 0, connectorCount: 0, clampedLaneCounts: 0 },
+      stats: { linkCount: 0, laneKm: 0, centerlineKm: 0, directedPct: 0, junctionCount: 0, oneWayCount: 0, twoWayCount: 0 },
     };
   }
 
-  // 2. Chain segments into continuous rails (collinear continuation + 4m gap bridging)
   const TOL = 0.3;
   const key = (p: Pt) => `${Math.round(p.x / TOL)},${Math.round(p.y / TOL)}`;
   const ptOf = new Map<string, Pt>();
   const inc = new Map<string, number[]>();
-  railSegs.forEach((s, i) => { for (const p of s) { const k = key(p); if (!ptOf.has(k)) ptOf.set(k, p); let a = inc.get(k); if (!a) inc.set(k, (a = [])); a.push(i); } });
-  const used = new Array(railSegs.length).fill(false);
-  const dirSeg = (i: number, fromK: string) => { const s = railSegs[i]; const aK = key(s[0]); const p0 = aK === fromK ? s[0] : s[1]; const p1 = aK === fromK ? s[1] : s[0]; const d = norm(p0, p1); return { dx: d.x, dy: d.y, nk: aK === fromK ? key(s[1]) : key(s[0]), np: p1 }; };
+  edgeSegs.forEach((s, i) => {
+    for (const p of s) {
+      const k = key(p);
+      if (!ptOf.has(k)) ptOf.set(k, p);
+      let a = inc.get(k);
+      if (!a) inc.set(k, (a = []));
+      a.push(i);
+    }
+  });
+  const used = new Array(edgeSegs.length).fill(false);
+  const dirSeg = (i: number, fromK: string) => {
+    const s = edgeSegs[i];
+    const aK = key(s[0]);
+    const p0 = aK === fromK ? s[0] : s[1];
+    const p1 = aK === fromK ? s[1] : s[0];
+    const d = norm(p0, p1);
+    return { dx: d.x, dy: d.y, nk: aK === fromK ? key(s[1]) : key(s[0]), np: p1 };
+  };
   const EG = 2;
   const egk = (x: number, y: number) => `${Math.floor(x / EG)},${Math.floor(y / EG)}`;
   const endGrid = new Map<string, string[]>();
-  for (const [k, p] of ptOf) { const g = egk(p.x, p.y); let a = endGrid.get(g); if (!a) endGrid.set(g, (a = [])); a.push(k); }
-  const bridge = (fromK: string, dx: number, dy: number, maxD = 4.0): string | null => {
-    const p = ptOf.get(fromK)!; let best: string | null = null; let bd = maxD;
+  for (const [k, p] of ptOf) {
+    const g = egk(p.x, p.y);
+    let a = endGrid.get(g);
+    if (!a) endGrid.set(g, (a = []));
+    a.push(k);
+  }
+  const bridgeGap = (fromK: string, dx: number, dy: number, maxD = 4.0): string | null => {
+    const p = ptOf.get(fromK)!;
+    let best: string | null = null;
+    let bd = maxD;
     const gx = Math.floor(p.x / EG), gy = Math.floor(p.y / EG);
     const span = Math.ceil(maxD / EG);
-    for (let ix = -span; ix <= span; ix++) for (let iy = -span; iy <= span; iy++)
-      for (const k of endGrid.get(`${gx + ix},${gy + iy}`) ?? []) {
-        if (k === fromK) continue;
-        const q = ptOf.get(k)!; const vx = q.x - p.x, vy = q.y - p.y; const d = Math.hypot(vx, vy);
-        if (d < 0.05 || d > bd) continue;
-        if ((vx / d) * dx + (vy / d) * dy < 0.85) continue;
-        if ((inc.get(k) ?? []).some(j => !used[j])) { bd = d; best = k; }
-      }
+    for (let ix = -span; ix <= span; ix++)
+      for (let iy = -span; iy <= span; iy++)
+        for (const k of endGrid.get(`${gx + ix},${gy + iy}`) ?? []) {
+          if (k === fromK) continue;
+          const q = ptOf.get(k)!;
+          const vx = q.x - p.x, vy = q.y - p.y;
+          const d = Math.hypot(vx, vy);
+          if (d < 0.05 || d > bd) continue;
+          if ((vx / d) * dx + (vy / d) * dy < 0.85) continue;
+          if ((inc.get(k) ?? []).some(j => !used[j])) { bd = d; best = k; }
+        }
     return best;
   };
-  const chained: Pt[][] = [];
-  for (let i = 0; i < railSegs.length; i++) {
-    if (used[i]) continue; used[i] = true;
-    let chain: Pt[] = [railSegs[i][0], railSegs[i][1]];
+  const rails: Pt[][] = [];
+  for (let i = 0; i < edgeSegs.length; i++) {
+    if (used[i]) continue;
+    used[i] = true;
+    let chain: Pt[] = [edgeSegs[i][0], edgeSegs[i][1]];
     for (let d = 0; d < 2; d++) {
-      let endK = key(chain[chain.length - 1]); let cur = dirSeg(i, key(chain[chain.length - 2]));
+      let endK = key(chain[chain.length - 1]);
+      let cur = dirSeg(i, key(chain[chain.length - 2]));
       let guard = 0;
       while (guard++ < 100000) {
         const cands = (inc.get(endK) ?? []).filter(j => !used[j]);
-        let pick = -1; let pickDir: ReturnType<typeof dirSeg> | null = null;
-        if (cands.length > 0) { let bestDot = 0.5; for (const j of cands) { const dd = dirSeg(j, endK); const dot = dd.dx * cur.dx + dd.dy * cur.dy; if (dot > bestDot) { bestDot = dot; pick = j; pickDir = dd; } } }
-        if (pick < 0) { const bk = bridge(endK, cur.dx, cur.dy, 4.0); if (bk) { const j = (inc.get(bk) ?? []).find(x => !used[x]); if (j != null) { chain.push(ptOf.get(bk)!); used[j] = true; const dd = dirSeg(j, bk); chain.push(dd.np); endK = dd.nk; cur = dd; continue; } } break; }
-        used[pick] = true; chain.push(pickDir!.np); endK = pickDir!.nk; cur = pickDir!;
+        let pick = -1;
+        let pickDir: ReturnType<typeof dirSeg> | null = null;
+        if (cands.length > 0) {
+          let bestDot = 0.5;
+          for (const j of cands) {
+            const dd = dirSeg(j, endK);
+            const dot = dd.dx * cur.dx + dd.dy * cur.dy;
+            if (dot > bestDot) { bestDot = dot; pick = j; pickDir = dd; }
+          }
+        }
+        if (pick < 0) {
+          const bk = bridgeGap(endK, cur.dx, cur.dy, 4.0);
+          if (bk) {
+            const j = (inc.get(bk) ?? []).find(x => !used[x]);
+            if (j != null) {
+              chain.push(ptOf.get(bk)!);
+              used[j] = true;
+              const dd = dirSeg(j, bk);
+              chain.push(dd.np);
+              endK = dd.nk;
+              cur = dd;
+              continue;
+            }
+          }
+          break;
+        }
+        used[pick] = true;
+        chain.push(pickDir!.np);
+        endK = pickDir!.nk;
+        cur = pickDir!;
       }
       chain.reverse();
     }
-    chained.push(chain);
+    if (polyLen(chain) >= 8) rails.push(chain);
   }
-  const longRails = chained.filter(c => polyLen(c) >= 4);
 
-  // 3. Sample rails densely (0.5m) and index in a spatial grid
-  type Sample = { x: number; y: number; tx: number; ty: number; ri: number };
-  const samples: Sample[] = [];
-  const resampleRail = (r: Pt[], ri: number, step = 0.5) => {
-    if (r.length < 2) return;
-    let acc = 0; let prev = r[0]; samples.push({ x: prev.x, y: prev.y, ...tangentAt(r, 0), ri });
+  // ---- (2) Resample rails at 1 m ----
+  type RailSample = { x: number; y: number; tx: number; ty: number };
+  const resampleRail = (r: Pt[]): RailSample[] => {
+    if (r.length < 2) return [];
+    const out: RailSample[] = [];
+    const tan = (i: number): Pt => norm(r[Math.max(0, i - 1)], r[Math.min(r.length - 1, i + 1)]);
+    let acc = 0;
+    let prev = r[0];
+    const t0 = tan(0);
+    out.push({ x: prev.x, y: prev.y, tx: t0.x, ty: t0.y });
     for (let i = 1; i < r.length; i++) {
-      let a = prev, b = r[i]; let d = dist(a, b);
-      while (acc + d >= step) {
-        const t = (step - acc) / d;
-        const p = { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t };
-        const tng = tangentAt(r, i);
-        samples.push({ x: p.x, y: p.y, tx: tng.tx, ty: tng.ty, ri });
-        a = p; d = dist(a, b); acc = 0;
+      let a = prev;
+      const b = r[i];
+      let d = dist(a, b);
+      const tt = tan(i);
+      while (acc + d >= 1) {
+        const u = (1 - acc) / d;
+        const p = { x: a.x + (b.x - a.x) * u, y: a.y + (b.y - a.y) * u };
+        out.push({ x: p.x, y: p.y, tx: tt.x, ty: tt.y });
+        a = p;
+        d = dist(a, b);
+        acc = 0;
       }
-      acc += d; prev = r[i];
+      acc += d;
+      prev = b;
     }
+    return out;
   };
-  longRails.forEach((r, ri) => resampleRail(r, ri, 0.5));
+  const railSamples = rails.map(resampleRail);
 
-  const SCELL = 4;
-  const sck = (x: number, y: number) => `${Math.floor(x / SCELL)},${Math.floor(y / SCELL)}`;
-  const sGrid = new Map<string, number[]>();
-  samples.forEach((s, i) => { const k = sck(s.x, s.y); let a = sGrid.get(k); if (!a) sGrid.set(k, (a = [])); a.push(i); });
-  const sNear = (x: number, y: number) => { const out: number[] = []; const gx = Math.floor(x / SCELL), gy = Math.floor(y / SCELL); for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) { const a = sGrid.get(`${gx + dx},${gy + dy}`); if (a) for (const i of a) out.push(i); } return out; };
-
-  const PAR_THRESH = 0.6;
-  type RailHit = { x: number; y: number; tx: number; ty: number; dist: number; perp: number; ri: number };
-  const nearestRails = (p: Pt, hx: number, hy: number, maxPerp = 6) => {
-    const nx = -hy, ny = hx;
-    const perRail = new Map<number, { dist: number; perp: number; s: Sample }>();
-    for (const si of sNear(p.x, p.y)) {
-      const s = samples[si];
-      if (Math.abs(s.tx * hx + s.ty * hy) < PAR_THRESH) continue;
-      const vx = s.x - p.x, vy = s.y - p.y;
-      const d = Math.hypot(vx, vy); if (d > maxPerp) continue;
-      const along = Math.abs(vx * hx + vy * hy);
-      if (along > 1.5) continue;
-      const perp = vx * nx + vy * ny;
-      const prev = perRail.get(s.ri);
-      if (!prev || d < prev.dist) perRail.set(s.ri, { dist: d, perp, s });
-    }
-    let bestL: RailHit | null = null;
-    let bestR: RailHit | null = null;
-    for (const { dist: d, perp, s } of perRail.values()) {
-      const cand: RailHit = { x: s.x, y: s.y, tx: s.tx, ty: s.ty, dist: d, perp, ri: s.ri };
-      if (perp > 0) { if (!bestL || d < bestL.dist) bestL = cand; }
-      else { if (!bestR || d < bestR.dist) bestR = cand; }
-    }
-    return { left: bestL, right: bestR };
+  const SCELL = 5;
+  const sk = (x: number, y: number) => `${Math.floor(x / SCELL)},${Math.floor(y / SCELL)}`;
+  const sGrid = new Map<string, { ri: number; i: number }[]>();
+  railSamples.forEach((rs, ri) =>
+    rs.forEach((p, i) => {
+      const k = sk(p.x, p.y);
+      let a = sGrid.get(k);
+      if (!a) sGrid.set(k, (a = []));
+      a.push({ ri, i });
+    })
+  );
+  const sNear = (x: number, y: number, r = 12) => {
+    const out: { ri: number; i: number }[] = [];
+    const span = Math.ceil(r / SCELL);
+    const gx = Math.floor(x / SCELL), gy = Math.floor(y / SCELL);
+    for (let dx = -span; dx <= span; dx++)
+      for (let dy = -span; dy <= span; dy++) {
+        const a = sGrid.get(`${gx + dx},${gy + dy}`);
+        if (a) for (const e of a) out.push(e);
+      }
+    return out;
   };
 
-  // Lane center given left/right rails. If only one, assume 3.5m standard lane.
-  const laneCenter = (p: Pt, hx: number, hy: number, nr: ReturnType<typeof nearestRails>) => {
-    const STD_HALF = 1.75; const nx = -hy, ny = hx;
-    if (nr.left && nr.right) { const w = nr.left.dist + nr.right.dist; if (w < 2.0 || w > 7.5) return null; return { x: (nr.left.x + nr.right.x) / 2, y: (nr.left.y + nr.right.y) / 2 }; }
-    if (nr.left) return { x: nr.left.x - nx * STD_HALF, y: nr.left.y - ny * STD_HALF };
-    if (nr.right) return { x: nr.right.x + nx * STD_HALF, y: nr.right.y + ny * STD_HALF };
-    return null;
-  };
+  // ---- (3) Pair stations with the nearest parallel rail on each side ----
+  type Strip = { riA: number; riB: number; mids: Pt[]; widths: number[]; tangents: Pt[] };
+  const strips: Strip[] = [];
 
-  const traceFrom = (sx: number, sy: number, dx: number, dy: number): Pt[] => {
-    const STEP = 1.0;
-    const seed = nearestRails({ x: sx, y: sy }, dx, dy, 5);
-    const c0 = laneCenter({ x: sx, y: sy }, dx, dy, seed);
-    if (!c0) return [];
-    const trace: Pt[] = [{ x: c0.x, y: c0.y }];
-    for (const sign of [+1, -1]) {
-      let hx = dx * sign, hy = dy * sign;
-      let pos: Pt = { x: c0.x, y: c0.y };
-      for (let step = 0; step < 1000; step++) {
-        const next = { x: pos.x + hx * STEP, y: pos.y + hy * STEP };
-        const nr = nearestRails(next, hx, hy, 5);
-        const ctr = laneCenter(next, hx, hy, nr);
-        if (!ctr) break;
-        let nhx = hx, nhy = hy;
-        if (nr.left && nr.right) { let lx = nr.left.tx, ly = nr.left.ty; if (lx * hx + ly * hy < 0) { lx = -lx; ly = -ly; } let rx = nr.right.tx, ry = nr.right.ty; if (rx * hx + ry * hy < 0) { rx = -rx; ry = -ry; } const ssx = lx + rx, ssy = ly + ry; const m = Math.hypot(ssx, ssy) || 1; nhx = ssx / m; nhy = ssy / m; }
-        else if (nr.left || nr.right) { const s = (nr.left || nr.right)!; let lx = s.tx, ly = s.ty; if (lx * hx + ly * hy < 0) { lx = -lx; ly = -ly; } nhx = lx; nhy = ly; }
-        if (nhx * hx + nhy * hy < 0.85) break;
-        const dxm = ctr.x - pos.x, dym = ctr.y - pos.y;
-        if (dxm * nhx + dym * nhy < STEP * 0.3) break;
-        if (sign > 0) trace.push({ x: ctr.x, y: ctr.y }); else trace.unshift({ x: ctr.x, y: ctr.y });
-        pos = { x: ctr.x, y: ctr.y }; hx = nhx; hy = nhy;
+  for (let ri = 0; ri < railSamples.length; ri++) {
+    const rs = railSamples[ri];
+    const runs: (Strip | null)[] = [null, null];
+    const runLastIdx = [-10, -10];
+    const flush = (s: number) => {
+      const r = runs[s];
+      if (r && r.mids.length >= 8) strips.push(r);
+      runs[s] = null;
+    };
+    for (let i = 0; i < rs.length; i++) {
+      const A = rs[i];
+      const nx = -A.ty, ny = A.tx;
+      for (let sideIdx = 0; sideIdx < 2; sideIdx++) {
+        const side = sideIdx === 0 ? 1 : -1;
+        let bestRi = -1, bestPerp = 0, bestD = Infinity, bx = 0, by = 0;
+        for (const cand of sNear(A.x + nx * side * 7, A.y + ny * side * 7, 12)) {
+          if (cand.ri === ri) continue;
+          const B = railSamples[cand.ri][cand.i];
+          if (Math.abs(A.tx * B.tx + A.ty * B.ty) < 0.7) continue;
+          const vx = B.x - A.x, vy = B.y - A.y;
+          const along = vx * A.tx + vy * A.ty;
+          const perp = vx * nx + vy * ny;
+          if (Math.abs(along) > 2.5) continue;
+          if (perp * side < 0) continue;
+          const ap = Math.abs(perp);
+          if (ap < 2.5 || ap > 15) continue;
+          const d = Math.hypot(vx, vy);
+          if (d < bestD) { bestD = d; bestRi = cand.ri; bestPerp = ap; bx = B.x; by = B.y; }
+        }
+        if (bestRi < 0) {
+          if (i - runLastIdx[sideIdx] > 3) flush(sideIdx);
+          continue;
+        }
+        const cur = runs[sideIdx];
+        const mid = { x: (A.x + bx) / 2, y: (A.y + by) / 2 };
+        if (!cur || cur.riB !== bestRi || i - runLastIdx[sideIdx] > 3) {
+          flush(sideIdx);
+          runs[sideIdx] = { riA: ri, riB: bestRi, mids: [mid], widths: [bestPerp], tangents: [{ x: A.tx, y: A.ty }] };
+        } else {
+          cur.mids.push(mid);
+          cur.widths.push(bestPerp);
+          cur.tangents.push({ x: A.tx, y: A.ty });
+        }
+        runLastIdx[sideIdx] = i;
       }
     }
-    return trace;
-  };
-
-  // 4a. Arrow-led primary pass
-  const arrows: LaneArrow[] = drawing.laneArrows ?? [];
-  const primary: Pt[][] = [];
-  for (const a of arrows) {
-    const tr = traceFrom(a.x, a.y, a.dx, a.dy);
-    if (tr.length >= 4) primary.push(tr);
+    flush(0);
+    flush(1);
   }
 
-  // Dedupe (greedy length-descending; trace B dropped if >50% of B within 1.5m
-  // of some already-kept trace A). One global grid mapping cells → kept-trace
-  // IDs and their points, so per-trace cost is O(|T| · neighbours-per-cell),
-  // not O(|T| · all-kept-traces).
-  const dedupe = (traces: Pt[][], thresh = 0.5): Pt[][] => {
-    const G = 3;
-    const grid = new Map<string, { kt: number; p: Pt }[]>(); // cell → kept points
-    const cell = (x: number, y: number) => `${Math.floor(x / G)},${Math.floor(y / G)}`;
-    const order = traces.map((_, i) => i).sort((a, b) => polyLen(traces[b]) - polyLen(traces[a]));
-    const dup = new Set<number>();
-    for (const ti of order) {
-      if (dup.has(ti)) continue;
-      const T = traces[ti];
-      // Count hits against already-kept traces, indexed by kept-trace-id.
-      const hitsByKt = new Map<number, number>();
-      const seenPoint = new Set<string>(); // dedupe within T (one hit per T-point)
-      for (let pi = 0; pi < T.length; pi++) {
-        const q = T[pi];
-        const gx = Math.floor(q.x / G), gy = Math.floor(q.y / G);
-        const matched = new Set<number>(); // distinct kt this point hit
-        for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) {
-          const arr = grid.get(`${gx + dx},${gy + dy}`);
-          if (!arr) continue;
-          for (const e of arr) {
-            if (matched.has(e.kt)) continue;
-            if (Math.hypot(e.p.x - q.x, e.p.y - q.y) < 1.5) matched.add(e.kt);
-          }
-        }
-        for (const kt of matched) hitsByKt.set(kt, (hitsByKt.get(kt) ?? 0) + 1);
-        seenPoint.add(`${pi}`);
-      }
-      // Is any single kept trace covering > thresh of T?
-      let isDup = false;
-      for (const h of hitsByKt.values()) {
-        if (h / T.length > thresh) { isDup = true; break; }
-      }
-      if (isDup) { dup.add(ti); continue; }
-      // Otherwise, add T to the global grid as a new kept trace (ti is its kt).
-      for (const p of T) {
-        const k = cell(p.x, p.y);
-        let arr = grid.get(k); if (!arr) grid.set(k, (arr = []));
-        arr.push({ kt: ti, p });
-      }
-    }
-    return order.filter(i => !dup.has(i)).map(i => traces[i]);
-  };
-  const primaryLanes = dedupe(primary, 0.5);
+  // ---- (4) Dedupe (A,B)/(B,A): keep the longest strip per unordered pair ----
+  const byPair = new Map<string, Strip>();
+  for (const s of strips) {
+    const k = `${Math.min(s.riA, s.riB)}_${Math.max(s.riA, s.riB)}`;
+    const prev = byPair.get(k);
+    if (!prev || s.mids.length > prev.mids.length) byPair.set(k, s);
+  }
+  const uniqStrips = [...byPair.values()];
 
-  // 4b. Coverage map
-  const COV_CELL = 1.5;
-  const covKey = (x: number, y: number) => `${Math.floor(x / COV_CELL)},${Math.floor(y / COV_CELL)}`;
-  const cov = new Set<string>();
-  for (const tr of primaryLanes) for (const p of tr) cov.add(covKey(p.x, p.y));
-  const coveredAt = (x: number, y: number): boolean => {
-    const gx = Math.floor(x / COV_CELL), gy = Math.floor(y / COV_CELL);
-    for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++)
-      if (cov.has(`${gx + dx},${gy + dy}`)) return true;
-    return false;
-  };
-
-  // 4c. Supplementary pass: walk each rail at 5m, find nearest parallel rail
-  // 2.5-7m away, seed a trace at their midpoint if uncovered.
-  const supplementary: Pt[][] = [];
-  for (const r of longRails) {
-    if (polyLen(r) < 15) continue;
-    let acc = 0; let prev = r[0];
-    for (let i = 1; i < r.length; i++) {
-      let a = prev, b = r[i]; let d = dist(a, b);
-      while (acc + d >= 5) {
-        const t = (5 - acc) / d;
-        const p = { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t };
-        const tn = tangentAt(r, i);
-        for (const sign of [+1, -1]) {
-          const hx = tn.tx * sign, hy = tn.ty * sign;
-          const nr = nearestRails(p, hx, hy, 7.0);
-          const otherRail = nr.left && nr.right
-            ? (nr.left.dist > nr.right.dist ? nr.left : nr.right)
-            : (nr.left ?? nr.right);
-          if (!otherRail || otherRail.dist < 2.5 || otherRail.dist > 7.0) continue;
-          const midpt = { x: (p.x + otherRail.x) / 2, y: (p.y + otherRail.y) / 2 };
-          if (coveredAt(midpt.x, midpt.y)) continue;
-          const tr = traceFrom(midpt.x, midpt.y, hx, hy);
-          if (tr.length >= 6 && polyLen(tr) >= 10) {
-            supplementary.push(tr);
-            for (const q of tr) cov.add(covKey(q.x, q.y));
-          }
-        }
-        a = p; d = dist(a, b); acc = 0;
+  // ---- Index arrows + lane-divider sample points ----
+  const arrowGrid = new Map<string, number[]>();
+  arrows.forEach((a, i) => {
+    const k = sk(a.x, a.y);
+    let arr = arrowGrid.get(k);
+    if (!arr) arrowGrid.set(k, (arr = []));
+    arr.push(i);
+  });
+  const laneSamps: { x: number; y: number; tx: number; ty: number }[] = [];
+  for (const seg of drawing.segments) {
+    if (!isLaneDividerLayer(seg.groupId)) continue;
+    const p = seg.points;
+    let acc = 0;
+    let prev = { x: p[0], y: p[1] };
+    for (let i = 2; i < p.length; i += 2) {
+      let a = prev;
+      const b = { x: p[i], y: p[i + 1] };
+      let d = dist(a, b);
+      const t = norm(prev, b);
+      while (acc + d >= 1) {
+        const u = (1 - acc) / d;
+        const pt = { x: a.x + (b.x - a.x) * u, y: a.y + (b.y - a.y) * u };
+        laneSamps.push({ x: pt.x, y: pt.y, tx: t.x, ty: t.y });
+        a = pt;
+        d = dist(a, b);
+        acc = 0;
       }
-      acc += d; prev = r[i];
+      acc += d;
+      prev = b;
     }
   }
-  const supLanes = dedupe(supplementary, 0.5);
+  const laneGrid = new Map<string, number[]>();
+  laneSamps.forEach((l, i) => {
+    const k = sk(l.x, l.y);
+    let arr = laneGrid.get(k);
+    if (!arr) laneGrid.set(k, (arr = []));
+    arr.push(i);
+  });
 
-  // 5. Materialise lanes + per-lane lane count
-  type LaneWithMeta = { trace: Pt[]; directed: boolean };
-  const lanePolys: LaneWithMeta[] = [
-    ...primaryLanes.map(t => ({ trace: t, directed: true })),
-    ...supLanes.map(t => ({ trace: t, directed: false })),
-  ];
-
-  // Lane count: contiguous band of same-direction parallel neighbours at link
-  // midpoint, clamped to MAX_LANES. (Direction-split: heading dot > 0.95.)
-  const LGRID = 8;
-  const lgk = (x: number, y: number) => `${Math.floor(x / LGRID)},${Math.floor(y / LGRID)}`;
-  const lgrid = new Map<string, { li: number; p: Pt }[]>();
-  lanePolys.forEach((l, li) => l.trace.forEach(p => { const k = lgk(p.x, p.y); let a = lgrid.get(k); if (!a) lgrid.set(k, (a = [])); a.push({ li, p }); }));
-  const lnear = (x: number, y: number) => { const out: { li: number; p: Pt }[] = []; const gx = Math.floor(x / LGRID), gy = Math.floor(y / LGRID); for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) for (const z of lgrid.get(`${gx + dx},${gy + dy}`) ?? []) out.push(z); return out; };
-  const headingAt = (li: number) => tangentAt(lanePolys[li].trace, Math.floor(lanePolys[li].trace.length / 2));
-
-  const MAX_LANES = 5;
-  const GAP = 5;
-  const laneCountOf = (li: number): { count: number; clamped: boolean } => {
-    const l = lanePolys[li].trace;
-    const mi = Math.floor(l.length / 2);
-    const p = l[mi]; const t = tangentAt(l, mi);
-    const nx = -t.ty, ny = t.tx;
-    const byLane = new Map<number, number>();
-    for (const o of lnear(p.x, p.y)) {
-      if (o.li === li) continue;
-      const vx = o.p.x - p.x, vy = o.p.y - p.y;
-      const along = Math.abs(vx * t.tx + vy * t.ty);
-      if (along >= 2.5) continue;
-      const perp = vx * nx + vy * ny;
-      if (Math.abs(perp) > 18) continue;
-      const oh = headingAt(o.li);
-      if (oh.tx * t.tx + oh.ty * t.ty < 0.95) continue;
-      const prev = byLane.get(o.li);
-      if (prev === undefined || Math.abs(perp) < Math.abs(prev)) byLane.set(o.li, perp);
+  // ---- (5) Classify strips into Links ----
+  const smooth = (t: Pt[]): Pt[] => {
+    if (t.length < 5) return t;
+    const sm: Pt[] = [t[0]];
+    for (let i = 1; i < t.length - 1; i++) {
+      let sx = 0, sy = 0, n = 0;
+      for (let k = Math.max(0, i - 2); k <= Math.min(t.length - 1, i + 2); k++) {
+        sx += t[k].x;
+        sy += t[k].y;
+        n++;
+      }
+      sm.push({ x: sx / n, y: sy / n });
     }
-    const offsets = [0, ...byLane.values()].sort((a, b) => a - b);
-    const zero = offsets.indexOf(0);
-    let count = 1;
-    for (let i = zero - 1; i >= 0; i--) { if (offsets[i + 1] - offsets[i] > GAP) break; count++; }
-    for (let i = zero + 1; i < offsets.length; i++) { if (offsets[i] - offsets[i - 1] > GAP) break; count++; }
-    return { count: Math.min(count, MAX_LANES), clamped: count > MAX_LANES };
+    sm.push(t[t.length - 1]);
+    return sm;
   };
 
-  // 6. Build graph nodes (cluster lane endpoints) + wire lane→node references
-  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-  let laneKm = 0, directedCount = 0, clampedCount = 0;
-  // Lane-traces stop at the JUNCTION ENTRY (when rails diverge or heading
-  // turns > 32°); a typical urban junction is 15-30m across, so each approach
-  // lane terminates that far from the junction centre. To cluster ALL approach
-  // lane-endpoints at one junction into a single node, snap by ~half the
-  // junction diameter.
-  const NODE_SNAP = 30;
+  type RawLink = {
+    mids: Pt[];
+    width: number;
+    numLanes: number;
+    oneWay: boolean;
+    arrowCount: number;
+    dividerCount: number;
+  };
+  const rawLinks: RawLink[] = [];
+
+  for (const st of uniqStrips) {
+    const halfW = st.widths.reduce((a, b) => a + b, 0) / st.widths.length / 2;
+    let fwd = 0, bwd = 0, arrowCount = 0;
+    const divPositions = new Set<number>();
+    for (let i = 0; i < st.mids.length; i++) {
+      const m = st.mids[i], t = st.tangents[i];
+      const nx = -t.y, ny = t.x;
+      for (const ai of arrowGrid.get(sk(m.x, m.y)) ?? []) {
+        const a = arrows[ai];
+        const vx = a.x - m.x, vy = a.y - m.y;
+        const along = vx * t.x + vy * t.y;
+        const perp = vx * nx + vy * ny;
+        if (Math.abs(along) < 1.5 && Math.abs(perp) < halfW - 0.3) {
+          arrowCount++;
+          const dot = a.dx * t.x + a.dy * t.y;
+          if (dot > 0.3) fwd++;
+          else if (dot < -0.3) bwd++;
+        }
+      }
+      for (const li of laneGrid.get(sk(m.x, m.y)) ?? []) {
+        const lp = laneSamps[li];
+        const vx = lp.x - m.x, vy = lp.y - m.y;
+        const along = vx * t.x + vy * t.y;
+        const perp = vx * nx + vy * ny;
+        if (Math.abs(along) < 0.5 && Math.abs(perp) < halfW - 0.5) {
+          if (Math.abs(lp.tx * t.x + lp.ty * t.y) > 0.8) divPositions.add(Math.round(perp / 2));
+        }
+      }
+    }
+    const width = halfW * 2;
+    const dividerCount = divPositions.size;
+    // Median / verge: no travel evidence and too narrow for a lane.
+    if (arrowCount === 0 && dividerCount === 0 && width < 3.5) continue;
+    const widthLanes = Math.max(1, Math.round(width / LANE_WIDTH));
+    const numLanes = dividerCount > 0
+      ? Math.min(Math.max(widthLanes, 1), dividerCount + 1)
+      : Math.min(6, widthLanes);
+    const oneWay = arrowCount > 0 && (fwd === 0 || bwd === 0);
+    let mids = smooth(st.mids);
+    if (oneWay && bwd > fwd) mids = mids.slice().reverse();
+    rawLinks.push({ mids, width, numLanes, oneWay, arrowCount, dividerCount });
+  }
+
+  // ---- (5b) Split links at T-junctions ----
+  // A minor road's strip ENDS at the major road's kerb line, but the major
+  // road's strip passes THROUGH the junction — so the minor link's endpoint
+  // lands mid-polyline on the major link. Without a node there the graph is
+  // disconnected at every T-junction. Fix: wherever another link's endpoint
+  // falls within JOIN_TOL of a link's interior, split that link.
+  {
+    const JOIN_TOL = 25;     // endpoint-to-interior attach distance
+    const END_EXCLUDE = 15;  // don't split within this of a link's own ends
+    // collect all endpoints
+    const endpoints: Pt[] = [];
+    for (const rl of rawLinks) {
+      if (rl.mids.length < 2) continue;
+      endpoints.push(rl.mids[0], rl.mids[rl.mids.length - 1]);
+    }
+    const epGrid = new Map<string, Pt[]>();
+    const epk = (x: number, y: number) => `${Math.floor(x / JOIN_TOL)},${Math.floor(y / JOIN_TOL)}`;
+    for (const e of endpoints) {
+      const k = epk(e.x, e.y);
+      let a = epGrid.get(k);
+      if (!a) epGrid.set(k, (a = []));
+      a.push(e);
+    }
+    const splitLinks: RawLink[] = [];
+    for (const rl of rawLinks) {
+      const m = rl.mids;
+      if (m.length < 6) { splitLinks.push(rl); continue; }
+      // arc length per vertex
+      const arc: number[] = [0];
+      for (let i = 1; i < m.length; i++) arc.push(arc[i - 1] + dist(m[i - 1], m[i]));
+      const total = arc[arc.length - 1];
+      // find split stations: vertices near a foreign endpoint
+      const splitIdx: number[] = [];
+      for (let i = 0; i < m.length; i++) {
+        if (arc[i] < END_EXCLUDE || total - arc[i] < END_EXCLUDE) continue;
+        const gx = Math.floor(m[i].x / JOIN_TOL), gy = Math.floor(m[i].y / JOIN_TOL);
+        let near = false;
+        for (let dx = -1; dx <= 1 && !near; dx++)
+          for (let dy = -1; dy <= 1 && !near; dy++)
+            for (const e of epGrid.get(`${gx + dx},${gy + dy}`) ?? []) {
+              // skip own endpoints
+              if ((e === m[0]) || (e === m[m.length - 1])) continue;
+              if (dist(e, m[i]) < JOIN_TOL) { near = true; break; }
+            }
+        if (near) splitIdx.push(i);
+      }
+      if (splitIdx.length === 0) { splitLinks.push(rl); continue; }
+      // collapse runs of consecutive near-vertices to their midpoint index,
+      // and enforce ≥15 m between splits
+      const chosen: number[] = [];
+      let runStart = splitIdx[0], prevI = splitIdx[0];
+      const flushRun = (endI: number) => {
+        const mid = Math.round((runStart + endI) / 2);
+        if (chosen.length === 0 || arc[mid] - arc[chosen[chosen.length - 1]] > 15) chosen.push(mid);
+      };
+      for (let k = 1; k < splitIdx.length; k++) {
+        if (splitIdx[k] - prevI > 3) { flushRun(prevI); runStart = splitIdx[k]; }
+        prevI = splitIdx[k];
+      }
+      flushRun(prevI);
+      // split mids at chosen indices
+      let start = 0;
+      for (const ci of chosen) {
+        const part = m.slice(start, ci + 1);
+        if (part.length >= 2 && polyLen(part) >= 8) {
+          splitLinks.push({ ...rl, mids: part });
+        }
+        start = ci;
+      }
+      const tail = m.slice(start);
+      if (tail.length >= 2 && polyLen(tail) >= 8) splitLinks.push({ ...rl, mids: tail });
+    }
+    rawLinks.length = 0;
+    rawLinks.push(...splitLinks);
+  }
+
+  // ---- (6) Nodes from endpoint clustering + graph wiring ----
+  // Junction node formation must SINGLE-LINKAGE cluster the link endpoints:
+  // a 4-arm junction's eight approach-mouth endpoints spread over 40-60 m,
+  // farther apart pairwise than any sane snap radius — but they chain
+  // (each mouth is within ~35 m of the next around the box). Union-find over
+  // endpoint pairs within NODE_SNAP gives one node per junction box.
+  const NODE_SNAP = 15;
+  const validLinks = rawLinks.filter(rl => rl.mids.length >= 2 && polyLen(rl.mids) >= 8);
+  type EndRef = { li: number; end: 0 | 1; p: Pt };
+  const endRefs: EndRef[] = [];
+  validLinks.forEach((rl, li) => {
+    endRefs.push({ li, end: 0, p: rl.mids[0] });
+    endRefs.push({ li, end: 1, p: rl.mids[rl.mids.length - 1] });
+  });
+  const parent = endRefs.map((_, i) => i);
+  const find = (a: number): number => {
+    while (parent[a] !== a) { parent[a] = parent[parent[a]]; a = parent[a]; }
+    return a;
+  };
+  const union = (a: number, b: number) => {
+    const ra = find(a), rb = find(b);
+    if (ra !== rb) parent[ra] = rb;
+  };
+  {
+    const G = NODE_SNAP;
+    const grid = new Map<string, number[]>();
+    endRefs.forEach((e, i) => {
+      const k = `${Math.floor(e.p.x / G)},${Math.floor(e.p.y / G)}`;
+      let a = grid.get(k);
+      if (!a) grid.set(k, (a = []));
+      a.push(i);
+    });
+    for (let i = 0; i < endRefs.length; i++) {
+      const e = endRefs[i];
+      const gx = Math.floor(e.p.x / G), gy = Math.floor(e.p.y / G);
+      for (let dx = -1; dx <= 1; dx++)
+        for (let dy = -1; dy <= 1; dy++)
+          for (const j of grid.get(`${gx + dx},${gy + dy}`) ?? []) {
+            if (j <= i) continue;
+            if (dist(e.p, endRefs[j].p) <= NODE_SNAP) union(i, j);
+          }
+    }
+  }
+  // One node per cluster at the cluster centroid.
+  const clusterNode = new Map<number, number>();
   const nodes: LaneNode[] = [];
-  const nGrid = new Map<string, number[]>();
-  const ngk = (x: number, y: number) => `${Math.floor(x / NODE_SNAP)},${Math.floor(y / NODE_SNAP)}`;
-  const findOrAddNode = (x: number, y: number): number => {
-    const gx = Math.floor(x / NODE_SNAP), gy = Math.floor(y / NODE_SNAP);
-    let best = -1, bd = NODE_SNAP;
-    for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++)
-      for (const id of nGrid.get(`${gx + dx},${gy + dy}`) ?? []) {
-        const d = Math.hypot(nodes[id].x - x, nodes[id].y - y);
-        if (d < bd) { bd = d; best = id; }
-      }
-    if (best >= 0) return best;
-    const id = nodes.length;
-    nodes.push({ id, x, y, incoming: [], outgoing: [] });
-    const k = ngk(x, y);
-    let arr = nGrid.get(k); if (!arr) nGrid.set(k, (arr = []));
-    arr.push(id);
-    return id;
-  };
+  const nodeAccum: { sx: number; sy: number; n: number }[] = [];
+  for (let i = 0; i < endRefs.length; i++) {
+    const r = find(i);
+    let nid = clusterNode.get(r);
+    if (nid === undefined) {
+      nid = nodes.length;
+      clusterNode.set(r, nid);
+      nodes.push({ id: nid, x: 0, y: 0, links: [] });
+      nodeAccum.push({ sx: 0, sy: 0, n: 0 });
+    }
+    nodeAccum[nid].sx += endRefs[i].p.x;
+    nodeAccum[nid].sy += endRefs[i].p.y;
+    nodeAccum[nid].n++;
+  }
+  nodes.forEach((n, i) => {
+    n.x = nodeAccum[i].sx / nodeAccum[i].n;
+    n.y = nodeAccum[i].sy / nodeAccum[i].n;
+  });
 
-  const lanes: Lane[] = lanePolys.map((lm, li) => {
-    const t = lm.trace;
-    const lc = laneCountOf(li);
-    if (lc.clamped) clampedCount++;
-    if (lm.directed) directedCount++;
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  let laneKm = 0, centerlineKm = 0, directedCount = 0, oneWayCount = 0;
+  const links: Link[] = [];
+  validLinks.forEach((rl, vi) => {
+    const length = polyLen(rl.mids);
     const flat: number[] = [];
-    for (const q of t) {
+    for (const q of rl.mids) {
       flat.push(q.x, q.y);
       if (q.x < minX) minX = q.x;
       if (q.y < minY) minY = q.y;
       if (q.x > maxX) maxX = q.x;
       if (q.y > maxY) maxY = q.y;
     }
-    const length = polyLen(t);
-    laneKm += length / 1000;
-    const fromNode = findOrAddNode(t[0].x, t[0].y);
-    const toNode = findOrAddNode(t[t.length - 1].x, t[t.length - 1].y);
-    nodes[fromNode].outgoing.push(li);
-    nodes[toNode].incoming.push(li);
-    return { id: `lane${li}`, points: flat, laneCount: lc.count, length, directed: lm.directed, fromNode, toNode };
+    const fromNode = clusterNode.get(find(2 * vi))!;
+    const toNode = clusterNode.get(find(2 * vi + 1))!;
+    const li = links.length;
+    nodes[fromNode].links.push(li);
+    if (toNode !== fromNode) nodes[toNode].links.push(li);
+    laneKm += (length * rl.numLanes) / 1000;
+    centerlineKm += length / 1000;
+    if (rl.arrowCount > 0) directedCount++;
+    if (rl.oneWay) oneWayCount++;
+    links.push({
+      id: `link${li}`,
+      points: flat,
+      numLanes: rl.numLanes,
+      width: rl.width,
+      length,
+      oneWay: rl.oneWay,
+      arrowCount: rl.arrowCount,
+      dividerCount: rl.dividerCount,
+      fromNode,
+      toNode,
+    });
   });
-
   if (!isFinite(minX)) { minX = 0; minY = 0; maxX = 0; maxY = 0; }
 
-  // 7. Channelised, curved Bézier connectors
-  const connectors: Connector[] = [];
-  const turnOf = (deflDeg: number): Connector["turn"] => {
-    if (Math.abs(deflDeg) > 135) return "uturn";
-    if (deflDeg > 30) return "left";
-    if (deflDeg < -30) return "right";
-    return "through";
-  };
-  const bezier = (a: Pt, ad: Pt, b: Pt, bd: Pt): number[] => {
-    const h = dist(a, b) / 3;
-    const c1x = a.x + ad.x * h, c1y = a.y + ad.y * h;
-    const c2x = b.x - bd.x * h, c2y = b.y - bd.y * h;
-    const out: number[] = [];
-    const N = 8;
-    for (let i = 0; i <= N; i++) {
-      const u = i / N; const m = 1 - u;
-      out.push(
-        m * m * m * a.x + 3 * m * m * u * c1x + 3 * m * u * u * c2x + u * u * u * b.x,
-        m * m * m * a.y + 3 * m * m * u * c1y + 3 * m * u * u * c2y + u * u * u * b.y
-      );
-    }
-    return out;
-  };
-  let cid = 0;
-  for (const node of nodes) {
-    if (node.incoming.length === 0 || node.outgoing.length === 0) continue;
-    for (const inLi of node.incoming) {
-      const inPts = lanes[inLi].points;
-      const ihx = inPts[inPts.length - 2] - inPts[inPts.length - 4];
-      const ihy = inPts[inPts.length - 1] - inPts[inPts.length - 3];
-      const ihn = Math.hypot(ihx, ihy) || 1;
-      const ih = { x: ihx / ihn, y: ihy / ihn };
-      const cands: { li: number; turn: Connector["turn"]; defl: number; oh: Pt }[] = [];
-      for (const outLi of node.outgoing) {
-        if (outLi === inLi) continue;
-        const outPts = lanes[outLi].points;
-        const ohx = outPts[2] - outPts[0]; const ohy = outPts[3] - outPts[1];
-        const ohn = Math.hypot(ohx, ohy) || 1; const oh = { x: ohx / ohn, y: ohy / ohn };
-        const cross = ih.x * oh.y - ih.y * oh.x;
-        const dot = ih.x * oh.x + ih.y * oh.y;
-        const defl = (Math.atan2(cross, dot) * 180) / Math.PI;
-        if (Math.abs(defl) > 150) continue;
-        cands.push({ li: outLi, turn: turnOf(defl), defl, oh });
-      }
-      const chosen = cands.filter(c => c.turn === "through");
-      const left = cands.filter(c => c.turn === "left").sort((p, q) => p.defl - q.defl)[0];
-      const right = cands.filter(c => c.turn === "right").sort((p, q) => q.defl - p.defl)[0];
-      if (left) chosen.push(left);
-      if (right) chosen.push(right);
-      const a = { x: inPts[inPts.length - 2], y: inPts[inPts.length - 1] };
-      for (const c of chosen) {
-        const op = lanes[c.li].points;
-        const b = { x: op[0], y: op[1] };
-        connectors.push({ id: `c${cid++}`, fromLane: inLi, toLane: c.li, node: node.id, turn: c.turn, points: bezier(a, ih, b, c.oh) });
-      }
-    }
-  }
-
-  const junctionCount = nodes.filter(n => n.incoming.length + n.outgoing.length >= 3).length;
+  const junctionCount = nodes.filter(n => n.links.length >= 3).length;
 
   return {
-    lanes,
+    links,
     nodes,
-    connectors,
     bounds: { minX, minY, maxX, maxY },
     stats: {
-      railCount: longRails.length,
+      linkCount: links.length,
       laneKm,
-      directedPct: lanes.length ? (directedCount / lanes.length) * 100 : 0,
+      centerlineKm,
+      directedPct: links.length ? (directedCount / links.length) * 100 : 0,
       junctionCount,
-      connectorCount: connectors.length,
-      clampedLaneCounts: clampedCount,
+      oneWayCount,
+      twoWayCount: links.length - oneWayCount,
     },
   };
 }

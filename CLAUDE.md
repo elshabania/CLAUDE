@@ -26,16 +26,26 @@ means to that end, not the goal.
    congestion resolved and quantify the improvement (A/B scenarios).
 
 ## Current state (what's real)
-- Desktop app: Next.js (static export) in an Electron shell. Views: **Layers**,
-  **Highway** (junction/3D analysis views deactivated for now).
-- **Network extraction now produces a clean routable graph** (skeletonise the
-  morphologically-closed road footprint): ~213 links / 137 nodes / 80 junctions
-  on the sample plan, vs ~55k disconnected fragments before. Runs in a Web
-  Worker; hot pixel kernels are compiled C++ → WebAssembly (`native/geo.cpp`).
-- HCM capacity/delay/LOS math exists (`lib/hcm.ts`); per-link attribute editing
-  exists. Project save/load (.mhp). PDF parsed client-side (pdf.js).
-- **Not yet built:** demand model, assignment engine, mitigation/scenario tools.
-  This is the gap to the north-star and the priority.
+- Desktop app: Next.js (static export) in an Electron shell. Auto-loads the
+  bundled WSP masterplan DXF (`public/sample-masterplan.dxf.gz`).
+- **CAD ingestion** (`lib/dxf-flatten.ts` + `lib/road-detect.ts`): full block
+  expansion (INSERT transforms), arcs/solids/bulges, lane-direction arrow
+  markers (block local +Y axis = travel heading), robust IQR bounds.
+- **Carriageway network** (`lib/lane-network.ts`): EDGE rails are chained and
+  paired into carriageway strips (midline = link centerline); numLanes from
+  divider count + width; one-way/two-way from arrow consistency; medians
+  rejected (no arrows/dividers + narrow); T-junction splitting; single-linkage
+  endpoint nodes. WSP plan: ~1,226 links / 35.7 km / 85.4 lane-km / 326 junctions.
+- **TIS traffic engine** (`lib/assignment.ts`): deterministic MSA assignment
+  (Dijkstra + BPR) over the link graph with junction-crossing arcs; demand at
+  degree-1 gates; per-link volume, V/C, planning LOS (losVc). ~2 s per run.
+- **TIS UI** (app/page.tsx + CadViewer): demand slider, LOS-coloured links on
+  the 2D plan, failing-link count, click-a-link inspector with **Add/Remove
+  lane mitigation** -> instant re-solve + delta vs baseline (delay, failing).
+- HCM junction math exists (`lib/hcm.ts`). Project save/load (.mhp).
+- **Next:** calibrated trip generation (land-use based demand), junction
+  control modelling (signal/roundabout delay via hcm.ts), scenario save/compare,
+  engineer editing of network attributes (direction, lanes confirm).
 
 ## Hard product requirements (from the user)
 - **Everything is shown in 2D** — the network, congestion results, and the
