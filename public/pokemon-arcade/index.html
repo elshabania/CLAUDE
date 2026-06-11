@@ -15,7 +15,8 @@
       <div class="loader-card">
         <div class="flame-spinner"></div>
         <h1>CHARMANDER ARENA</h1>
-        <p>Forging the battlefield…</p>
+        <p id="loadMsg">Forging the battlefield…</p>
+        <pre id="loadErr"></pre>
       </div>
     </div>
 
@@ -80,14 +81,42 @@
     </div>
   </div>
 
-  <script type="importmap">
-  {
-    "imports": {
-      "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
-      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
-    }
-  }
+  <!-- Startup diagnostics: surface any failure on screen instead of an
+       endless "Forging the battlefield…". Runs before the deferred module. -->
+  <script>
+    (function () {
+      window.__charBooted = false;
+      function fail(title, detail) {
+        var msg = document.getElementById('loadMsg');
+        var err = document.getElementById('loadErr');
+        var sp = document.querySelector('.flame-spinner');
+        if (sp) sp.style.display = 'none';
+        if (msg) { msg.textContent = title; msg.style.color = '#ff7aa0'; }
+        if (err && detail) { err.textContent = detail; }
+      }
+      window.__charFail = fail;
+      window.addEventListener('error', function (e) {
+        if (window.__charBooted) return;
+        var d = (e && e.message) ? e.message : String(e);
+        if (e && e.filename) d += '\n(' + e.filename + ':' + (e.lineno || '?') + ')';
+        fail('Startup error', d);
+      });
+      window.addEventListener('unhandledrejection', function (e) {
+        if (window.__charBooted) return;
+        fail('Startup error', (e && e.reason && e.reason.message) ? e.reason.message : String(e && e.reason));
+      });
+      // Watchdog: if the engine never boots, the most likely cause is the
+      // 3D engine failing to download (network/extension blocking the CDN).
+      setTimeout(function () {
+        if (window.__charBooted) return;
+        fail('Could not load the 3D engine',
+          'Three.js did not load from the CDN within 8s.\n' +
+          'Likely a network or browser-extension block on cdn.jsdelivr.net,\n' +
+          'or WebGL is disabled. Check the browser console for details.');
+      }, 8000);
+    })();
   </script>
+
   <script type="module" src="game.js"></script>
 </body>
 </html>

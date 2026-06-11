@@ -39,6 +39,9 @@ html, body {
 .loader-card { text-align: center; }
 .loader-card h1 { letter-spacing: 4px; font-size: 26px; margin-top: 18px; color: var(--fire); }
 .loader-card p { color: #9fb0d0; margin-top: 6px; }
+#loadErr { margin: 14px auto 0; max-width: 440px; white-space: pre-wrap;
+  font-size: 12px; line-height: 1.5; color: #ffb3c7; text-align: left;
+  font-family: ui-monospace, Menlo, Consolas, monospace; }
 .flame-spinner {
   width: 64px; height: 64px; margin: 0 auto;
   border-radius: 50%;

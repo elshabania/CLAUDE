@@ -1,4 +1,19 @@
-import * as THREE from 'three';
+// Load the 3D engine with CDN fallback so a single blocked host doesn't
+// leave the player stuck on the loading screen.
+async function loadThree() {
+  const urls = [
+    'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js',
+    'https://unpkg.com/three@0.160.0/build/three.module.js',
+    'https://esm.sh/three@0.160.0',
+  ];
+  let lastErr;
+  for (const u of urls) {
+    try { return await import(/* @vite-ignore */ u); }
+    catch (e) { lastErr = e; }
+  }
+  throw new Error('Could not load three.js from any CDN: ' + (lastErr && lastErr.message));
+}
+const THREE = await loadThree();
 
 // ============================================================================
 //  Charmander Arena — a 3D Pokémon-style arcade battle.
@@ -14,7 +29,15 @@ const rand = (a, b) => a + Math.random() * (b - a);
 //  Renderer / scene / camera
 // ----------------------------------------------------------------------------
 const canvas = $('scene');
-const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+let renderer;
+try {
+  renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+} catch (err) {
+  if (window.__charFail) window.__charFail('WebGL unavailable',
+    'Your browser/device could not create a WebGL context.\n' +
+    'Enable hardware acceleration / WebGL and reload.\n(' + (err && err.message) + ')');
+  throw err;
+}
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
@@ -1084,6 +1107,7 @@ function tick() {
 const isTouch = matchMedia('(pointer: coarse)').matches || 'ontouchstart' in window;
 
 function boot() {
+  window.__charBooted = true; // tells the startup watchdog we made it
   // place fighters at title positions
   GAME.player.pos.set(2, 0, 6); GAME.player.facing = Math.PI - 0.5;
   GAME.enemy.pos.set(-2, 0, -3); GAME.enemy.facing = 0.5;
