@@ -4,11 +4,12 @@ const nextConfig = {
     serverActions: { bodySizeLimit: "50mb" },
   },
   async rewrites() {
-    // The Abu Dhabi Streets app is a static page in public/; serve its
-    // index.html at the bare directory path too.
+    // Static apps in public/; serve each index.html at the bare directory path too.
     return [
       { source: "/abu-dhabi-streets", destination: "/abu-dhabi-streets/index.html" },
       { source: "/abu-dhabi-streets/", destination: "/abu-dhabi-streets/index.html" },
+      { source: "/pokemon-arena", destination: "/pokemon-arena/index.html" },
+      { source: "/pokemon-arena/", destination: "/pokemon-arena/index.html" },
     ];
   },
 };

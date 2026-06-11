@@ -4,6 +4,11 @@
 > standalone map app showing Abu Dhabi's main and local street network as
 > toggleable layers over a Google Maps basemap. Served at
 > `/abu-dhabi-streets` on the deployed site.
+>
+> And: [**Pokémon Arena 3D**](public/pokemon-arena/README.md) — a standalone
+> Three.js arcade battle game where you play as Ash commanding Charmander
+> against waves of wild creatures. Served at `/pokemon-arena` on the
+> deployed site.
 
 A Next.js app that reads road CAD drawings (DXF and DWG) and detects road
 geometry from layer naming conventions (centerline, edge of pavement, lane
