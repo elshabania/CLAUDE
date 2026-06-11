@@ -1028,6 +1028,9 @@ function bumpCombo(crit) {
 // ----------------------------------------------------------------------------
 const keys = {};
 const touchBoost = { on: false };
+// when the player last actively steered — aim assist only kicks in when idle
+const input = { lastSteer: -10 };
+const nowSec = () => performance.now() / 1000;
 
 // FLY / LAND toggle — the takeoff button
 function toggleFlight() {
@@ -1078,6 +1081,7 @@ document.addEventListener("mousemove", (e) => {
   if (document.pointerLockElement !== renderer.domElement) return;
   aim.yaw -= e.movementX * 0.0023;
   aim.pitch = clamp(aim.pitch - e.movementY * 0.0018, -0.8, 0.8);
+  if (Math.abs(e.movementX) + Math.abs(e.movementY) > 2) input.lastSteer = nowSec();
 });
 
 const joy = { x: 0, y: 0, mag: 0, id: null };
@@ -1202,6 +1206,15 @@ function useMove(i) {
   if (!target || target.dead) target = pickTarget();
   move.timer = move.cd;
   player.fireFlash = 0.3;
+
+  // assisted aim: whip around to face the enemy you're attacking
+  if (target && !target.dead) {
+    const to = target.pos.clone().sub(player.pos);
+    aim.yaw = Math.atan2(to.x, to.z);
+    if (player.mode !== "ground") {
+      aim.pitch = clamp(Math.atan2(to.y, Math.hypot(to.x, to.z)), -0.75, 0.75);
+    }
+  }
 
   const mouth = mouthPos();
   const fwd = playerForward();
@@ -1415,6 +1428,19 @@ function spawnEnemy(boss = false) {
   e.hpFg = fg;
   e.barW = barW;
 
+  // red arrow marker above the head — always visible, gold when targeted
+  const marker = new THREE.Mesh(
+    new THREE.ConeGeometry(0.26, 0.6, 8),
+    new THREE.MeshBasicMaterial({
+      color: 0xff3030, transparent: true, opacity: 0.95, depthTest: false,
+    }));
+  marker.rotation.x = Math.PI; // point down at the enemy
+  marker.renderOrder = 999;
+  marker.position.y = boss ? 3.3 : (spec.flying ? 1.6 : 2.9);
+  group.add(marker);
+  e.marker = marker;
+  e.markerBaseY = marker.position.y;
+
   enemies.push(e);
   burst(e.pos.clone().add(new THREE.Vector3(0, 1, 0)),
     { count: boss ? 30 : 16, color: 0xffffff, speed: 4, size: 0.8, life: 0.6 });
@@ -1568,6 +1594,13 @@ function updateEnemies(dt) {
     const frac = clamp(e.hp / e.maxHp, 0, 1);
     e.hpFg.scale.x = Math.max(frac, 0.001);
     e.hpFg.position.x = -(1 - frac) * e.barW / 2;
+
+    // marker: bob + spin; the locked target's arrow turns gold and pulses
+    const locked = e === target;
+    e.marker.position.y = e.markerBaseY + Math.sin(state.time * 3.2 + e.bobPhase) * 0.18;
+    e.marker.rotation.y += dt * 2.5;
+    e.marker.material.color.setHex(locked ? 0xffcc22 : 0xff3030);
+    e.marker.scale.setScalar(locked ? 1.55 + Math.sin(state.time * 6) * 0.18 : 1);
   }
 }
 
@@ -1697,13 +1730,28 @@ function updatePlayer(dt) {
   if (joy.mag > 0.1) {
     aim.yaw -= joy.x * 2.1 * dt;
     if (!grounded) aim.pitch = clamp(aim.pitch - joy.y * 1.5 * dt, -0.8, 0.8);
+    if (Math.abs(joy.x) > 0.25) input.lastSteer = nowSec();
   }
-  if (keys["ArrowLeft"]) aim.yaw += 1.8 * dt;
-  if (keys["ArrowRight"]) aim.yaw -= 1.8 * dt;
+  if (keys["ArrowLeft"]) { aim.yaw += 1.8 * dt; input.lastSteer = nowSec(); }
+  if (keys["ArrowRight"]) { aim.yaw -= 1.8 * dt; input.lastSteer = nowSec(); }
   if (!grounded && keys["ArrowUp"]) aim.pitch = clamp(aim.pitch + 1.4 * dt, -0.8, 0.8);
   if (!grounded && keys["ArrowDown"]) aim.pitch = clamp(aim.pitch - 1.4 * dt, -0.8, 0.8);
   if (grounded) aim.pitch = lerp(aim.pitch, 0.04, 1 - Math.pow(0.05, dt));
   if (landing) aim.pitch = lerp(aim.pitch, -0.42, 1 - Math.pow(0.1, dt));
+
+  // AIM ASSIST — when you aren't actively steering, track the locked enemy
+  if (target && !target.dead && nowSec() - input.lastSteer > 0.55) {
+    const to = target.pos.clone().sub(player.pos);
+    const yawT = Math.atan2(to.x, to.z);
+    const diff = Math.abs(angleDiff(yawT, aim.yaw));
+    if (grounded) {
+      aim.yaw = lerpAngle(aim.yaw, yawT, 1 - Math.pow(0.18, dt)); // pivot onto the target
+    } else if (diff < 1.1 && !landing) {
+      aim.yaw = lerpAngle(aim.yaw, yawT, 1 - Math.pow(0.5, dt)); // gentle in flight
+      const pitchT = clamp(Math.atan2(to.y, Math.hypot(to.x, to.z)), -0.7, 0.7);
+      aim.pitch = lerp(aim.pitch, pitchT, 1 - Math.pow(0.5, dt));
+    }
+  }
 
   // the dragon chases your aim with weight
   player.yaw = lerpAngle(player.yaw, aim.yaw, 1 - Math.pow(grounded ? 0.03 : 0.085, dt));
@@ -1711,8 +1759,14 @@ function updatePlayer(dt) {
 
   const boost = keys["ShiftLeft"] || keys["ShiftRight"] || touchBoost.on;
   const brake = keys["KeyS"];
+  // on the ground he stands still unless you actually push forward
+  let walkInput = 0;
+  if (grounded) {
+    if (keys["KeyW"]) walkInput = 1;
+    if (joy.mag > 0.15) walkInput = Math.max(walkInput, clamp(-joy.y, 0, 1));
+  }
   const targetSpeed = grounded
-    ? (boost ? 12 : brake ? 0 : keys["KeyW"] ? 8.5 : 5.5)
+    ? walkInput * (boost ? 12 : 6.5)
     : (boost ? 32 : brake ? 5 : keys["KeyW"] ? 20 : 14);
   player.speed = lerp(player.speed, targetSpeed, 1 - Math.pow(0.3, dt));
 
