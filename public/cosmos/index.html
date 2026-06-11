@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>COSMOS — a living galaxy in your browser</title>
+  <link rel="stylesheet" href="/cosmos/styles.css" />
+</head>
+<body>
+  <canvas id="scene"></canvas>
+
+  <div id="loading">
+    <div class="ring"></div>
+    <h1>COSMOS</h1>
+    <p id="loadMsg">Igniting 250,000 stars…</p>
+    <pre id="loadErr"></pre>
+  </div>
+
+  <div id="ui" class="hidden">
+    <div id="title">
+      <h1>COSMOS</h1>
+      <p>A living galaxy — a quarter-million GPU stars, rendered in real time.</p>
+    </div>
+    <div id="hint">
+      <span><b>Drag</b> to orbit</span>
+      <span><b>Scroll / pinch</b> to zoom</span>
+      <span><b>Click</b> to ignite a supernova</span>
+    </div>
+    <div id="panel">
+      <label>Stars <input id="cCount" type="range" min="20000" max="300000" step="10000"></label>
+      <label>Spin <input id="cSpin" type="range" min="0" max="2" step="0.05"></label>
+      <label>Arms <input id="cBranches" type="range" min="2" max="8" step="1"></label>
+      <label>Hue <input id="cHue" type="range" min="0" max="1" step="0.01"></label>
+      <button id="cShuffle">Randomize</button>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      window.__cosmosBooted = false;
+      function fail(t, d) {
+        var m = document.getElementById('loadMsg'), e = document.getElementById('loadErr'), r = document.querySelector('.ring');
+        if (r) r.style.display = 'none';
+        if (m) { m.textContent = t; m.style.color = '#ff7aa0'; }
+        if (e && d) e.textContent = d;
+      }
+      window.__cosmosFail = fail;
+      window.addEventListener('error', function (e) {
+        if (window.__cosmosBooted) return;
+        var t = e && e.target;
+        if (t && (t.tagName === 'SCRIPT' || t.tagName === 'LINK')) { fail('Failed to load a file', t.src || t.href); return; }
+        fail('Startup error', (e && e.message) || String(e));
+      }, true);
+      window.addEventListener('unhandledrejection', function (e) {
+        if (window.__cosmosBooted) return;
+        fail('Startup error', (e && e.reason && e.reason.message) || String(e && e.reason));
+      });
+      setTimeout(function () {
+        if (window.__cosmosBooted) return;
+        fail('Still loading…', 'The 3D engine may be blocked (network/extension) or WebGL is off.\nCheck the browser console.');
+      }, 20000);
+    })();
+  </script>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+    }
+  }
+  </script>
+  <script type="module" src="/cosmos/galaxy.js"></script>
+</body>
+</html>

@@ -11,6 +11,8 @@ const nextConfig = {
       { source: "/abu-dhabi-streets/", destination: "/abu-dhabi-streets/index.html" },
       { source: "/pokemon-arcade", destination: "/pokemon-arcade/index.html" },
       { source: "/pokemon-arcade/", destination: "/pokemon-arcade/index.html" },
+      { source: "/cosmos", destination: "/cosmos/index.html" },
+      { source: "/cosmos/", destination: "/cosmos/index.html" },
     ];
   },
 };
