@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>Charmander Arena — 3D Pokémon-style Battle</title>
-  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="/pokemon-arcade/styles.css" />
 </head>
 <body>
   <div id="app">
@@ -95,12 +95,18 @@
         if (err && detail) { err.textContent = detail; }
       }
       window.__charFail = fail;
+      // Capture phase so failed <script>/<link> resource loads are caught too.
       window.addEventListener('error', function (e) {
         if (window.__charBooted) return;
+        var t = e && e.target;
+        if (t && (t.tagName === 'SCRIPT' || t.tagName === 'LINK')) {
+          fail('Failed to load a game file', 'Could not load: ' + (t.src || t.href));
+          return;
+        }
         var d = (e && e.message) ? e.message : String(e);
         if (e && e.filename) d += '\n(' + e.filename + ':' + (e.lineno || '?') + ')';
         fail('Startup error', d);
-      });
+      }, true);
       window.addEventListener('unhandledrejection', function (e) {
         if (window.__charBooted) return;
         fail('Startup error', (e && e.reason && e.reason.message) ? e.reason.message : String(e && e.reason));
@@ -109,14 +115,15 @@
       // 3D engine failing to download (network/extension blocking the CDN).
       setTimeout(function () {
         if (window.__charBooted) return;
-        fail('Could not load the 3D engine',
-          'Three.js did not load from the CDN within 8s.\n' +
-          'Likely a network or browser-extension block on cdn.jsdelivr.net,\n' +
-          'or WebGL is disabled. Check the browser console for details.');
+        fail('Still loading…',
+          'Startup is taking longer than expected (8s+).\n' +
+          'If this persists it usually means the 3D engine could not be\n' +
+          'downloaded (network/extension block) or WebGL is unavailable.\n' +
+          'Check the browser console for details.');
       }, 8000);
     })();
   </script>
 
-  <script type="module" src="game.js"></script>
+  <script type="module" src="/pokemon-arcade/game.js"></script>
 </body>
 </html>
