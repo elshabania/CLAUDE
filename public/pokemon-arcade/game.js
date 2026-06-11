@@ -1,19 +1,9 @@
-// Load the 3D engine with CDN fallback so a single blocked host doesn't
-// leave the player stuck on the loading screen.
-async function loadThree() {
-  const urls = [
-    'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js',
-    'https://unpkg.com/three@0.160.0/build/three.module.js',
-    'https://esm.sh/three@0.160.0',
-  ];
-  let lastErr;
-  for (const u of urls) {
-    try { return await import(/* @vite-ignore */ u); }
-    catch (e) { lastErr = e; }
-  }
-  throw new Error('Could not load three.js from any CDN: ' + (lastErr && lastErr.message));
-}
-const THREE = await loadThree();
+import * as THREE from 'three';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 
 // ============================================================================
 //  Charmander Arena — a 3D Pokémon-style arcade battle.
@@ -38,23 +28,39 @@ try {
     'Enable hardware acceleration / WebGL and reload.\n(' + (err && err.message) + ')');
   throw err;
 }
-renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+// Cap resolution on phones so bloom + PBR stay at a smooth frame rate.
+const _coarse = matchMedia('(pointer: coarse)').matches;
+renderer.setPixelRatio(Math.min(devicePixelRatio, _coarse ? 1.5 : 2));
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.1;
+renderer.toneMappingExposure = 1.05;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 
 const scene = new THREE.Scene();
-scene.fog = new THREE.FogExp2(0x14233f, 0.012);
+scene.fog = new THREE.FogExp2(0x14233f, 0.011);
+
+// Image-based lighting: soft procedural environment so every PBR surface
+// picks up real reflections and ambient bounce (huge readability win).
+const pmrem = new THREE.PMREMGenerator(renderer);
+scene.environment = pmrem.fromScene(new RoomEnvironment(renderer), 0.04).texture;
 
 const camera = new THREE.PerspectiveCamera(55, innerWidth / innerHeight, 0.1, 400);
 camera.position.set(0, 7, 12);
+
+// Post-processing: bloom makes every flame, ember and energy attack glow.
+const composer = new EffectComposer(renderer);
+composer.addPass(new RenderPass(scene, camera));
+const bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.75, 0.6, 0.72);
+composer.addPass(bloom);
+composer.addPass(new OutputPass());
 
 function resize() {
   camera.aspect = innerWidth / innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(innerWidth, innerHeight);
+  composer.setSize(innerWidth, innerHeight);
+  bloom.setSize(innerWidth, innerHeight);
 }
 addEventListener('resize', resize);
 resize();
@@ -110,18 +116,51 @@ scene.add(rim);
 //  Arena
 // ----------------------------------------------------------------------------
 const ARENA_R = 26;
+
+// Procedural surface texture: tinted value-noise with a matching bump map so
+// ground and sand read as real grainy surfaces under the lighting.
+function makeGroundTexture(base, speck, scale = 4) {
+  const N = 256;
+  const c = document.createElement('canvas'); c.width = c.height = N;
+  const x = c.getContext('2d');
+  x.fillStyle = base; x.fillRect(0, 0, N, N);
+  const b = new THREE.Color(base), sp = new THREE.Color(speck);
+  const img = x.getImageData(0, 0, N, N), d = img.data;
+  for (let i = 0; i < d.length; i += 4) {
+    const n = (Math.random() - 0.5) * 0.5 + (Math.random() < 0.04 ? (Math.random() - 0.5) : 0);
+    const col = b.clone().lerp(sp, clamp(0.5 + n, 0, 1));
+    d[i] = col.r * 255; d[i + 1] = col.g * 255; d[i + 2] = col.b * 255;
+  }
+  x.putImageData(img, 0, 0);
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  tex.repeat.set(scale, scale);
+  // bump from the same grain
+  const bc = document.createElement('canvas'); bc.width = bc.height = N;
+  const bx = bc.getContext('2d');
+  const bimg = bx.createImageData(N, N), bd = bimg.data;
+  for (let i = 0; i < bd.length; i += 4) { const v = 128 + (Math.random() - 0.5) * 110; bd[i] = bd[i + 1] = bd[i + 2] = v; bd[i + 3] = 255; }
+  bx.putImageData(bimg, 0, 0);
+  const bump = new THREE.CanvasTexture(bc);
+  bump.wrapS = bump.wrapT = THREE.RepeatWrapping; bump.repeat.set(scale, scale);
+  return { tex, bump };
+}
+
 function buildArena() {
   const g = new THREE.Group();
 
-  // Ground — radial battle ring
-  const groundMat = new THREE.MeshStandardMaterial({ color: 0x4f6d3a, roughness: 1, metalness: 0 });
+  // Ground — grassy field
+  const grassTex = makeGroundTexture('#46632f', '#5c8a3a', 14);
+  const groundMat = new THREE.MeshStandardMaterial({ map: grassTex.tex, bumpMap: grassTex.bump, bumpScale: 0.6, roughness: 1, metalness: 0 });
   const ground = new THREE.Mesh(new THREE.CircleGeometry(ARENA_R + 30, 64), groundMat);
   ground.rotation.x = -Math.PI / 2;
   ground.receiveShadow = true;
   g.add(ground);
 
   // Sandy battle ring
-  const ringMat = new THREE.MeshStandardMaterial({ color: 0xc9a36a, roughness: 1 });
+  const sandTex = makeGroundTexture('#c9a36a', '#a07c44', 8);
+  const ringMat = new THREE.MeshStandardMaterial({ map: sandTex.tex, bumpMap: sandTex.bump, bumpScale: 0.5, roughness: 1 });
   const ring = new THREE.Mesh(new THREE.CircleGeometry(ARENA_R, 64), ringMat);
   ring.rotation.x = -Math.PI / 2; ring.position.y = 0.02;
   ring.receiveShadow = true;
@@ -190,16 +229,32 @@ scene.add(buildArena());
 // ----------------------------------------------------------------------------
 //  Material helpers
 // ----------------------------------------------------------------------------
-const M = (color, opt = {}) => new THREE.MeshStandardMaterial({ color, roughness: 0.55, metalness: 0.02, ...opt });
+const M = (color, opt = {}) => new THREE.MeshStandardMaterial({ color, roughness: 0.55, metalness: 0.02, envMapIntensity: 0.9, ...opt });
+
+// Lively creature "skin": physically-based with a subtle clearcoat sheen so
+// it catches highlights and reads as a real material, not flat plastic.
+const skin = (color, opt = {}) => new THREE.MeshPhysicalMaterial({
+  color, roughness: 0.42, metalness: 0.0,
+  clearcoat: 0.6, clearcoatRoughness: 0.5,
+  sheen: 0.4, sheenColor: new THREE.Color(color).lerp(new THREE.Color(0xffffff), 0.5),
+  envMapIntensity: 1.0, ...opt,
+});
 
 function eyeMesh(r = 0.16) {
   const grp = new THREE.Group();
-  const white = new THREE.Mesh(new THREE.SphereGeometry(r, 16, 16), M(0xffffff, { roughness: .3 }));
-  const pupil = new THREE.Mesh(new THREE.SphereGeometry(r * 0.55, 12, 12), M(0x141414, { roughness: .2 }));
-  pupil.position.z = r * 0.6;
-  const shine = new THREE.Mesh(new THREE.SphereGeometry(r * 0.18, 8, 8), M(0xffffff, { emissive: 0xffffff, emissiveIntensity: 1 }));
-  shine.position.set(r * 0.25, r * 0.25, r * 0.7);
-  grp.add(white, pupil, shine);
+  // Glossy wet eyeball
+  const white = new THREE.Mesh(new THREE.SphereGeometry(r, 24, 24),
+    new THREE.MeshPhysicalMaterial({ color: 0xffffff, roughness: 0.08, clearcoat: 1, clearcoatRoughness: 0.05, envMapIntensity: 1.4 }));
+  const iris = new THREE.Mesh(new THREE.SphereGeometry(r * 0.7, 18, 18),
+    new THREE.MeshPhysicalMaterial({ color: 0x5a3416, roughness: 0.15, clearcoat: 1, envMapIntensity: 1.2 }));
+  iris.position.z = r * 0.5; iris.scale.z = 0.5;
+  const pupil = new THREE.Mesh(new THREE.SphereGeometry(r * 0.4, 14, 14), M(0x0a0a0a, { roughness: .1 }));
+  pupil.position.z = r * 0.78; pupil.scale.z = 0.5;
+  const shine = new THREE.Mesh(new THREE.SphereGeometry(r * 0.16, 8, 8), M(0xffffff, { emissive: 0xffffff, emissiveIntensity: 2 }));
+  shine.position.set(r * 0.28, r * 0.3, r * 0.72); shine.userData.keepEmissive = true;
+  const shine2 = new THREE.Mesh(new THREE.SphereGeometry(r * 0.08, 8, 8), M(0xffffff, { emissive: 0xffffff, emissiveIntensity: 1.5 }));
+  shine2.position.set(-r * 0.2, -r * 0.1, r * 0.78); shine2.userData.keepEmissive = true;
+  grp.add(white, iris, pupil, shine, shine2);
   return grp;
 }
 
@@ -208,8 +263,8 @@ function eyeMesh(r = 0.16) {
 // ----------------------------------------------------------------------------
 function buildCharmander() {
   const g = new THREE.Group();
-  const orange = M(0xf08a26, { roughness: .5 });
-  const cream = M(0xffe2a8, { roughness: .5 });
+  const orange = skin(0xf57e1f, { clearcoat: 0.7 });
+  const cream = skin(0xffe2a8);
 
   // Body
   const body = new THREE.Mesh(new THREE.SphereGeometry(0.9, 24, 24), orange);
@@ -322,10 +377,10 @@ function buildCharmander() {
 // ----------------------------------------------------------------------------
 function buildSquirtle() {
   const g = new THREE.Group();
-  const blue = M(0x6cc3e8, { roughness: .5 });
-  const cream = M(0xf6e6c4, { roughness: .5 });
-  const shell = M(0xb5742f, { roughness: .7 });
-  const shellRim = M(0xf2e7c0, { roughness: .6 });
+  const blue = skin(0x5fb8e6, { clearcoat: 0.7 });
+  const cream = skin(0xf6e6c4);
+  const shell = new THREE.MeshPhysicalMaterial({ color: 0xb5742f, roughness: 0.35, clearcoat: 0.9, clearcoatRoughness: 0.25, envMapIntensity: 1.2 });
+  const shellRim = skin(0xf2e7c0, { clearcoat: 0.8 });
 
   const body = new THREE.Mesh(new THREE.SphereGeometry(0.95, 24, 24), blue);
   body.scale.set(0.9, 1.0, 0.85); body.position.y = 1.2; body.castShadow = true;
@@ -541,6 +596,60 @@ const charmander = buildCharmander();
 const squirtle = buildSquirtle();
 const ash = buildAsh();
 scene.add(charmander, squirtle, ash);
+
+// ----------------------------------------------------------------------------
+//  Cinematic dressing: glowing sun disc, soft contact shadows, ambient embers
+// ----------------------------------------------------------------------------
+// Sun disc high in the sky — bloom turns it into a real flare.
+const sunDisc = makeGlowSprite(0xffe6b0, 26);
+sunDisc.position.set(60, 70, -40);
+scene.add(sunDisc);
+const sunCore = makeGlowSprite(0xffffff, 10);
+sunCore.position.copy(sunDisc.position);
+scene.add(sunCore);
+
+// Soft round contact shadows that follow each fighter (grounding + polish).
+const blobTex = (() => {
+  const c = document.createElement('canvas'); c.width = c.height = 128;
+  const x = c.getContext('2d');
+  const g = x.createRadialGradient(64, 64, 0, 64, 64, 64);
+  g.addColorStop(0, 'rgba(0,0,0,0.55)'); g.addColorStop(0.55, 'rgba(0,0,0,0.32)'); g.addColorStop(1, 'rgba(0,0,0,0)');
+  x.fillStyle = g; x.fillRect(0, 0, 128, 128);
+  return new THREE.CanvasTexture(c);
+})();
+function makeBlob(size) {
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(size, size),
+    new THREE.MeshBasicMaterial({ map: blobTex, transparent: true, depthWrite: false }));
+  m.rotation.x = -Math.PI / 2; m.position.y = 0.04;
+  scene.add(m); return m;
+}
+const blobChar = makeBlob(3.4), blobSqui = makeBlob(3.4), blobAsh = makeBlob(2.6);
+
+// Drifting ambient embers/dust for atmosphere (separate slow particle field).
+const dustN = 140;
+const dustGeo = new THREE.BufferGeometry();
+const dustPos = new Float32Array(dustN * 3);
+const dustPhase = new Float32Array(dustN);
+for (let i = 0; i < dustN; i++) {
+  const a = rand(0, Math.PI * 2), r = rand(2, ARENA_R + 6);
+  dustPos[i * 3] = Math.cos(a) * r; dustPos[i * 3 + 1] = rand(0.5, 9); dustPos[i * 3 + 2] = Math.sin(a) * r;
+  dustPhase[i] = rand(0, Math.PI * 2);
+}
+dustGeo.setAttribute('position', new THREE.BufferAttribute(dustPos, 3));
+const dust = new THREE.Points(dustGeo, new THREE.PointsMaterial({
+  map: glowTex, color: 0xffb060, size: 0.5, transparent: true, opacity: 0.5,
+  blending: THREE.AdditiveBlending, depthWrite: false, sizeAttenuation: true,
+}));
+dust.frustumCulled = false;
+scene.add(dust);
+function updateDust(dt) {
+  for (let i = 0; i < dustN; i++) {
+    dustPos[i * 3 + 1] += (0.25 + Math.sin(GAME.time * 0.6 + dustPhase[i]) * 0.15) * dt;
+    dustPos[i * 3] += Math.sin(GAME.time * 0.4 + dustPhase[i]) * 0.06 * dt * 10;
+    if (dustPos[i * 3 + 1] > 10) dustPos[i * 3 + 1] = 0.4;
+  }
+  dustGeo.attributes.position.needsUpdate = true;
+}
 
 // ----------------------------------------------------------------------------
 //  Game state
@@ -908,9 +1017,9 @@ function faceEnemy(blend = 1.0) {
 // ----------------------------------------------------------------------------
 function applyHitFlash(model, flash) {
   model.traverse((o) => {
-    if (o.isMesh && o.material && o.material.emissive) {
+    if (o.isMesh && o.material && o.material.emissive && !o.userData.keepEmissive) {
       if (flash > 0) { o.material.emissive.setHex(0xff3333); o.material.emissiveIntensity = flash * 6; }
-      else if (o.material.emissiveIntensity > 0 && !o.userData.keepEmissive) { o.material.emissiveIntensity = 0; }
+      else if (o.material.emissiveIntensity > 0) { o.material.emissiveIntensity = 0; }
     }
   });
 }
@@ -1093,11 +1202,16 @@ function tick() {
   animateChar(dt);
   animateSquirtle(dt);
   animateAsh(dt);
+  // contact shadows track the fighters
+  blobChar.position.set(GAME.player.pos.x, 0.04, GAME.player.pos.z);
+  blobSqui.position.set(GAME.enemy.pos.x, 0.04, GAME.enemy.pos.z);
+  blobAsh.position.set(ash.position.x, 0.04, ash.position.z);
   FX.update(dt);
+  updateDust(dt);
   updateCamera(dt);
   if (GAME.state === 'battle' || GAME.state === 'result') updateHUD(dt);
 
-  renderer.render(scene, camera);
+  composer.render();
   requestAnimationFrame(tick);
 }
 

@@ -38,11 +38,19 @@ Everything is procedural — no external model or texture assets:
 - **Characters** (`game.js`) are assembled from primitive geometry (spheres,
   capsules, cones) grouped into rigs, then animated by rotating the rig parts
   (walk cycles, attack poses, KO falls).
+- **Cinematic rendering** — an `EffectComposer` pipeline with `UnrealBloomPass`
+  makes every flame, ember and energy attack glow; ACES filmic tone mapping
+  ties it together.
+- **PBR materials** — creatures use `MeshPhysicalMaterial` with clearcoat and
+  sheen, lit by an image-based environment (`RoomEnvironment` baked through a
+  `PMREMGenerator`) so surfaces pick up real reflections and ambient bounce.
 - **Effects** use a single additive `THREE.Points` particle pool for fire,
   embers, water, sparks and smoke, plus glow sprites and a real point light
   for Charmander's tail flame.
-- **Lighting** is a warm directional "sun" with soft shadow maps, a hemisphere
-  fill, a cool rim light, a gradient sky dome and exponential fog for depth.
+- **Lighting & atmosphere** — a warm directional "sun" with soft shadow maps,
+  a hemisphere fill, a cool rim light, a bloom-flared sun disc, drifting
+  ambient embers, soft contact (blob) shadows under each fighter, procedurally
+  textured ground with bump detail, a gradient sky dome and exponential fog.
 - **Camera** dynamically frames both fighters and adds hit-shake on impact.
 
 ## Files
