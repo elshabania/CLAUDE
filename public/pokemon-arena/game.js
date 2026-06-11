@@ -31,12 +31,15 @@ function lerpAngle(a, b, t) {
   return a + d * t;
 }
 
+// Touch devices get the virtual joystick UI and lighter render settings
+const IS_TOUCH = ("ontouchstart" in window) || matchMedia("(pointer: coarse)").matches;
+
 // ----------------------------------------------------------------------------
 // Renderer / scene / camera / post-processing
 // ----------------------------------------------------------------------------
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.75));
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, IS_TOUCH ? 1.3 : 1.75));
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -78,7 +81,7 @@ scene.add(hemi);
 
 const sun = new THREE.DirectionalLight(0xffdfa6, 2.6);
 sun.castShadow = true;
-sun.shadow.mapSize.set(2048, 2048);
+sun.shadow.mapSize.set(IS_TOUCH ? 1024 : 2048, IS_TOUCH ? 1024 : 2048);
 sun.shadow.camera.left = -55;
 sun.shadow.camera.right = 55;
 sun.shadow.camera.top = 55;
@@ -320,7 +323,7 @@ const uWind = { value: 0 };
           transformed.z += sway * 0.55;
         }`);
   };
-  const COUNT = 3200;
+  const COUNT = IS_TOUCH ? 1500 : 3200;
   const grassMesh = new THREE.InstancedMesh(blade, mat, COUNT);
   grassMesh.receiveShadow = true;
   const m = new THREE.Matrix4();
@@ -329,7 +332,7 @@ const uWind = { value: 0 };
   const s = new THREE.Vector3();
   const c = new THREE.Color();
   for (let i = 0; i < COUNT; i++) {
-    const a = rand(0, TAU), r = 19 + Math.pow(Math.random(), 0.7) * 110;
+    const a = rand(0, TAU), r = 21 + Math.pow(Math.random(), 0.7) * 23;
     const x = Math.cos(a) * r, z = Math.sin(a) * r;
     e.set(rand(-0.12, 0.12), rand(0, TAU), rand(-0.12, 0.12));
     q.setFromEuler(e);
@@ -384,7 +387,7 @@ function jitterGeometry(geo, amt) {
 
   const trunkMat = new THREE.MeshStandardMaterial({ color: 0x6b4a2a, roughness: 1 });
   for (let i = 0; i < 55; i++) {
-    const a = rand(0, TAU), r = rand(27, 125);
+    const a = rand(0, TAU), r = rand(78, 150);
     const x = Math.cos(a) * r, z = Math.sin(a) * r;
     const y = terrainHeight(x, z);
     const tree = new THREE.Group();
@@ -413,7 +416,7 @@ function jitterGeometry(geo, amt) {
 
   const rockMat = new THREE.MeshStandardMaterial({ color: 0x97918a, roughness: 1, flatShading: true });
   for (let i = 0; i < 24; i++) {
-    const a = rand(0, TAU), r = rand(24, 115);
+    const a = rand(0, TAU), r = rand(75, 140);
     const x = Math.cos(a) * r, z = Math.sin(a) * r;
     const rock = new THREE.Mesh(
       jitterGeometry(new THREE.DodecahedronGeometry(rand(0.5, 1.8), 1), 0.22), rockMat);
@@ -421,6 +424,131 @@ function jitterGeometry(geo, amt) {
     rock.rotation.set(rand(0, TAU), rand(0, TAU), rand(0, TAU));
     rock.castShadow = rock.receiveShadow = true;
     scene.add(rock);
+  }
+}
+
+// ----------------------------------------------------------------------------
+// STADIUM — Pokkén-style battle bowl around the arena
+// ----------------------------------------------------------------------------
+{
+  // striped turf battlefield with painted lines
+  const turfTex = canvasTex(1024, (g, s) => {
+    const cx = s / 2;
+    for (let r = s / 2; r > 0; r -= 52) {
+      g.fillStyle = (Math.floor(r / 52) % 2) ? "#4e8a33" : "#5c9c3e";
+      g.beginPath();
+      g.arc(cx, cx, r, 0, TAU);
+      g.fill();
+    }
+    g.strokeStyle = "rgba(255,255,255,0.92)";
+    g.lineWidth = 7;
+    g.beginPath(); g.arc(cx, cx, s * 0.47, 0, TAU); g.stroke();
+    g.lineWidth = 5;
+    g.beginPath(); g.arc(cx, cx, s * 0.16, 0, TAU); g.stroke();
+    g.beginPath(); g.arc(cx, cx, 9, 0, TAU);
+    g.fillStyle = "rgba(255,255,255,0.92)";
+    g.fill();
+    // grain so the turf isn't flat
+    for (let i = 0; i < 2400; i++) {
+      g.fillStyle = `rgba(${20 + Math.random() * 50 | 0},${70 + Math.random() * 70 | 0},25,0.18)`;
+      g.fillRect(rand(0, s), rand(0, s), 2, 4);
+    }
+  });
+  turfTex.anisotropy = renderer.capabilities.getMaxAnisotropy();
+  const turf = new THREE.Mesh(
+    new THREE.CircleGeometry(20, 64),
+    new THREE.MeshStandardMaterial({
+      map: turfTex, roughness: 0.95, envMapIntensity: 0.2,
+      polygonOffset: true, polygonOffsetFactor: -1,
+    }));
+  turf.rotation.x = -Math.PI / 2;
+  turf.position.y = 0.03;
+  turf.receiveShadow = true;
+  scene.add(turf);
+
+  // perimeter wall + glowing ad-board band (alternating colors, blooms nicely)
+  const wall = new THREE.Mesh(
+    new THREE.CylinderGeometry(48, 48, 5, 64, 1, true),
+    new THREE.MeshStandardMaterial({ color: 0x2a3148, roughness: 0.85, side: THREE.DoubleSide }));
+  wall.position.y = 2.5;
+  scene.add(wall);
+  const adColors = [0x22ccff, 0xff8822, 0xffe14d, 0x66ff88];
+  for (let i = 0; i < 8; i++) {
+    const band = new THREE.Mesh(
+      new THREE.CylinderGeometry(48.15, 48.15, 1.3, 16, 1, true, (i / 8) * TAU, TAU / 8 - 0.04),
+      new THREE.MeshStandardMaterial({
+        color: 0x111111, emissive: adColors[i % adColors.length],
+        emissiveIntensity: 1.6, side: THREE.DoubleSide,
+      }));
+    band.position.y = 3.6;
+    scene.add(band);
+  }
+
+  // stands bowl
+  const bowl = new THREE.Mesh(
+    new THREE.CylinderGeometry(68, 50, 14, 56, 1, true),
+    new THREE.MeshStandardMaterial({ color: 0x39415c, roughness: 0.95, side: THREE.DoubleSide }));
+  bowl.position.y = 11;
+  scene.add(bowl);
+  const rim = new THREE.Mesh(
+    new THREE.TorusGeometry(68, 1.1, 8, 56),
+    new THREE.MeshStandardMaterial({ color: 0x222840, roughness: 0.8 }));
+  rim.rotation.x = Math.PI / 2;
+  rim.position.y = 18;
+  scene.add(rim);
+
+  // instanced crowd on the bowl slope, swaying with the wind uniform
+  const CROWD = IS_TOUCH ? 900 : 2200;
+  const fanGeo = new THREE.SphereGeometry(0.34, 6, 5);
+  const fanMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+  fanMat.onBeforeCompile = (shader) => {
+    shader.uniforms.uWind = uWind;
+    shader.vertexShader = shader.vertexShader
+      .replace("#include <common>", "#include <common>\nuniform float uWind;")
+      .replace("#include <begin_vertex>", `#include <begin_vertex>
+        {
+          vec4 gw = instanceMatrix * vec4(0.0, 0.0, 0.0, 1.0);
+          transformed.y += sin(uWind * 3.0 + gw.x * 1.7 + gw.z * 2.3) * 0.18;
+        }`);
+  };
+  const crowd = new THREE.InstancedMesh(fanGeo, fanMat, CROWD);
+  const m = new THREE.Matrix4();
+  const col = new THREE.Color();
+  for (let i = 0; i < CROWD; i++) {
+    const a = rand(0, TAU);
+    const t = Math.random();
+    const r = lerp(51.5, 66.5, t);
+    m.makeTranslation(Math.cos(a) * r, 4.8 + t * 13 + rand(-0.1, 0.1), Math.sin(a) * r);
+    crowd.setMatrixAt(i, m);
+    col.setHSL(Math.random(), rand(0.5, 0.9), rand(0.35, 0.7));
+    crowd.setColorAt(i, col);
+  }
+  crowd.instanceMatrix.needsUpdate = true;
+  if (crowd.instanceColor) crowd.instanceColor.needsUpdate = true;
+  scene.add(crowd);
+
+  // floodlight towers
+  const poleMat = new THREE.MeshStandardMaterial({ color: 0x55607a, roughness: 0.6, metalness: 0.5 });
+  const lampMat = new THREE.MeshStandardMaterial({
+    color: 0x222222, emissive: 0xfff4d8, emissiveIntensity: 2.6,
+  });
+  for (let i = 0; i < 4; i++) {
+    const a = (i / 4) * TAU + Math.PI / 4;
+    const x = Math.cos(a) * 72, z = Math.sin(a) * 72;
+    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.7, 30, 8), poleMat);
+    pole.position.set(x, 15, z);
+    scene.add(pole);
+    const lamp = new THREE.Mesh(new THREE.BoxGeometry(6, 2.6, 0.8), lampMat);
+    lamp.position.set(x, 30, z);
+    lamp.lookAt(0, 2, 0);
+    scene.add(lamp);
+    const glow = new THREE.Sprite(new THREE.SpriteMaterial({
+      map: glowTex, color: 0xfff0c8, blending: THREE.AdditiveBlending,
+      depthWrite: false, opacity: 0.85,
+    }));
+    glow.scale.setScalar(16);
+    glow.position.set(x, 30, z);
+    scene.add(glow);
   }
 }
 
@@ -718,6 +846,29 @@ function buildCharmander() {
     }
   }
 
+  // Charizard-style wings — hidden until the Blaze evolution
+  const wings = new THREE.Group();
+  const membraneMat = std(0x3e8e7a, { side: THREE.DoubleSide, roughness: 0.55 });
+  for (const sx of [-1, 1]) {
+    const shape = new THREE.Shape();
+    shape.moveTo(0, 0);
+    shape.lineTo(sx * 0.5, 0.62);
+    shape.lineTo(sx * 1.35, 0.78);
+    shape.lineTo(sx * 1.05, 0.22);
+    shape.lineTo(sx * 1.45, -0.3);
+    shape.lineTo(sx * 0.62, -0.22);
+    shape.lineTo(0, 0);
+    const wing = new THREE.Mesh(new THREE.ShapeGeometry(shape), membraneMat);
+    wing.castShadow = true;
+    wing.position.set(sx * 0.14, 1.02, -0.32);
+    wing.rotation.y = -sx * 0.55;
+    wing.userData.sx = sx;
+    wings.add(wing);
+  }
+  wings.visible = false;
+  g.add(wings);
+  g.userData.wings = wings;
+
   const tailPts = [
     [0, 0.5, -0.36], [0, 0.42, -0.62], [0, 0.46, -0.86], [0, 0.62, -1.0], [0, 0.84, -1.06],
   ];
@@ -864,7 +1015,7 @@ const SPECIES = {
 // ----------------------------------------------------------------------------
 // Particle system — pooled sprites, additive fire or normal-blend smoke
 // ----------------------------------------------------------------------------
-const MAX_PARTICLES = 900;
+const MAX_PARTICLES = IS_TOUCH ? 550 : 900;
 const particles = [];
 const firePool = [];
 const smokePool = [];
@@ -1232,13 +1383,90 @@ document.addEventListener("keydown", (e) => {
 document.addEventListener("keyup", (e) => { keys[e.code] = false; });
 
 renderer.domElement.addEventListener("click", () => {
-  if (state.running) renderer.domElement.requestPointerLock();
+  if (state.running && !IS_TOUCH) renderer.domElement.requestPointerLock();
 });
 document.addEventListener("mousemove", (e) => {
   if (document.pointerLockElement !== renderer.domElement) return;
   cam.yaw -= e.movementX * 0.0024;
   cam.pitch = clamp(cam.pitch + e.movementY * 0.0019, -0.15, 1.05);
 });
+
+// ----------------------------------------------------------------------------
+// Touch controls — left virtual joystick, right-swipe camera, tap attacks
+// ----------------------------------------------------------------------------
+const joy = { x: 0, y: 0, mag: 0, id: null };
+if (IS_TOUCH) {
+  document.getElementById("touch-ui").style.display = "block";
+  const joyBase = document.getElementById("joy-base");
+  const joyKnob = document.getElementById("joy-knob");
+  const camTouch = { id: null, x: 0, y: 0 };
+
+  const setJoy = (t) => {
+    const r = joyBase.getBoundingClientRect();
+    let dx = (t.clientX - (r.left + r.width / 2)) / 48;
+    let dy = (t.clientY - (r.top + r.height / 2)) / 48;
+    const mag = Math.hypot(dx, dy);
+    if (mag > 1) { dx /= mag; dy /= mag; }
+    joy.x = dx; joy.y = dy; joy.mag = Math.min(mag, 1);
+    joyKnob.style.transform = `translate(calc(-50% + ${dx * 48}px), calc(-50% + ${dy * 48}px))`;
+  };
+  const resetJoy = () => {
+    joy.x = joy.y = joy.mag = 0;
+    joy.id = null;
+    joyKnob.style.transform = "translate(-50%,-50%)";
+  };
+
+  document.getElementById("joy-zone").addEventListener("touchstart", (e) => {
+    e.preventDefault();
+    const t = e.changedTouches[0];
+    joy.id = t.identifier;
+    setJoy(t);
+  }, { passive: false });
+
+  renderer.domElement.addEventListener("touchstart", (e) => {
+    if (camTouch.id === null) {
+      const t = e.changedTouches[0];
+      camTouch.id = t.identifier;
+      camTouch.x = t.clientX;
+      camTouch.y = t.clientY;
+    }
+  }, { passive: true });
+
+  document.addEventListener("touchmove", (e) => {
+    let handled = false;
+    for (const t of e.changedTouches) {
+      if (t.identifier === joy.id) { setJoy(t); handled = true; }
+      else if (t.identifier === camTouch.id) {
+        cam.yaw -= (t.clientX - camTouch.x) * 0.006;
+        cam.pitch = clamp(cam.pitch + (t.clientY - camTouch.y) * 0.005, -0.15, 1.05);
+        camTouch.x = t.clientX;
+        camTouch.y = t.clientY;
+        handled = true;
+      }
+    }
+    if (handled) e.preventDefault();
+  }, { passive: false });
+
+  const endTouch = (e) => {
+    for (const t of e.changedTouches) {
+      if (t.identifier === joy.id) resetJoy();
+      if (t.identifier === camTouch.id) camTouch.id = null;
+    }
+  };
+  document.addEventListener("touchend", endTouch);
+  document.addEventListener("touchcancel", endTouch);
+
+  document.getElementById("tgt-btn").addEventListener("pointerdown", (e) => {
+    e.preventDefault();
+    cycleTarget();
+  });
+  HUD.moves.forEach((ui, i) => {
+    ui.el.addEventListener("pointerdown", (e) => {
+      e.preventDefault();
+      if (state.running && !state.over) useMove(i);
+    });
+  });
+}
 
 // ----------------------------------------------------------------------------
 // Targeting
@@ -1676,6 +1904,7 @@ function gainXp(amount) {
         m.emissive.set(0x661a00);
         m.emissiveIntensity = 0.35;
       }
+      charmander.group.userData.wings.visible = true;
       HUD.pkmnName.textContent = "CHARMANDER ⚡BLAZE AURA";
       announce("⚡ BLAZE AWAKENED! Charmander surges with power!", 3000);
       explosionFX(charmander.pos.clone().add(new THREE.Vector3(0, 1.2, 0)), 1.6);
@@ -1740,7 +1969,7 @@ document.getElementById("start-btn").addEventListener("click", () => {
   AudioSys.init();
   document.getElementById("title-overlay").style.display = "none";
   state.running = true;
-  renderer.domElement.requestPointerLock();
+  if (!IS_TOUCH) renderer.domElement.requestPointerLock();
   startWave();
 });
 
@@ -1755,8 +1984,9 @@ function updateAsh(dt) {
   if (keys["KeyS"]) mz -= 1;
   if (keys["KeyA"]) mx -= 1;
   if (keys["KeyD"]) mx += 1;
+  if (joy.mag > 0.12) { mx = joy.x; mz = -joy.y; } // screen-down = backward
   const moving = mx !== 0 || mz !== 0;
-  const sprint = keys["ShiftLeft"] || keys["ShiftRight"];
+  const sprint = keys["ShiftLeft"] || keys["ShiftRight"] || joy.mag > 0.88;
   const speed = sprint ? 11 : 6.5;
 
   if (moving && !state.over) {
@@ -1764,7 +1994,7 @@ function updateAsh(dt) {
     const ang = Math.atan2(mx, -mz) + cam.yaw;
     tmpV.set(Math.sin(ang), 0, Math.cos(ang));
     ash.pos.addScaledVector(tmpV, speed * dt);
-    const maxR = 130;
+    const maxR = 44; // stay inside the stadium wall
     const r = Math.hypot(ash.pos.x, ash.pos.z);
     if (r > maxR) ash.pos.multiplyScalar(maxR / r);
     ash.yaw = lerpAngle(ash.yaw, ang, 1 - Math.pow(0.0001, dt));
@@ -1820,6 +2050,13 @@ function updateCharmander(dt) {
   const bob = Math.sin(state.time * 4) * 0.04;
   charmander.group.position.y += bob + charmander.lunge * 0.5;
   charmander.group.rotation.y = charmander.yaw;
+
+  // flap the evolution wings
+  if (state.evolved) {
+    for (const w of charmander.group.userData.wings.children) {
+      w.rotation.y = -w.userData.sx * (0.55 + Math.sin(state.time * 4.2) * 0.2);
+    }
+  }
 
   // tail flame: shader time, flicker light, Blaze boost at low HP
   const lowHp = charmander.hp / charmander.maxHp < 0.3;

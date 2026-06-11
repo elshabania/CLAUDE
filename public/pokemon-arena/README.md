@@ -40,6 +40,8 @@ Served at `/pokemon-arena` on the deployed site, or serve the repo's
 
 ## Controls
 
+### Desktop
+
 | Input | Action |
 |-------|--------|
 | WASD | Move Ash |
@@ -48,6 +50,25 @@ Served at `/pokemon-arena` on the deployed site, or serve the repo's
 | 1–4 | Command Charmander's attacks |
 | Tab | Switch target |
 | M | Mute |
+
+### Phone / tablet (touch)
+
+| Input | Action |
+|-------|--------|
+| Left virtual joystick | Move Ash (full deflection = sprint) |
+| Swipe anywhere else | Aim camera |
+| Tap attack cards | Command Charmander's attacks |
+| 🎯 button | Switch target |
+
+Touch devices automatically get a lighter render profile (lower pixel
+ratio, smaller shadow map, fewer grass blades/particles/crowd members).
+
+## Stadium
+
+The battle takes place in a Pokkén-style stadium: striped turf battlefield
+with painted lines, a perimeter wall ringed with glowing ad-boards, tiered
+stands filled with an instanced animated crowd, and floodlight towers.
+Charmander's level-5 Blaze evolution now also unfurls Charizard-style wings.
 
 ---
 

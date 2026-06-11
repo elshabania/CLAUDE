@@ -2,16 +2,18 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
 <title>Pokémon Arena 3D — Ash & Charmander</title>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Bungee&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet" />
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  html, body { width: 100%; height: 100%; overflow: hidden; background: #000; }
-  body { font-family: "Rajdhani", "Segoe UI", sans-serif; user-select: none; }
-  canvas { display: block; }
+  html, body { width: 100%; height: 100%; overflow: hidden; background: #000;
+    touch-action: none; overscroll-behavior: none; }
+  body { font-family: "Rajdhani", "Segoe UI", sans-serif; user-select: none;
+    -webkit-user-select: none; -webkit-tap-highlight-color: transparent; }
+  canvas { display: block; touch-action: none; }
 
   #hud { position: fixed; inset: 0; pointer-events: none; z-index: 10; }
 
@@ -184,6 +186,55 @@
     transition: opacity .35s; }
 
   #mute-hint { position: absolute; top: 96px; right: 22px; font-size: 12px; color: #8fa0c5; }
+
+  /* ---- Touch controls (shown only on touch devices) ---- */
+  #touch-ui { position: fixed; inset: 0; pointer-events: none; z-index: 20; display: none; }
+  #joy-zone {
+    position: absolute; left: 14px; bottom: 14px; width: 170px; height: 170px;
+    pointer-events: auto;
+  }
+  #joy-base {
+    position: absolute; left: 25px; bottom: 25px; width: 120px; height: 120px;
+    border-radius: 50%; background: rgba(10,14,30,.4);
+    border: 2px solid rgba(255,255,255,.25); backdrop-filter: blur(3px);
+  }
+  #joy-knob {
+    position: absolute; left: 50%; top: 50%; width: 54px; height: 54px;
+    border-radius: 50%; transform: translate(-50%,-50%);
+    background: radial-gradient(circle at 35% 30%, rgba(255,210,120,.95), rgba(255,130,30,.85));
+    box-shadow: 0 2px 14px rgba(255,140,30,.6); border: 2px solid rgba(255,255,255,.4);
+  }
+  #tgt-btn {
+    position: absolute; right: 18px; bottom: 235px; width: 56px; height: 56px;
+    border-radius: 50%; pointer-events: auto; display: flex; align-items: center;
+    justify-content: center; font-size: 26px;
+    background: rgba(10,14,30,.6); border: 2px solid rgba(255,90,90,.5);
+    backdrop-filter: blur(3px);
+  }
+  #tgt-btn:active { background: rgba(255,90,90,.35); }
+
+  /* ---- Phone layout ---- */
+  @media (pointer: coarse) {
+    #controls-hint, #crosshair { display: none !important; }
+    #player-panel { width: 230px; padding: 8px 10px; transform: scale(.92); transform-origin: top left; }
+    #player-panel .pkmn-name { font-size: 15px; }
+    #score-panel { padding: 6px 12px; transform: scale(.92); transform-origin: top right; }
+    #target-panel { width: 220px; top: 12px; padding: 6px 10px 8px; }
+    #attack-bar {
+      left: auto; right: 12px; bottom: 76px; transform: none;
+      width: 188px; flex-wrap: wrap; gap: 8px; justify-content: flex-end;
+    }
+    .move { width: 88px; padding: 6px 4px 5px; pointer-events: auto; }
+    .move .icon { font-size: 19px; }
+    .move .mname { font-size: 9.5px; letter-spacing: .2px; }
+    .move .key { display: none; }
+    #combo { font-size: 19px; top: 96px; }
+    #announce { font-size: 22px; white-space: normal; width: 90vw; }
+    #callout { font-size: 14px; bottom: auto; top: 64px; padding: 4px 14px; }
+    .overlay .panel { font-size: 13px; padding: 12px 18px; line-height: 1.9; }
+    .overlay h1 { font-size: clamp(26px, 8vw, 44px); }
+    .overlay .fine { font-size: 10.5px; max-width: 86vw; }
+  }
 </style>
 </head>
 <body>
@@ -224,6 +275,11 @@
     <div class="move ready" id="move-4"><span class="key">4</span><div class="icon">☄️</div><div class="mname">FLAME BURST</div><div class="cd-shade"></div><div class="cd-num"></div></div>
   </div>
 
+  <div id="touch-ui">
+    <div id="joy-zone"><div id="joy-base"><div id="joy-knob"></div></div></div>
+    <div id="tgt-btn">🎯</div>
+  </div>
+
   <div id="controls-hint">
     <b>WASD</b> move &nbsp;·&nbsp; <b>Mouse</b> aim camera &nbsp;·&nbsp; <b>Shift</b> sprint<br/>
     <b>1–4</b> command attacks &nbsp;·&nbsp; <b>Tab</b> switch target &nbsp;·&nbsp; <b>M</b> mute
@@ -237,7 +293,8 @@
   <div class="panel">
     <b>WASD</b> move Ash · <b>Mouse</b> aim · <b>Shift</b> sprint<br/>
     <b>1</b> Ember · <b>2</b> Flamethrower · <b>3</b> Fire Spin · <b>4</b> Flame Burst<br/>
-    <b>Tab</b> switch target · <b>M</b> mute sound
+    <b>Tab</b> switch target · <b>M</b> mute sound<br/>
+    📱 On phone: <b>joystick</b> to move (push far to sprint) · <b>swipe</b> to aim · <b>tap</b> moves · <b>🎯</b> switch target
   </div>
   <button id="start-btn">⚡ START BATTLE</button>
   <div class="fine">Charmander fights at your side and aims at the targeted enemy.
