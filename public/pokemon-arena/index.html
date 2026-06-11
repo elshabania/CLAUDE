@@ -117,6 +117,16 @@
   }
   #callout b { color: #ffb24d; }
 
+  /* ---- Combo counter ---- */
+  #combo {
+    position: absolute; top: 116px; left: 50%; transform: translateX(-50%) scale(1);
+    font-family: "Bungee", cursive; font-size: 27px; color: #ffd24d; white-space: nowrap;
+    text-shadow: 0 0 16px rgba(255,140,0,.95), 0 3px 6px rgba(0,0,0,.8);
+    opacity: 0; transition: opacity .25s, transform .09s ease-out;
+  }
+  #combo.pop { transform: translateX(-50%) scale(1.28); }
+  #combo .crit { color: #ff5e3a; }
+
   /* ---- Crosshair ---- */
   #crosshair {
     position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
@@ -203,6 +213,7 @@
   </div>
 
   <div id="announce"></div>
+  <div id="combo"></div>
   <div id="callout"></div>
   <div id="crosshair"></div>
 
@@ -242,7 +253,10 @@
 </div>
 
 <script type="importmap">
-{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js" } }
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+} }
 </script>
 <!-- Absolute path: the page is also served at /pokemon-arena (no trailing
      slash), where a relative ./game.js would wrongly resolve to /game.js -->
