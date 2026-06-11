@@ -1358,6 +1358,7 @@ const HUD = {
   combo: document.getElementById("combo"),
   vignette: document.getElementById("vignette"),
   muteHint: document.getElementById("mute-hint"),
+  flyBtn: document.getElementById("fly-btn"),
   moves: [1, 2, 3, 4].map(i => {
     const el = document.getElementById(`move-${i}`);
     return { el, shade: el.querySelector(".cd-shade"), num: el.querySelector(".cd-num") };
@@ -1403,15 +1404,17 @@ const state = {
   bossQueued: false,
 };
 
-// YOU — Charizard in flight
+// YOU — Charizard. Starts grounded; the FLY button takes off.
 const player = {
   group: buildCharizard(),
+  mode: "ground", // "ground" | "fly" | "landing"
   pos: new THREE.Vector3(0, 14, -20),
   vel: new THREE.Vector3(0, 0, 1),
   yaw: 0,
   pitch: 0,
   roll: 0,
   speed: 14,
+  walkPhase: 0,
   hp: 120,
   maxHp: 120,
   dmgMul: 1,
@@ -1474,8 +1477,33 @@ function bumpCombo(crit) {
 const keys = {};
 const touchBoost = { on: false };
 
+// FLY / LAND toggle — the takeoff button
+function toggleFlight() {
+  if (!state.running || state.over) return;
+  if (player.mode === "ground") {
+    player.mode = "fly";
+    player.vel.y += 7.5;
+    aim.pitch = Math.max(aim.pitch, 0.3);
+    burst(player.pos.clone().add(new THREE.Vector3(0, -1.2, 0)),
+      { count: 20, color: 0xcfc2a8, speed: 7, size: 0.9, life: 0.6 });
+    AudioSys.flap();
+    state.shake = Math.max(state.shake, 0.2);
+    callout("🐉 CHARIZARD takes flight!");
+  } else if (player.mode === "fly") {
+    player.mode = "landing";
+    callout("Coming in to land…");
+  } else {
+    player.mode = "fly"; // cancel the landing
+  }
+}
+document.getElementById("fly-btn").addEventListener("pointerdown", (e) => {
+  e.preventDefault();
+  toggleFlight();
+});
+
 document.addEventListener("keydown", (e) => {
   keys[e.code] = true;
+  if (e.code === "Space") { e.preventDefault(); toggleFlight(); }
   if (e.code === "Tab") { e.preventDefault(); cycleTarget(); }
   if (e.code === "KeyM") {
     const muted = AudioSys.toggleMute();
@@ -2093,35 +2121,52 @@ document.getElementById("start-btn").addEventListener("click", () => {
   AudioSys.init();
   document.getElementById("title-overlay").style.display = "none";
   state.running = true;
+  // begin grounded on the stadium turf, facing the center
+  player.mode = "ground";
+  player.pos.set(5, terrainHeight(5, -11) + 1.45, -11);
+  player.vel.set(0, 0, 0);
+  player.speed = 0;
+  player.yaw = Math.atan2(-5, 11);
+  aim.yaw = player.yaw;
+  aim.pitch = 0.04;
   if (!IS_TOUCH) renderer.domElement.requestPointerLock();
   startWave();
+  setTimeout(() => callout("Press 🕊 FLY (or Space) to take off!", 3500), 1200);
 });
 
 // ----------------------------------------------------------------------------
 // Flight — the heart of feeling like the Pokémon
 // ----------------------------------------------------------------------------
 function updatePlayer(dt) {
+  const grounded = player.mode === "ground";
+  const landing = player.mode === "landing";
+
   // steering input
   if (joy.mag > 0.1) {
     aim.yaw -= joy.x * 2.1 * dt;
-    aim.pitch = clamp(aim.pitch - joy.y * 1.5 * dt, -0.8, 0.8);
+    if (!grounded) aim.pitch = clamp(aim.pitch - joy.y * 1.5 * dt, -0.8, 0.8);
   }
   if (keys["ArrowLeft"]) aim.yaw += 1.8 * dt;
   if (keys["ArrowRight"]) aim.yaw -= 1.8 * dt;
-  if (keys["ArrowUp"]) aim.pitch = clamp(aim.pitch + 1.4 * dt, -0.8, 0.8);
-  if (keys["ArrowDown"]) aim.pitch = clamp(aim.pitch - 1.4 * dt, -0.8, 0.8);
+  if (!grounded && keys["ArrowUp"]) aim.pitch = clamp(aim.pitch + 1.4 * dt, -0.8, 0.8);
+  if (!grounded && keys["ArrowDown"]) aim.pitch = clamp(aim.pitch - 1.4 * dt, -0.8, 0.8);
+  if (grounded) aim.pitch = lerp(aim.pitch, 0.04, 1 - Math.pow(0.05, dt));
+  if (landing) aim.pitch = lerp(aim.pitch, -0.42, 1 - Math.pow(0.1, dt));
 
   // the dragon chases your aim with weight
-  player.yaw = lerpAngle(player.yaw, aim.yaw, 1 - Math.pow(0.085, dt));
-  player.pitch = lerp(player.pitch, aim.pitch, 1 - Math.pow(0.05, dt));
+  player.yaw = lerpAngle(player.yaw, aim.yaw, 1 - Math.pow(grounded ? 0.03 : 0.085, dt));
+  player.pitch = lerp(player.pitch, grounded ? 0 : aim.pitch, 1 - Math.pow(0.05, dt));
 
   const boost = keys["ShiftLeft"] || keys["ShiftRight"] || touchBoost.on;
   const brake = keys["KeyS"];
-  const targetSpeed = boost ? 32 : brake ? 5 : keys["KeyW"] ? 20 : 14;
+  const targetSpeed = grounded
+    ? (boost ? 12 : brake ? 0 : keys["KeyW"] ? 8.5 : 5.5)
+    : (boost ? 32 : brake ? 5 : keys["KeyW"] ? 20 : 14);
   player.speed = lerp(player.speed, targetSpeed, 1 - Math.pow(0.3, dt));
 
   const fwd = playerForward();
   tmpAim.copy(fwd).multiplyScalar(player.speed);
+  if (grounded) tmpAim.y = 0;
   player.vel.lerp(tmpAim, 1 - Math.pow(0.02, dt));
   player.pos.addScaledVector(player.vel, dt);
 
@@ -2131,26 +2176,54 @@ function updatePlayer(dt) {
     player.pos.multiplyScalar(260 / r);
     callout("Turn back — the battle is here!");
   }
-  const minY = terrainHeight(player.pos.x, player.pos.z) + 2.2;
-  if (player.pos.y < minY) {
-    player.pos.y = minY;
-    if (aim.pitch < 0) aim.pitch *= 0.6; // ease out of the dive
-    if (player.speed > 18 && Math.random() < dt * 20) {
+
+  const groundY = terrainHeight(player.pos.x, player.pos.z);
+  if (grounded) {
+    // stick to the terrain with a walk bob
+    player.walkPhase += dt * player.speed * 1.6;
+    const bob = Math.abs(Math.sin(player.walkPhase)) * 0.07 * Math.min(1, player.speed / 4);
+    player.pos.y = lerp(player.pos.y, groundY + 1.45 + bob, 1 - Math.pow(0.0001, dt));
+    player.vel.y = 0;
+    if (player.speed > 8 && Math.random() < dt * 12) {
       spawnParticle({
-        pos: player.pos.clone().add(new THREE.Vector3(rand(-1, 1), -1.5, rand(-1, 1))),
-        smoke: true, color: 0x9a8a70, size: rand(0.6, 1.2), endSize: 2.4, life: rand(0.5, 0.9),
-        vel: new THREE.Vector3(rand(-2, 2), rand(1, 3), rand(-2, 2)),
+        pos: player.pos.clone().add(new THREE.Vector3(rand(-0.5, 0.5), -1.3, rand(-0.5, 0.5))),
+        smoke: true, color: 0x9a8a70, size: rand(0.4, 0.8), endSize: 1.6, life: rand(0.4, 0.7),
+        vel: new THREE.Vector3(rand(-1, 1), rand(0.5, 1.5), rand(-1, 1)),
       });
     }
-  }
-  if (player.pos.y > 92) {
-    player.pos.y = 92;
-    if (aim.pitch > 0) aim.pitch *= 0.6;
+  } else {
+    const minY = groundY + (landing ? 1.45 : 2.2);
+    if (player.pos.y < minY) {
+      player.pos.y = minY;
+      if (landing) {
+        // touchdown
+        player.mode = "ground";
+        player.vel.y = 0;
+        aim.pitch = 0.04;
+        burst(player.pos.clone().add(new THREE.Vector3(0, -1.2, 0)),
+          { count: 16, color: 0xcfc2a8, speed: 6, size: 0.8, life: 0.55 });
+        state.shake = Math.max(state.shake, 0.22);
+        callout("CHARIZARD landed.");
+      } else {
+        if (aim.pitch < 0) aim.pitch *= 0.6; // ease out of the dive
+        if (player.speed > 18 && Math.random() < dt * 20) {
+          spawnParticle({
+            pos: player.pos.clone().add(new THREE.Vector3(rand(-1, 1), -1.5, rand(-1, 1))),
+            smoke: true, color: 0x9a8a70, size: rand(0.6, 1.2), endSize: 2.4, life: rand(0.5, 0.9),
+            vel: new THREE.Vector3(rand(-2, 2), rand(1, 3), rand(-2, 2)),
+          });
+        }
+      }
+    }
+    if (player.pos.y > 92) {
+      player.pos.y = 92;
+      if (aim.pitch > 0) aim.pitch *= 0.6;
+    }
   }
 
-  // banking — roll into turns
+  // banking — roll into turns (level on the ground)
   const yawErr = angleDiff(aim.yaw, player.yaw);
-  player.roll = lerp(player.roll, clamp(-yawErr * 2.2, -1, 1), 1 - Math.pow(0.05, dt));
+  player.roll = lerp(player.roll, grounded ? 0 : clamp(-yawErr * 2.2, -1, 1), 1 - Math.pow(0.05, dt));
 
   const g = player.group;
   g.position.copy(player.pos);
@@ -2160,18 +2233,19 @@ function updatePlayer(dt) {
   // ---- animation: wings, head, jaw, tail ----
   const ud = g.userData;
   const hover = player.speed < 9;
-  const flapRate = boost ? 2.2 : hover ? 7.5 : 3.4;
-  const flapAmp = boost ? 0.12 : hover ? 0.55 : 0.28;
+  const flapRate = grounded ? 1.4 : boost ? 2.2 : hover ? 7.5 : 3.4;
+  const flapAmp = grounded ? 0.05 : boost ? 0.12 : hover ? 0.55 : 0.28;
   const prevPhase = player.flapPhase;
   player.flapPhase += dt * flapRate;
   // wing-beat whoosh at the bottom of each stroke
-  if (Math.floor(prevPhase / Math.PI) !== Math.floor(player.flapPhase / Math.PI) && !boost) {
+  if (Math.floor(prevPhase / Math.PI) !== Math.floor(player.flapPhase / Math.PI) && !boost && !grounded) {
     AudioSys.flap();
   }
   for (const w of ud.wings) {
-    const lift = boost ? -0.25 : 0.15;
+    // folded against the back on the ground, spread in flight
+    const lift = grounded ? -0.95 : boost ? -0.25 : 0.15;
     w.rotation.z = w.userData.sign * (lift + Math.sin(player.flapPhase) * flapAmp);
-    w.rotation.x = Math.sin(player.flapPhase - 0.6) * 0.1 * flapAmp * 3;
+    w.rotation.x = grounded ? 0 : Math.sin(player.flapPhase - 0.6) * 0.1 * flapAmp * 3;
   }
   ud.head.rotation.x = -aim.pitch * 0.35;
   ud.tailGroup.rotation.y = Math.sin(state.time * 2.1) * 0.08 + clamp(yawErr, -0.5, 0.5) * 0.4;
@@ -2310,10 +2384,11 @@ function updateAshNpc(dt) {
 // Camera — tight over-the-shoulder dragon cam with banked horizon
 // ----------------------------------------------------------------------------
 function updateCamera(dt) {
+  const grounded = player.mode === "ground";
   const fwd = playerForward();
   const desired = player.pos.clone()
-    .addScaledVector(fwd, -7.2)
-    .add(new THREE.Vector3(0, 2.4, 0));
+    .addScaledVector(fwd, grounded ? -5.8 : -7.2)
+    .add(new THREE.Vector3(0, grounded ? 2.0 : 2.4, 0));
   const minY = terrainHeight(desired.x, desired.z) + 0.7;
   if (desired.y < minY) desired.y = minY;
   camera.position.lerp(desired, 1 - Math.pow(0.0005, dt));
@@ -2379,6 +2454,10 @@ function updateHud() {
     state.combo = 0;
     HUD.combo.style.opacity = "0";
   }
+
+  const flyLabel = player.mode === "ground" ? "🕊<small>FLY</small>"
+    : player.mode === "fly" ? "🛬<small>LAND</small>" : "⏬<small>…</small>";
+  if (HUD.flyBtn.innerHTML !== flyLabel) HUD.flyBtn.innerHTML = flyLabel;
 
   for (let i = 0; i < 4; i++) {
     const m = MOVES[i], ui = HUD.moves[i];

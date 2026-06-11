@@ -187,6 +187,23 @@
 
   #mute-hint { position: absolute; top: 96px; right: 22px; font-size: 12px; color: #8fa0c5; }
 
+  /* ---- Fly / Land toggle (all devices) ---- */
+  #fly-btn {
+    position: absolute; right: 22px; bottom: 96px; width: 66px; height: 66px;
+    border-radius: 50%; pointer-events: auto; cursor: pointer; z-index: 30;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    font-size: 24px; line-height: 1;
+    background: radial-gradient(circle at 35% 30%, rgba(90,150,255,.45), rgba(20,40,90,.7));
+    border: 2px solid rgba(130,190,255,.6); backdrop-filter: blur(4px);
+    box-shadow: 0 0 16px rgba(80,150,255,.35);
+    transition: transform .1s;
+  }
+  #fly-btn:active { transform: scale(.92); }
+  #fly-btn small {
+    font-size: 9.5px; color: #cfe2ff; font-weight: 700; letter-spacing: .8px;
+    font-family: "Rajdhani", sans-serif; margin-top: 2px;
+  }
+
   /* ---- Touch controls (shown only on touch devices) ---- */
   #touch-ui { position: fixed; inset: 0; pointer-events: none; z-index: 20; display: none; }
   #joy-zone {
@@ -238,6 +255,7 @@
     .move .icon { font-size: 19px; }
     .move .mname { font-size: 9.5px; letter-spacing: .2px; }
     .move .key { display: none; }
+    #fly-btn { right: 18px; bottom: 308px; width: 58px; height: 58px; font-size: 20px; }
     #combo { font-size: 19px; top: 96px; }
     #announce { font-size: 22px; white-space: normal; width: 90vw; }
     #callout { font-size: 14px; bottom: auto; top: 64px; padding: 4px 14px; }
@@ -285,6 +303,8 @@
     <div class="move ready" id="move-4"><span class="key">4</span><div class="icon">☄️</div><div class="mname">FLAME BURST</div><div class="cd-shade"></div><div class="cd-num"></div></div>
   </div>
 
+  <div id="fly-btn">🕊<small>FLY</small></div>
+
   <div id="touch-ui">
     <div id="joy-zone"><div id="joy-base"><div id="joy-knob"></div></div></div>
     <div id="tgt-btn">🎯</div>
@@ -302,7 +322,8 @@
   <h1>POKÉMON ARENA 3D</h1>
   <h2>YOU ARE CHARIZARD — Aerial Battle</h2>
   <div class="panel">
-    🖱 <b>Mouse</b> steers your flight · <b>Shift</b> boost · <b>S</b> brake<br/>
+    🕊 Press <b>FLY</b> (or <b>Space</b>) to take off and land<br/>
+    🖱 <b>Mouse</b> steers · <b>Shift</b> boost · <b>S</b> brake<br/>
     <b>1</b> Fireball · <b>2</b> Flamethrower · <b>3</b> Fire Spin · <b>4</b> Flame Burst<br/>
     <b>Tab</b> switch target · <b>M</b> mute sound<br/>
     📱 On phone: <b>joystick</b> steers (left/right turn, up/down climb &amp; dive) · hold <b>🔥</b> to boost · <b>tap</b> moves · <b>🎯</b> switch target
