@@ -23,37 +23,37 @@
     <!-- Title screen -->
     <div id="title" class="overlay hidden">
       <div class="title-card">
-        <div class="title-badge">3D ARCADE BATTLE</div>
-        <h1>CHARMANDER<span>ARENA</span></h1>
-        <p class="subtitle">You are <strong>Ash</strong>. Command your <strong>Charmander</strong> and burn through wild challengers.</p>
+        <div class="title-badge">3D ACTION BRAWLER</div>
+        <h1>EMBER<span>STRIKE</span></h1>
+        <p class="subtitle">Control <strong>Ember</strong>, a fire-powered hero. Run, combo, and blast the <strong>Rival Unit</strong> into scrap.</p>
         <div class="controls-grid">
           <div><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd><span>Move</span></div>
-          <div><kbd>J</kbd><span>Scratch (melee)</span></div>
-          <div><kbd>K</kbd><span>Ember (lob)</span></div>
+          <div><kbd>J</kbd><span>Punch (melee)</span></div>
+          <div><kbd>K</kbd><span>Fire Blast (ranged)</span></div>
           <div><kbd>L</kbd><span>Flamethrower (beam)</span></div>
-          <div><kbd>Space</kbd><span>Dodge roll</span></div>
+          <div><kbd>Space</kbd><span>Jump / dodge</span></div>
           <div><kbd>Shift</kbd><span>Sprint</span></div>
         </div>
         <button id="startBtn" class="cta">ENTER THE ARENA</button>
-        <p class="hint">Tip: Flamethrower drains your flame meter — let your tail recharge.</p>
+        <p class="hint">Tip: Flamethrower drains your flame meter — let it recharge between bursts.</p>
       </div>
     </div>
 
     <!-- HUD -->
     <div id="hud" class="hidden">
       <div class="combatant player">
-        <div class="name">CHARMANDER <span class="lvl">Lv.36</span></div>
+        <div class="name">EMBER <span class="lvl">Lv.36</span></div>
         <div class="hpbar"><div class="hpfill" id="playerHp"></div></div>
         <div class="flamebar"><div class="flamefill" id="playerFlame"></div></div>
       </div>
       <div class="combatant enemy">
-        <div class="name" id="enemyName">WILD SQUIRTLE <span class="lvl">Lv.36</span></div>
+        <div class="name" id="enemyName">RIVAL UNIT <span class="lvl">Lv.36</span></div>
         <div class="hpbar enemyhp"><div class="hpfill" id="enemyHp"></div></div>
       </div>
 
       <div id="moveDock">
-        <div class="move" data-key="J"><b>J</b><span>Scratch</span><i class="cd" id="cdJ"></i></div>
-        <div class="move" data-key="K"><b>K</b><span>Ember</span><i class="cd" id="cdK"></i></div>
+        <div class="move" data-key="J"><b>J</b><span>Punch</span><i class="cd" id="cdJ"></i></div>
+        <div class="move" data-key="K"><b>K</b><span>Blast</span><i class="cd" id="cdK"></i></div>
         <div class="move" data-key="L"><b>L</b><span>Flame</span><i class="cd" id="cdL"></i></div>
       </div>
 
@@ -64,10 +64,10 @@
     <div id="touch" class="hidden">
       <div id="stick"><div id="stickNub"></div></div>
       <div id="touchBtns">
-        <button data-act="J">SCR</button>
-        <button data-act="K">EMB</button>
+        <button data-act="J">PCH</button>
+        <button data-act="K">BLST</button>
         <button data-act="L">FLM</button>
-        <button data-act="dodge">DODGE</button>
+        <button data-act="dodge">JUMP</button>
       </div>
     </div>
 
@@ -111,16 +111,16 @@
         if (window.__charBooted) return;
         fail('Startup error', (e && e.reason && e.reason.message) ? e.reason.message : String(e && e.reason));
       });
-      // Watchdog: if the engine never boots, the most likely cause is the
-      // 3D engine failing to download (network/extension blocking the CDN).
+      // Watchdog: if the engine/character never finish loading, surface it
+      // rather than spinning forever.
       setTimeout(function () {
         if (window.__charBooted) return;
         fail('Still loading…',
-          'Startup is taking longer than expected (8s+).\n' +
-          'If this persists it usually means the 3D engine could not be\n' +
-          'downloaded (network/extension block) or WebGL is unavailable.\n' +
+          'Startup is taking longer than expected (30s+).\n' +
+          'This usually means the 3D engine or character model could not be\n' +
+          'downloaded (slow network or a block on the CDN), or WebGL is off.\n' +
           'Check the browser console for details.');
-      }, 8000);
+      }, 30000);
     })();
   </script>
 

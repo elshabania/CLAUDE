@@ -1,60 +1,57 @@
-# Charmander Arena — 3D Pokémon-style Arcade Battle
+# Ember Strike — 3D Action Brawler
 
-A self-contained, real-time 3D battle game. You play as **Ash**, commanding
-your **Charmander** against a wild challenger. Built with
-[Three.js](https://threejs.org/) (loaded from a CDN) — no build step, no bundler.
+A real-time **3D action brawler** in the browser. You control **Ember**, a
+fire-powered hero — a genuine **rigged, animated 3D character model** loaded at
+runtime — and fight a **Rival Unit** in a cinematic arena. Run, sprint, combo
+with punches, blast fireballs, breathe flame, and jump. Built with
+[Three.js](https://threejs.org/); no build step, no bundler.
 
 Open `/pokemon-arcade` on the deployed site, or `public/pokemon-arcade/index.html`
 locally via any static server.
+
+> **Why "Ember", not Charmander?** A hyper-realistic, fully-animated game
+> character needs an artist-made, rigged-and-skinned 3D model — not primitives
+> generated in code. This uses a real rigged model (with proper Idle / Walk /
+> Run / Punch / Jump / Death animations) so it *moves and fights like a real
+> game character*. The official Pokémon designs are copyrighted, so the hero is
+> an original fire-themed character rather than Charmander.
 
 ## Controls
 
 | Input | Action |
 | --- | --- |
-| `W` `A` `S` `D` / arrows | Move Charmander |
+| `W` `A` `S` `D` / arrows | Move |
 | `Shift` | Sprint |
-| `Space` | Dodge roll (brief invulnerability) |
-| `J` | **Scratch** — melee combo |
-| `K` | **Ember** — lobbed fireball |
+| `Space` | Jump / dodge (brief invulnerability) |
+| `J` | **Punch** — melee |
+| `K` | **Fire Blast** — ranged fireball |
 | `L` | **Flamethrower** — continuous beam (drains the flame meter) |
 
 On touch devices a virtual joystick and action buttons appear automatically.
 
-## Battle design
-
-- **Flame meter** — Flamethrower is your heaviest hit but burns the orange
-  meter under your HP bar. Stop firing to let Charmander's tail recharge; the
-  tail flame visibly dims as the meter drops.
-- **Dodge i-frames** — rolling through a Water Gun or Tackle avoids all damage.
-- **Enemy AI** — the wild Squirtle keeps mid-range, strafes, telegraphs its
-  attacks with a crouch/charge, then fires Water Gun volleys or lunges with
-  Tackle. Read the wind-up and punish the recovery.
-- First fighter to drop the other's HP to zero wins.
-
 ## How it's built
 
-Everything is procedural — no external model or texture assets:
-
-- **Characters** (`game.js`) are assembled from primitive geometry (spheres,
-  capsules, cones) grouped into rigs, then animated by rotating the rig parts
-  (walk cycles, attack poses, KO falls).
+- **Real character** — a rigged, skinned, animated glTF model is downloaded at
+  runtime (Three.js' `RobotExpressive`, CC0) and driven by an `AnimationMixer`
+  with a small state machine (locomotion blending between Idle/Walk/Run, plus
+  one-shot Punch/Jump/Death actions with snappy commit timing). The same model
+  is cloned via `SkeletonUtils` and re-tinted for the hero and the rival.
 - **Cinematic rendering** — an `EffectComposer` pipeline with `UnrealBloomPass`
-  makes every flame, ember and energy attack glow; ACES filmic tone mapping
-  ties it together.
-- **PBR materials** — creatures use `MeshPhysicalMaterial` with clearcoat and
-  sheen, lit by an image-based environment (`RoomEnvironment` baked through a
-  `PMREMGenerator`) so surfaces pick up real reflections and ambient bounce.
-- **Effects** use a single additive `THREE.Points` particle pool for fire,
-  embers, water, sparks and smoke, plus glow sprites and a real point light
-  for Charmander's tail flame.
-- **Lighting & atmosphere** — a warm directional "sun" with soft shadow maps,
-  a hemisphere fill, a cool rim light, a bloom-flared sun disc, drifting
-  ambient embers, soft contact (blob) shadows under each fighter, procedurally
-  textured ground with bump detail, a gradient sky dome and exponential fog.
-- **Camera** dynamically frames both fighters and adds hit-shake on impact.
+  makes every flame, ember and blast glow; ACES filmic tone mapping; image-based
+  lighting from a `RoomEnvironment` baked through a `PMREMGenerator` for real
+  PBR reflections.
+- **Effects** — an additive `THREE.Points` particle pool for fire, embers,
+  sparks and smoke, with a fire aura on the hero during fire moves.
+- **Atmosphere** — soft-shadowed directional sun, a bloom-flared sun disc,
+  drifting embers, soft contact (blob) shadows, procedurally textured ground,
+  a gradient sky dome and fog.
+- **Game feel** — third-person camera that frames both fighters, hit-shake,
+  i-frames on jump/dodge, a flame-meter resource, and an enemy AI that closes
+  in, telegraphs, and punches.
 
 ## Files
 
-- `index.html` — markup, HUD, title/result screens, import map for Three.js
+- `index.html` — markup, HUD, title/result screens, startup diagnostics
 - `styles.css` — HUD, overlays and responsive/touch layout
-- `game.js` — engine: scene, models, particles, combat, AI, input, game loop
+- `game.js` — engine: scene, model loading, animation state machine, particles,
+  combat, AI, input, game loop
