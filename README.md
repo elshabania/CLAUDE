@@ -1,9 +1,15 @@
 # Road CAD Viewer
 
-> Also in this repo: [**Abu Dhabi Streets**](public/abu-dhabi-streets/README.md) — a
-> standalone map app showing Abu Dhabi's main and local street network as
-> toggleable layers over a Google Maps basemap. Served at
-> `/abu-dhabi-streets` on the deployed site.
+> Also in this repo:
+> - [**Abu Dhabi Streets**](public/abu-dhabi-streets/README.md) — a standalone
+>   map app showing Abu Dhabi's main and local street network as toggleable
+>   layers over a Google Maps basemap. Served at `/abu-dhabi-streets`.
+> - [**Cosmos**](public/cosmos/README.md) — a real-time GPU spiral galaxy
+>   (~300k shader-driven stars, nebulae, bloom, interactive). Served at
+>   `/cosmos`.
+> - [**Ember Strike**](public/pokemon-arcade/README.md) — a 3D action brawler
+>   (Three.js) with a real rigged, animated character. Served at
+>   `/pokemon-arcade`.
 
 A Next.js app that reads road CAD drawings (DXF and DWG) and detects road
 geometry from layer naming conventions (centerline, edge of pavement, lane

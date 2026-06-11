@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Charmander Arena — 3D Pokémon-style Battle</title>
+  <link rel="stylesheet" href="/pokemon-arcade/styles.css" />
+</head>
+<body>
+  <div id="app">
+    <canvas id="scene"></canvas>
+
+    <!-- Loading -->
+    <div id="loading" class="overlay">
+      <div class="loader-card">
+        <div class="flame-spinner"></div>
+        <h1>CHARMANDER ARENA</h1>
+        <p id="loadMsg">Forging the battlefield…</p>
+        <pre id="loadErr"></pre>
+      </div>
+    </div>
+
+    <!-- Title screen -->
+    <div id="title" class="overlay hidden">
+      <div class="title-card">
+        <div class="title-badge">3D ACTION BRAWLER</div>
+        <h1>EMBER<span>STRIKE</span></h1>
+        <p class="subtitle">Control <strong>Ember</strong>, a fire-powered hero. Run, combo, and blast the <strong>Rival Unit</strong> into scrap.</p>
+        <div class="controls-grid">
+          <div><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd><span>Move</span></div>
+          <div><kbd>J</kbd><span>Punch (melee)</span></div>
+          <div><kbd>K</kbd><span>Fire Blast (ranged)</span></div>
+          <div><kbd>L</kbd><span>Flamethrower (beam)</span></div>
+          <div><kbd>Space</kbd><span>Jump / dodge</span></div>
+          <div><kbd>Shift</kbd><span>Sprint</span></div>
+        </div>
+        <button id="startBtn" class="cta">ENTER THE ARENA</button>
+        <p class="hint">Tip: Flamethrower drains your flame meter — let it recharge between bursts.</p>
+      </div>
+    </div>
+
+    <!-- HUD -->
+    <div id="hud" class="hidden">
+      <div class="combatant player">
+        <div class="name">EMBER <span class="lvl">Lv.36</span></div>
+        <div class="hpbar"><div class="hpfill" id="playerHp"></div></div>
+        <div class="flamebar"><div class="flamefill" id="playerFlame"></div></div>
+      </div>
+      <div class="combatant enemy">
+        <div class="name" id="enemyName">RIVAL UNIT <span class="lvl">Lv.36</span></div>
+        <div class="hpbar enemyhp"><div class="hpfill" id="enemyHp"></div></div>
+      </div>
+
+      <div id="moveDock">
+        <div class="move" data-key="J"><b>J</b><span>Punch</span><i class="cd" id="cdJ"></i></div>
+        <div class="move" data-key="K"><b>K</b><span>Blast</span><i class="cd" id="cdK"></i></div>
+        <div class="move" data-key="L"><b>L</b><span>Flame</span><i class="cd" id="cdL"></i></div>
+      </div>
+
+      <div id="announce"></div>
+    </div>
+
+    <!-- Touch controls -->
+    <div id="touch" class="hidden">
+      <div id="stick"><div id="stickNub"></div></div>
+      <div id="touchBtns">
+        <button data-act="J">PCH</button>
+        <button data-act="K">BLST</button>
+        <button data-act="L">FLM</button>
+        <button data-act="dodge">JUMP</button>
+      </div>
+    </div>
+
+    <!-- End screen -->
+    <div id="result" class="overlay hidden">
+      <div class="result-card">
+        <h1 id="resultTitle">VICTORY</h1>
+        <p id="resultText"></p>
+        <button id="againBtn" class="cta">BATTLE AGAIN</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Startup diagnostics: surface any failure on screen instead of an
+       endless "Forging the battlefield…". Runs before the deferred module. -->
+  <script>
+    (function () {
+      window.__charBooted = false;
+      function fail(title, detail) {
+        var msg = document.getElementById('loadMsg');
+        var err = document.getElementById('loadErr');
+        var sp = document.querySelector('.flame-spinner');
+        if (sp) sp.style.display = 'none';
+        if (msg) { msg.textContent = title; msg.style.color = '#ff7aa0'; }
+        if (err && detail) { err.textContent = detail; }
+      }
+      window.__charFail = fail;
+      // Capture phase so failed <script>/<link> resource loads are caught too.
+      window.addEventListener('error', function (e) {
+        if (window.__charBooted) return;
+        var t = e && e.target;
+        if (t && (t.tagName === 'SCRIPT' || t.tagName === 'LINK')) {
+          fail('Failed to load a game file', 'Could not load: ' + (t.src || t.href));
+          return;
+        }
+        var d = (e && e.message) ? e.message : String(e);
+        if (e && e.filename) d += '\n(' + e.filename + ':' + (e.lineno || '?') + ')';
+        fail('Startup error', d);
+      }, true);
+      window.addEventListener('unhandledrejection', function (e) {
+        if (window.__charBooted) return;
+        fail('Startup error', (e && e.reason && e.reason.message) ? e.reason.message : String(e && e.reason));
+      });
+      // Watchdog: if the engine/character never finish loading, surface it
+      // rather than spinning forever.
+      setTimeout(function () {
+        if (window.__charBooted) return;
+        fail('Still loading…',
+          'Startup is taking longer than expected (30s+).\n' +
+          'This usually means the 3D engine or character model could not be\n' +
+          'downloaded (slow network or a block on the CDN), or WebGL is off.\n' +
+          'Check the browser console for details.');
+      }, 30000);
+    })();
+  </script>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+    }
+  }
+  </script>
+  <script type="module" src="/pokemon-arcade/game.js"></script>
+</body>
+</html>
