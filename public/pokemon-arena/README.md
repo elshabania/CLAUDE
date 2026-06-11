@@ -1,9 +1,10 @@
-# Pokémon Arena 3D — Ash & Charmander
+# Pokémon Arena 3D — You Are Charizard
 
-A standalone, self-contained 3D arcade battle game built with
-[Three.js](https://threejs.org). You play as **Ash**, running around a 3D
-battle arena while your partner **Charmander** fights at your side, unleashing
-cinematic fire attacks on waves of wild creatures.
+A standalone, self-contained 3D dragon-flight battle game built with
+[Three.js](https://threejs.org). **You fly as Charizard** in an
+over-the-shoulder chase camera: bank into turns, dive and boost, breathe
+fire where you aim, and fight waves of grounded and aerial wild creatures
+over a Pokkén-style stadium while Ash cheers you on from the arena floor.
 
 Served at `/pokemon-arena` on the deployed site, or serve the repo's
 `public/` directory with any static file server and open `/pokemon-arena/`
@@ -44,10 +45,11 @@ Served at `/pokemon-arena` on the deployed site, or serve the repo's
 
 | Input | Action |
 |-------|--------|
-| WASD | Move Ash |
-| Mouse | Aim camera (click to lock pointer) |
-| Shift | Sprint |
-| 1–4 | Command Charmander's attacks |
+| Mouse | Steer your flight (click to lock pointer) |
+| Shift | Boost |
+| W / S | Faster cruise / brake |
+| Arrow keys | Steering fallback without pointer lock |
+| 1–4 | Fireball / Flamethrower / Fire Spin / Flame Burst |
 | Tab | Switch target |
 | M | Mute |
 
@@ -55,9 +57,9 @@ Served at `/pokemon-arena` on the deployed site, or serve the repo's
 
 | Input | Action |
 |-------|--------|
-| Left virtual joystick | Move Ash (full deflection = sprint) |
-| Swipe anywhere else | Aim camera |
-| Tap attack cards | Command Charmander's attacks |
+| Left virtual joystick | Steer: left/right turn, up/down climb & dive |
+| 🔥 button (hold) | Boost |
+| Tap attack cards | Fire attacks |
 | 🎯 button | Switch target |
 
 Touch devices automatically get a lighter render profile (lower pixel

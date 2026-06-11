@@ -1,8 +1,8 @@
 // ============================================================================
-// POKÉMON ARENA 3D v2 — Ash & Charmander survival battle
-// Self-contained Three.js arcade game with HDR bloom, IBL, instanced grass,
-// shader flames, homing combat, hit-stop, bosses and procedural music.
-// Unofficial fan-made demo.
+// POKÉMON ARENA 3D v3 — YOU ARE CHARIZARD
+// Fly as Charizard in an over-the-shoulder dragon-flight battle: banking
+// turns, dives, boost, fire breathed where you aim, aerial enemies, HDR
+// bloom, IBL, shader flames and procedural music. Unofficial fan-made demo.
 // ============================================================================
 import * as THREE from "three";
 import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
@@ -18,17 +18,19 @@ const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const lerp = (a, b, t) => a + (b - a) * t;
 const rand = (a, b) => a + Math.random() * (b - a);
 const TAU = Math.PI * 2;
-const UP = new THREE.Vector3(0, 1, 0);
 
 function smoothstep(e0, e1, x) {
   const t = clamp((x - e0) / (e1 - e0), 0, 1);
   return t * t * (3 - 2 * t);
 }
-function lerpAngle(a, b, t) {
-  let d = (b - a) % TAU;
+function angleDiff(a, b) {
+  let d = (a - b) % TAU;
   if (d > Math.PI) d -= TAU;
   if (d < -Math.PI) d += TAU;
-  return a + d * t;
+  return d;
+}
+function lerpAngle(a, b, t) {
+  return a + angleDiff(b, a) * t;
 }
 
 // Touch devices get the virtual joystick UI and lighter render settings
@@ -48,11 +50,10 @@ document.body.prepend(renderer.domElement);
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x87b8e8);
-scene.fog = new THREE.Fog(0xa8c8e0, 70, 260);
+scene.fog = new THREE.Fog(0xa8c8e0, 80, 340);
 
-const camera = new THREE.PerspectiveCamera(62, window.innerWidth / window.innerHeight, 0.1, 700);
+const camera = new THREE.PerspectiveCamera(62, window.innerWidth / window.innerHeight, 0.1, 900);
 
-// Image-based lighting so PBR materials get believable reflections
 {
   const pmrem = new THREE.PMREMGenerator(renderer);
   scene.environment = pmrem.fromScene(new RoomEnvironment(renderer), 0.06).texture;
@@ -82,11 +83,11 @@ scene.add(hemi);
 const sun = new THREE.DirectionalLight(0xffdfa6, 2.6);
 sun.castShadow = true;
 sun.shadow.mapSize.set(IS_TOUCH ? 1024 : 2048, IS_TOUCH ? 1024 : 2048);
-sun.shadow.camera.left = -55;
-sun.shadow.camera.right = 55;
-sun.shadow.camera.top = 55;
-sun.shadow.camera.bottom = -55;
-sun.shadow.camera.far = 320;
+sun.shadow.camera.left = -60;
+sun.shadow.camera.right = 60;
+sun.shadow.camera.top = 60;
+sun.shadow.camera.bottom = -60;
+sun.shadow.camera.far = 400;
 sun.shadow.bias = -0.0006;
 sun.shadow.normalBias = 0.02;
 scene.add(sun);
@@ -117,7 +118,6 @@ const glowTex = canvasTex(64, (g) => {
   g.fillRect(0, 0, 64, 64);
 });
 
-// Turbulent fire puff — irregular blobs make flames look organic, not disc-like
 const fireTex = canvasTex(128, (g) => {
   g.clearRect(0, 0, 128, 128);
   for (let i = 0; i < 26; i++) {
@@ -146,6 +146,20 @@ const smokeTex = canvasTex(128, (g) => {
   }
 });
 
+const cloudPuffTex = canvasTex(128, (g) => {
+  g.clearRect(0, 0, 128, 128);
+  for (let i = 0; i < 14; i++) {
+    const a = rand(0, TAU), r = rand(0, 26);
+    const x = 64 + Math.cos(a) * r, y = 64 + Math.sin(a) * r;
+    const rad = rand(16, 34);
+    const grad = g.createRadialGradient(x, y, 0, x, y, rad);
+    grad.addColorStop(0, "rgba(255,255,255,0.45)");
+    grad.addColorStop(1, "rgba(255,255,255,0)");
+    g.fillStyle = grad;
+    g.fillRect(0, 0, 128, 128);
+  }
+});
+
 const scorchTex = canvasTex(128, (g) => {
   g.clearRect(0, 0, 128, 128);
   const grad = g.createRadialGradient(64, 64, 6, 64, 64, 60);
@@ -156,8 +170,6 @@ const scorchTex = canvasTex(128, (g) => {
   g.fillRect(0, 0, 128, 128);
 });
 
-// Ground detail map — grass with mottling and blade streaks, tinted by
-// vertex colors underneath
 const groundTex = canvasTex(512, (g, s) => {
   g.fillStyle = "#5d8a40";
   g.fillRect(0, 0, s, s);
@@ -183,7 +195,7 @@ groundTex.repeat.set(26, 26);
 groundTex.anisotropy = renderer.capabilities.getMaxAnisotropy();
 
 // ----------------------------------------------------------------------------
-// Sky — gradient dome, sun glare, drifting clouds, mountain ring
+// Sky — gradient dome, sun glare, mountain ring
 // ----------------------------------------------------------------------------
 {
   const skyTex = canvasTex(1024, (g) => {
@@ -197,7 +209,7 @@ groundTex.anisotropy = renderer.capabilities.getMaxAnisotropy();
     g.fillRect(0, 0, 1024, 1024);
   });
   const dome = new THREE.Mesh(
-    new THREE.SphereGeometry(480, 32, 20),
+    new THREE.SphereGeometry(560, 32, 20),
     new THREE.MeshBasicMaterial({ map: skyTex, side: THREE.BackSide, fog: false })
   );
   scene.add(dome);
@@ -206,51 +218,29 @@ groundTex.anisotropy = renderer.capabilities.getMaxAnisotropy();
     map: glowTex, color: 0xfff0c0, fog: false, depthWrite: false,
     blending: THREE.AdditiveBlending,
   }));
-  sunGlow.scale.setScalar(170);
-  sunGlow.position.set(250, 210, 160);
+  sunGlow.scale.setScalar(190);
+  sunGlow.position.set(300, 250, 190);
   scene.add(sunGlow);
   const sunCore = new THREE.Sprite(new THREE.SpriteMaterial({
     map: glowTex, color: 0xffffff, fog: false, depthWrite: false,
     blending: THREE.AdditiveBlending,
   }));
-  sunCore.scale.setScalar(55);
+  sunCore.scale.setScalar(60);
   sunCore.position.copy(sunGlow.position);
   scene.add(sunCore);
-}
 
-const clouds = [];
-{
-  const cloudMat = new THREE.MeshStandardMaterial({
-    color: 0xffffff, roughness: 1, transparent: true, opacity: 0.92,
-    emissive: 0xffe8d0, emissiveIntensity: 0.12,
-  });
-  for (let i = 0; i < 14; i++) {
-    const cloud = new THREE.Group();
-    for (let j = 0; j < 5; j++) {
-      const puff = new THREE.Mesh(new THREE.SphereGeometry(rand(5, 10), 10, 8), cloudMat);
-      puff.position.set(rand(-10, 10), rand(-1.5, 2), rand(-5, 5));
-      puff.scale.y = 0.5;
-      cloud.add(puff);
-    }
-    cloud.position.set(rand(-260, 260), rand(70, 130), rand(-260, 260));
-    cloud.userData.speed = rand(0.5, 1.6);
-    scene.add(cloud);
-    clouds.push(cloud);
-  }
-
-  // Distant mountain ring closes off the horizon
   const rockMat = new THREE.MeshStandardMaterial({ color: 0x6e7486, roughness: 1, flatShading: true });
   const snowMat = new THREE.MeshStandardMaterial({ color: 0xeef3fa, roughness: 0.8, flatShading: true });
   for (let i = 0; i < 26; i++) {
     const a = (i / 26) * TAU + rand(-0.08, 0.08);
-    const r = rand(190, 250);
-    const h = rand(38, 95);
-    const base = new THREE.Mesh(new THREE.ConeGeometry(rand(28, 55), h, 7), rockMat);
+    const r = rand(280, 360);
+    const h = rand(50, 130);
+    const base = new THREE.Mesh(new THREE.ConeGeometry(rand(40, 75), h, 7), rockMat);
     base.position.set(Math.cos(a) * r, h * 0.32, Math.sin(a) * r);
     base.rotation.y = rand(0, TAU);
     scene.add(base);
-    if (h > 60) {
-      const cap = new THREE.Mesh(new THREE.ConeGeometry(rand(9, 15), h * 0.26, 7), snowMat);
+    if (h > 80) {
+      const cap = new THREE.Mesh(new THREE.ConeGeometry(rand(12, 20), h * 0.26, 7), snowMat);
       cap.position.set(base.position.x, h * 0.85, base.position.z);
       cap.rotation.y = base.rotation.y;
       scene.add(cap);
@@ -258,8 +248,32 @@ const clouds = [];
   }
 }
 
+// Flyable cloud banks — soft sprite clusters at flight altitude
+const flyClouds = [];
+{
+  const COUNT = IS_TOUCH ? 14 : 24;
+  for (let i = 0; i < COUNT; i++) {
+    const cluster = new THREE.Group();
+    const puffs = 4 + (i % 3);
+    for (let j = 0; j < puffs; j++) {
+      const sp = new THREE.Sprite(new THREE.SpriteMaterial({
+        map: cloudPuffTex, color: 0xffffff, transparent: true,
+        opacity: rand(0.4, 0.6), depthWrite: false,
+      }));
+      sp.scale.setScalar(rand(14, 30));
+      sp.position.set(rand(-14, 14), rand(-3, 4), rand(-10, 10));
+      cluster.add(sp);
+    }
+    const a = rand(0, TAU), r = rand(40, 250);
+    cluster.position.set(Math.cos(a) * r, rand(20, 70), Math.sin(a) * r);
+    cluster.userData.speed = rand(0.6, 1.8);
+    scene.add(cluster);
+    flyClouds.push(cluster);
+  }
+}
+
 // ----------------------------------------------------------------------------
-// Terrain — flat sandy battle circle, multi-octave rolling hills around it
+// Terrain
 // ----------------------------------------------------------------------------
 function terrainHeight(x, z) {
   const d = Math.hypot(x, z);
@@ -273,7 +287,7 @@ function terrainHeight(x, z) {
 }
 
 {
-  const size = 360, segs = 170;
+  const size = 560, segs = 190;
   const geo = new THREE.PlaneGeometry(size, size, segs, segs);
   geo.rotateX(-Math.PI / 2);
   const pos = geo.attributes.position;
@@ -290,7 +304,7 @@ function terrainHeight(x, z) {
     const d = Math.hypot(x, z);
     const sandMix = 1 - smoothstep(13, 19, d);
     const n = Math.sin(x * 0.7) * Math.cos(z * 0.6) * 0.5 + 0.5;
-    const high = smoothstep(3.5, 6.5, h); // browner crests
+    const high = smoothstep(3.5, 6.5, h);
     tmp.copy(grass).lerp(grassDark, n).lerp(dirt, high * 0.6).lerp(sand, sandMix);
     colors[i * 3] = tmp.r; colors[i * 3 + 1] = tmp.g; colors[i * 3 + 2] = tmp.b;
   }
@@ -301,6 +315,18 @@ function terrainHeight(x, z) {
   }));
   ground.receiveShadow = true;
   scene.add(ground);
+
+  // lakes — water discs sitting in terrain dips; hills poke through as islands
+  const waterMat = new THREE.MeshStandardMaterial({
+    color: 0x2b6e9e, roughness: 0.12, metalness: 0.1, envMapIntensity: 1.2,
+    transparent: true, opacity: 0.9,
+  });
+  for (const [wx, wz, wr] of [[-130, 95, 45], [115, -125, 32]]) {
+    const lake = new THREE.Mesh(new THREE.CircleGeometry(wr, 40), waterMat);
+    lake.rotation.x = -Math.PI / 2;
+    lake.position.set(wx, 1.6, wz);
+    scene.add(lake);
+  }
 }
 
 // ----------------------------------------------------------------------------
@@ -378,7 +404,6 @@ function jitterGeometry(geo, amt) {
     stone.rotation.z = rand(-0.1, 0.1);
     stone.castShadow = stone.receiveShadow = true;
     scene.add(stone);
-    // glowing rune chip — pops nicely with bloom
     const rune = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.3, 0.05), runeMat);
     rune.position.set(x * 0.95, terrainHeight(x, z) + 1.2, z * 0.95);
     rune.lookAt(0, 1.2, 0);
@@ -386,12 +411,12 @@ function jitterGeometry(geo, amt) {
   }
 
   const trunkMat = new THREE.MeshStandardMaterial({ color: 0x6b4a2a, roughness: 1 });
-  for (let i = 0; i < 55; i++) {
-    const a = rand(0, TAU), r = rand(78, 150);
+  for (let i = 0; i < 70; i++) {
+    const a = rand(0, TAU), r = rand(78, 230);
     const x = Math.cos(a) * r, z = Math.sin(a) * r;
     const y = terrainHeight(x, z);
     const tree = new THREE.Group();
-    const sc = rand(0.9, 1.9);
+    const sc = rand(0.9, 2.2);
     const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.18 * sc, 0.32 * sc, 2.6 * sc, 7), trunkMat);
     trunk.position.y = 1.3 * sc;
     trunk.rotation.z = rand(-0.06, 0.06);
@@ -415,11 +440,11 @@ function jitterGeometry(geo, amt) {
   }
 
   const rockMat = new THREE.MeshStandardMaterial({ color: 0x97918a, roughness: 1, flatShading: true });
-  for (let i = 0; i < 24; i++) {
-    const a = rand(0, TAU), r = rand(75, 140);
+  for (let i = 0; i < 30; i++) {
+    const a = rand(0, TAU), r = rand(75, 220);
     const x = Math.cos(a) * r, z = Math.sin(a) * r;
     const rock = new THREE.Mesh(
-      jitterGeometry(new THREE.DodecahedronGeometry(rand(0.5, 1.8), 1), 0.22), rockMat);
+      jitterGeometry(new THREE.DodecahedronGeometry(rand(0.5, 2.2), 1), 0.22), rockMat);
     rock.position.set(x, terrainHeight(x, z) + 0.25, z);
     rock.rotation.set(rand(0, TAU), rand(0, TAU), rand(0, TAU));
     rock.castShadow = rock.receiveShadow = true;
@@ -431,7 +456,6 @@ function jitterGeometry(geo, amt) {
 // STADIUM — Pokkén-style battle bowl around the arena
 // ----------------------------------------------------------------------------
 {
-  // striped turf battlefield with painted lines
   const turfTex = canvasTex(1024, (g, s) => {
     const cx = s / 2;
     for (let r = s / 2; r > 0; r -= 52) {
@@ -448,7 +472,6 @@ function jitterGeometry(geo, amt) {
     g.beginPath(); g.arc(cx, cx, 9, 0, TAU);
     g.fillStyle = "rgba(255,255,255,0.92)";
     g.fill();
-    // grain so the turf isn't flat
     for (let i = 0; i < 2400; i++) {
       g.fillStyle = `rgba(${20 + Math.random() * 50 | 0},${70 + Math.random() * 70 | 0},25,0.18)`;
       g.fillRect(rand(0, s), rand(0, s), 2, 4);
@@ -466,7 +489,6 @@ function jitterGeometry(geo, amt) {
   turf.receiveShadow = true;
   scene.add(turf);
 
-  // perimeter wall + glowing ad-board band (alternating colors, blooms nicely)
   const wall = new THREE.Mesh(
     new THREE.CylinderGeometry(48, 48, 5, 64, 1, true),
     new THREE.MeshStandardMaterial({ color: 0x2a3148, roughness: 0.85, side: THREE.DoubleSide }));
@@ -484,7 +506,6 @@ function jitterGeometry(geo, amt) {
     scene.add(band);
   }
 
-  // stands bowl
   const bowl = new THREE.Mesh(
     new THREE.CylinderGeometry(68, 50, 14, 56, 1, true),
     new THREE.MeshStandardMaterial({ color: 0x39415c, roughness: 0.95, side: THREE.DoubleSide }));
@@ -497,7 +518,6 @@ function jitterGeometry(geo, amt) {
   rim.position.y = 18;
   scene.add(rim);
 
-  // instanced crowd on the bowl slope, swaying with the wind uniform
   const CROWD = IS_TOUCH ? 900 : 2200;
   const fanGeo = new THREE.SphereGeometry(0.34, 6, 5);
   const fanMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
@@ -527,7 +547,6 @@ function jitterGeometry(geo, amt) {
   if (crowd.instanceColor) crowd.instanceColor.needsUpdate = true;
   scene.add(crowd);
 
-  // floodlight towers
   const poleMat = new THREE.MeshStandardMaterial({ color: 0x55607a, roughness: 0.6, metalness: 0.5 });
   const lampMat = new THREE.MeshStandardMaterial({
     color: 0x222222, emissive: 0xfff4d8, emissiveIntensity: 2.6,
@@ -553,7 +572,7 @@ function jitterGeometry(geo, amt) {
 }
 
 // ----------------------------------------------------------------------------
-// Scorch decals + shockwave rings (pooled)
+// Scorch decals + shockwave rings
 // ----------------------------------------------------------------------------
 const scorches = [];
 function addScorch(pos, radius) {
@@ -632,91 +651,7 @@ function shadowed(mesh) {
 }
 
 // ----------------------------------------------------------------------------
-// ASH — the trainer you control
-// ----------------------------------------------------------------------------
-function buildAsh() {
-  const g = new THREE.Group();
-  const skin = std(0xf0c8a0, { roughness: 0.55 });
-  const jacket = std(0x2b5dd7, { roughness: 0.5 });
-  const white = std(0xf2f2f2, { roughness: 0.55 });
-  const jeans = std(0x3a4a6b, { roughness: 0.8 });
-  const red = std(0xe23b3b, { roughness: 0.45 });
-  const green = std(0x3fae5a, { roughness: 0.5 });
-
-  const torso = shadowed(new THREE.Mesh(new THREE.CylinderGeometry(0.26, 0.31, 0.64, 14), jacket));
-  torso.position.y = 1.05;
-  g.add(torso);
-  const chest = shadowed(new THREE.Mesh(new THREE.BoxGeometry(0.31, 0.5, 0.16), white));
-  chest.position.set(0, 1.05, 0.13);
-  g.add(chest);
-  const collar = shadowed(new THREE.Mesh(new THREE.TorusGeometry(0.2, 0.05, 8, 14), white));
-  collar.position.y = 1.38;
-  collar.rotation.x = Math.PI / 2;
-  g.add(collar);
-  // backpack
-  const pack = shadowed(new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.42, 0.18), green));
-  pack.position.set(0, 1.08, -0.25);
-  g.add(pack);
-
-  const head = shadowed(new THREE.Mesh(new THREE.SphereGeometry(0.24, 18, 16), skin));
-  head.position.y = 1.62;
-  g.add(head);
-  const hair = shadowed(new THREE.Mesh(
-    new THREE.SphereGeometry(0.25, 14, 10, 0, TAU, 0, Math.PI * 0.55),
-    std(0x1c1c22, { roughness: 0.8 })));
-  hair.position.y = 1.65;
-  g.add(hair);
-  const capTop = shadowed(new THREE.Mesh(
-    new THREE.SphereGeometry(0.26, 16, 12, 0, TAU, 0, Math.PI * 0.5), red));
-  capTop.position.y = 1.7;
-  g.add(capTop);
-  const capPanel = new THREE.Mesh(new THREE.SphereGeometry(0.262, 16, 8, -0.55, 1.1, 0.25, 0.55), white);
-  capPanel.position.y = 1.7;
-  capPanel.rotation.y = Math.PI; // front panel
-  g.add(capPanel);
-  const brim = shadowed(new THREE.Mesh(
-    new THREE.CylinderGeometry(0.245, 0.245, 0.045, 16, 1, false, -Math.PI * 0.42, Math.PI * 0.84), red));
-  brim.scale.z = 1.7;
-  brim.position.set(0, 1.7, 0.16);
-  g.add(brim);
-  const eyeMat = std(0x222222, { roughness: 0.25 });
-  for (const sx of [-1, 1]) {
-    const eye = new THREE.Mesh(new THREE.SphereGeometry(0.028, 8, 8), eyeMat);
-    eye.position.set(sx * 0.09, 1.64, 0.21);
-    g.add(eye);
-  }
-
-  const parts = { arms: [], legs: [] };
-  for (const sx of [-1, 1]) {
-    const arm = new THREE.Group();
-    const upper = shadowed(new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.062, 0.52, 10), jacket));
-    upper.position.y = -0.26;
-    arm.add(upper);
-    const glove = new THREE.Mesh(new THREE.SphereGeometry(0.075, 10, 10), green);
-    glove.position.y = -0.55;
-    arm.add(glove);
-    arm.position.set(sx * 0.34, 1.32, 0);
-    g.add(arm);
-    parts.arms.push(arm);
-
-    const leg = new THREE.Group();
-    const thigh = shadowed(new THREE.Mesh(new THREE.CylinderGeometry(0.095, 0.08, 0.62, 10), jeans));
-    thigh.position.y = -0.31;
-    leg.add(thigh);
-    const shoe = shadowed(new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.1, 0.3), red));
-    shoe.position.set(0, -0.66, 0.05);
-    leg.add(shoe);
-    leg.position.set(sx * 0.14, 0.72, 0);
-    g.add(leg);
-    parts.legs.push(leg);
-  }
-
-  g.userData.parts = parts;
-  return g;
-}
-
-// ----------------------------------------------------------------------------
-// CHARMANDER — your partner, with a shader-driven tail flame
+// Tail-flame shader
 // ----------------------------------------------------------------------------
 const flameUniforms = { uTime: { value: 0 }, uBoost: { value: 1 } };
 
@@ -767,148 +702,244 @@ function makeFlameMesh(radius, height) {
   return new THREE.Mesh(geo, mat);
 }
 
-function buildCharmander() {
+// ----------------------------------------------------------------------------
+// CHARIZARD — the dragon YOU fly. Built to look good from behind, because
+// the camera lives over its shoulders: big bone-fingered wings, long neck,
+// opening jaw, segmented tail with the shader flame at the tip.
+// ----------------------------------------------------------------------------
+function buildCharizard() {
   const g = new THREE.Group();
-  const orangeMat = std(0xff7a1e, { roughness: 0.45 });
-  const creamMat = std(0xffe2a8, { roughness: 0.5 });
-  const bodyMats = [orangeMat];
+  const orange = std(0xe8731c, { roughness: 0.5 });
+  const cream = std(0xf5dc9e, { roughness: 0.55 });
+  const membrane = std(0x2e8674, { side: THREE.DoubleSide, roughness: 0.55 });
+  const horn = std(0xe8dcc0, { roughness: 0.4 });
+  const bodyMats = [orange];
 
-  const body = shadowed(new THREE.Mesh(new THREE.SphereGeometry(0.42, 22, 18), orangeMat));
-  body.scale.set(1, 1.18, 0.92);
-  body.position.y = 0.55;
-  g.add(body);
-  const belly = new THREE.Mesh(new THREE.SphereGeometry(0.34, 18, 16), creamMat);
-  belly.scale.set(0.9, 1.05, 0.62);
-  belly.position.set(0, 0.52, 0.16);
-  g.add(belly);
-
-  const head = shadowed(new THREE.Mesh(new THREE.SphereGeometry(0.34, 22, 18), orangeMat));
-  head.scale.set(1, 0.95, 1);
-  head.position.y = 1.18;
-  g.add(head);
-  const snout = shadowed(new THREE.Mesh(new THREE.SphereGeometry(0.18, 16, 14), orangeMat));
-  snout.scale.set(1, 0.68, 1.1);
-  snout.position.set(0, 1.08, 0.27);
-  g.add(snout);
-  // mouth line + nostrils
-  const mouth = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.012, 0.1),
-    std(0x7a2e08, { roughness: 0.7 }));
-  mouth.position.set(0, 1.04, 0.36);
-  g.add(mouth);
-  // brow ridges
-  for (const sx of [-1, 1]) {
-    const brow = new THREE.Mesh(new THREE.SphereGeometry(0.09, 10, 8), orangeMat);
-    brow.scale.set(1.1, 0.5, 0.8);
-    brow.position.set(sx * 0.14, 1.36, 0.22);
-    g.add(brow);
+  // torso — long dragon body along +z
+  const torso = shadowed(new THREE.Mesh(new THREE.SphereGeometry(0.62, 22, 18), orange));
+  torso.scale.set(1, 1.05, 1.5);
+  torso.position.set(0, 0, 0);
+  g.add(torso);
+  // belly plates
+  for (let i = 0; i < 4; i++) {
+    const plate = new THREE.Mesh(new THREE.SphereGeometry(0.4 - i * 0.04, 14, 10), cream);
+    plate.scale.set(1, 0.5, 0.65);
+    plate.position.set(0, -0.42, 0.45 - i * 0.32);
+    g.add(plate);
   }
 
-  const eyeWhite = std(0xffffff, { roughness: 0.15 });
-  const pupilMat = std(0x14206e, { roughness: 0.1 });
-  const shineMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
-  for (const sx of [-1, 1]) {
-    const ew = new THREE.Mesh(new THREE.SphereGeometry(0.078, 12, 12), eyeWhite);
-    ew.position.set(sx * 0.14, 1.26, 0.26);
-    g.add(ew);
-    const pupil = new THREE.Mesh(new THREE.SphereGeometry(0.042, 10, 10), pupilMat);
-    pupil.position.set(sx * 0.14, 1.26, 0.325);
-    g.add(pupil);
-    const shine = new THREE.Mesh(new THREE.SphereGeometry(0.014, 6, 6), shineMat);
-    shine.position.set(sx * 0.125, 1.285, 0.36);
-    g.add(shine);
-  }
-
-  const clawMat = std(0xf5f0e0, { roughness: 0.4 });
-  for (const sx of [-1, 1]) {
-    const arm = shadowed(new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.078, 0.34, 10), orangeMat));
-    arm.position.set(sx * 0.42, 0.72, 0.1);
-    arm.rotation.z = sx * -0.6;
-    arm.rotation.x = -0.35;
-    g.add(arm);
-    for (let cI = -1; cI <= 1; cI++) {
-      const claw = new THREE.Mesh(new THREE.ConeGeometry(0.018, 0.07, 6), clawMat);
-      claw.position.set(sx * 0.52 + cI * 0.025, 0.58, 0.2);
-      claw.rotation.x = Math.PI * 0.55;
-      g.add(claw);
-    }
-    const leg = shadowed(new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.135, 0.3, 10), orangeMat));
-    leg.position.set(sx * 0.2, 0.16, 0);
-    g.add(leg);
-    const foot = shadowed(new THREE.Mesh(new THREE.SphereGeometry(0.125, 10, 10), creamMat));
-    foot.scale.set(1, 0.55, 1.45);
-    foot.position.set(sx * 0.2, 0.05, 0.08);
-    g.add(foot);
-    for (let cI = -1; cI <= 1; cI++) {
-      const nail = new THREE.Mesh(new THREE.ConeGeometry(0.02, 0.07, 6), clawMat);
-      nail.position.set(sx * 0.2 + cI * 0.05, 0.05, 0.26);
-      nail.rotation.x = Math.PI / 2;
-      g.add(nail);
-    }
-  }
-
-  // Charizard-style wings — hidden until the Blaze evolution
-  const wings = new THREE.Group();
-  const membraneMat = std(0x3e8e7a, { side: THREE.DoubleSide, roughness: 0.55 });
-  for (const sx of [-1, 1]) {
-    const shape = new THREE.Shape();
-    shape.moveTo(0, 0);
-    shape.lineTo(sx * 0.5, 0.62);
-    shape.lineTo(sx * 1.35, 0.78);
-    shape.lineTo(sx * 1.05, 0.22);
-    shape.lineTo(sx * 1.45, -0.3);
-    shape.lineTo(sx * 0.62, -0.22);
-    shape.lineTo(0, 0);
-    const wing = new THREE.Mesh(new THREE.ShapeGeometry(shape), membraneMat);
-    wing.castShadow = true;
-    wing.position.set(sx * 0.14, 1.02, -0.32);
-    wing.rotation.y = -sx * 0.55;
-    wing.userData.sx = sx;
-    wings.add(wing);
-  }
-  wings.visible = false;
-  g.add(wings);
-  g.userData.wings = wings;
-
-  const tailPts = [
-    [0, 0.5, -0.36], [0, 0.42, -0.62], [0, 0.46, -0.86], [0, 0.62, -1.0], [0, 0.84, -1.06],
-  ];
-  tailPts.forEach((p, i) => {
-    const seg = shadowed(new THREE.Mesh(new THREE.SphereGeometry(0.16 - i * 0.02, 12, 12), orangeMat));
+  // neck — three segments rising toward the head
+  const neckPts = [[0, 0.22, 0.78], [0, 0.46, 1.02], [0, 0.72, 1.18]];
+  neckPts.forEach((p, i) => {
+    const seg = shadowed(new THREE.Mesh(new THREE.SphereGeometry(0.34 - i * 0.03, 16, 12), orange));
     seg.position.set(...p);
     g.add(seg);
   });
 
-  // shader flame, inner hot core, glow sprite, flickering light
+  // head group (pitches with your aim, jaw opens when breathing fire)
+  const head = new THREE.Group();
+  head.position.set(0, 0.95, 1.3);
+  const skull = shadowed(new THREE.Mesh(new THREE.SphereGeometry(0.34, 20, 16), orange));
+  skull.scale.set(0.95, 0.9, 1.1);
+  head.add(skull);
+  const snout = shadowed(new THREE.Mesh(new THREE.SphereGeometry(0.2, 14, 12), orange));
+  snout.scale.set(0.85, 0.62, 1.3);
+  snout.position.set(0, -0.06, 0.34);
+  head.add(snout);
+  const jaw = shadowed(new THREE.Mesh(new THREE.SphereGeometry(0.17, 12, 10), orange));
+  jaw.scale.set(0.78, 0.4, 1.25);
+  jaw.position.set(0, -0.2, 0.3);
+  head.add(jaw);
+  // horns sweeping back
+  for (const sx of [-1, 1]) {
+    const h = shadowed(new THREE.Mesh(new THREE.ConeGeometry(0.07, 0.55, 8), horn));
+    h.position.set(sx * 0.14, 0.22, -0.22);
+    h.rotation.x = -2.2;
+    h.rotation.z = sx * 0.18;
+    head.add(h);
+    const eye = new THREE.Mesh(new THREE.SphereGeometry(0.055, 10, 10),
+      std(0x1a2a8e, { roughness: 0.1 }));
+    eye.position.set(sx * 0.17, 0.06, 0.26);
+    head.add(eye);
+    const brow = new THREE.Mesh(new THREE.SphereGeometry(0.09, 10, 8), orange);
+    brow.scale.set(1.1, 0.45, 0.8);
+    brow.position.set(sx * 0.16, 0.16, 0.24);
+    head.add(brow);
+  }
+  // mouth anchor + glow that brightens while breathing fire
+  const mouthAnchor = new THREE.Object3D();
+  mouthAnchor.position.set(0, -0.12, 0.55);
+  head.add(mouthAnchor);
+  const mouthGlow = new THREE.PointLight(0xff8830, 0, 6, 2);
+  mouthAnchor.add(mouthGlow);
+  g.add(head);
+
+  // arms with claws
+  for (const sx of [-1, 1]) {
+    const arm = shadowed(new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.1, 0.5, 10), orange));
+    arm.position.set(sx * 0.55, -0.1, 0.55);
+    arm.rotation.z = sx * -0.7;
+    arm.rotation.x = -0.5;
+    g.add(arm);
+    for (let cI = -1; cI <= 1; cI++) {
+      const claw = new THREE.Mesh(new THREE.ConeGeometry(0.025, 0.1, 6), horn);
+      claw.position.set(sx * 0.72 + cI * 0.035, -0.32, 0.72);
+      claw.rotation.x = Math.PI * 0.55;
+      g.add(claw);
+    }
+  }
+  // legs trailing back in flight
+  for (const sx of [-1, 1]) {
+    const thigh = shadowed(new THREE.Mesh(new THREE.SphereGeometry(0.24, 12, 10), orange));
+    thigh.scale.set(0.8, 0.9, 1.2);
+    thigh.position.set(sx * 0.4, -0.32, -0.5);
+    g.add(thigh);
+    const shin = shadowed(new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.12, 0.55, 10), orange));
+    shin.position.set(sx * 0.42, -0.42, -0.92);
+    shin.rotation.x = 1.25;
+    g.add(shin);
+    const foot = shadowed(new THREE.Mesh(new THREE.SphereGeometry(0.14, 10, 8), cream));
+    foot.scale.set(1, 0.6, 1.5);
+    foot.position.set(sx * 0.42, -0.5, -1.2);
+    g.add(foot);
+  }
+
+  // tail — segments sweeping back, shader flame on the tip
+  const tailGroup = new THREE.Group();
+  const tailPts = [
+    [0, 0.02, -0.95], [0, 0.06, -1.35], [0, 0.16, -1.7], [0, 0.34, -1.98], [0, 0.58, -2.16],
+  ];
+  tailPts.forEach((p, i) => {
+    const seg = shadowed(new THREE.Mesh(new THREE.SphereGeometry(0.26 - i * 0.035, 12, 10), orange));
+    seg.position.set(...p);
+    tailGroup.add(seg);
+  });
   const flame = new THREE.Group();
-  flame.add(makeFlameMesh(0.18, 0.62));
-  const inner = makeFlameMesh(0.1, 0.4);
-  inner.position.y = 0.02;
+  flame.add(makeFlameMesh(0.24, 0.85));
+  const inner = makeFlameMesh(0.13, 0.55);
+  inner.position.y = 0.03;
   flame.add(inner);
   const flameGlow = new THREE.Sprite(new THREE.SpriteMaterial({
     map: glowTex, color: 0xffa030, blending: THREE.AdditiveBlending, depthWrite: false,
   }));
-  flameGlow.scale.setScalar(1.25);
-  flameGlow.position.y = 0.26;
+  flameGlow.scale.setScalar(1.7);
+  flameGlow.position.y = 0.35;
   flame.add(flameGlow);
-  const flameLight = new THREE.PointLight(0xff7722, 9, 9, 2);
-  flameLight.position.y = 0.32;
+  const flameLight = new THREE.PointLight(0xff7722, 9, 12, 2);
+  flameLight.position.y = 0.4;
   flame.add(flameLight);
-  flame.position.set(0, 0.92, -1.1);
-  g.add(flame);
+  flame.position.set(0, 0.62, -2.28);
+  tailGroup.add(flame);
+  g.add(tailGroup);
 
-  g.userData.flame = flame;
-  g.userData.flameLight = flameLight;
-  g.userData.bodyMats = bodyMats;
+  // WINGS — scalloped membranes with bone fingers; the star of the rear view
+  const wings = [];
+  for (const sx of [-1, 1]) {
+    const wingG = new THREE.Group();
+    wingG.position.set(sx * 0.3, 0.45, -0.15);
+    wingG.userData.sign = sx;
+
+    const shape = new THREE.Shape();
+    shape.moveTo(0, 0.15);
+    shape.lineTo(1.1, 0.65);
+    shape.lineTo(2.9, 0.95);   // wing tip (leading edge)
+    shape.lineTo(2.6, 0.1);
+    shape.lineTo(2.0, 0.4);    // scallop 1
+    shape.lineTo(1.75, -0.55);
+    shape.lineTo(1.15, -0.05); // scallop 2
+    shape.lineTo(0.85, -0.85);
+    shape.lineTo(0.2, -0.3);
+    shape.lineTo(0, 0.15);
+    const geo = new THREE.ShapeGeometry(shape);
+    geo.rotateX(Math.PI / 2); // lay flat: shape +y becomes world +z (forward)
+    const mem = new THREE.Mesh(geo, membrane);
+    mem.castShadow = true;
+    wingG.add(mem);
+
+    // bone fingers along the leading edge and scallop ridges
+    const bones = [
+      [[0, 0.15], [1.1, 0.65]],
+      [[1.1, 0.65], [2.9, 0.95]],
+      [[1.1, 0.65], [2.0, 0.4]],
+      [[1.1, 0.65], [1.75, -0.55]],
+      [[0, 0.15], [0.85, -0.85]],
+    ];
+    for (const [[x1, y1], [x2, y2]] of bones) {
+      const len = Math.hypot(x2 - x1, y2 - y1);
+      const bone = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.03, len, 6), orange);
+      // cylinder along Y → lay into the wing plane (x = span, z = chord)
+      bone.position.set((x1 + x2) / 2, 0.012, (y1 + y2) / 2);
+      bone.rotation.set(0, Math.atan2(-(y2 - y1), x2 - x1), -Math.PI / 2);
+      bone.castShadow = true;
+      wingG.add(bone);
+    }
+
+    if (sx < 0) wingG.scale.x = -1; // mirror the left wing
+    g.add(wingG);
+    wings.push(wingG);
+  }
+
+  g.userData = {
+    head, jaw, mouthAnchor, mouthGlow, tailGroup, flame, flameLight, wings, bodyMats,
+  };
   return g;
 }
 
 // ----------------------------------------------------------------------------
-// Enemy species
+// ASH — your trainer, cheering from the arena floor
+// ----------------------------------------------------------------------------
+function buildAsh() {
+  const g = new THREE.Group();
+  const skin = std(0xf0c8a0, { roughness: 0.55 });
+  const jacket = std(0x2b5dd7, { roughness: 0.5 });
+  const white = std(0xf2f2f2, { roughness: 0.55 });
+  const jeans = std(0x3a4a6b, { roughness: 0.8 });
+  const red = std(0xe23b3b, { roughness: 0.45 });
+
+  const torso = shadowed(new THREE.Mesh(new THREE.CylinderGeometry(0.26, 0.31, 0.64, 14), jacket));
+  torso.position.y = 1.05;
+  g.add(torso);
+  const chest = shadowed(new THREE.Mesh(new THREE.BoxGeometry(0.31, 0.5, 0.16), white));
+  chest.position.set(0, 1.05, 0.13);
+  g.add(chest);
+  const head = shadowed(new THREE.Mesh(new THREE.SphereGeometry(0.24, 18, 16), skin));
+  head.position.y = 1.62;
+  g.add(head);
+  const capTop = shadowed(new THREE.Mesh(
+    new THREE.SphereGeometry(0.26, 16, 12, 0, TAU, 0, Math.PI * 0.5), red));
+  capTop.position.y = 1.68;
+  g.add(capTop);
+  const brim = shadowed(new THREE.Mesh(
+    new THREE.CylinderGeometry(0.245, 0.245, 0.045, 16, 1, false, -Math.PI * 0.42, Math.PI * 0.84), red));
+  brim.scale.z = 1.7;
+  brim.position.set(0, 1.68, 0.16);
+  g.add(brim);
+
+  const arms = [];
+  for (const sx of [-1, 1]) {
+    const arm = new THREE.Group();
+    const upper = shadowed(new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.062, 0.52, 10), jacket));
+    upper.position.y = -0.26;
+    arm.add(upper);
+    arm.position.set(sx * 0.34, 1.32, 0);
+    g.add(arm);
+    arms.push(arm);
+    const leg = shadowed(new THREE.Mesh(new THREE.CylinderGeometry(0.095, 0.08, 0.62, 10), jeans));
+    leg.position.set(sx * 0.14, 0.41, 0);
+    g.add(leg);
+  }
+  g.userData.arms = arms;
+  return g;
+}
+
+// ----------------------------------------------------------------------------
+// Enemy species — three grounded plus one aerial
 // ----------------------------------------------------------------------------
 const SPECIES = {
   rockor: {
-    name: "ROCKOR", hp: 85, speed: 2.1, damage: 12, range: 3.0, attackCd: 2.2,
-    score: 150, xp: 38, projectile: null,
+    name: "ROCKOR", hp: 85, speed: 2.1, damage: 11, range: 26, attackCd: 2.6,
+    score: 150, xp: 38, flying: false,
+    projectile: { color: 0xa89878, speed: 17, size: 0.28 },
     build() {
       const g = new THREE.Group();
       const rock = std(0x8e887e, { roughness: 1, flatShading: true });
@@ -921,10 +952,10 @@ const SPECIES = {
       mossPatch.scale.set(1, 0.35, 1);
       mossPatch.position.set(0.1, 1.18, -0.1);
       g.add(mossPatch);
-      const head = shadowed(new THREE.Mesh(
+      const headM = shadowed(new THREE.Mesh(
         jitterGeometry(new THREE.DodecahedronGeometry(0.34, 1), 0.12), rock));
-      head.position.y = 1.42;
-      g.add(head);
+      headM.position.y = 1.42;
+      g.add(headM);
       const eyeMat = new THREE.MeshStandardMaterial({
         color: 0x332200, emissive: 0xffb830, emissiveIntensity: 2.2,
       });
@@ -941,8 +972,9 @@ const SPECIES = {
     },
   },
   vinex: {
-    name: "VINEX", hp: 58, speed: 2.9, damage: 9, range: 13, attackCd: 2.5,
-    score: 120, xp: 30, projectile: { color: 0x88ee33, speed: 15, size: 0.16 },
+    name: "VINEX", hp: 58, speed: 2.9, damage: 9, range: 30, attackCd: 2.4,
+    score: 120, xp: 30, flying: false,
+    projectile: { color: 0x88ee33, speed: 19, size: 0.16 },
     build() {
       const g = new THREE.Group();
       const green = std(0x49a83c, { roughness: 0.6 });
@@ -978,8 +1010,9 @@ const SPECIES = {
     },
   },
   aquish: {
-    name: "AQUISH", hp: 48, speed: 4.2, damage: 8, range: 11, attackCd: 1.9,
-    score: 110, xp: 26, projectile: { color: 0x44aaff, speed: 19, size: 0.14 },
+    name: "AQUISH", hp: 48, speed: 4.2, damage: 8, range: 28, attackCd: 2.0,
+    score: 110, xp: 26, flying: false,
+    projectile: { color: 0x44aaff, speed: 23, size: 0.14 },
     build() {
       const g = new THREE.Group();
       const blue = std(0x3a8fd9, { roughness: 0.25, metalness: 0.15, envMapIntensity: 0.9 });
@@ -1010,10 +1043,59 @@ const SPECIES = {
       return g;
     },
   },
+  zephyra: {
+    name: "ZEPHYRA", hp: 42, speed: 9, damage: 9, range: 30, attackCd: 2.2,
+    score: 160, xp: 42, flying: true,
+    projectile: { color: 0x9fe8ff, speed: 26, size: 0.16 },
+    build() {
+      const g = new THREE.Group();
+      const violet = std(0x7a5dc7, { roughness: 0.5 });
+      const lite = std(0xcfc0f2, { roughness: 0.55 });
+      const body = shadowed(new THREE.Mesh(new THREE.SphereGeometry(0.42, 16, 14), violet));
+      body.scale.set(1, 0.9, 1.3);
+      g.add(body);
+      const headB = shadowed(new THREE.Mesh(new THREE.SphereGeometry(0.24, 14, 12), violet));
+      headB.position.set(0, 0.18, 0.5);
+      g.add(headB);
+      const beak = shadowed(new THREE.Mesh(new THREE.ConeGeometry(0.08, 0.3, 8),
+        std(0xf0c040, { roughness: 0.35 })));
+      beak.position.set(0, 0.14, 0.74);
+      beak.rotation.x = Math.PI / 2;
+      g.add(beak);
+      const eyeMat = new THREE.MeshStandardMaterial({
+        color: 0x111122, emissive: 0x66e0ff, emissiveIntensity: 2,
+      });
+      for (const sx of [-1, 1]) {
+        const eye = new THREE.Mesh(new THREE.SphereGeometry(0.05, 8, 8), eyeMat);
+        eye.position.set(sx * 0.12, 0.24, 0.62);
+        g.add(eye);
+      }
+      const wings = [];
+      for (const sx of [-1, 1]) {
+        const wing = new THREE.Group();
+        wing.position.set(sx * 0.3, 0.12, 0);
+        const mem = shadowed(new THREE.Mesh(new THREE.PlaneGeometry(1.5, 0.6), lite));
+        mem.material = lite.clone();
+        mem.material.side = THREE.DoubleSide;
+        mem.position.x = sx * 0.75;
+        mem.rotation.x = -Math.PI / 2;
+        wing.add(mem);
+        wing.userData.sign = sx;
+        g.add(wing);
+        wings.push(wing);
+      }
+      const tail = shadowed(new THREE.Mesh(new THREE.ConeGeometry(0.16, 0.7, 5), lite));
+      tail.position.set(0, 0.05, -0.7);
+      tail.rotation.x = -Math.PI / 2;
+      g.add(tail);
+      g.userData.flapWings = wings;
+      return g;
+    },
+  },
 };
 
 // ----------------------------------------------------------------------------
-// Particle system — pooled sprites, additive fire or normal-blend smoke
+// Particle system
 // ----------------------------------------------------------------------------
 const MAX_PARTICLES = IS_TOUCH ? 550 : 900;
 const particles = [];
@@ -1095,7 +1177,6 @@ function explosionFX(pos, scale = 1) {
       drag: 0.8, spin: rand(-1, 1),
     });
   }
-  // glowing embers with gravity
   for (let i = 0; i < 10 * scale; i++) {
     spawnParticle({
       pos, color: 0xffcc66, size: rand(0.1, 0.22), endSize: 0.03, life: rand(0.6, 1.2),
@@ -1147,10 +1228,11 @@ function updateDamageNumbers(dt) {
 }
 
 // ----------------------------------------------------------------------------
-// Audio — procedural WebAudio SFX + ambient battle music
+// Audio — procedural SFX, wind that scales with speed, battle music
 // ----------------------------------------------------------------------------
 const AudioSys = {
   ctx: null, master: null, muted: false, musicNext: 0, musicStep: 0,
+  windGain: null, windFilt: null,
   init() {
     if (this.ctx) return;
     this.ctx = new (window.AudioContext || window.webkitAudioContext)();
@@ -1162,6 +1244,22 @@ const AudioSys = {
     const data = this.noiseBuf.getChannelData(0);
     for (let i = 0; i < len; i++) data[i] = Math.random() * 2 - 1;
     this.musicNext = this.ctx.currentTime + 0.3;
+    // continuous wind loop, silent until flight speed rises
+    const src = this.ctx.createBufferSource();
+    src.buffer = this.noiseBuf;
+    src.loop = true;
+    this.windFilt = this.ctx.createBiquadFilter();
+    this.windFilt.type = "lowpass";
+    this.windFilt.frequency.value = 400;
+    this.windGain = this.ctx.createGain();
+    this.windGain.gain.value = 0;
+    src.connect(this.windFilt).connect(this.windGain).connect(this.master);
+    src.start();
+  },
+  setWind(f) {
+    if (!this.windGain) return;
+    this.windGain.gain.value = this.muted ? 0 : f * 0.16;
+    this.windFilt.frequency.value = 300 + f * 1100;
   },
   toggleMute() {
     this.muted = !this.muted;
@@ -1201,12 +1299,13 @@ const AudioSys = {
     osc.stop(t + dur + 0.05);
   },
   fire() { this.noise({ dur: 0.35, freq: 1800, gain: 0.4, sweep: 0.25 }); },
-  flamethrower() { this.noise({ dur: 1.3, freq: 900, q: 0.7, gain: 0.35, sweep: 0.8 }); },
+  flamethrower() { this.noise({ dur: 1.4, freq: 900, q: 0.7, gain: 0.35, sweep: 0.8 }); },
   hit() { this.tone({ freq: 220, dur: 0.12, type: "square", gain: 0.2, slide: 0.5 }); this.noise({ dur: 0.12, freq: 2500, gain: 0.25, sweep: 0.4 }); },
   crit() { this.tone({ freq: 520, dur: 0.16, type: "square", gain: 0.24, slide: 0.4 }); this.noise({ dur: 0.18, freq: 3200, gain: 0.3, sweep: 0.3 }); },
   hurt() { this.tone({ freq: 160, dur: 0.25, type: "sawtooth", gain: 0.22, slide: 0.4 }); },
   explosion() { this.noise({ dur: 0.7, freq: 500, q: 0.6, gain: 0.6, sweep: 0.12 }); this.tone({ freq: 80, dur: 0.5, type: "sine", gain: 0.4, slide: 0.4 }); },
   ko() { this.tone({ freq: 600, dur: 0.4, type: "square", gain: 0.18, slide: 0.2 }); },
+  flap() { this.noise({ dur: 0.18, freq: 500, q: 0.8, gain: 0.1, sweep: 0.4 }); },
   levelUp() {
     [523, 659, 784, 1047].forEach((f, i) =>
       setTimeout(() => this.tone({ freq: f, dur: 0.18, type: "triangle", gain: 0.25 }), i * 110));
@@ -1215,10 +1314,8 @@ const AudioSys = {
     [392, 523].forEach((f, i) =>
       setTimeout(() => this.tone({ freq: f, dur: 0.22, type: "triangle", gain: 0.22 }), i * 150));
   },
-  // sparse pentatonic battle loop, scheduled slightly ahead of playback
   updateMusic(running) {
     if (!this.ctx || this.muted || !running) return;
-    // skip ahead instead of cramming missed notes after a backgrounded tab
     if (this.musicNext < this.ctx.currentTime - 0.2) this.musicNext = this.ctx.currentTime;
     const stepDur = 0.22;
     const lead = [0, -1, 2, -1, 4, -1, 3, 1, 0, -1, 2, 4, -1, 3, -1, 1];
@@ -1295,7 +1392,7 @@ const state = {
   level: 1,
   xp: 0,
   xpNeeded: 60,
-  evolved: false,
+  mega: false,
   shake: 0,
   fovKick: 0,
   combo: 0,
@@ -1306,35 +1403,46 @@ const state = {
   bossQueued: false,
 };
 
-const charmander = {
-  group: buildCharmander(),
-  pos: new THREE.Vector3(1.8, 0, 2.5),
+// YOU — Charizard in flight
+const player = {
+  group: buildCharizard(),
+  pos: new THREE.Vector3(0, 14, -20),
+  vel: new THREE.Vector3(0, 0, 1),
   yaw: 0,
-  hp: 100,
-  maxHp: 100,
+  pitch: 0,
+  roll: 0,
+  speed: 14,
+  hp: 120,
+  maxHp: 120,
   dmgMul: 1,
   flameActive: 0,
-  flameDir: new THREE.Vector3(0, 0, 1),
-  lunge: 0,
-  autoTimer: 1.5,
+  jawOpen: 0,
+  fireFlash: 0,
+  flapPhase: 0,
+  autoTimer: 2,
 };
-scene.add(charmander.group);
+scene.add(player.group);
 
-const ash = {
-  group: buildAsh(),
-  pos: new THREE.Vector3(0, 0, 0),
-  yaw: 0,
-  walkPhase: 0,
-  speed: 0,
-};
-scene.add(ash.group);
+// where the player is aiming (mouse / joystick steer this)
+const aim = { yaw: 0, pitch: 0.05 };
+
+// Ash cheering from the arena floor
+const ashNpc = { group: buildAsh(), cheer: 0, lastCheer: 0 };
+ashNpc.group.position.set(3, terrainHeight(3, 3) + 0.02, 3);
+scene.add(ashNpc.group);
+const CHEERS = [
+  "Ash: “Yeah! Great shot, CHARIZARD!”",
+  "Ash: “Amazing, buddy!”",
+  "Ash: “That's the spirit!”",
+  "Ash: “Incredible! Keep it up!”",
+];
 
 const enemies = [];
 const projectiles = [];
 const fireSpins = [];
 
 const MOVES = [
-  { cd: 0.8, timer: 0 },
+  { cd: 0.7, timer: 0 },
   { cd: 4.0, timer: 0 },
   { cd: 7.0, timer: 0 },
   { cd: 9.0, timer: 0 },
@@ -1354,23 +1462,24 @@ function bumpCombo(crit) {
       : `×${state.combo} COMBO`;
     HUD.combo.style.opacity = "1";
     HUD.combo.classList.remove("pop");
-    void HUD.combo.offsetWidth; // restart the pop animation
+    void HUD.combo.offsetWidth;
     HUD.combo.classList.add("pop");
     setTimeout(() => HUD.combo.classList.remove("pop"), 100);
   }
 }
 
 // ----------------------------------------------------------------------------
-// Camera control (pointer lock orbit)
+// Input — mouse steers your flight; joystick on phones
 // ----------------------------------------------------------------------------
-const cam = { yaw: 0.4, pitch: 0.32, dist: 7.5 };
 const keys = {};
+const touchBoost = { on: false };
 
 document.addEventListener("keydown", (e) => {
   keys[e.code] = true;
   if (e.code === "Tab") { e.preventDefault(); cycleTarget(); }
   if (e.code === "KeyM") {
     const muted = AudioSys.toggleMute();
+    AudioSys.setWind(0);
     HUD.muteHint.textContent = muted ? "🔇 muted" : "";
   }
   if (state.running && !state.over) {
@@ -1387,19 +1496,15 @@ renderer.domElement.addEventListener("click", () => {
 });
 document.addEventListener("mousemove", (e) => {
   if (document.pointerLockElement !== renderer.domElement) return;
-  cam.yaw -= e.movementX * 0.0024;
-  cam.pitch = clamp(cam.pitch + e.movementY * 0.0019, -0.15, 1.05);
+  aim.yaw -= e.movementX * 0.0023;
+  aim.pitch = clamp(aim.pitch - e.movementY * 0.0018, -0.8, 0.8);
 });
 
-// ----------------------------------------------------------------------------
-// Touch controls — left virtual joystick, right-swipe camera, tap attacks
-// ----------------------------------------------------------------------------
 const joy = { x: 0, y: 0, mag: 0, id: null };
 if (IS_TOUCH) {
   document.getElementById("touch-ui").style.display = "block";
   const joyBase = document.getElementById("joy-base");
   const joyKnob = document.getElementById("joy-knob");
-  const camTouch = { id: null, x: 0, y: 0 };
 
   const setJoy = (t) => {
     const r = joyBase.getBoundingClientRect();
@@ -1423,26 +1528,10 @@ if (IS_TOUCH) {
     setJoy(t);
   }, { passive: false });
 
-  renderer.domElement.addEventListener("touchstart", (e) => {
-    if (camTouch.id === null) {
-      const t = e.changedTouches[0];
-      camTouch.id = t.identifier;
-      camTouch.x = t.clientX;
-      camTouch.y = t.clientY;
-    }
-  }, { passive: true });
-
   document.addEventListener("touchmove", (e) => {
     let handled = false;
     for (const t of e.changedTouches) {
       if (t.identifier === joy.id) { setJoy(t); handled = true; }
-      else if (t.identifier === camTouch.id) {
-        cam.yaw -= (t.clientX - camTouch.x) * 0.006;
-        cam.pitch = clamp(cam.pitch + (t.clientY - camTouch.y) * 0.005, -0.15, 1.05);
-        camTouch.x = t.clientX;
-        camTouch.y = t.clientY;
-        handled = true;
-      }
     }
     if (handled) e.preventDefault();
   }, { passive: false });
@@ -1450,11 +1539,15 @@ if (IS_TOUCH) {
   const endTouch = (e) => {
     for (const t of e.changedTouches) {
       if (t.identifier === joy.id) resetJoy();
-      if (t.identifier === camTouch.id) camTouch.id = null;
     }
   };
   document.addEventListener("touchend", endTouch);
   document.addEventListener("touchcancel", endTouch);
+
+  const boostBtn = document.getElementById("boost-btn");
+  boostBtn.addEventListener("pointerdown", (e) => { e.preventDefault(); touchBoost.on = true; });
+  boostBtn.addEventListener("pointerup", () => { touchBoost.on = false; });
+  boostBtn.addEventListener("pointerleave", () => { touchBoost.on = false; });
 
   document.getElementById("tgt-btn").addEventListener("pointerdown", (e) => {
     e.preventDefault();
@@ -1469,7 +1562,7 @@ if (IS_TOUCH) {
 }
 
 // ----------------------------------------------------------------------------
-// Targeting
+// Targeting — prefers what you're flying toward
 // ----------------------------------------------------------------------------
 let target = null;
 const targetRing = new THREE.Mesh(
@@ -1478,34 +1571,46 @@ const targetRing = new THREE.Mesh(
     color: 0xff5544, transparent: true, opacity: 0.9,
     blending: THREE.AdditiveBlending, depthWrite: false,
   }));
-targetRing.rotation.x = -Math.PI / 2;
 targetRing.visible = false;
 scene.add(targetRing);
 
+function playerForward() {
+  return new THREE.Vector3(
+    Math.sin(player.yaw) * Math.cos(player.pitch),
+    Math.sin(player.pitch),
+    Math.cos(player.yaw) * Math.cos(player.pitch));
+}
+
 function pickTarget() {
-  let best = null, bestD = Infinity;
+  const fwd = playerForward();
+  const to = new THREE.Vector3();
+  let best = null, bestScore = Infinity;
   for (const e of enemies) {
     if (e.dead) continue;
-    const d = e.pos.distanceTo(charmander.pos);
-    if (d < bestD) { bestD = d; best = e; }
+    to.copy(e.pos).sub(player.pos);
+    const d = to.length();
+    if (d > 95) continue;
+    const dot = to.normalize().dot(fwd);
+    const score = d * (dot > 0.45 ? 0.35 : 1); // strongly prefer the front cone
+    if (score < bestScore) { bestScore = score; best = e; }
   }
   return best;
 }
 function cycleTarget() {
   const alive = enemies.filter(e => !e.dead);
   if (!alive.length) { target = null; return; }
-  alive.sort((a, b) => a.pos.distanceTo(charmander.pos) - b.pos.distanceTo(charmander.pos));
+  alive.sort((a, b) => a.pos.distanceTo(player.pos) - b.pos.distanceTo(player.pos));
   const i = alive.indexOf(target);
   target = alive[(i + 1) % alive.length];
 }
 
 // ----------------------------------------------------------------------------
-// Attacks
+// Attacks — fire comes from YOUR mouth, along YOUR aim
 // ----------------------------------------------------------------------------
-function charmanderMouth() {
-  const fwd = new THREE.Vector3(Math.sin(charmander.yaw), 0, Math.cos(charmander.yaw));
-  const s = charmander.group.scale.x;
-  return charmander.pos.clone().add(fwd.multiplyScalar(0.45 * s)).add(new THREE.Vector3(0, 1.1 * s, 0));
+const _mouthWorld = new THREE.Vector3();
+function mouthPos() {
+  player.group.userData.mouthAnchor.getWorldPosition(_mouthWorld);
+  return _mouthWorld.clone();
 }
 function aimDirAt(targetPos, from) {
   return targetPos.clone().add(new THREE.Vector3(0, 0.8, 0)).sub(from).normalize();
@@ -1515,36 +1620,29 @@ function useMove(i) {
   const move = MOVES[i];
   if (move.timer > 0) return;
   if (!target || target.dead) target = pickTarget();
-  if (!target) { callout("No wild Pokémon in sight!"); return; }
-
-  const to = target.pos.clone().sub(charmander.pos);
-  charmander.yaw = Math.atan2(to.x, to.z);
-  charmander.lunge = 0.25;
   move.timer = move.cd;
+  player.fireFlash = 0.3;
 
-  const mouth = charmanderMouth();
-  const names = ["EMBER", "FLAMETHROWER", "FIRE SPIN", "FLAME BURST"];
-  callout(`Ash: “Charmander, use <b>${names[i]}</b>!”`);
+  const mouth = mouthPos();
+  const fwd = playerForward();
+  const names = ["FIREBALL", "FLAMETHROWER", "FIRE SPIN", "FLAME BURST"];
+  callout(`<b>${names[i]}</b>!`);
 
   if (i === 0) {
     AudioSys.fire();
-    for (let j = 0; j < 3; j++) {
-      setTimeout(() => {
-        if (!target || target.dead) target = pickTarget();
-        if (!target) return;
-        const from = charmanderMouth();
-        spawnProjectile({
-          pos: from, dir: aimDirAt(target.pos, from), speed: 26, size: 0.22, color: 0xff7711,
-          damage: 14 * charmander.dmgMul, friendly: true, trail: 0xffaa33,
-          homing: 6, targetRef: target,
-        });
-      }, j * 110);
-    }
+    const hasTarget = target && !target.dead;
+    spawnProjectile({
+      pos: mouth,
+      dir: hasTarget ? aimDirAt(target.pos, mouth) : fwd,
+      speed: 36, size: 0.3, color: 0xff7711,
+      damage: 22 * player.dmgMul, friendly: true, trail: 0xffaa33,
+      homing: hasTarget ? 5 : 0, targetRef: hasTarget ? target : null,
+    });
   } else if (i === 1) {
     AudioSys.flamethrower();
-    charmander.flameActive = 1.5;
-    charmander.flameDir.copy(aimDirAt(target.pos, mouth));
+    player.flameActive = 1.6;
   } else if (i === 2) {
+    if (!target || target.dead) { move.timer = 0.3; callout("No target for FIRE SPIN!"); return; }
     AudioSys.noise({ dur: 0.9, freq: 1400, gain: 0.4, sweep: 0.5 });
     const light = new THREE.PointLight(0xff6611, 9, 10, 2);
     scene.add(light);
@@ -1552,20 +1650,16 @@ function useMove(i) {
     addShockwave(target.pos, 3, 0xff7722);
   } else if (i === 3) {
     AudioSys.fire();
-    const dist = target.pos.distanceTo(mouth);
-    const dir = aimDirAt(target.pos, mouth);
-    dir.y += clamp(dist * 0.025, 0.15, 0.55);
-    dir.normalize();
     spawnProjectile({
-      pos: mouth, dir, speed: 21, size: 0.45, color: 0xff5500,
-      damage: 55 * charmander.dmgMul, friendly: true, trail: 0xff7722,
-      gravity: 8, aoe: 6,
+      pos: mouth, dir: fwd, speed: 28, size: 0.5, color: 0xff5500,
+      damage: 60 * player.dmgMul, friendly: true, trail: 0xff7722,
+      gravity: 4, aoe: 7,
     });
   }
 }
 
 // ----------------------------------------------------------------------------
-// Projectiles — friendly shots home in on their target
+// Projectiles
 // ----------------------------------------------------------------------------
 function spawnProjectile({ pos, dir, speed, size, color, damage, friendly, trail, gravity = 0, aoe = 0, homing = 0, targetRef = null }) {
   const group = new THREE.Group();
@@ -1584,7 +1678,7 @@ function spawnProjectile({ pos, dir, speed, size, color, damage, friendly, trail
   scene.add(group);
   projectiles.push({
     group, vel: dir.clone().multiplyScalar(speed), speed,
-    damage, friendly, trail, gravity, aoe, size, color, life: 4,
+    damage, friendly, trail, gravity, aoe, size, color, life: 5,
     homing, targetRef,
   });
 }
@@ -1594,7 +1688,7 @@ function explodeProjectile(p, hitPos) {
     AudioSys.explosion();
     state.shake = Math.max(state.shake, 0.5);
     hitStop(0.12, 6);
-    explosionFX(hitPos, 1.2);
+    explosionFX(hitPos, 1.3);
     for (const e of enemies) {
       if (e.dead) continue;
       const d = e.pos.distanceTo(hitPos);
@@ -1616,12 +1710,18 @@ function updateProjectiles(dt) {
     const p = projectiles[i];
     p.life -= dt;
 
-    // steer toward a live target — guarantees the player's shots connect
-    if (p.homing > 0 && p.targetRef && !p.targetRef.dead) {
-      tmpAim.copy(p.targetRef.pos).add(new THREE.Vector3(0, 0.8, 0)).sub(p.group.position)
-        .normalize().multiplyScalar(p.speed);
-      p.vel.lerp(tmpAim, Math.min(1, p.homing * dt));
-      p.vel.setLength(p.speed);
+    if (p.homing > 0) {
+      let aimPos = null;
+      if (p.friendly && p.targetRef && !p.targetRef.dead) {
+        aimPos = tmpAim.copy(p.targetRef.pos).add(new THREE.Vector3(0, 0.8, 0));
+      } else if (!p.friendly) {
+        aimPos = tmpAim.copy(player.pos);
+      }
+      if (aimPos) {
+        const desired = aimPos.sub(p.group.position).normalize().multiplyScalar(p.speed);
+        p.vel.lerp(desired, Math.min(1, p.homing * dt));
+        p.vel.setLength(p.speed);
+      }
     }
 
     p.vel.y -= p.gravity * dt;
@@ -1647,7 +1747,7 @@ function updateProjectiles(dt) {
     if (!dead && p.friendly) {
       for (const e of enemies) {
         if (e.dead) continue;
-        if (pos.distanceTo(e.pos.clone().add(new THREE.Vector3(0, 0.8, 0))) < e.radius + p.size + 0.5) {
+        if (pos.distanceTo(e.pos.clone().add(new THREE.Vector3(0, e.flying ? 0 : 0.8, 0))) < e.radius + p.size + 0.5) {
           if (p.aoe > 0) {
             explodeProjectile(p, pos.clone());
           } else {
@@ -1659,8 +1759,8 @@ function updateProjectiles(dt) {
         }
       }
     } else if (!dead && !p.friendly) {
-      if (pos.distanceTo(charmander.pos.clone().add(new THREE.Vector3(0, 0.8, 0))) < 1.0) {
-        damageCharmander(p.damage);
+      if (pos.distanceTo(player.pos) < 1.5) {
+        damagePlayer(p.damage);
         burst(pos, { count: 8, color: p.color, speed: 4, size: 0.45, life: 0.35 });
         dead = true;
       }
@@ -1674,34 +1774,45 @@ function updateProjectiles(dt) {
 }
 
 // ----------------------------------------------------------------------------
-// Enemies
+// Enemies — grounded gunners and aerial chasers
 // ----------------------------------------------------------------------------
 function spawnEnemy(boss = false) {
-  const keysArr = Object.keys(SPECIES);
-  const spec = boss ? SPECIES.rockor : SPECIES[keysArr[Math.floor(Math.random() * keysArr.length)]];
+  let spec;
+  if (boss) {
+    spec = SPECIES.rockor;
+  } else if (state.wave >= 2 && Math.random() < 0.35) {
+    spec = SPECIES.zephyra;
+  } else {
+    const ground = [SPECIES.rockor, SPECIES.vinex, SPECIES.aquish];
+    spec = ground[Math.floor(Math.random() * ground.length)];
+  }
 
-  const a = rand(0, TAU), dist = rand(28, 42);
+  const a = rand(0, TAU);
+  const dist = spec.flying ? rand(45, 70) : rand(28, 42);
   const x = Math.cos(a) * dist, z = Math.sin(a) * dist;
   const group = spec.build();
-  group.position.set(x, terrainHeight(x, z), z);
+  const y = spec.flying ? rand(15, 35) : terrainHeight(x, z);
+  group.position.set(x, y, z);
   if (boss) group.scale.setScalar(2.2);
   scene.add(group);
 
   const mul = (1 + (state.wave - 1) * 0.18) * (boss ? 6 : 1);
   const e = {
     spec, group, boss,
+    flying: spec.flying,
     pos: group.position,
     hp: spec.hp * mul, maxHp: spec.hp * mul,
     damage: spec.damage * (1 + (state.wave - 1) * 0.1) * (boss ? 1.8 : 1),
     radius: boss ? 2.4 : 1.1,
     yaw: 0,
-    attackTimer: rand(0.5, 1.5),
+    attackTimer: rand(1, 2.2),
+    orbitA: rand(0, TAU),
+    orbitDir: Math.random() < 0.5 ? 1 : -1,
     knock: new THREE.Vector3(),
     slow: 0, dead: false, deathT: 0, flash: 0,
     bobPhase: rand(0, TAU),
     mats: [],
   };
-  // collect this enemy's materials once so hits can flash them white
   const seen = new Set();
   group.traverse(o => {
     if (o.isMesh && o.material && o.material.emissive && !seen.has(o.material)) {
@@ -1718,7 +1829,7 @@ function spawnEnemy(boss = false) {
     new THREE.MeshBasicMaterial({ color: boss ? 0xff2222 : 0xff4433, depthWrite: false }));
   fg.position.z = 0.01;
   bar.add(bg, fg);
-  bar.position.y = boss ? 2.6 : 2.2;
+  bar.position.y = boss ? 2.6 : (spec.flying ? 1.2 : 2.2);
   group.add(bar);
   e.hpBar = bar;
   e.hpFg = fg;
@@ -1753,11 +1864,16 @@ function damageEnemy(e, amount) {
     gainXp(e.spec.xp * (e.boss ? 4 : 1));
     explosionFX(e.pos.clone().add(new THREE.Vector3(0, 1, 0)), e.boss ? 2 : 0.9);
     if (e.boss) AudioSys.explosion();
+    // Ash celebrates your kills
+    if (state.time - ashNpc.lastCheer > 6) {
+      ashNpc.lastCheer = state.time;
+      ashNpc.cheer = 1.8;
+      callout(CHEERS[Math.floor(Math.random() * CHEERS.length)], 2200);
+    }
     if (target === e) target = pickTarget();
   }
 }
 
-// damage-over-time path with throttled numbers; kills route to damageEnemy
 const dotAccum = new Map();
 function damageEnemyTick(e, amount) {
   if (e.dead) return;
@@ -1778,7 +1894,6 @@ function damageEnemyTick(e, amount) {
 }
 
 function updateEnemies(dt) {
-  const charPos = charmander.pos;
   for (let i = enemies.length - 1; i >= 0; i--) {
     const e = enemies[i];
 
@@ -1787,6 +1902,7 @@ function updateEnemies(dt) {
       const s = Math.max(0.01, 1 - e.deathT * 1.4) * (e.boss ? 2.2 : 1);
       e.group.scale.setScalar(s);
       e.group.rotation.z = e.deathT * 2;
+      if (e.flying) e.pos.y -= 9 * e.deathT * dt; // birds drop from the sky
       if (e.deathT > 0.75) {
         scene.remove(e.group);
         enemies.splice(i, 1);
@@ -1794,7 +1910,6 @@ function updateEnemies(dt) {
       continue;
     }
 
-    // white-hot hit flash
     if (e.flash > 0) {
       e.flash -= dt;
       const on = e.flash > 0;
@@ -1809,50 +1924,63 @@ function updateEnemies(dt) {
       }
     }
 
-    const toChar = charPos.clone().sub(e.pos).setY(0);
-    const dist = toChar.length();
-    const dir = toChar.normalize();
-    e.yaw = Math.atan2(dir.x, dir.z);
+    const toPlayer = player.pos.clone().sub(e.pos);
+    const dist3 = toPlayer.length();
+    const flatDir = toPlayer.clone().setY(0).normalize();
+    e.yaw = Math.atan2(flatDir.x, flatDir.z);
     e.group.rotation.y = e.yaw;
 
     const slowMul = e.slow > 0 ? 0.3 : 1;
     e.slow = Math.max(0, e.slow - dt);
 
-    if (dist > e.spec.range * 0.85) {
-      e.pos.addScaledVector(dir, e.spec.speed * slowMul * dt);
+    if (e.flying) {
+      // orbit the player at altitude, swooping
+      e.orbitA += dt * 0.6 * e.orbitDir;
+      const want = new THREE.Vector3(
+        player.pos.x + Math.cos(e.orbitA) * 14,
+        clamp(player.pos.y + Math.sin(state.time * 0.7 + e.orbitA) * 4, terrainHeight(e.pos.x, e.pos.z) + 4, 80),
+        player.pos.z + Math.sin(e.orbitA) * 14);
+      const dir = want.sub(e.pos);
+      const d = dir.length();
+      if (d > 0.5) e.pos.addScaledVector(dir.normalize(), Math.min(e.spec.speed * slowMul, d * 1.4) * dt);
+      // wing flap
+      const wings = e.group.userData.flapWings;
+      if (wings) {
+        for (const w of wings) {
+          w.rotation.z = w.userData.sign * Math.sin(state.time * 11 + e.bobPhase) * 0.5;
+        }
+      }
+    } else {
+      // ground creatures keep a firing distance from your shadow
+      const flatDist = Math.hypot(toPlayer.x, toPlayer.z);
+      if (flatDist > 16) {
+        e.pos.addScaledVector(flatDir, e.spec.speed * slowMul * dt);
+      }
+      e.pos.y = terrainHeight(e.pos.x, e.pos.z);
+      e.bobPhase += dt * 8 * slowMul;
+      e.group.position.y = e.pos.y + Math.abs(Math.sin(e.bobPhase)) * 0.12;
     }
     e.pos.addScaledVector(e.knock, dt);
     e.knock.multiplyScalar(Math.max(0, 1 - 6 * dt));
 
-    e.pos.y = terrainHeight(e.pos.x, e.pos.z);
-    e.bobPhase += dt * 8 * slowMul;
-    e.group.position.y = e.pos.y + Math.abs(Math.sin(e.bobPhase)) * 0.12;
-
+    // attacks — everyone shoots up at the dragon
     e.attackTimer -= dt;
-    if (e.attackTimer <= 0 && dist < e.spec.range + 1) {
+    if (e.attackTimer <= 0 && dist3 < e.spec.range + (e.boss ? 18 : 0)) {
       e.attackTimer = e.spec.attackCd * rand(0.9, 1.2);
-      if (e.spec.projectile && !e.boss) {
-        const pr = e.spec.projectile;
-        const from = e.pos.clone().add(new THREE.Vector3(0, 1, 0));
-        spawnProjectile({
-          pos: from, dir: aimDirAt(charPos, from), speed: pr.speed, size: pr.size,
-          color: pr.color, damage: e.damage, friendly: false, trail: pr.color,
-        });
-        AudioSys.tone({ freq: 300, dur: 0.1, type: "sine", gain: 0.12, slide: 1.6 });
-      } else if (e.boss && dist > 4) {
-        // boss hurls a boulder
-        const from = e.pos.clone().add(new THREE.Vector3(0, 2.4, 0));
-        spawnProjectile({
-          pos: from, dir: aimDirAt(charPos, from), speed: 15, size: 0.45,
-          color: 0xaa9988, damage: e.damage, friendly: false, trail: 0x887766,
-        });
-        AudioSys.tone({ freq: 120, dur: 0.3, type: "sawtooth", gain: 0.2, slide: 0.5 });
-      } else if (dist < e.spec.range + 0.5 || (e.boss && dist <= 4.5)) {
-        damageCharmander(e.damage);
-        burst(charPos.clone().add(new THREE.Vector3(0, 0.8, 0)),
-          { count: 10, color: 0xcccccc, speed: 5, size: 0.5, life: 0.4 });
+      if (dist3 < 4) {
+        damagePlayer(e.damage);
+        burst(player.pos.clone(), { count: 10, color: 0xcccccc, speed: 5, size: 0.5, life: 0.4 });
         state.shake = Math.max(state.shake, e.boss ? 0.5 : 0.3);
-        if (e.boss) addShockwave(e.pos, 5, 0xbbaa88);
+      } else if (e.spec.projectile) {
+        const pr = e.spec.projectile;
+        const from = e.pos.clone().add(new THREE.Vector3(0, e.flying ? 0 : 1.2, 0));
+        spawnProjectile({
+          pos: from, dir: player.pos.clone().sub(from).normalize(),
+          speed: pr.speed * (e.boss ? 0.85 : 1), size: pr.size * (e.boss ? 1.8 : 1),
+          color: pr.color, damage: e.damage, friendly: false, trail: pr.color,
+          homing: 1.1,
+        });
+        AudioSys.tone({ freq: e.boss ? 120 : 300, dur: 0.12, type: e.boss ? "sawtooth" : "sine", gain: 0.14, slide: 1.5 });
       }
     }
 
@@ -1864,18 +1992,17 @@ function updateEnemies(dt) {
 }
 
 // ----------------------------------------------------------------------------
-// Charmander damage / XP / levels
+// Player damage / XP / levels
 // ----------------------------------------------------------------------------
-function damageCharmander(amount) {
+function damagePlayer(amount) {
   if (state.over) return;
-  charmander.hp -= amount;
+  player.hp -= amount;
   AudioSys.hurt();
-  state.shake = Math.max(state.shake, 0.25);
+  state.shake = Math.max(state.shake, 0.28);
   HUD.vignette.style.opacity = "1";
   setTimeout(() => { HUD.vignette.style.opacity = "0"; }, 250);
-  spawnDamageNumber(charmander.pos.clone().add(new THREE.Vector3(0, 1.8, 0)), amount, { color: "#ff6666" });
-  if (charmander.hp <= 0) {
-    charmander.hp = 0;
+  if (player.hp <= 0) {
+    player.hp = 0;
     gameOver();
   }
 }
@@ -1886,28 +2013,24 @@ function gainXp(amount) {
     state.xp -= state.xpNeeded;
     state.level++;
     state.xpNeeded = Math.round(state.xpNeeded * 1.35);
-    charmander.maxHp += 20;
-    charmander.hp = charmander.maxHp;
-    charmander.dmgMul = 1 + (state.level - 1) * 0.15;
+    player.maxHp += 25;
+    player.hp = player.maxHp;
+    player.dmgMul = 1 + (state.level - 1) * 0.15;
     AudioSys.levelUp();
-    announce(`CHARMANDER grew to Lv ${state.level}!`);
-    burst(charmander.pos.clone().add(new THREE.Vector3(0, 1, 0)),
-      { count: 30, color: 0x7ee0ff, speed: 6, size: 0.8, life: 0.9 });
-    addShockwave(charmander.pos, 4, 0x7ee0ff);
+    announce(`CHARIZARD grew to Lv ${state.level}!`);
+    burst(player.pos.clone(), { count: 30, color: 0x7ee0ff, speed: 6, size: 0.8, life: 0.9 });
 
-    if (state.level >= 5 && !state.evolved) {
-      state.evolved = true;
-      charmander.group.scale.setScalar(1.3);
-      charmander.dmgMul += 0.35;
-      for (const m of charmander.group.userData.bodyMats) {
-        m.color.set(0xe85f2a);
-        m.emissive.set(0x661a00);
-        m.emissiveIntensity = 0.35;
+    if (state.level >= 5 && !state.mega) {
+      state.mega = true;
+      player.dmgMul += 0.4;
+      for (const m of player.group.userData.bodyMats) {
+        m.color.set(0xd9541f);
+        m.emissive.set(0x6e1c00);
+        m.emissiveIntensity = 0.4;
       }
-      charmander.group.userData.wings.visible = true;
-      HUD.pkmnName.textContent = "CHARMANDER ⚡BLAZE AURA";
-      announce("⚡ BLAZE AWAKENED! Charmander surges with power!", 3000);
-      explosionFX(charmander.pos.clone().add(new THREE.Vector3(0, 1.2, 0)), 1.6);
+      HUD.pkmnName.textContent = "CHARIZARD ⚡MEGA BLAZE";
+      announce("⚡ MEGA BLAZE! Your inner fire erupts!", 3000);
+      explosionFX(player.pos.clone(), 1.6);
       state.shake = 0.55;
       hitStop(0.1, 8);
     }
@@ -1915,7 +2038,7 @@ function gainXp(amount) {
 }
 
 // ----------------------------------------------------------------------------
-// Waves — a boss joins every third wave
+// Waves
 // ----------------------------------------------------------------------------
 function startWave() {
   state.wave++;
@@ -1942,7 +2065,7 @@ function updateWaves(dt) {
     if (state.waveCooldown <= 0) {
       state.waveCooldown = 4;
       announce("WAVE CLEARED!");
-      charmander.hp = Math.min(charmander.maxHp, charmander.hp + charmander.maxHp * 0.3);
+      player.hp = Math.min(player.maxHp, player.hp + player.maxHp * 0.3);
       AudioSys.levelUp();
     } else {
       state.waveCooldown -= dt;
@@ -1958,7 +2081,8 @@ function gameOver() {
   state.over = true;
   document.exitPointerLock?.();
   AudioSys.explosion();
-  explosionFX(charmander.pos.clone().add(new THREE.Vector3(0, 1, 0)), 1.6);
+  AudioSys.setWind(0);
+  explosionFX(player.pos.clone(), 1.6);
   document.getElementById("final-stats").innerHTML =
     `SCORE ${state.score}<br/>WAVE ${state.wave} · Lv ${state.level}`;
   setTimeout(() => { document.getElementById("gameover-overlay").style.display = "flex"; }, 900);
@@ -1974,147 +2098,162 @@ document.getElementById("start-btn").addEventListener("click", () => {
 });
 
 // ----------------------------------------------------------------------------
-// Per-frame updates
+// Flight — the heart of feeling like the Pokémon
 // ----------------------------------------------------------------------------
-const tmpV = new THREE.Vector3();
-
-function updateAsh(dt) {
-  let mx = 0, mz = 0;
-  if (keys["KeyW"]) mz += 1;
-  if (keys["KeyS"]) mz -= 1;
-  if (keys["KeyA"]) mx -= 1;
-  if (keys["KeyD"]) mx += 1;
-  if (joy.mag > 0.12) { mx = joy.x; mz = -joy.y; } // screen-down = backward
-  const moving = mx !== 0 || mz !== 0;
-  const sprint = keys["ShiftLeft"] || keys["ShiftRight"] || joy.mag > 0.88;
-  const speed = sprint ? 11 : 6.5;
-
-  if (moving && !state.over) {
-    // camera sits at +offset along cam.yaw, so "forward" is the negated z axis
-    const ang = Math.atan2(mx, -mz) + cam.yaw;
-    tmpV.set(Math.sin(ang), 0, Math.cos(ang));
-    ash.pos.addScaledVector(tmpV, speed * dt);
-    const maxR = 44; // stay inside the stadium wall
-    const r = Math.hypot(ash.pos.x, ash.pos.z);
-    if (r > maxR) ash.pos.multiplyScalar(maxR / r);
-    ash.yaw = lerpAngle(ash.yaw, ang, 1 - Math.pow(0.0001, dt));
-    ash.walkPhase += dt * (sprint ? 13 : 9);
-    ash.speed = speed;
-  } else {
-    ash.walkPhase = lerp(ash.walkPhase, Math.round(ash.walkPhase / Math.PI) * Math.PI, 1 - Math.pow(0.001, dt));
-    ash.speed = 0;
+function updatePlayer(dt) {
+  // steering input
+  if (joy.mag > 0.1) {
+    aim.yaw -= joy.x * 2.1 * dt;
+    aim.pitch = clamp(aim.pitch - joy.y * 1.5 * dt, -0.8, 0.8);
   }
+  if (keys["ArrowLeft"]) aim.yaw += 1.8 * dt;
+  if (keys["ArrowRight"]) aim.yaw -= 1.8 * dt;
+  if (keys["ArrowUp"]) aim.pitch = clamp(aim.pitch + 1.4 * dt, -0.8, 0.8);
+  if (keys["ArrowDown"]) aim.pitch = clamp(aim.pitch - 1.4 * dt, -0.8, 0.8);
 
-  ash.pos.y = terrainHeight(ash.pos.x, ash.pos.z);
-  ash.group.position.copy(ash.pos);
-  ash.group.rotation.y = ash.yaw;
+  // the dragon chases your aim with weight
+  player.yaw = lerpAngle(player.yaw, aim.yaw, 1 - Math.pow(0.085, dt));
+  player.pitch = lerp(player.pitch, aim.pitch, 1 - Math.pow(0.05, dt));
 
-  const sw = Math.sin(ash.walkPhase) * (ash.speed > 0 ? 0.55 : 0.18);
-  const { arms, legs } = ash.group.userData.parts;
-  arms[0].rotation.x = sw;
-  arms[1].rotation.x = -sw;
-  legs[0].rotation.x = -sw;
-  legs[1].rotation.x = sw;
-  ash.group.position.y += Math.abs(Math.sin(ash.walkPhase)) * 0.06 * (ash.speed > 0 ? 1 : 0);
+  const boost = keys["ShiftLeft"] || keys["ShiftRight"] || touchBoost.on;
+  const brake = keys["KeyS"];
+  const targetSpeed = boost ? 32 : brake ? 5 : keys["KeyW"] ? 20 : 14;
+  player.speed = lerp(player.speed, targetSpeed, 1 - Math.pow(0.3, dt));
 
-  // sprinting kicks up dust
-  if (ash.speed > 8 && Math.random() < dt * 14) {
-    spawnParticle({
-      pos: ash.pos.clone().add(new THREE.Vector3(rand(-0.2, 0.2), 0.1, rand(-0.2, 0.2))),
-      smoke: true, color: 0x9a8a70, size: rand(0.3, 0.6), endSize: 1.2, life: rand(0.4, 0.8),
-      vel: new THREE.Vector3(rand(-0.5, 0.5), rand(0.5, 1.2), rand(-0.5, 0.5)),
-    });
+  const fwd = playerForward();
+  tmpAim.copy(fwd).multiplyScalar(player.speed);
+  player.vel.lerp(tmpAim, 1 - Math.pow(0.02, dt));
+  player.pos.addScaledVector(player.vel, dt);
+
+  // world bounds
+  const r = Math.hypot(player.pos.x, player.pos.z);
+  if (r > 260) {
+    player.pos.multiplyScalar(260 / r);
+    callout("Turn back — the battle is here!");
   }
-}
-
-function updateCharmander(dt) {
-  const followOffset = tmpV.set(Math.sin(ash.yaw + 2.4), 0, Math.cos(ash.yaw + 2.4)).multiplyScalar(2.2);
-  const goal = ash.pos.clone().add(followOffset);
-  const dist = charmander.pos.distanceTo(goal);
-  if (dist > 0.4) {
-    const dir = goal.clone().sub(charmander.pos).setY(0).normalize();
-    const speed = clamp(dist * 2.2, 0, 12);
-    charmander.pos.addScaledVector(dir, speed * dt);
-    if (charmander.flameActive <= 0 && (!target || target.dead)) {
-      charmander.yaw = lerpAngle(charmander.yaw, Math.atan2(dir.x, dir.z), 1 - Math.pow(0.0005, dt));
-    }
-  }
-  if (target && !target.dead) {
-    const to = target.pos.clone().sub(charmander.pos);
-    charmander.yaw = lerpAngle(charmander.yaw, Math.atan2(to.x, to.z), 1 - Math.pow(0.001, dt));
-  }
-
-  charmander.pos.y = terrainHeight(charmander.pos.x, charmander.pos.z);
-  charmander.group.position.copy(charmander.pos);
-  charmander.lunge = Math.max(0, charmander.lunge - dt);
-  const bob = Math.sin(state.time * 4) * 0.04;
-  charmander.group.position.y += bob + charmander.lunge * 0.5;
-  charmander.group.rotation.y = charmander.yaw;
-
-  // flap the evolution wings
-  if (state.evolved) {
-    for (const w of charmander.group.userData.wings.children) {
-      w.rotation.y = -w.userData.sx * (0.55 + Math.sin(state.time * 4.2) * 0.2);
-    }
-  }
-
-  // tail flame: shader time, flicker light, Blaze boost at low HP
-  const lowHp = charmander.hp / charmander.maxHp < 0.3;
-  flameUniforms.uBoost.value = lerp(flameUniforms.uBoost.value, lowHp ? 1.8 : 1, 1 - Math.pow(0.01, dt));
-  charmander.group.userData.flame.scale.setScalar(lowHp ? 1.5 : 1);
-  charmander.group.userData.flameLight.intensity = 8 + Math.sin(state.time * 23) * 2.5 + (lowHp ? 5 : 0);
-  // ember motes drifting off the tail flame
-  if (Math.random() < dt * 12) {
-    const fp = new THREE.Vector3();
-    charmander.group.userData.flame.getWorldPosition(fp);
-    spawnParticle({
-      pos: fp.add(new THREE.Vector3(rand(-0.1, 0.1), 0.3, rand(-0.1, 0.1))),
-      color: 0xffaa44, size: rand(0.08, 0.16), endSize: 0.02, life: rand(0.5, 1),
-      vel: new THREE.Vector3(rand(-0.4, 0.4), rand(0.8, 1.6), rand(-0.4, 0.4)),
-    });
-  }
-
-  // auto-ember: a small jab every couple of seconds keeps damage flowing
-  charmander.autoTimer -= dt;
-  if (charmander.autoTimer <= 0 && state.running && !state.over) {
-    charmander.autoTimer = 2.2;
-    if (target && !target.dead && target.pos.distanceTo(charmander.pos) < 32) {
-      const from = charmanderMouth();
-      spawnProjectile({
-        pos: from, dir: aimDirAt(target.pos, from), speed: 24, size: 0.13, color: 0xff9933,
-        damage: 6 * charmander.dmgMul, friendly: true, trail: 0xffbb55,
-        homing: 6, targetRef: target,
+  const minY = terrainHeight(player.pos.x, player.pos.z) + 2.2;
+  if (player.pos.y < minY) {
+    player.pos.y = minY;
+    if (aim.pitch < 0) aim.pitch *= 0.6; // ease out of the dive
+    if (player.speed > 18 && Math.random() < dt * 20) {
+      spawnParticle({
+        pos: player.pos.clone().add(new THREE.Vector3(rand(-1, 1), -1.5, rand(-1, 1))),
+        smoke: true, color: 0x9a8a70, size: rand(0.6, 1.2), endSize: 2.4, life: rand(0.5, 0.9),
+        vel: new THREE.Vector3(rand(-2, 2), rand(1, 3), rand(-2, 2)),
       });
     }
   }
+  if (player.pos.y > 92) {
+    player.pos.y = 92;
+    if (aim.pitch > 0) aim.pitch *= 0.6;
+  }
 
-  // flamethrower stream
-  if (charmander.flameActive > 0) {
-    charmander.flameActive -= dt;
-    if (target && !target.dead) charmander.flameDir.copy(aimDirAt(target.pos, charmanderMouth()));
-    const mouth = charmanderMouth();
+  // banking — roll into turns
+  const yawErr = angleDiff(aim.yaw, player.yaw);
+  player.roll = lerp(player.roll, clamp(-yawErr * 2.2, -1, 1), 1 - Math.pow(0.05, dt));
+
+  const g = player.group;
+  g.position.copy(player.pos);
+  g.rotation.order = "YXZ";
+  g.rotation.set(-player.pitch, player.yaw, player.roll);
+
+  // ---- animation: wings, head, jaw, tail ----
+  const ud = g.userData;
+  const hover = player.speed < 9;
+  const flapRate = boost ? 2.2 : hover ? 7.5 : 3.4;
+  const flapAmp = boost ? 0.12 : hover ? 0.55 : 0.28;
+  const prevPhase = player.flapPhase;
+  player.flapPhase += dt * flapRate;
+  // wing-beat whoosh at the bottom of each stroke
+  if (Math.floor(prevPhase / Math.PI) !== Math.floor(player.flapPhase / Math.PI) && !boost) {
+    AudioSys.flap();
+  }
+  for (const w of ud.wings) {
+    const lift = boost ? -0.25 : 0.15;
+    w.rotation.z = w.userData.sign * (lift + Math.sin(player.flapPhase) * flapAmp);
+    w.rotation.x = Math.sin(player.flapPhase - 0.6) * 0.1 * flapAmp * 3;
+  }
+  ud.head.rotation.x = -aim.pitch * 0.35;
+  ud.tailGroup.rotation.y = Math.sin(state.time * 2.1) * 0.08 + clamp(yawErr, -0.5, 0.5) * 0.4;
+
+  // jaw + mouth glow while breathing fire
+  player.fireFlash = Math.max(0, player.fireFlash - dt);
+  const jawTarget = player.flameActive > 0 ? 0.5 : player.fireFlash > 0 ? 0.3 : 0;
+  player.jawOpen = lerp(player.jawOpen, jawTarget, 1 - Math.pow(0.001, dt));
+  ud.jaw.rotation.x = player.jawOpen;
+  ud.jaw.position.y = -0.2 - player.jawOpen * 0.08;
+  ud.mouthGlow.intensity = player.flameActive > 0 ? 14 : player.fireFlash * 18;
+
+  // tail flame burns hotter with speed and MEGA BLAZE
+  const heat = (boost ? 1.6 : 1) * (state.mega ? 1.35 : 1) * (player.hp / player.maxHp < 0.3 ? 1.5 : 1);
+  flameUniforms.uBoost.value = lerp(flameUniforms.uBoost.value, heat, 1 - Math.pow(0.01, dt));
+  ud.flame.scale.setScalar(clamp(heat, 1, 1.8));
+  ud.flameLight.intensity = 8 + Math.sin(state.time * 23) * 2.5 + (heat - 1) * 8;
+  if (Math.random() < dt * (10 + player.speed * 0.6)) {
+    const fp = new THREE.Vector3();
+    ud.flame.getWorldPosition(fp);
+    spawnParticle({
+      pos: fp, color: 0xffaa44, size: rand(0.1, 0.2), endSize: 0.02, life: rand(0.4, 0.9),
+      vel: player.vel.clone().multiplyScalar(-0.3).add(new THREE.Vector3(rand(-1, 1), rand(0.5, 1.5), rand(-1, 1))),
+    });
+  }
+
+  // boost: wind streaks past your head + engine-of-fire trail
+  if (boost) {
+    if (Math.random() < dt * 40) {
+      const side = new THREE.Vector3(Math.cos(player.yaw), 0, -Math.sin(player.yaw));
+      spawnParticle({
+        pos: player.pos.clone().addScaledVector(fwd, rand(5, 11))
+          .addScaledVector(side, rand(-5, 5)).add(new THREE.Vector3(0, rand(-3, 4), 0)),
+        color: 0xffffff, size: 0.14, endSize: 0.03, life: 0.3,
+        vel: player.vel.clone().multiplyScalar(-0.9),
+      });
+    }
+    state.fovKick = Math.max(state.fovKick, 0.01); // handled via speed FOV below
+  }
+  AudioSys.setWind(clamp((player.speed - 5) / 27, 0, 1));
+
+  // auto-fireball keeps the pressure on between your commands
+  player.autoTimer -= dt;
+  if (player.autoTimer <= 0 && state.running && !state.over) {
+    player.autoTimer = 2.4;
+    if (target && !target.dead && target.pos.distanceTo(player.pos) < 60) {
+      const from = mouthPos();
+      spawnProjectile({
+        pos: from, dir: aimDirAt(target.pos, from), speed: 30, size: 0.14, color: 0xff9933,
+        damage: 7 * player.dmgMul, friendly: true, trail: 0xffbb55,
+        homing: 6, targetRef: target,
+      });
+      player.fireFlash = Math.max(player.fireFlash, 0.15);
+    }
+  }
+
+  // flamethrower stream pours out along your facing
+  if (player.flameActive > 0) {
+    player.flameActive -= dt;
+    const mouth = mouthPos();
     for (let j = 0; j < 5; j++) {
-      const spread = new THREE.Vector3(rand(-0.13, 0.13), rand(-0.06, 0.1), rand(-0.13, 0.13));
+      const spread = new THREE.Vector3(rand(-0.12, 0.12), rand(-0.1, 0.08), rand(-0.12, 0.12));
       spawnParticle({
         pos: mouth, color: [0xff4400, 0xff8800, 0xffcc44][j % 3],
-        size: rand(0.5, 1.1), endSize: 2.1, life: rand(0.4, 0.7),
-        vel: charmander.flameDir.clone().add(spread).normalize().multiplyScalar(rand(13, 20)),
-        drag: 1.1,
+        size: rand(0.6, 1.2), endSize: 2.6, life: rand(0.4, 0.75),
+        vel: fwd.clone().add(spread).normalize().multiplyScalar(rand(16, 26) + player.speed * 0.5),
+        drag: 1.0,
       });
     }
     if (Math.random() < dt * 18) {
       spawnParticle({
-        pos: mouth.clone().addScaledVector(charmander.flameDir, rand(4, 9)),
-        smoke: true, color: 0x4a423c, size: rand(0.7, 1.3), endSize: 2.6, life: rand(0.7, 1.2),
+        pos: mouth.clone().addScaledVector(fwd, rand(6, 14)),
+        smoke: true, color: 0x4a423c, size: rand(0.8, 1.5), endSize: 3, life: rand(0.7, 1.2),
         vel: new THREE.Vector3(rand(-0.5, 0.5), rand(1, 2), rand(-0.5, 0.5)),
       });
     }
     for (const e of enemies) {
       if (e.dead) continue;
-      const to = e.pos.clone().add(new THREE.Vector3(0, 0.8, 0)).sub(charmanderMouth());
+      const to = e.pos.clone().sub(mouth);
       const d = to.length();
-      if (d < 17 && to.normalize().dot(charmander.flameDir) > 0.78) {
-        damageEnemyTick(e, 40 * charmander.dmgMul * dt);
+      if (d < 26 && to.normalize().dot(fwd) > 0.78) {
+        damageEnemyTick(e, 42 * player.dmgMul * dt);
       }
     }
   }
@@ -2143,46 +2282,72 @@ function updateFireSpins(dt) {
         vel: new THREE.Vector3(-Math.sin(a) * 3, 1.6, Math.cos(a) * 3),
       });
     }
-    damageEnemyTick(e, 14 * charmander.dmgMul * dt);
+    damageEnemyTick(e, 14 * player.dmgMul * dt);
   }
 }
 
+// ----------------------------------------------------------------------------
+// Ash cheering
+// ----------------------------------------------------------------------------
+function updateAshNpc(dt) {
+  const g = ashNpc.group;
+  // face the dragon
+  const to = player.pos.clone().sub(g.position);
+  g.rotation.y = Math.atan2(to.x, to.z);
+  ashNpc.cheer = Math.max(0, ashNpc.cheer - dt);
+  const arms = g.userData.arms;
+  if (ashNpc.cheer > 0) {
+    // both arms pumping overhead
+    arms[0].rotation.x = -2.6 + Math.sin(state.time * 10) * 0.5;
+    arms[1].rotation.x = -2.6 + Math.sin(state.time * 10 + 1.2) * 0.5;
+  } else {
+    arms[0].rotation.x = Math.sin(state.time * 1.8) * 0.12;
+    arms[1].rotation.x = -Math.sin(state.time * 1.8) * 0.12;
+  }
+}
+
+// ----------------------------------------------------------------------------
+// Camera — tight over-the-shoulder dragon cam with banked horizon
+// ----------------------------------------------------------------------------
 function updateCamera(dt) {
-  const lookTarget = ash.pos.clone().add(new THREE.Vector3(0, 1.6, 0));
-  const off = new THREE.Vector3(
-    Math.sin(cam.yaw) * Math.cos(cam.pitch),
-    Math.sin(cam.pitch),
-    Math.cos(cam.yaw) * Math.cos(cam.pitch)
-  ).multiplyScalar(cam.dist);
-  const desired = lookTarget.clone().add(off);
-  const minY = terrainHeight(desired.x, desired.z) + 0.6;
+  const fwd = playerForward();
+  const desired = player.pos.clone()
+    .addScaledVector(fwd, -7.2)
+    .add(new THREE.Vector3(0, 2.4, 0));
+  const minY = terrainHeight(desired.x, desired.z) + 0.7;
   if (desired.y < minY) desired.y = minY;
-  camera.position.lerp(desired, 1 - Math.pow(0.0001, dt));
+  camera.position.lerp(desired, 1 - Math.pow(0.0005, dt));
 
   if (state.shake > 0) {
     state.shake = Math.max(0, state.shake - dt * 1.6);
     camera.position.x += rand(-1, 1) * state.shake * 0.32;
     camera.position.y += rand(-1, 1) * state.shake * 0.32;
   }
-  camera.lookAt(lookTarget);
+
+  // bank the horizon with the dragon's roll — sells the turn
+  camera.up.set(Math.sin(-player.roll * 0.45), Math.cos(player.roll * 0.45), 0);
+  camera.lookAt(player.pos.clone().addScaledVector(fwd, 9).add(new THREE.Vector3(0, 0.6, 0)));
 
   state.fovKick = Math.max(0, state.fovKick - dt * 22);
-  const targetFov = 62 + state.fovKick;
+  const speedFov = 58 + clamp((player.speed - 5) / 27, 0, 1) * 18;
+  const targetFov = speedFov + state.fovKick;
   if (Math.abs(camera.fov - targetFov) > 0.01) {
-    camera.fov = lerp(camera.fov, targetFov, 1 - Math.pow(0.0001, dt));
+    camera.fov = lerp(camera.fov, targetFov, 1 - Math.pow(0.001, dt));
     camera.updateProjectionMatrix();
   }
 
-  // keep the shadow frustum centered on the player
-  sun.position.set(ash.pos.x + 55, 80, ash.pos.z + 35);
-  sun.target.position.copy(ash.pos);
+  sun.position.set(player.pos.x + 55, player.pos.y + 80, player.pos.z + 35);
+  sun.target.position.copy(player.pos);
 }
 
+// ----------------------------------------------------------------------------
+// HUD
+// ----------------------------------------------------------------------------
 function updateHud() {
-  const hpFrac = clamp(charmander.hp / charmander.maxHp, 0, 1);
+  const hpFrac = clamp(player.hp / player.maxHp, 0, 1);
   HUD.hpFill.style.width = `${hpFrac * 100}%`;
   HUD.hpFill.className = "fill" + (hpFrac < 0.25 ? " danger" : hpFrac < 0.55 ? " warn" : "");
-  HUD.hpLabel.textContent = `${Math.ceil(charmander.hp)} / ${charmander.maxHp}`;
+  HUD.hpLabel.textContent = `${Math.ceil(player.hp)} / ${player.maxHp}`;
   HUD.xpFill.style.width = `${(state.xp / state.xpNeeded) * 100}%`;
   HUD.lvlLabel.textContent = `Lv ${state.level}`;
   HUD.waveLabel.textContent = `WAVE ${state.wave}`;
@@ -2197,7 +2362,13 @@ function updateHud() {
     HUD.targetHpFill.style.width = `${f * 100}%`;
     HUD.targetHpLabel.textContent = `${Math.ceil(target.hp)} / ${Math.round(target.maxHp)}`;
     targetRing.visible = true;
-    targetRing.position.copy(target.pos).add(new THREE.Vector3(0, 0.12, 0));
+    targetRing.position.copy(target.pos);
+    if (target.flying) {
+      targetRing.lookAt(camera.position); // halo facing you in the air
+    } else {
+      targetRing.rotation.set(-Math.PI / 2, 0, 0);
+      targetRing.position.y = terrainHeight(target.pos.x, target.pos.z) + 0.12;
+    }
     targetRing.scale.setScalar((target.boss ? 2 : 1) * (1 + Math.sin(state.time * 5) * 0.07));
   } else {
     HUD.targetPanel.style.display = "none";
@@ -2225,7 +2396,7 @@ function updateHud() {
 }
 
 // ----------------------------------------------------------------------------
-// Main loop — gameplay runs on scaled time so hit-stop feels punchy
+// Main loop
 // ----------------------------------------------------------------------------
 const clock = new THREE.Clock();
 
@@ -2240,7 +2411,7 @@ function tick() {
   flameUniforms.uTime.value = state.time;
   state.comboTimer -= sdt;
 
-  for (const cloud of clouds) {
+  for (const cloud of flyClouds) {
     cloud.position.x += cloud.userData.speed * dt;
     if (cloud.position.x > 280) cloud.position.x = -280;
   }
@@ -2248,25 +2419,43 @@ function tick() {
   if (state.running && !state.over) {
     for (const m of MOVES) m.timer = Math.max(0, m.timer - sdt);
     if (!target || target.dead) target = pickTarget();
-    updateAsh(sdt);
-    updateCharmander(sdt);
+    updatePlayer(sdt);
     updateEnemies(sdt);
     updateProjectiles(sdt);
     updateFireSpins(sdt);
     updateWaves(sdt);
+    updateAshNpc(sdt);
     updateHud();
     AudioSys.updateMusic(true);
+    updateCamera(dt);
   } else if (!state.running) {
-    cam.yaw += dt * 0.12;
-    updateCharmander(dt);
-    updateAsh(dt);
+    // title screen: Charizard hovers over the stadium while the camera circles
+    player.pos.set(0, 12 + Math.sin(state.time * 1.2) * 0.6, 0);
+    player.yaw = state.time * 0.25;
+    player.pitch = 0;
+    player.speed = 6;
+    aim.yaw = player.yaw;
+    const g = player.group;
+    g.position.copy(player.pos);
+    g.rotation.order = "YXZ";
+    g.rotation.set(0, player.yaw, 0);
+    player.flapPhase += dt * 7;
+    for (const w of g.userData.wings) {
+      w.rotation.z = w.userData.sign * (0.15 + Math.sin(player.flapPhase) * 0.5);
+    }
+    const a = state.time * 0.1;
+    camera.position.lerp(new THREE.Vector3(Math.sin(a) * 17, 14.5, Math.cos(a) * 17), 1 - Math.pow(0.01, dt));
+    camera.up.set(0, 1, 0);
+    camera.lookAt(player.pos);
+  } else {
+    // game over: keep rendering the scene from where the battle ended
+    updateCamera(dt);
   }
 
   updateParticles(sdt);
   updateDamageNumbers(sdt);
   updateScorches(sdt);
   updateShockwaves(sdt);
-  updateCamera(dt);
   composer.render();
 }
 tick();
