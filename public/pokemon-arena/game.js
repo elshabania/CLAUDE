@@ -1813,7 +1813,7 @@ function updatePlayer(dt) {
   // tail flame burns hotter with speed and MEGA BLAZE
   const heat = (boost ? 1.6 : 1) * (state.mega ? 1.35 : 1) * (player.hp / player.maxHp < 0.3 ? 1.5 : 1);
   flameUniforms.uBoost.value = lerp(flameUniforms.uBoost.value, heat, 1 - Math.pow(0.01, dt));
-  ud.flame.scale.setScalar(clamp(heat, 1, 1.8));
+  ud.flame.scale.setScalar(0.72 * clamp(heat, 1, 1.8)); // trimmed so it can't wall off the camera
   ud.flameLight.intensity = 8 + Math.sin(state.time * 23) * 2.5 + (heat - 1) * 8;
   if (Math.random() < dt * (10 + player.speed * 0.6)) {
     const fp = new THREE.Vector3();
@@ -1938,9 +1938,13 @@ function updateAshNpc(dt) {
 function updateCamera(dt) {
   const grounded = player.mode === "ground";
   const fwd = playerForward();
+  // over-the-shoulder framing: offset to the right so the tail flame
+  // doesn't sit between the camera and the view center
+  const side = new THREE.Vector3(Math.cos(player.yaw), 0, -Math.sin(player.yaw));
   const desired = player.pos.clone()
-    .addScaledVector(fwd, grounded ? -5.8 : -7.2)
-    .add(new THREE.Vector3(0, grounded ? 2.0 : 2.4, 0));
+    .addScaledVector(fwd, grounded ? -5.8 : -7.4)
+    .addScaledVector(side, grounded ? 1.7 : 2.2)
+    .add(new THREE.Vector3(0, grounded ? 2.2 : 2.9, 0));
   const minY = terrainHeight(desired.x, desired.z) + 0.7;
   if (desired.y < minY) desired.y = minY;
   camera.position.lerp(desired, 1 - Math.pow(0.0005, dt));
@@ -1953,7 +1957,8 @@ function updateCamera(dt) {
 
   // bank the horizon with the dragon's roll — sells the turn
   camera.up.set(Math.sin(-player.roll * 0.45), Math.cos(player.roll * 0.45), 0);
-  camera.lookAt(player.pos.clone().addScaledVector(fwd, 9).add(new THREE.Vector3(0, 0.6, 0)));
+  camera.lookAt(player.pos.clone().addScaledVector(fwd, 9)
+    .addScaledVector(side, 1.1).add(new THREE.Vector3(0, 0.6, 0)));
 
   state.fovKick = Math.max(0, state.fovKick - dt * 22);
   const speedFov = 58 + clamp((player.speed - 5) / 27, 0, 1) * 18;
