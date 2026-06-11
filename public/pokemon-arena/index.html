@@ -244,6 +244,8 @@
 <script type="importmap">
 { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js" } }
 </script>
-<script type="module" src="./game.js"></script>
+<!-- Absolute path: the page is also served at /pokemon-arena (no trailing
+     slash), where a relative ./game.js would wrongly resolve to /game.js -->
+<script type="module" src="/pokemon-arena/game.js"></script>
 </body>
 </html>

@@ -5,8 +5,9 @@ A standalone, self-contained 3D arcade battle game built with
 battle arena while your partner **Charmander** fights at your side, unleashing
 cinematic fire attacks on waves of wild creatures.
 
-Served at `/pokemon-arena` on the deployed site, or open
-`public/pokemon-arena/index.html` through any static file server.
+Served at `/pokemon-arena` on the deployed site, or serve the repo's
+`public/` directory with any static file server and open `/pokemon-arena/`
+(the script tag uses the absolute path `/pokemon-arena/game.js`).
 
 ## Gameplay
 
