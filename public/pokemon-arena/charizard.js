@@ -38,89 +38,149 @@ function makeRng(seed) {
   };
 }
 
-// Overlapping downward arc "scales" + mottled blobs on a base color.
-function paintScales(ctx, size, base, blobLight, blobDark, arcDark, arcLight, rng) {
-  ctx.fillStyle = base;
+// Layered crescent scales + mottled blobs on a base color.
+// Rows are drawn bottom-up so every scale overlaps the one below it, leaving
+// a visible lower crescent; each scale gets its own lit-crest -> shadowed-skirt
+// radial gradient plus a dark groove and a light catch line on the free edge.
+// The same rng sequence is consumed regardless of palette, so the color map,
+// bump map and roughness map stay perfectly aligned.
+function paintScales(ctx, size, pal, rng, gradStops) {
+  const S = size / 512;
+  ctx.fillStyle = pal.base;
   ctx.fillRect(0, 0, size, size);
   // Mottled organic variation
-  for (let i = 0; i < 240; i++) {
-    const x = rng() * size, y = rng() * size, r = 12 + rng() * 46;
+  const nBlob = Math.round(240 * S * S);
+  for (let i = 0; i < nBlob; i++) {
+    const x = rng() * size, y = rng() * size, r = (12 + rng() * 46) * S;
     const g = ctx.createRadialGradient(x, y, 0, x, y, r);
-    const col = rng() < 0.5 ? blobLight : blobDark;
-    g.addColorStop(0, col);
+    g.addColorStop(0, rng() < 0.5 ? pal.blobLight : pal.blobDark);
     g.addColorStop(1, "rgba(0,0,0,0)");
     ctx.fillStyle = g;
     ctx.fillRect(x - r, y - r, r * 2, r * 2);
   }
-  // Reptile scale arcs, brick-offset rows
-  const cw = 26, ch = 15;
-  for (let row = 0; row * ch < size + ch; row++) {
-    const off = (row % 2) * cw * 0.5;
+  // Crescent scales, brick-offset rows, drawn bottom-up for downward overlap
+  const cw = 26 * S, ch = 15 * S;
+  const rows = Math.ceil(size / ch) + 1;
+  for (let row = rows; row >= -1; row--) {
+    const off = (((row % 2) + 2) % 2) * cw * 0.5;
     for (let col = -1; col * cw < size + cw; col++) {
-      const x = col * cw + off + (rng() - 0.5) * 4;
-      const y = row * ch + (rng() - 0.5) * 3;
-      const r = 11 + rng() * 4;
-      ctx.lineWidth = 2.2;
-      ctx.strokeStyle = arcDark;
+      const x = col * cw + off + (rng() - 0.5) * 4 * S;
+      const y = row * ch + (rng() - 0.5) * 3 * S;
+      const r = (11 + rng() * 4) * S;
+      // per-scale shading: lit crest up top, shadowed skirt at the rim
+      ctx.globalAlpha = 0.78 + rng() * 0.22;
+      const g = ctx.createRadialGradient(x, y - r * 0.5, r * 0.12, x, y + r * 0.12, r * 1.12);
+      g.addColorStop(0, pal.scaleHi);
+      g.addColorStop(0.6, pal.scaleMid);
+      g.addColorStop(1, pal.scaleLo);
+      ctx.fillStyle = g;
       ctx.beginPath();
-      ctx.arc(x, y, r, Math.PI * 0.08, Math.PI * 0.92);
+      ctx.arc(x, y, r, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.globalAlpha = 1;
+      // dark groove under the free (lower) edge
+      ctx.lineWidth = 2.2 * S;
+      ctx.strokeStyle = pal.edge;
+      ctx.beginPath();
+      ctx.arc(x, y, r, Math.PI * 0.06, Math.PI * 0.94);
       ctx.stroke();
-      ctx.lineWidth = 1.2;
-      ctx.strokeStyle = arcLight;
+      // light catch just inside the groove
+      ctx.lineWidth = 1.1 * S;
+      ctx.strokeStyle = pal.rim;
       ctx.beginPath();
-      ctx.arc(x, y - 1.6, r, Math.PI * 0.15, Math.PI * 0.85);
+      ctx.arc(x, y - 1.8 * S, r - 1.4 * S, Math.PI * 0.16, Math.PI * 0.84);
       ctx.stroke();
     }
+  }
+  // large-scale vertical tone: darker dorsal drifting to a warm belly glow
+  if (gradStops) {
+    const g = ctx.createLinearGradient(0, 0, 0, size);
+    for (const [t, col] of gradStops) g.addColorStop(t, col);
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, size, size);
   }
 }
 
 function makeSkinTextures() {
-  const rng = makeRng(1337);
-  const [c, ctx] = makeCanvas(512);
-  paintScales(ctx, 512, "#e8821f",
-    "rgba(255,170,70,0.10)", "rgba(150,70,10,0.12)",
-    "rgba(120,52,6,0.30)", "rgba(255,190,110,0.18)", rng);
-  const map = canvasTexture(c, true);
-  // Matching grayscale bump
-  const rng2 = makeRng(1337);
-  const [cb, ctxb] = makeCanvas(512);
-  paintScales(ctxb, 512, "#7f7f7f",
-    "rgba(200,200,200,0.10)", "rgba(70,70,70,0.12)",
-    "rgba(40,40,40,0.45)", "rgba(225,225,225,0.40)", rng2);
-  const bump = canvasTexture(cb, false);
-  return { map, bump };
+  const SIZE = 1024;
+  const make = (pal, grad) => {
+    const rng = makeRng(1337);
+    const [c, ctx] = makeCanvas(SIZE);
+    paintScales(ctx, SIZE, pal, rng, grad);
+    return c;
+  };
+  const map = canvasTexture(make({
+    base: "#e8821f",
+    blobLight: "rgba(255,170,70,0.10)", blobDark: "rgba(150,70,10,0.12)",
+    scaleHi: "rgba(255,178,88,0.45)", scaleMid: "rgba(232,130,32,0.18)",
+    scaleLo: "rgba(120,52,8,0.42)",
+    edge: "rgba(96,40,5,0.50)", rim: "rgba(255,205,135,0.30)",
+  }, [
+    [0.0, "rgba(88,34,4,0.26)"], [0.45, "rgba(160,80,20,0.06)"],
+    [0.8, "rgba(255,160,70,0.08)"], [1.0, "rgba(255,185,95,0.14)"],
+  ]), true);
+  // Matching grayscale bump (high contrast so the crescents really read)
+  const bump = canvasTexture(make({
+    base: "#808080",
+    blobLight: "rgba(200,200,200,0.10)", blobDark: "rgba(70,70,70,0.12)",
+    scaleHi: "rgba(238,238,238,0.85)", scaleMid: "rgba(150,150,150,0.35)",
+    scaleLo: "rgba(30,30,30,0.75)",
+    edge: "rgba(8,8,8,0.85)", rim: "rgba(255,255,255,0.55)",
+  }), false);
+  // Roughness: scale crests sit glossier, skirts and grooves rougher
+  const rough = canvasTexture(make({
+    base: "#a0a0a0",
+    blobLight: "rgba(150,150,150,0.10)", blobDark: "rgba(190,190,190,0.10)",
+    scaleHi: "rgba(105,105,105,0.70)", scaleMid: "rgba(160,160,160,0.30)",
+    scaleLo: "rgba(205,205,205,0.55)",
+    edge: "rgba(235,235,235,0.75)", rim: "rgba(120,120,120,0.40)",
+  }), false);
+  return { map, bump, rough };
 }
 
-// Cream belly plates: broad horizontal striations with per-band shading.
+// Cream belly plates: broad horizontal striations with per-band shading,
+// fine intra-plate creases, and a matching roughness variant.
 function makeBellyTextures() {
-  const rng = makeRng(4242);
-  const make = (base, hi, lo, line) => {
-    const [c, ctx] = makeCanvas(512);
+  const SIZE = 1024, S = 2;
+  const make = (base, hi, lo, line, crease) => {
+    const rng = makeRng(4242);
+    const [c, ctx] = makeCanvas(SIZE);
     ctx.fillStyle = base;
-    ctx.fillRect(0, 0, 512, 512);
-    for (let i = 0; i < 120; i++) {
-      const x = rng() * 512, y = rng() * 512, r = 16 + rng() * 50;
+    ctx.fillRect(0, 0, SIZE, SIZE);
+    for (let i = 0; i < 120 * S * S; i++) {
+      const x = rng() * SIZE, y = rng() * SIZE, r = (16 + rng() * 50) * S;
       const g = ctx.createRadialGradient(x, y, 0, x, y, r);
       g.addColorStop(0, rng() < 0.5 ? hi : lo);
       g.addColorStop(1, "rgba(0,0,0,0)");
       ctx.fillStyle = g;
       ctx.fillRect(x - r, y - r, r * 2, r * 2);
     }
-    const band = 60;
-    for (let y = band; y < 512 + band; y += band) {
+    const band = 60 * S;
+    for (let y = band; y < SIZE + band; y += band) {
       // soft gradient inside each plate: lighter top, darker toward seam
       const g = ctx.createLinearGradient(0, y - band, 0, y);
       g.addColorStop(0, hi);
       g.addColorStop(0.75, "rgba(0,0,0,0)");
       g.addColorStop(1, lo);
       ctx.fillStyle = g;
-      ctx.fillRect(0, y - band, 512, band);
+      ctx.fillRect(0, y - band, SIZE, band);
+      // fine creases running across the plate interior
+      for (const f of [0.3, 0.5, 0.68]) {
+        ctx.strokeStyle = crease;
+        ctx.lineWidth = (0.9 + rng() * 0.6) * S;
+        ctx.beginPath();
+        for (let x = 0; x <= SIZE; x += 16 * S) {
+          const yy = y - band * f + Math.sin(x * 0.011 + y * 1.7 + f * 9) * 2.4 * S;
+          x === 0 ? ctx.moveTo(x, yy) : ctx.lineTo(x, yy);
+        }
+        ctx.stroke();
+      }
       // seam line with a gentle wave
       ctx.strokeStyle = line;
-      ctx.lineWidth = 3.5;
+      ctx.lineWidth = 3.5 * S;
       ctx.beginPath();
-      for (let x = 0; x <= 512; x += 16) {
-        const yy = y + Math.sin(x * 0.03 + y) * 3;
+      for (let x = 0; x <= SIZE; x += 16 * S) {
+        const yy = y + Math.sin(x * 0.015 + y) * 3 * S;
         x === 0 ? ctx.moveTo(x, yy) : ctx.lineTo(x, yy);
       }
       ctx.stroke();
@@ -128,41 +188,125 @@ function makeBellyTextures() {
     return c;
   };
   const map = canvasTexture(
-    make("#f3e2b8", "rgba(255,250,225,0.30)", "rgba(180,140,80,0.22)", "rgba(140,105,55,0.55)"), true);
+    make("#f3e2b8", "rgba(255,250,225,0.30)", "rgba(180,140,80,0.22)",
+      "rgba(140,105,55,0.55)", "rgba(170,130,75,0.20)"), true);
   const bump = canvasTexture(
-    make("#8a8a8a", "rgba(225,225,225,0.35)", "rgba(60,60,60,0.30)", "rgba(30,30,30,0.65)"), false);
-  return { map, bump };
+    make("#8a8a8a", "rgba(225,225,225,0.35)", "rgba(60,60,60,0.30)",
+      "rgba(20,20,20,0.75)", "rgba(55,55,55,0.35)"), false);
+  const rough = canvasTexture(
+    make("#a8a8a8", "rgba(135,135,135,0.30)", "rgba(190,190,190,0.25)",
+      "rgba(225,225,225,0.65)", "rgba(195,195,195,0.30)"), false);
+  return { map, bump, rough };
 }
 
-// Teal membrane with fibrous streaks radiating from the wing root (left edge).
+// Teal membrane: fibrous streaks plus bold veins radiating from the wing root
+// (left edge), each fading translucently along its length, over a warm backlit
+// pool near the root that deepens toward the tip and trailing edge.
 function makeWingTexture() {
   const rng = makeRng(9001);
-  const [c, ctx] = makeCanvas(512);
-  ctx.fillStyle = "#2e8083";
-  ctx.fillRect(0, 0, 512, 512);
-  for (let i = 0; i < 140; i++) {
-    const x = rng() * 512, y = rng() * 512, r = 14 + rng() * 60;
+  const SIZE = 1024, S = 2;
+  const [c, ctx] = makeCanvas(SIZE);
+  ctx.fillStyle = "#2a777b";
+  ctx.fillRect(0, 0, SIZE, SIZE);
+  for (let i = 0; i < 140 * S * S; i++) {
+    const x = rng() * SIZE, y = rng() * SIZE, r = (14 + rng() * 60) * S;
     const g = ctx.createRadialGradient(x, y, 0, x, y, r);
-    g.addColorStop(0, rng() < 0.5 ? "rgba(90,190,185,0.10)" : "rgba(18,75,80,0.14)");
+    g.addColorStop(0, rng() < 0.5 ? "rgba(90,190,185,0.10)" : "rgba(16,68,74,0.15)");
     g.addColorStop(1, "rgba(0,0,0,0)");
     ctx.fillStyle = g;
     ctx.fillRect(x - r, y - r, r * 2, r * 2);
   }
+  // translucent backlight: warm glow pooling at the root, darkening outward
+  const rootY = SIZE / 2;
+  const back = ctx.createRadialGradient(0, rootY, 40 * S, 0, rootY, SIZE * 1.15);
+  back.addColorStop(0, "rgba(255,158,84,0.20)");
+  back.addColorStop(0.45, "rgba(214,120,60,0.06)");
+  back.addColorStop(1, "rgba(8,38,42,0.30)");
+  ctx.fillStyle = back;
+  ctx.fillRect(0, 0, SIZE, SIZE);
   // Fibrous streaks fanning from the root point
-  const rootX = 0, rootY = 256;
-  for (let i = 0; i < 160; i++) {
+  for (let i = 0; i < 220; i++) {
     const ang = (rng() - 0.5) * 1.5;
-    const len = 280 + rng() * 260;
-    const wob = (rng() - 0.5) * 60;
+    const len = (280 + rng() * 260) * S;
+    const wob = (rng() - 0.5) * 60 * S;
     ctx.strokeStyle = rng() < 0.55
       ? `rgba(15,62,66,${0.06 + rng() * 0.14})`
       : `rgba(120,210,205,${0.04 + rng() * 0.10})`;
-    ctx.lineWidth = 0.8 + rng() * 1.8;
+    ctx.lineWidth = (0.7 + rng() * 1.6) * S;
     ctx.beginPath();
-    ctx.moveTo(rootX, rootY + (rng() - 0.5) * 70);
+    ctx.moveTo(0, rootY + (rng() - 0.5) * 70 * S);
     ctx.quadraticCurveTo(
       len * 0.5, rootY + Math.sin(ang) * len * 0.5 + wob,
       Math.cos(ang) * len, rootY + Math.sin(ang) * len);
+    ctx.stroke();
+  }
+  // Primary veins: soft halo pass + crisp core, alpha fading toward the tip
+  for (let i = 0; i < 6; i++) {
+    const ang = -0.66 + i * 0.26 + (rng() - 0.5) * 0.08;
+    const len = (300 + rng() * 220) * S;
+    const ex = Math.cos(ang) * len, ey = rootY + Math.sin(ang) * len;
+    const grad = ctx.createLinearGradient(0, rootY, ex, ey);
+    grad.addColorStop(0, "rgba(12,48,52,0.60)");
+    grad.addColorStop(0.7, "rgba(12,48,52,0.22)");
+    grad.addColorStop(1, "rgba(12,48,52,0.04)");
+    ctx.strokeStyle = grad;
+    const sy = rootY + (rng() - 0.5) * 30 * S;
+    const my = rootY + (ey - rootY) * 0.35 + (rng() - 0.5) * 40 * S;
+    for (const [w, a] of [[7 * S, 0.45], [2.6 * S, 1]]) {
+      ctx.lineWidth = w;
+      ctx.globalAlpha = a;
+      ctx.beginPath();
+      ctx.moveTo(0, sy);
+      ctx.quadraticCurveTo(ex * 0.45, my, ex, ey);
+      ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+    // two thinner branches splitting off each primary vein
+    for (let b = 0; b < 2; b++) {
+      const t = 0.35 + rng() * 0.4;
+      const bx = ex * t, by = rootY + (ey - rootY) * t;
+      const bang = ang + (rng() < 0.5 ? -1 : 1) * (0.18 + rng() * 0.22);
+      const blen = len * (0.25 + rng() * 0.25);
+      const bex = bx + Math.cos(bang) * blen, bey = by + Math.sin(bang) * blen;
+      const bg = ctx.createLinearGradient(bx, by, bex, bey);
+      bg.addColorStop(0, "rgba(12,48,52,0.38)");
+      bg.addColorStop(1, "rgba(12,48,52,0.03)");
+      ctx.strokeStyle = bg;
+      ctx.lineWidth = 1.6 * S;
+      ctx.beginPath();
+      ctx.moveTo(bx, by);
+      ctx.quadraticCurveTo((bx + bex) / 2, (by + bey) / 2 + (rng() - 0.5) * 20 * S, bex, bey);
+      ctx.stroke();
+    }
+  }
+  return canvasTexture(c, true);
+}
+
+// Eye iris: painted for a pole-forward sphere (canvas top = eye center), so
+// vertical bands become concentric rings — pupil core, bright iris falling to
+// a deep outer ring, then a dark limbal rim; vertical strokes become fibers.
+function makeIrisTexture() {
+  const rng = makeRng(77);
+  const [c, ctx] = makeCanvas(128);
+  const g = ctx.createLinearGradient(0, 0, 0, 128);
+  g.addColorStop(0.00, "#08090c");
+  g.addColorStop(0.14, "#08090c");   // pupil
+  g.addColorStop(0.20, "#5aa6ee");   // bright flare at the pupil edge
+  g.addColorStop(0.34, "#2d72cc");
+  g.addColorStop(0.46, "#173e8e");   // deepening outer iris
+  g.addColorStop(0.52, "#060d1d");   // dark limbal rim
+  g.addColorStop(1.00, "#060d1d");
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, 128, 128);
+  for (let i = 0; i < 60; i++) {
+    const x = rng() * 128;
+    ctx.strokeStyle = rng() < 0.5
+      ? `rgba(140,200,255,${0.08 + rng() * 0.18})`
+      : `rgba(10,25,70,${0.10 + rng() * 0.20})`;
+    ctx.lineWidth = 1 + rng() * 1.6;
+    ctx.beginPath();
+    ctx.moveTo(x, 20 + rng() * 8);
+    ctx.lineTo(x + (rng() - 0.5) * 6, 56 + rng() * 8);
     ctx.stroke();
   }
   return canvasTexture(c, true);
@@ -306,33 +450,45 @@ export function buildCharizard() {
   const skinTex = makeSkinTextures();
   skinTex.map.repeat.set(2.2, 2.2);
   skinTex.bump.repeat.set(2.2, 2.2);
+  skinTex.rough.repeat.set(2.2, 2.2);
+  // roughness 0.9 x map (~0.4 crests .. ~0.8 grooves) so scale sheen varies
   const skinMat = new THREE.MeshStandardMaterial({
-    map: skinTex.map, bumpMap: skinTex.bump, bumpScale: 0.035,
-    color: 0xffffff, roughness: 0.55, metalness: 0.0, envMapIntensity: 0.5,
+    map: skinTex.map, bumpMap: skinTex.bump, bumpScale: 0.06,
+    roughnessMap: skinTex.rough, roughness: 0.9,
+    color: 0xffffff, metalness: 0.0, envMapIntensity: 0.5,
+  });
+  // darker burnt-orange multiplier on the same maps: dorsal spikes, scars
+  const dorsalMat = new THREE.MeshStandardMaterial({
+    map: skinTex.map, bumpMap: skinTex.bump, bumpScale: 0.06,
+    roughnessMap: skinTex.rough, roughness: 0.9,
+    color: 0xa9743f, metalness: 0.0, envMapIntensity: 0.5,
   });
   const bellyTex = makeBellyTextures();
   bellyTex.map.repeat.set(1.4, 1.6);
   bellyTex.bump.repeat.set(1.4, 1.6);
+  bellyTex.rough.repeat.set(1.4, 1.6);
   const bellyMat = new THREE.MeshStandardMaterial({
-    map: bellyTex.map, bumpMap: bellyTex.bump, bumpScale: 0.04,
-    color: 0xffffff, roughness: 0.6, metalness: 0.0, envMapIntensity: 0.5,
+    map: bellyTex.map, bumpMap: bellyTex.bump, bumpScale: 0.065,
+    roughnessMap: bellyTex.rough, roughness: 0.95,
+    color: 0xffffff, metalness: 0.0, envMapIntensity: 0.5,
   });
   const membraneMat = new THREE.MeshStandardMaterial({
-    map: makeWingTexture(), color: 0xffffff, roughness: 0.6, metalness: 0.0,
+    map: makeWingTexture(), color: 0xffffff, roughness: 0.52, metalness: 0.0,
     side: THREE.DoubleSide, envMapIntensity: 0.5,
-    emissive: 0xff5512, emissiveIntensity: 0.05, // faint warm translucency feel
+    emissive: 0xff5512, emissiveIntensity: 0.08, // warm backlit translucency
   });
   const hornMat = new THREE.MeshStandardMaterial({
-    color: 0xf0e0bd, roughness: 0.35, metalness: 0.05, envMapIntensity: 0.5,
+    color: 0xf0e0bd, roughness: 0.32, metalness: 0.05, envMapIntensity: 0.55,
   });
-  const clawMat = new THREE.MeshStandardMaterial({
-    color: 0xf5ead2, roughness: 0.35, metalness: 0.05, envMapIntensity: 0.5,
+  // glossy keratin: clearcoat sheen so claws and teeth catch the light
+  const clawMat = new THREE.MeshPhysicalMaterial({
+    color: 0xf7eed6, roughness: 0.18, metalness: 0.05, envMapIntensity: 0.8,
+    clearcoat: 0.6, clearcoatRoughness: 0.3,
   });
   const mouthMat = new THREE.MeshStandardMaterial({ color: 0x4a1410, roughness: 0.9 });
   const tongueMat = new THREE.MeshStandardMaterial({ color: 0x8e2330, roughness: 0.7 });
   const scleraMat = new THREE.MeshStandardMaterial({ color: 0xf4f4f0, roughness: 0.25 });
-  const irisMat = new THREE.MeshStandardMaterial({ color: 0x2470c8, roughness: 0.2 });
-  const pupilMat = new THREE.MeshStandardMaterial({ color: 0x060606, roughness: 0.15 });
+  const irisMat = new THREE.MeshStandardMaterial({ map: makeIrisTexture(), roughness: 0.15 });
   const glintMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
   const nostrilMat = new THREE.MeshStandardMaterial({ color: 0x331008, roughness: 0.95 });
 
@@ -386,8 +542,9 @@ export function buildCharizard() {
     seg.position.copy(p);
     seg.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), tan);
     root.add(seg);
-    // cream throat plate peeking out the front of the neck
-    if (i > 0) {
+    // cream throat plate peeking out the front of the neck (every other
+    // segment is enough — the plates overlap heavily along the curve)
+    if (i % 2 === 1) {
       const th = sph(bellyMat, r * 0.82, 0.85, 1, 1.2);
       th.position.copy(p).add(new THREE.Vector3(0, -0.035, 0.085));
       th.quaternion.copy(seg.quaternion);
@@ -423,7 +580,8 @@ export function buildCharizard() {
     head.add(brow);
   }
 
-  // Eyes: sclera + blue iris + pupil + specular glint, set under the brow
+  // Eyes: sclera + painted iris (pupil and dark limbal rim baked into the
+  // texture) + a larger specular glint, set under the brow
   for (const s of [1, -1]) {
     const eye = new THREE.Group();
     eye.position.set(s * 0.20, 0.135, 0.235);
@@ -431,14 +589,14 @@ export function buildCharizard() {
     eye.rotation.x = -0.08;
     const sclera = sph(scleraMat, 0.068, 1, 1, 0.85);
     sclera.userData.noShadow = true;
-    const iris = sph(irisMat, 0.040, 1, 1, 0.55);
-    iris.position.z = 0.046;
-    const pupil = sph(pupilMat, 0.022, 1, 1, 0.5);
-    pupil.position.z = 0.062;
-    const glint = sph(glintMat, 0.010, 1, 1, 1);
-    glint.position.set(0.014, 0.016, 0.070);
+    const iris = sph(irisMat, 0.046, 1, 0.62, 1);
+    iris.rotation.x = Math.PI / 2; // +y pole (texture center) faces forward
+    iris.position.z = 0.040;
+    iris.userData.noShadow = true;
+    const glint = sph(glintMat, 0.015, 1, 1, 0.5);
+    glint.position.set(0.018, 0.022, 0.075);
     glint.userData.noShadow = true;
-    eye.add(sclera, iris, pupil, glint);
+    eye.add(sclera, iris, glint);
     head.add(eye);
   }
 
@@ -457,6 +615,20 @@ export function buildCharizard() {
       new THREE.Vector3(s * 0.10, 0.42, -0.95), 0.062, 0.5);
     head.add(horn);
   }
+
+  // Battle scars: thin raised ridges in the darker dorsal tone
+  const scarBrow = sph(dorsalMat, 0.085, 1.55, 0.16, 0.42);
+  scarBrow.position.set(-0.155, 0.30, 0.13);   // slash across the left brow
+  scarBrow.rotation.set(0, 0.3, 0.55);
+  head.add(scarBrow);
+  const scarCheek = sph(dorsalMat, 0.07, 1.5, 0.16, 0.4);
+  scarCheek.position.set(0.16, 0.02, 0.50);    // nick along the right muzzle
+  scarCheek.rotation.set(0, -0.45, -0.35);
+  head.add(scarCheek);
+  const scarSnout = sph(dorsalMat, 0.06, 0.35, 0.18, 1.5);
+  scarSnout.position.set(0.03, 0.118, 0.48);   // old notch down the snout
+  scarSnout.rotation.z = 0.12;
+  head.add(scarSnout);
 
   // Upper teeth: cones hanging from the muzzle rim (seen when jaw opens)
   const toothRows = [
@@ -530,7 +702,7 @@ export function buildCharizard() {
     if (i === TAIL_N - 1) tailTip.copy(p).addScaledVector(tan, -r * 0.4);
     // dorsal ridge continues onto the tail
     if (i >= 1 && i % 2 === 1 && t < 0.85) {
-      tailGroup.add(spike(skinMat,
+      tailGroup.add(spike(dorsalMat,
         p.clone().add(new THREE.Vector3(0, r * 0.85, 0)),
         new THREE.Vector3(0, 1, -0.55), 0.038, 0.11 * (1 - t * 0.6) + 0.03));
     }
@@ -542,13 +714,13 @@ export function buildCharizard() {
     [0, 0.54, -0.35], [0, 0.45, -0.65],
   ];
   for (const [x, y, z] of spineSpots) {
-    root.add(spike(skinMat, new THREE.Vector3(x, y, z),
+    root.add(spike(dorsalMat, new THREE.Vector3(x, y, z),
       new THREE.Vector3(0, 1, -0.5), 0.045, 0.14));
   }
   // a couple on the neck following the curve
   for (const t of [0.35, 0.65]) {
     const p = neckCurve.getPoint(t);
-    root.add(spike(skinMat, p.clone().add(new THREE.Vector3(0, 0.24, -0.06)),
+    root.add(spike(dorsalMat, p.clone().add(new THREE.Vector3(0, 0.24, -0.06)),
       new THREE.Vector3(0, 1, -0.6), 0.038, 0.11));
   }
 
@@ -595,11 +767,15 @@ export function buildCharizard() {
     const foot = sph(skinMat, 0.11, 1.0, 0.7, 1.5);
     foot.position.copy(ankleL).add(new THREE.Vector3(0, -0.02, -0.10));
     legGroup.add(foot);
-    // three claws fanning back-down (trailing flight pose)
+    // bony knee spur jutting up-forward off the joint
+    legGroup.add(spike(hornMat,
+      kneeL.clone().add(new THREE.Vector3(s * 0.05, 0.06, 0.04)),
+      new THREE.Vector3(s * 0.35, 0.55, 0.9), 0.030, 0.13));
+    // three claws fanning back-down (trailing flight pose), long and keen
     for (const a of [-0.32, 0, 0.32]) {
       legGroup.add(spike(clawMat,
         ankleL.clone().add(new THREE.Vector3(s * a * 0.32, -0.05, -0.20)),
-        new THREE.Vector3(s * a, -0.35, -1), 0.034, 0.17));
+        new THREE.Vector3(s * a, -0.35, -1), 0.030, 0.22));
     }
     legs.push(legGroup);
   }
@@ -624,10 +800,15 @@ export function buildCharizard() {
     const hand = sph(skinMat, 0.065, 1, 0.8, 1.25);
     hand.position.copy(wristL);
     armGroup.add(hand);
+    // small bony elbow spur pointing back off the joint
+    armGroup.add(spike(hornMat,
+      elbowL.clone().add(new THREE.Vector3(s * 0.05, 0, -0.04)),
+      new THREE.Vector3(s * 0.6, -0.1, -1), 0.024, 0.11));
+    // three slender claws, slightly longer and needle-sharp
     for (const a of [-0.3, 0, 0.3]) {
       armGroup.add(spike(clawMat,
         wristL.clone().add(new THREE.Vector3(s * a * 0.18, -0.015, 0.05)),
-        new THREE.Vector3(s * a * 0.5, -0.45, 1), 0.022, 0.115));
+        new THREE.Vector3(s * a * 0.5, -0.45, 1), 0.019, 0.155));
     }
     arms.push(armGroup);
   }
@@ -664,7 +845,7 @@ export function buildCharizard() {
   root.userData.wings = wings;
   root.userData.arms = arms;   // [leftArmGroup, rightArmGroup], pivot = shoulder
   root.userData.legs = legs;   // [leftLegGroup, rightLegGroup], pivot = hip
-  root.userData.bodyMats = [skinMat];
+  root.userData.bodyMats = [skinMat, dorsalMat];
 
   return root;
 }
@@ -707,7 +888,7 @@ function buildWing(sign, skinMat, clawMat, membraneMat) {
   // small spur claw at the shoulder joint
   wing.add(spike(clawMat,
     new THREE.Vector3(sign * 0.12, 0.04, 0.40),
-    new THREE.Vector3(sign * 0.2, 0.4, 1), 0.028, 0.13));
+    new THREE.Vector3(sign * 0.2, 0.4, 1), 0.026, 0.15));
 
   // ---- Outer panel group: hinged at the mid joint with a downward droop
   const outerGroup = new THREE.Group();
@@ -754,10 +935,10 @@ function buildWing(sign, skinMat, clawMat, membraneMat) {
   outerGroup.add(knuckle);
   outerGroup.add(spike(clawMat,
     new THREE.Vector3(sign * 0.03, 0.05, 0.34),
-    new THREE.Vector3(sign * 0.25, 0.55, 1), 0.030, 0.16));
+    new THREE.Vector3(sign * 0.25, 0.55, 1), 0.028, 0.18));
   outerGroup.add(spike(clawMat,
     new THREE.Vector3(sign * (OUTER - 0.02), 0.02, -0.02),
-    new THREE.Vector3(sign * 1, 0.05, -0.35), 0.020, 0.12));
+    new THREE.Vector3(sign * 1, 0.05, -0.35), 0.018, 0.14));
 
   return wing;
 }
