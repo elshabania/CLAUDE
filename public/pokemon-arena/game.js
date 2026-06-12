@@ -15,6 +15,36 @@ import { buildCharizard, flameUniforms } from "./charizard.js";
 import { buildAsh } from "./ash.js";
 import { createGradePass, applyAtmosphere } from "./lookdev.js";
 import { SPECIES } from "./enemies.js";
+import { buildVenusaur } from "./venusaur.js";
+import { buildBlastoise } from "./blastoise.js";
+import { buildVoltaron } from "./voltaron.js";
+
+// ----------------------------------------------------------------------------
+// Playable Pokémon roster — same rig contract, different element & moves
+// ----------------------------------------------------------------------------
+const CHARACTERS = {
+  charizard: {
+    name: "CHARIZARD", build: buildCharizard, color: 0xff7711, glow: 0xffaa33,
+    breath: [0xff4400, 0xff8800, 0xffcc44],
+    moves: ["CLAW", "BITE", "FLAMETHROWER", "FLAME BURST", "TAIL SLAM", "HYPER BEAM"],
+  },
+  venusaur: {
+    name: "VENUSAUR", build: buildVenusaur, color: 0x66dd33, glow: 0xaaff66,
+    breath: [0x44aa22, 0x77dd44, 0xc8ff88],
+    moves: ["VINE SLASH", "CHOMP", "RAZOR LEAF", "SEED BOMB", "PETAL SPIN", "SOLAR BEAM"],
+  },
+  blastoise: {
+    name: "BLASTOISE", build: buildBlastoise, color: 0x33aaff, glow: 0x88ddff,
+    breath: [0x1177cc, 0x44aaff, 0xbbeeff],
+    moves: ["AQUA PUNCH", "CRUNCH", "HYDRO PUMP", "WATER PULSE", "SHELL SPIN", "HYDRO BEAM"],
+  },
+  voltaron: {
+    name: "VOLTARON", build: buildVoltaron, color: 0xffdd22, glow: 0xffee88,
+    breath: [0xddaa00, 0xffdd33, 0xffffaa],
+    moves: ["THUNDER CLAW", "SPARK FANG", "VOLT STREAM", "THUNDER BOMB", "VOLT SPIN", "GIGA BOLT"],
+  },
+};
+let currentChar = CHARACTERS.charizard;
 
 // ----------------------------------------------------------------------------
 // Small math helpers
@@ -913,7 +943,7 @@ const HUD = {
   vignette: document.getElementById("vignette"),
   muteHint: document.getElementById("mute-hint"),
   flyBtn: document.getElementById("fly-btn"),
-  moves: [1, 2, 3, 4].map(i => {
+  moves: [1, 2, 3, 4, 5, 6].map(i => {
     const el = document.getElementById(`move-${i}`);
     return { el, shade: el.querySelector(".cd-shade"), num: el.querySelector(".cd-num") };
   }),
@@ -956,11 +986,12 @@ const state = {
   spawnQueue: 0,
   spawnTimer: 0,
   bossQueued: false,
+  hitStopHold: 0,
 };
 
 // YOU — Charizard. Starts grounded; the FLY button takes off.
 const player = {
-  group: buildCharizard(),
+  group: currentChar.build(),
   mode: "ground", // "ground" | "fly" | "landing"
   pos: new THREE.Vector3(0, 14, -20),
   vel: new THREE.Vector3(0, 0, 1),
@@ -977,6 +1008,14 @@ const player = {
   fireFlash: 0,
   biteT: 0,
   lungeT: 0,
+  strikeT: 0,
+  strikeArm: 1,
+  clawStep: 0,
+  clawWindow: -1,
+  spinT: 0,
+  beamT: 0,
+  invuln: 0,
+  dodgeCd: 0,
   flapPhase: 0,
   autoTimer: 2,
 };
@@ -1001,11 +1040,38 @@ const projectiles = [];
 const fireSpins = [];
 
 const MOVES = [
-  { cd: 0.6, timer: 0 },  // CLAW
-  { cd: 2.2, timer: 0 },  // BITE
-  { cd: 4.0, timer: 0 },  // FLAMETHROWER
-  { cd: 9.0, timer: 0 },  // FLAME BURST
+  { cd: 0.6, timer: 0 },   // STRIKE (melee)
+  { cd: 2.2, timer: 0 },   // BITE (melee + stun)
+  { cd: 4.0, timer: 0 },   // BREATH (element stream)
+  { cd: 9.0, timer: 0 },   // BURST (AoE projectile)
+  { cd: 6.0, timer: 0 },   // SPIN SLAM (360° melee)
+  { cd: 14.0, timer: 0 },  // HYPER BEAM
 ];
+
+// character selection (title screen)
+function setCharacter(key) {
+  if (!CHARACTERS[key] || state.running) return;
+  currentChar = CHARACTERS[key];
+  scene.remove(player.group);
+  player.group = currentChar.build();
+  scene.add(player.group);
+  HUD.pkmnName.textContent = currentChar.name;
+  for (let i = 0; i < MOVES.length; i++) {
+    HUD.moves[i].el.querySelector(".mname").textContent = currentChar.moves[i];
+  }
+}
+document.querySelectorAll(".char-btn").forEach(btn => {
+  btn.addEventListener("pointerdown", (e) => {
+    e.preventDefault();
+    document.querySelectorAll(".char-btn").forEach(b => b.classList.remove("selected"));
+    btn.classList.add("selected");
+    setCharacter(btn.dataset.char);
+  });
+});
+for (let i = 0; i < MOVES.length; i++) {
+  HUD.moves[i].el.querySelector(".mname").textContent = currentChar.moves[i];
+}
+HUD.pkmnName.textContent = currentChar.name;
 
 // ----------------------------------------------------------------------------
 // Melee — claw swipes and bites with slash VFX
@@ -1129,6 +1195,10 @@ document.addEventListener("keydown", (e) => {
     if (e.code === "Digit2") useMove(1);
     if (e.code === "Digit3") useMove(2);
     if (e.code === "Digit4") useMove(3);
+    if (e.code === "Digit5") useMove(4);
+    if (e.code === "Digit6") useMove(5);
+    if (e.code === "KeyQ") dodge(-1);
+    if (e.code === "KeyE") dodge(1);
   }
 });
 document.addEventListener("keyup", (e) => { keys[e.code] = false; });
@@ -1196,6 +1266,10 @@ if (IS_TOUCH) {
     e.preventDefault();
     cycleTarget();
   });
+  document.getElementById("dodge-btn").addEventListener("pointerdown", (e) => {
+    e.preventDefault();
+    dodge(Math.random() < 0.5 ? -1 : 1);
+  });
   HUD.moves.forEach((ui, i) => {
     ui.el.addEventListener("pointerdown", (e) => {
       e.preventDefault();
@@ -1216,6 +1290,23 @@ const targetRing = new THREE.Mesh(
   }));
 targetRing.visible = false;
 scene.add(targetRing);
+
+// HYPER BEAM visual — a stretched additive cylinder from the mouth
+const AXIS_Z = new THREE.Vector3(0, 0, 1);
+const beamFx = {};
+{
+  const geo = new THREE.CylinderGeometry(0.3, 0.42, 1, 10, 1, true);
+  geo.rotateX(Math.PI / 2);
+  geo.translate(0, 0, 0.5); // origin at the start, extends along +z
+  beamFx.mesh = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({
+    color: 0xffffff, transparent: true, opacity: 0.85,
+    blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide,
+  }));
+  beamFx.mesh.visible = false;
+  scene.add(beamFx.mesh);
+  beamFx.light = new THREE.PointLight(0xffffff, 0, 24, 2);
+  scene.add(beamFx.light);
+}
 
 function playerForward() {
   return new THREE.Vector3(
@@ -1277,26 +1368,50 @@ function useMove(i) {
 
   const mouth = mouthPos();
   const fwd = playerForward();
-  const names = ["CLAW", "BITE", "FLAMETHROWER", "FLAME BURST"];
-  if (i !== 0) callout(`<b>${names[i]}</b>!`); // claw is too rapid to narrate
+  if (i !== 0 && i !== 5) callout(`<b>${currentChar.moves[i]}</b>!`);
 
   if (i === 0) {
-    // CLAW — fast swipe with a lunge and slash arc
+    // STRIKE — 3-hit chain: two quick alternating swipes into a heavy finisher
+    if (state.time > player.clawWindow) player.clawStep = 0;
+    player.clawStep++;
+    player.clawWindow = state.time + 0.85;
+    const finisher = player.clawStep >= 3;
+    move.timer = finisher ? 0.9 : 0.35;
     AudioSys.swipe();
-    player.vel.addScaledVector(fwd, 8);
+    player.vel.addScaledVector(fwd, finisher ? 10 : 6);
     player.lungeT = 0.18;
-    slashFX(player.yaw);
-    if (meleeStrike({ range: 4.6, dot: 0.35, dmg: 18 * player.dmgMul, knock: 7 })) {
-      hitStop(0.35, 3);
+    player.strikeT = 0.32;
+    player.strikeArm = finisher ? 2 : player.clawStep % 2; // 0/1 alternate, 2 = both
+    if (finisher) player.clawStep = 0;
+    slashFX(player.yaw, currentChar.glow);
+    const hit = meleeStrike({
+      range: 4.6, dot: 0.35,
+      dmg: (finisher ? 26 : 16) * player.dmgMul,
+      knock: finisher ? 14 : 5, stun: finisher ? 1.0 : 0,
+    });
+    if (hit) {
+      state.shake = Math.max(state.shake, 0.2);
+      if (finisher) {
+        state.hitStopHold = 0.09;
+        state.timeScale = 0.05;
+        callout("<b>FINISHER</b>!");
+      }
     }
   } else if (i === 1) {
-    // BITE — close-range chomp: jaws gape, head snaps, heavy hit + stun
+    // BITE — the counter tool: huge damage on an enemy mid-windup/recovery
     AudioSys.bite();
     player.biteT = 0.32;
     player.vel.addScaledVector(fwd, 5);
-    if (meleeStrike({ range: 3.8, dot: 0.45, dmg: 34 * player.dmgMul, knock: 4, stun: 1.2 })) {
-      hitStop(0.18, 5);
+    const countering = target && !target.dead && (target.windup > 0 || target.recover > 0);
+    if (meleeStrike({
+      range: 3.8, dot: 0.45,
+      dmg: 34 * (countering ? 1.75 : 1) * player.dmgMul,
+      knock: 4, stun: 1.2,
+    })) {
+      state.hitStopHold = 0.09;
+      state.timeScale = 0.05;
       AudioSys.hit();
+      if (countering) callout("⚡ <b>COUNTER</b>!");
     }
   } else if (i === 2) {
     AudioSys.flamethrower();
@@ -1304,11 +1419,45 @@ function useMove(i) {
   } else if (i === 3) {
     AudioSys.fire();
     spawnProjectile({
-      pos: mouth, dir: fwd, speed: 28, size: 0.5, color: 0xff5500,
-      damage: 60 * player.dmgMul, friendly: true, trail: 0xff7722,
+      pos: mouth, dir: fwd, speed: 28, size: 0.5, color: currentChar.color,
+      damage: 60 * player.dmgMul, friendly: true, trail: currentChar.glow,
       gravity: 4, aoe: 7,
     });
+  } else if (i === 4) {
+    // SPIN SLAM — whirl with a 360° shockwave
+    AudioSys.noise({ dur: 0.5, freq: 900, gain: 0.4, sweep: 0.3 });
+    player.spinT = 0.55;
+    addShockwave(player.pos, 6.5, currentChar.glow);
+    let hit = false;
+    for (const e of enemies) {
+      if (e.dead) continue;
+      const to = e.pos.clone().sub(player.pos);
+      if (to.length() < 7 + e.radius) {
+        damageEnemy(e, 26 * player.dmgMul);
+        e.knock.add(to.setY(0.2).normalize().multiplyScalar(11));
+        hit = true;
+      }
+    }
+    if (hit) { state.shake = Math.max(state.shake, 0.35); hitStop(0.25, 4); }
+  } else if (i === 5) {
+    // HYPER BEAM — braced, sustained element beam
+    AudioSys.noise({ dur: 0.8, freq: 2600, gain: 0.5, sweep: 0.1 });
+    AudioSys.tone({ freq: 1200, dur: 0.7, type: "sawtooth", gain: 0.12, slide: 0.3 });
+    player.beamT = 0.75;
+    callout(`<b>${currentChar.moves[5]}</b>!!`);
   }
+}
+
+// quick sidestep dodge with brief invulnerability
+function dodge(dir) {
+  if (!state.running || state.over || player.dodgeCd > 0) return;
+  player.dodgeCd = 1.2;
+  player.invuln = Math.max(player.invuln, 0.3);
+  const side = new THREE.Vector3(Math.cos(player.yaw), 0, -Math.sin(player.yaw));
+  player.vel.addScaledVector(side, 15 * dir);
+  AudioSys.flap();
+  burst(player.pos.clone().add(new THREE.Vector3(0, -0.8, 0)),
+    { count: 8, color: 0xffffff, speed: 4, size: 0.5, life: 0.3 });
 }
 
 // ----------------------------------------------------------------------------
@@ -1432,7 +1581,8 @@ function updateProjectiles(dt) {
 function spawnEnemy(boss = false) {
   let spec;
   if (boss) {
-    spec = SPECIES.rockor;
+    const pool = [SPECIES.rockor, SPECIES.vinex, SPECIES.aquish];
+    spec = pool[Math.floor(Math.random() * pool.length)];
   } else if (state.wave >= 2 && Math.random() < 0.35) {
     spec = SPECIES.zephyra;
   } else {
@@ -1451,7 +1601,7 @@ function spawnEnemy(boss = false) {
   if (boss) group.scale.setScalar(2.2);
   scene.add(group);
 
-  const mul = (1 + (state.wave - 1) * 0.35) * (boss ? 3.5 : 1.7);
+  const mul = (1 + (state.wave - 1) * 0.35) * (boss ? 3.5 : 2.2);
   const e = {
     spec, group, boss,
     flying: spec.flying,
@@ -1464,6 +1614,8 @@ function spawnEnemy(boss = false) {
     chase: spec.speed * 2.6 + state.wave * 0.12,
     meleeRange: boss ? 5.2 : 3.6,
     windup: 0,
+    recover: 0,
+    staggerT: 0,
     strafeDir: Math.random() < 0.5 ? 1 : -1,
     orbitA: rand(0, TAU),
     orbitDir: Math.random() < 0.5 ? 1 : -1,
@@ -1526,6 +1678,7 @@ function damageEnemy(e, amount) {
   if (crit) amount *= 1.6;
   e.hp -= amount;
   e.flash = 0.12;
+  e.staggerT = 0.18;
   bumpCombo(crit);
   spawnDamageNumber(e.pos.clone().add(new THREE.Vector3(0, e.boss ? 2.8 : 1.8, 0)), amount, { crit });
   if (crit) AudioSys.crit(); else AudioSys.hit();
@@ -1625,15 +1778,18 @@ function updateEnemies(dt) {
         }
       }
     } else {
-      // DUEL AI: rush into melee range, then circle-strafe like a fighter
+      // DUEL AI: rush into melee range, then circle-strafe like a fighter;
+      // frozen in place during windup and recovery — the punish windows
       const flatDist = Math.hypot(toPlayer.x, toPlayer.z);
       const stop = e.meleeRange * 0.8;
-      if (flatDist > stop) {
-        e.pos.addScaledVector(flatDir, Math.min(e.chase * slowMul, (flatDist - stop) * 3 + 2) * dt);
-      } else if (e.windup <= 0) {
-        const tangent = new THREE.Vector3(-flatDir.z, 0, flatDir.x).multiplyScalar(e.strafeDir);
-        e.pos.addScaledVector(tangent, e.spec.speed * 0.9 * slowMul * dt);
-        if (Math.random() < dt * 0.35) e.strafeDir *= -1;
+      if (e.windup <= 0 && e.recover <= 0) {
+        if (flatDist > stop) {
+          e.pos.addScaledVector(flatDir, Math.min(e.chase * slowMul, (flatDist - stop) * 3 + 2) * dt);
+        } else {
+          const tangent = new THREE.Vector3(-flatDir.z, 0, flatDir.x).multiplyScalar(e.strafeDir);
+          e.pos.addScaledVector(tangent, e.spec.speed * 0.9 * slowMul * dt);
+          if (Math.random() < dt * 0.35) e.strafeDir *= -1;
+        }
       }
       e.pos.y = terrainHeight(e.pos.x, e.pos.z);
       e.bobPhase += dt * 8 * slowMul;
@@ -1644,8 +1800,9 @@ function updateEnemies(dt) {
     e.pos.addScaledVector(e.knock, dt);
     e.knock.multiplyScalar(Math.max(0, 1 - 6 * dt));
 
-    // attacks — melee lunge with a telegraphed windup; spit only when you run
+    // attacks — melee lunge with a telegraphed windup, then a punishable recovery
     e.attackTimer -= dt;
+    e.recover = Math.max(0, e.recover - dt);
     if (e.windup > 0) {
       e.windup -= dt;
       if (e.windup <= 0) {
@@ -1654,10 +1811,11 @@ function updateEnemies(dt) {
           burst(player.pos.clone(), { count: 12, color: 0xffffff, speed: 6, size: 0.6, life: 0.4 });
           state.shake = Math.max(state.shake, e.boss ? 0.5 : 0.35);
         }
+        e.recover = 0.4; // open to punishment
       }
-    } else if (e.attackTimer <= 0) {
+    } else if (e.attackTimer <= 0 && e.recover <= 0) {
       if (dist3 < e.meleeRange + 1.6) {
-        e.windup = 0.45; // rear back — your cue to dodge or strike first
+        e.windup = 0.65; // rear back — your cue to dodge or counter-bite
         e.attackTimer = e.spec.attackCd * rand(0.8, 1.15);
         AudioSys.tone({ freq: 180, dur: 0.32, type: "sawtooth", gain: 0.15, slide: 2.2 });
       } else if (e.spec.projectile && dist3 > 8 && dist3 < 60) {
@@ -1686,10 +1844,19 @@ function updateEnemies(dt) {
     if (e.windup > 0) {
       e.marker.material.color.setHex(Math.sin(state.time * 40) > 0 ? 0xffffff : 0xff3030);
       e.marker.scale.setScalar(1.8);
+    } else if (e.recover > 0) {
+      e.marker.material.color.setHex(0x44aaff); // blue = punish window
+      e.marker.scale.setScalar(1.6);
     } else {
       e.marker.material.color.setHex(locked ? 0xffcc22 : 0xff3030);
       e.marker.scale.setScalar(locked ? 1.55 + Math.sin(state.time * 6) * 0.18 : 1);
     }
+
+    // hit reaction: squash on impact
+    if (e.staggerT > 0) e.staggerT -= dt;
+    const s0 = e.boss ? 2.2 : 1;
+    const sq = e.staggerT > 0 ? 1 - 0.22 * Math.sin((1 - e.staggerT / 0.18) * Math.PI) : 1;
+    e.group.scale.set(s0, s0 * sq, s0);
   }
 }
 
@@ -1698,6 +1865,7 @@ function updateEnemies(dt) {
 // ----------------------------------------------------------------------------
 function damagePlayer(amount) {
   if (state.over) return;
+  if (player.invuln > 0) { callout("✦ DODGED!"); return; }
   player.hp -= amount;
   AudioSys.hurt();
   state.shake = Math.max(state.shake, 0.28);
@@ -1716,10 +1884,10 @@ function gainXp(amount) {
     state.level++;
     state.xpNeeded = Math.round(state.xpNeeded * 1.35);
     player.maxHp += 25;
-    player.hp = player.maxHp;
+    player.hp = Math.min(player.maxHp, player.hp + player.maxHp * 0.5);
     player.dmgMul = 1 + (state.level - 1) * 0.15;
     AudioSys.levelUp();
-    announce(`CHARIZARD grew to Lv ${state.level}!`);
+    announce(`${currentChar.name} grew to Lv ${state.level}!`);
     burst(player.pos.clone(), { count: 30, color: 0x7ee0ff, speed: 6, size: 0.8, life: 0.9 });
 
     if (state.level >= 5 && !state.mega) {
@@ -1730,8 +1898,8 @@ function gainXp(amount) {
         m.emissive.set(0x6e1c00);
         m.emissiveIntensity = 0.4;
       }
-      HUD.pkmnName.textContent = "CHARIZARD ⚡MEGA BLAZE";
-      announce("⚡ MEGA BLAZE! Your inner fire erupts!", 3000);
+      HUD.pkmnName.textContent = `${currentChar.name} ⚡MEGA`;
+      announce("⚡ MEGA EVOLUTION! Your inner power erupts!", 3000);
       explosionFX(player.pos.clone(), 1.6);
       state.shake = 0.55;
       hitStop(0.1, 8);
@@ -1763,7 +1931,7 @@ function updateWaves(dt) {
     if (state.waveCooldown <= 0) {
       state.waveCooldown = 4;
       announce("ROUND WON!");
-      player.hp = Math.min(player.maxHp, player.hp + player.maxHp * 0.35);
+      player.hp = Math.min(player.maxHp, player.hp + player.maxHp * 0.2);
       AudioSys.levelUp();
     } else {
       state.waveCooldown -= dt;
@@ -1777,6 +1945,7 @@ function updateWaves(dt) {
 // ----------------------------------------------------------------------------
 function gameOver() {
   state.over = true;
+  document.querySelector("#gameover-overlay h1").textContent = `${currentChar.name} FAINTED!`;
   document.exitPointerLock?.();
   AudioSys.explosion();
   AudioSys.setWind(0);
@@ -1918,8 +2087,10 @@ function updatePlayer(dt) {
 
   const g = player.group;
   g.position.copy(player.pos);
+  player.spinT = Math.max(0, player.spinT - dt);
+  const spinOffset = player.spinT > 0 ? (1 - player.spinT / 0.55) * TAU : 0;
   g.rotation.order = "YXZ";
-  g.rotation.set(-player.pitch, player.yaw, player.roll);
+  g.rotation.set(-player.pitch, player.yaw + spinOffset, player.roll);
 
   // ---- animation: wings, head, jaw, tail ----
   const ud = g.userData;
@@ -1929,7 +2100,8 @@ function updatePlayer(dt) {
   const prevPhase = player.flapPhase;
   player.flapPhase += dt * flapRate;
   // wing-beat whoosh at the bottom of each stroke
-  if (Math.floor(prevPhase / Math.PI) !== Math.floor(player.flapPhase / Math.PI) && !boost && !grounded) {
+  if (Math.floor(prevPhase / Math.PI) !== Math.floor(player.flapPhase / Math.PI)
+    && !boost && !grounded && ud.wings.length) {
     AudioSys.flap();
   }
   for (const w of ud.wings) {
@@ -1937,6 +2109,31 @@ function updatePlayer(dt) {
     const lift = grounded ? -0.95 : boost ? -0.25 : 0.15;
     w.rotation.z = w.userData.sign * (lift + Math.sin(player.flapPhase) * flapAmp);
     w.rotation.x = grounded ? 0 : Math.sin(player.flapPhase - 0.6) * 0.1 * flapAmp * 3;
+  }
+
+  // limbs: legs and arms swing while walking, trail in flight; strikes
+  // raise the claw overhead and swing it through the enemy
+  player.strikeT = Math.max(0, player.strikeT - dt);
+  player.invuln = Math.max(0, player.invuln - dt);
+  player.dodgeCd = Math.max(0, player.dodgeCd - dt);
+  const armsL = ud.arms || [];
+  const legsL = ud.legs || [];
+  const moveFactor = grounded ? clamp(player.speed / 6, 0, 1) : 0;
+  for (let k = 0; k < armsL.length; k++) {
+    let rx = grounded
+      ? Math.sin(player.walkPhase + (k === 0 ? 0 : Math.PI)) * 0.5 * moveFactor
+      : 0.3;
+    const striking = player.strikeT > 0 && (player.strikeArm === 2 || player.strikeArm === k);
+    if (striking) {
+      const t = 1 - player.strikeT / 0.32;
+      rx = t < 0.4 ? lerp(0.2, -2.4, t / 0.4) : lerp(-2.4, 1.0, (t - 0.4) / 0.6);
+    }
+    armsL[k].rotation.x = rx;
+  }
+  for (let k = 0; k < legsL.length; k++) {
+    legsL[k].rotation.x = grounded
+      ? Math.sin(player.walkPhase + (k === 0 ? 0 : Math.PI)) * 0.55 * moveFactor
+      : 0.45;
   }
   ud.tailGroup.rotation.y = Math.sin(state.time * 2.1) * 0.08 + clamp(yawErr, -0.5, 0.5) * 0.4;
 
@@ -1986,14 +2183,52 @@ function updatePlayer(dt) {
   player.autoTimer -= dt;
   if (player.autoTimer <= 0 && state.running && !state.over) {
     player.autoTimer = 2.4;
-    if (target && !target.dead && target.pos.distanceTo(player.pos) < 60) {
+    // flight-only support fire — on the ground, your hits are your own
+    if (player.mode !== "ground" && target && !target.dead && target.pos.distanceTo(player.pos) < 60) {
       const from = mouthPos();
       spawnProjectile({
-        pos: from, dir: aimDirAt(target.pos, from), speed: 30, size: 0.14, color: 0xff9933,
-        damage: 7 * player.dmgMul, friendly: true, trail: 0xffbb55,
+        pos: from, dir: aimDirAt(target.pos, from), speed: 30, size: 0.14, color: currentChar.color,
+        damage: 7 * player.dmgMul, friendly: true, trail: currentChar.glow,
         homing: 6, targetRef: target,
       });
       player.fireFlash = Math.max(player.fireFlash, 0.15);
+    }
+  }
+
+  // HYPER BEAM — braced stance, sustained line damage
+  if (player.beamT > 0) {
+    player.beamT -= dt;
+    const bMouth = mouthPos();
+    const bFwd = playerForward();
+    beamFx.mesh.visible = true;
+    beamFx.mesh.material.color.set(currentChar.glow);
+    beamFx.mesh.position.copy(bMouth);
+    beamFx.mesh.quaternion.setFromUnitVectors(AXIS_Z, bFwd);
+    const bw = 1 + Math.sin(state.time * 45) * 0.2;
+    beamFx.mesh.scale.set(bw, bw, 70);
+    beamFx.light.color.set(currentChar.glow);
+    beamFx.light.intensity = 14;
+    beamFx.light.position.copy(bMouth).addScaledVector(bFwd, 5);
+    ud.mouthGlow.intensity = 20;
+    state.shake = Math.max(state.shake, 0.12);
+    for (const e of enemies) {
+      if (e.dead) continue;
+      const to = e.pos.clone().add(new THREE.Vector3(0, e.flying ? 0 : 0.8, 0)).sub(bMouth);
+      const along = to.dot(bFwd);
+      if (along > 0 && along < 70 && to.addScaledVector(bFwd, -along).length() < 2.4) {
+        damageEnemyTick(e, 120 * player.dmgMul * dt);
+      }
+    }
+    if (Math.random() < dt * 30) {
+      spawnParticle({
+        pos: bMouth.clone().addScaledVector(bFwd, rand(3, 40)),
+        color: currentChar.glow, size: rand(0.5, 1), endSize: 0.1, life: 0.3,
+        vel: new THREE.Vector3(rand(-2, 2), rand(-2, 2), rand(-2, 2)),
+      });
+    }
+    if (player.beamT <= 0) {
+      beamFx.mesh.visible = false;
+      beamFx.light.intensity = 0;
     }
   }
 
@@ -2004,7 +2239,7 @@ function updatePlayer(dt) {
     for (let j = 0; j < 5; j++) {
       const spread = new THREE.Vector3(rand(-0.12, 0.12), rand(-0.1, 0.08), rand(-0.12, 0.12));
       spawnParticle({
-        pos: mouth, color: [0xff4400, 0xff8800, 0xffcc44][j % 3],
+        pos: mouth, color: currentChar.breath[j % 3],
         size: rand(0.6, 1.2), endSize: 2.6, life: rand(0.4, 0.75),
         vel: fwd.clone().add(spread).normalize().multiplyScalar(rand(16, 26) + player.speed * 0.5),
         drag: 1.0,
@@ -2085,9 +2320,9 @@ function updateCamera(dt) {
   // doesn't sit between the camera and the view center
   const side = new THREE.Vector3(Math.cos(player.yaw), 0, -Math.sin(player.yaw));
   const desired = player.pos.clone()
-    .addScaledVector(fwd, grounded ? -5.8 : -7.4)
+    .addScaledVector(fwd, grounded ? -6.6 : -7.4)
     .addScaledVector(side, grounded ? 1.7 : 2.2)
-    .add(new THREE.Vector3(0, grounded ? 2.2 : 2.9, 0));
+    .add(new THREE.Vector3(0, grounded ? 2.5 : 2.9, 0));
   const minY = terrainHeight(desired.x, desired.z) + 0.7;
   if (desired.y < minY) desired.y = minY;
   camera.position.lerp(desired, 1 - Math.pow(0.0005, dt));
@@ -2100,11 +2335,17 @@ function updateCamera(dt) {
 
   // bank the horizon with the dragon's roll — sells the turn
   camera.up.set(Math.sin(-player.roll * 0.45), Math.cos(player.roll * 0.45), 0);
-  camera.lookAt(player.pos.clone().addScaledVector(fwd, 9)
-    .addScaledVector(side, 1.1).add(new THREE.Vector3(0, 0.6, 0)));
+  const look = player.pos.clone().addScaledVector(fwd, 9)
+    .addScaledVector(side, 1.1).add(new THREE.Vector3(0, 0.6, 0));
+  // in a ground duel, frame the opponent too so telegraphs stay on screen
+  if (grounded && target && !target.dead && target.pos.distanceTo(player.pos) < 16) {
+    look.lerp(target.pos.clone().add(new THREE.Vector3(0, 1, 0)), 0.4);
+  }
+  camera.lookAt(look);
 
   state.fovKick = Math.max(0, state.fovKick - dt * 22);
-  const speedFov = 58 + clamp((player.speed - 5) / 27, 0, 1) * 18;
+  let speedFov = 58 + clamp((player.speed - 5) / 27, 0, 1) * 18;
+  if (grounded) speedFov = Math.max(speedFov, 62);
   const targetFov = speedFov + state.fovKick;
   if (Math.abs(camera.fov - targetFov) > 0.01) {
     camera.fov = lerp(camera.fov, targetFov, 1 - Math.pow(0.001, dt));
@@ -2159,7 +2400,7 @@ function updateHud() {
     : player.mode === "fly" ? "🛬<small>LAND</small>" : "⏬<small>…</small>";
   if (HUD.flyBtn.innerHTML !== flyLabel) HUD.flyBtn.innerHTML = flyLabel;
 
-  for (let i = 0; i < 4; i++) {
+  for (let i = 0; i < MOVES.length; i++) {
     const m = MOVES[i], ui = HUD.moves[i];
     if (m.timer > 0) {
       ui.el.classList.remove("ready");
@@ -2183,7 +2424,9 @@ function tick() {
   requestAnimationFrame(tick);
   const dt = Math.min(clock.getDelta(), 0.05);
 
-  state.timeScale += (1 - state.timeScale) * Math.min(1, 7 * dt);
+  // hard hit-stop holds time near-frozen briefly before the smooth recovery
+  if (state.hitStopHold > 0) state.hitStopHold -= dt;
+  else state.timeScale += (1 - state.timeScale) * Math.min(1, 7 * dt);
   const sdt = dt * state.timeScale;
   state.time += sdt;
   uWind.value = state.time;

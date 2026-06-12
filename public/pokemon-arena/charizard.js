@@ -573,43 +573,65 @@ export function buildCharizard() {
   flame.add(flameLight);
 
   // ---- Hind legs: defined haunches, bent and trailing back (flight pose) ----
+  // Thigh + shin + foot + toe claws live in a pivot group at the HIP joint so
+  // the game can swing legs (rotation.x in [-0.7, +0.7]); rest pose unchanged.
+  const legs = [];
   for (const s of [1, -1]) {
     const haunch = sph(skinMat, 0.30, 0.85, 1.05, 1.3);
     haunch.position.set(s * 0.46, -0.18, -0.42);
     haunch.rotation.x = 0.35;
     root.add(haunch);
     const hip = new THREE.Vector3(s * 0.50, -0.28, -0.50);
-    const knee = new THREE.Vector3(s * 0.55, -0.52, -0.16);
-    const ankle = new THREE.Vector3(s * 0.55, -0.62, -0.78);
-    root.add(bone(skinMat, hip, knee, 0.17, 0.115));
-    root.add(bone(skinMat, knee, ankle, 0.115, 0.085));
+    const legGroup = new THREE.Group();
+    legGroup.name = s === 1 ? "legRight" : "legLeft";
+    legGroup.position.copy(hip);          // pivot at the hip joint
+    legGroup.userData.side = s;           // -1 left (-x), +1 right (+x)
+    root.add(legGroup);
+    // joint positions local to the hip pivot (world pose identical at rot 0)
+    const kneeL = new THREE.Vector3(s * 0.55, -0.52, -0.16).sub(hip);
+    const ankleL = new THREE.Vector3(s * 0.55, -0.62, -0.78).sub(hip);
+    legGroup.add(bone(skinMat, new THREE.Vector3(0, 0, 0), kneeL, 0.17, 0.115));
+    legGroup.add(bone(skinMat, kneeL, ankleL, 0.115, 0.085));
     const foot = sph(skinMat, 0.11, 1.0, 0.7, 1.5);
-    foot.position.copy(ankle).add(new THREE.Vector3(0, -0.02, -0.10));
-    root.add(foot);
+    foot.position.copy(ankleL).add(new THREE.Vector3(0, -0.02, -0.10));
+    legGroup.add(foot);
     // three claws fanning back-down (trailing flight pose)
     for (const a of [-0.32, 0, 0.32]) {
-      root.add(spike(clawMat,
-        ankle.clone().add(new THREE.Vector3(s * a * 0.32, -0.05, -0.20)),
+      legGroup.add(spike(clawMat,
+        ankleL.clone().add(new THREE.Vector3(s * a * 0.32, -0.05, -0.20)),
         new THREE.Vector3(s * a, -0.35, -1), 0.034, 0.17));
     }
+    legs.push(legGroup);
   }
+  legs.sort((a, b) => a.userData.side - b.userData.side); // [left, right]
 
   // ---- Small arms with three claws -------------------------------------------
+  // Arm meshes live in a pivot group at the SHOULDER joint so the game can
+  // swing arms (rotation.x in [-2.6, +1.0]); rest pose unchanged at rot 0.
+  const arms = [];
   for (const s of [1, -1]) {
     const shoulder = new THREE.Vector3(s * 0.52, 0.22, 0.62);
-    const elbow = new THREE.Vector3(s * 0.66, -0.06, 0.74);
-    const wrist = new THREE.Vector3(s * 0.60, -0.18, 1.02);
-    root.add(bone(skinMat, shoulder, elbow, 0.105, 0.075));
-    root.add(bone(skinMat, elbow, wrist, 0.075, 0.055));
+    const armGroup = new THREE.Group();
+    armGroup.name = s === 1 ? "armRight" : "armLeft";
+    armGroup.position.copy(shoulder);     // pivot at the shoulder joint
+    armGroup.userData.side = s;           // -1 left (-x), +1 right (+x)
+    root.add(armGroup);
+    // joint positions local to the shoulder pivot
+    const elbowL = new THREE.Vector3(s * 0.66, -0.06, 0.74).sub(shoulder);
+    const wristL = new THREE.Vector3(s * 0.60, -0.18, 1.02).sub(shoulder);
+    armGroup.add(bone(skinMat, new THREE.Vector3(0, 0, 0), elbowL, 0.105, 0.075));
+    armGroup.add(bone(skinMat, elbowL, wristL, 0.075, 0.055));
     const hand = sph(skinMat, 0.065, 1, 0.8, 1.25);
-    hand.position.copy(wrist);
-    root.add(hand);
+    hand.position.copy(wristL);
+    armGroup.add(hand);
     for (const a of [-0.3, 0, 0.3]) {
-      root.add(spike(clawMat,
-        wrist.clone().add(new THREE.Vector3(s * a * 0.18, -0.015, 0.05)),
+      armGroup.add(spike(clawMat,
+        wristL.clone().add(new THREE.Vector3(s * a * 0.18, -0.015, 0.05)),
         new THREE.Vector3(s * a * 0.5, -0.45, 1), 0.022, 0.115));
     }
+    arms.push(armGroup);
   }
+  arms.sort((a, b) => a.userData.side - b.userData.side); // [left, right]
 
   // ---- Wings -------------------------------------------------------------------
   // Each wing: pivot at the shoulder; inner panel + drooped outer panel with the
@@ -640,6 +662,8 @@ export function buildCharizard() {
   root.userData.flame = flame;
   root.userData.flameLight = flameLight;
   root.userData.wings = wings;
+  root.userData.arms = arms;   // [leftArmGroup, rightArmGroup], pivot = shoulder
+  root.userData.legs = legs;   // [leftLegGroup, rightLegGroup], pivot = hip
   root.userData.bodyMats = [skinMat];
 
   return root;

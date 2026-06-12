@@ -77,7 +77,7 @@
     display: flex; gap: 12px;
   }
   .move {
-    position: relative; width: 118px; padding: 9px 8px 8px; text-align: center;
+    position: relative; width: 92px; padding: 8px 6px 7px; text-align: center;
     background: linear-gradient(160deg, rgba(15,18,38,.88), rgba(30,24,18,.82));
     border: 1.5px solid rgba(255,150,40,.5); border-radius: 12px;
     backdrop-filter: blur(6px); overflow: hidden;
@@ -166,6 +166,19 @@
   }
   .overlay .panel b { color: #ffd99a; background: rgba(255,160,40,.14);
     border: 1px solid rgba(255,170,60,.35); border-radius: 6px; padding: 0 8px; }
+  #char-select { display: flex; gap: 12px; margin-bottom: 26px; flex-wrap: wrap; justify-content: center; }
+  .char-btn {
+    font-family: "Bungee", cursive; font-size: 14px; color: #dfe8ff; cursor: pointer;
+    padding: 12px 18px; border-radius: 12px; border: 2px solid var(--c);
+    background: rgba(10,14,30,.7); transition: transform .12s, box-shadow .12s, background .12s;
+    box-shadow: 0 0 0 rgba(0,0,0,0);
+  }
+  .char-btn:hover { transform: translateY(-2px); }
+  .char-btn.selected {
+    background: color-mix(in srgb, var(--c) 28%, rgba(10,14,30,.8));
+    box-shadow: 0 0 22px color-mix(in srgb, var(--c) 60%, transparent);
+    color: #fff;
+  }
   .overlay button {
     font-family: "Bungee", cursive; font-size: 21px; color: #1a0e00; cursor: pointer;
     background: linear-gradient(180deg, #ffd24d, #ff8c1a); border: none; border-radius: 999px;
@@ -238,6 +251,14 @@
     box-shadow: 0 0 18px rgba(255,130,20,.4);
   }
   #boost-btn:active { background: radial-gradient(circle at 35% 30%, rgba(255,210,90,.8), rgba(220,90,20,.8)); }
+  #dodge-btn {
+    position: absolute; right: 166px; bottom: 235px; width: 56px; height: 56px;
+    border-radius: 50%; pointer-events: auto; display: flex; align-items: center;
+    justify-content: center; font-size: 24px;
+    background: rgba(10,14,30,.6); border: 2px solid rgba(160,210,255,.5);
+    backdrop-filter: blur(3px);
+  }
+  #dodge-btn:active { background: rgba(120,180,255,.35); }
 
   /* ---- Phone layout ---- */
   @media (pointer: coarse) {
@@ -249,11 +270,11 @@
     #target-panel { width: 220px; top: 12px; padding: 6px 10px 8px; }
     #attack-bar {
       left: auto; right: 12px; bottom: 76px; transform: none;
-      width: 188px; flex-wrap: wrap; gap: 8px; justify-content: flex-end;
+      width: 200px; flex-wrap: wrap; gap: 6px; justify-content: flex-end;
     }
-    .move { width: 88px; padding: 6px 4px 5px; pointer-events: auto; }
-    .move .icon { font-size: 19px; }
-    .move .mname { font-size: 9.5px; letter-spacing: .2px; }
+    .move { width: 62px; padding: 5px 2px 4px; pointer-events: auto; }
+    .move .icon { font-size: 17px; }
+    .move .mname { font-size: 7.5px; letter-spacing: 0; }
     .move .key { display: none; }
     #fly-btn { right: 18px; bottom: 308px; width: 58px; height: 58px; font-size: 20px; }
     #combo { font-size: 19px; top: 96px; }
@@ -297,10 +318,12 @@
   <div id="crosshair"></div>
 
   <div id="attack-bar">
-    <div class="move ready" id="move-1"><span class="key">1</span><div class="icon">⚔️</div><div class="mname">CLAW</div><div class="cd-shade"></div><div class="cd-num"></div></div>
+    <div class="move ready" id="move-1"><span class="key">1</span><div class="icon">⚔️</div><div class="mname">STRIKE</div><div class="cd-shade"></div><div class="cd-num"></div></div>
     <div class="move ready" id="move-2"><span class="key">2</span><div class="icon">🦷</div><div class="mname">BITE</div><div class="cd-shade"></div><div class="cd-num"></div></div>
-    <div class="move ready" id="move-3"><span class="key">3</span><div class="icon">🔥</div><div class="mname">FLAMETHROWER</div><div class="cd-shade"></div><div class="cd-num"></div></div>
-    <div class="move ready" id="move-4"><span class="key">4</span><div class="icon">☄️</div><div class="mname">FLAME BURST</div><div class="cd-shade"></div><div class="cd-num"></div></div>
+    <div class="move ready" id="move-3"><span class="key">3</span><div class="icon">💨</div><div class="mname">BREATH</div><div class="cd-shade"></div><div class="cd-num"></div></div>
+    <div class="move ready" id="move-4"><span class="key">4</span><div class="icon">☄️</div><div class="mname">BURST</div><div class="cd-shade"></div><div class="cd-num"></div></div>
+    <div class="move ready" id="move-5"><span class="key">5</span><div class="icon">🌀</div><div class="mname">SPIN</div><div class="cd-shade"></div><div class="cd-num"></div></div>
+    <div class="move ready" id="move-6"><span class="key">6</span><div class="icon">💥</div><div class="mname">BEAM</div><div class="cd-shade"></div><div class="cd-num"></div></div>
   </div>
 
   <div id="fly-btn">🕊<small>FLY</small></div>
@@ -309,11 +332,12 @@
     <div id="joy-zone"><div id="joy-base"><div id="joy-knob"></div></div></div>
     <div id="tgt-btn">🎯</div>
     <div id="boost-btn">🔥</div>
+    <div id="dodge-btn">💨</div>
   </div>
 
   <div id="controls-hint">
     <b>Mouse</b> steer flight &nbsp;·&nbsp; <b>Shift</b> boost &nbsp;·&nbsp; <b>S</b> brake<br/>
-    <b>1–4</b> fire attacks &nbsp;·&nbsp; <b>Tab</b> switch target &nbsp;·&nbsp; <b>M</b> mute
+    <b>1–6</b> attacks &nbsp;·&nbsp; <b>Q/E</b> dodge &nbsp;·&nbsp; <b>Tab</b> target &nbsp;·&nbsp; <b>M</b> mute
   </div>
   <div id="mute-hint"></div>
 </div>
@@ -324,11 +348,17 @@
   <div class="panel">
     🕊 Press <b>FLY</b> (or <b>Space</b>) to take off and land<br/>
     🖱 <b>Mouse</b> steers · <b>Shift</b> boost · <b>S</b> brake<br/>
-    <b>1</b> Claw · <b>2</b> Bite · <b>3</b> Flamethrower · <b>4</b> Flame Burst<br/>
+    <b>1</b> Strike · <b>2</b> Bite · <b>3</b> Breath · <b>4</b> Burst · <b>5</b> Spin Slam · <b>6</b> Hyper Beam<br/>
     <b>Tab</b> switch target · <b>M</b> mute sound<br/>
     📱 On phone: <b>joystick</b> steers (left/right turn, up/down climb &amp; dive) · hold <b>🔥</b> to boost · <b>tap</b> moves · <b>🎯</b> switch target
   </div>
-  <button id="start-btn">🐉 TAKE FLIGHT</button>
+  <div id="char-select">
+    <div class="char-btn selected" data-char="charizard" style="--c:#ff7711">🔥 CHARIZARD</div>
+    <div class="char-btn" data-char="venusaur" style="--c:#55cc44">🌿 VENUSAUR</div>
+    <div class="char-btn" data-char="blastoise" style="--c:#3399ff">💧 BLASTOISE</div>
+    <div class="char-btn" data-char="voltaron" style="--c:#ffd91a">⚡ VOLTARON</div>
+  </div>
+  <button id="start-btn">🐉 START THE DUEL</button>
   <div class="fine">A 1-on-1 duel: one wild Pokémon challenges you each round — get in close
     and fight with claws, fangs and fire. Win the round to face a stronger challenger.
     Level up to unlock the MEGA BLAZE surge.<br/><br/>
