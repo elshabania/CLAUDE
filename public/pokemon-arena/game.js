@@ -18,33 +18,51 @@ import { SPECIES } from "./enemies.js";
 import { buildVenusaur } from "./venusaur.js";
 import { buildBlastoise } from "./blastoise.js";
 import { buildVoltaron } from "./voltaron.js";
+import { getRoundScript, victoryLine, defeatLine, milestoneLine } from "./story.js";
+import { initEnvironment, updateEnvironment, launchFireworks } from "./environment.js";
+import { initAmbience, updateAmbience } from "./ambience.js";
+import { createSfx } from "./sfx.js";
+import { createMusicSystem } from "./music.js";
+import { createAdaptiveQuality } from "./perf.js";
+import { createCinematics } from "./cinematics.js";
 
 // ----------------------------------------------------------------------------
 // Playable Pokémon roster — same rig contract, different element & moves
 // ----------------------------------------------------------------------------
 const CHARACTERS = {
   charizard: {
-    name: "CHARIZARD", build: buildCharizard, color: 0xff7711, glow: 0xffaa33,
+    name: "CHARIZARD", element: "fire", build: buildCharizard, color: 0xff7711, glow: 0xffaa33,
     breath: [0xff4400, 0xff8800, 0xffcc44],
     moves: ["CLAW", "BITE", "FLAMETHROWER", "FLAME BURST", "TAIL SLAM", "HYPER BEAM"],
   },
   venusaur: {
-    name: "VENUSAUR", build: buildVenusaur, color: 0x66dd33, glow: 0xaaff66,
+    name: "VENUSAUR", element: "grass", build: buildVenusaur, color: 0x66dd33, glow: 0xaaff66,
     breath: [0x44aa22, 0x77dd44, 0xc8ff88],
     moves: ["VINE SLASH", "CHOMP", "RAZOR LEAF", "SEED BOMB", "PETAL SPIN", "SOLAR BEAM"],
   },
   blastoise: {
-    name: "BLASTOISE", build: buildBlastoise, color: 0x33aaff, glow: 0x88ddff,
+    name: "BLASTOISE", element: "water", build: buildBlastoise, color: 0x33aaff, glow: 0x88ddff,
     breath: [0x1177cc, 0x44aaff, 0xbbeeff],
     moves: ["AQUA PUNCH", "CRUNCH", "HYDRO PUMP", "WATER PULSE", "SHELL SPIN", "HYDRO BEAM"],
   },
   voltaron: {
-    name: "VOLTARON", build: buildVoltaron, color: 0xffdd22, glow: 0xffee88,
+    name: "VOLTARON", element: "electric", build: buildVoltaron, color: 0xffdd22, glow: 0xffee88,
     breath: [0xddaa00, 0xffdd33, 0xffffaa],
     moves: ["THUNDER CLAW", "SPARK FANG", "VOLT STREAM", "THUNDER BOMB", "VOLT SPIN", "GIGA BOLT"],
   },
 };
 let currentChar = CHARACTERS.charizard;
+
+// ----------------------------------------------------------------------------
+// Type system — attacker element → defender element damage multipliers
+// ----------------------------------------------------------------------------
+const ENEMY_ELEMENT = { rockor: "rock", vinex: "grass", aquish: "water", zephyra: "flying" };
+const TYPE_CHART = {
+  fire: { grass: 1.5, water: 0.65, rock: 0.65 },
+  water: { rock: 1.5, fire: 1.5, grass: 0.65 },
+  grass: { water: 1.5, rock: 1.5, flying: 0.65 },
+  electric: { water: 1.5, flying: 1.5, rock: 0.65 },
+};
 
 // ----------------------------------------------------------------------------
 // Small math helpers
@@ -135,6 +153,31 @@ fill.position.set(-40, 30, -50);
 scene.add(fill);
 
 applyAtmosphere({ scene, sun, hemi });
+initEnvironment(scene, terrainHeight, IS_TOUCH);
+initAmbience(scene, terrainHeight, IS_TOUCH);
+const adaptiveQ = createAdaptiveQuality({
+  renderer, composer, bloomPass, maxPixelRatio: IS_TOUCH ? 1.3 : 1.75,
+});
+const cine = createCinematics(camera);
+
+// story dialogue + round banner (elements provided by the HUD pass)
+const dialogueEl = document.getElementById("dialogue");
+const bannerEl = document.getElementById("round-banner");
+let dlgTimer = null, bannerTimer = null;
+function showDialogue(text, ms = 4500) {
+  if (!dialogueEl) return;
+  dialogueEl.textContent = text;
+  dialogueEl.classList.add("show");
+  clearTimeout(dlgTimer);
+  dlgTimer = setTimeout(() => dialogueEl.classList.remove("show"), ms);
+}
+function showBanner(text, ms = 2600) {
+  if (!bannerEl) return;
+  bannerEl.textContent = text;
+  bannerEl.classList.add("show");
+  clearTimeout(bannerTimer);
+  bannerTimer = setTimeout(() => bannerEl.classList.remove("show"), ms);
+}
 
 // ----------------------------------------------------------------------------
 // Procedural textures
@@ -774,11 +817,12 @@ function explosionFX(pos, scale = 1) {
 // Floating damage numbers
 // ----------------------------------------------------------------------------
 const dmgNumbers = [];
-function spawnDamageNumber(pos, amount, { color = "#ffd24d", crit = false } = {}) {
+function spawnDamageNumber(pos, amount, { color = "#ffd24d", crit = false, scale = 1 } = {}) {
   const c = document.createElement("canvas");
   c.width = 192; c.height = 80;
   const g = c.getContext("2d");
-  const text = crit ? `${Math.round(amount)}!` : String(Math.round(amount));
+  const base = typeof amount === "number" ? String(Math.round(amount)) : String(amount);
+  const text = crit ? `${base}!` : base;
   g.font = `700 ${crit ? 58 : 44}px Rajdhani, sans-serif`;
   g.textAlign = "center";
   g.lineWidth = crit ? 9 : 7;
@@ -789,7 +833,7 @@ function spawnDamageNumber(pos, amount, { color = "#ffd24d", crit = false } = {}
   const tex = new THREE.CanvasTexture(c);
   tex.colorSpace = THREE.SRGBColorSpace;
   const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, depthWrite: false, transparent: true }));
-  sprite.scale.set(crit ? 2.6 : 1.9, crit ? 1.1 : 0.8, 1);
+  sprite.scale.set((crit ? 2.6 : 1.9) * scale, (crit ? 1.1 : 0.8) * scale, 1);
   sprite.position.copy(pos).add(new THREE.Vector3(rand(-0.4, 0.4), rand(0.2, 0.6), 0));
   scene.add(sprite);
   dmgNumbers.push({ sprite, life: crit ? 1.1 : 0.9 });
@@ -826,6 +870,8 @@ const AudioSys = {
     const data = this.noiseBuf.getChannelData(0);
     for (let i = 0; i < len; i++) data[i] = Math.random() * 2 - 1;
     this.musicNext = this.ctx.currentTime + 0.3;
+    this.sfx = createSfx(this.ctx, this.master);
+    this.music = createMusicSystem(this.ctx, this.master);
     // continuous wind loop, silent until flight speed rises
     const src = this.ctx.createBufferSource();
     src.buffer = this.noiseBuf;
@@ -1168,7 +1214,8 @@ function toggleFlight() {
       { count: 20, color: 0xcfc2a8, speed: 7, size: 0.9, life: 0.6 });
     AudioSys.flap();
     state.shake = Math.max(state.shake, 0.2);
-    callout("🐉 CHARIZARD takes flight!");
+    callout(`🐉 ${currentChar.name} takes flight!`);
+    AudioSys.sfx?.roar();
   } else if (player.mode === "fly") {
     player.mode = "landing";
     callout("Coming in to land…");
@@ -1620,7 +1667,9 @@ function spawnEnemy(boss = false) {
     orbitA: rand(0, TAU),
     orbitDir: Math.random() < 0.5 ? 1 : -1,
     knock: new THREE.Vector3(),
-    slow: 0, dead: false, deathT: 0, flash: 0,
+    slow: 0, dead: false, deathT: 0, flash: 0, flashColor: 0xffffff,
+    element: ENEMY_ELEMENT[spec.name.toLowerCase()] ?? "normal",
+    burnT: 0, soaked: 0, statusWordAt: 0,
     bobPhase: rand(0, TAU),
     mats: [],
   };
@@ -1663,22 +1712,70 @@ function spawnEnemy(boss = false) {
   burst(e.pos.clone().add(new THREE.Vector3(0, 1, 0)),
     { count: boss ? 30 : 16, color: 0xffffff, speed: 4, size: 0.8, life: 0.6 });
   if (boss) {
-    announce(`⚠ ROUND ${state.wave} — BOSS ${spec.name} challenges you!`, 2800);
     state.shake = Math.max(state.shake, 0.5);
     addShockwave(e.pos, 8, 0xffffff);
-  } else {
-    announce(`ROUND ${state.wave} — WILD ${spec.name} challenges you!`, 2400);
+    AudioSys.sfx?.roar();
   }
+  // tournament presentation: banner, announcer script, intro cinematic
+  state.lastFoe = spec.name;
+  const script = getRoundScript(state.wave, spec.name, boss);
+  showBanner(script.title);
+  showDialogue(`${script.intro} ${script.taunt}`);
+  const ms = milestoneLine(state.wave);
+  if (ms) announce(ms, 3200);
+  AudioSys.music?.setMode(boss ? "boss" : "battle");
+  cine.start(e.pos.clone(), 1.8);
   return e;
 }
 
-function damageEnemy(e, amount) {
+// shared type-effectiveness multiplier (soak folds in a +25% damage bonus)
+let typeCalloutAt = -10;
+function typeMul(e) {
+  const base = (TYPE_CHART[currentChar.element] || {})[e.element] ?? 1;
+  if (base !== 1 && state.time - typeCalloutAt > 1.5) {
+    typeCalloutAt = state.time;
+    callout(base > 1 ? "▲ <b>SUPER EFFECTIVE!</b>" : "▼ not very effective…");
+  }
+  return base * (e.soaked > 0 ? 1.25 : 1);
+}
+
+// small status word floating above the enemy (throttled per enemy)
+function statusWord(e, word, color) {
+  if (state.time < e.statusWordAt) return;
+  e.statusWordAt = state.time + 1.2;
+  spawnDamageNumber(e.pos.clone().add(new THREE.Vector3(0, e.boss ? 3.4 : 2.4, 0)), word, { color, scale: 0.7 });
+}
+
+// roll a status effect from the player's element — once per damageEnemy call
+function applyStatus(e, dealt) {
+  const el = currentChar.element;
+  if (el === "fire" && Math.random() < 0.2) {
+    e.burnT = 4;
+    statusWord(e, "BURN", "#ff8830");
+  } else if (el === "electric" && Math.random() < 0.25) {
+    e.slow = Math.max(e.slow, 2.5);
+    statusWord(e, "PARALYZED", "#ffe14d");
+    callout('<span style="color:#ffe14d">⚡ PARALYZED!</span>');
+  } else if (el === "water" && Math.random() < 0.25) {
+    e.soaked = 5;
+    statusWord(e, "SOAKED", "#55c8ff");
+  } else if (el === "grass") {
+    const heal = dealt * 0.25;
+    player.hp = Math.min(player.maxHp, player.hp + heal);
+    spawnDamageNumber(player.pos.clone().add(new THREE.Vector3(0, 1.4, 0)), heal, { color: "#7dff6a", scale: 0.6 });
+  }
+}
+
+function damageEnemy(e, amount, { noStatus = false } = {}) {
   if (e.dead) return;
   const crit = Math.random() < 0.16;
   if (crit) amount *= 1.6;
+  amount *= typeMul(e);
   e.hp -= amount;
   e.flash = 0.12;
+  e.flashColor = 0xffffff;
   e.staggerT = 0.18;
+  if (!noStatus) applyStatus(e, amount);
   bumpCombo(crit);
   spawnDamageNumber(e.pos.clone().add(new THREE.Vector3(0, e.boss ? 2.8 : 1.8, 0)), amount, { crit });
   if (crit) AudioSys.crit(); else AudioSys.hit();
@@ -1704,6 +1801,7 @@ function damageEnemy(e, amount) {
 const dotAccum = new Map();
 function damageEnemyTick(e, amount) {
   if (e.dead) return;
+  amount *= typeMul(e);
   e.hp -= amount;
   e.flash = Math.max(e.flash, 0.05);
   const acc = (dotAccum.get(e) || 0) + amount;
@@ -1716,7 +1814,7 @@ function damageEnemyTick(e, amount) {
   }
   if (e.hp <= 0) {
     e.hp = 1;
-    damageEnemy(e, 2);
+    damageEnemy(e, 2, { noStatus: true });
   }
 }
 
@@ -1742,13 +1840,30 @@ function updateEnemies(dt) {
       const on = e.flash > 0;
       for (const m of e.mats) {
         if (on) {
-          m.mat.emissive.set(0xffffff);
+          m.mat.emissive.set(e.flashColor);
           m.mat.emissiveIntensity = 0.85;
         } else {
           m.mat.emissive.setHex(m.baseEmissive);
           m.mat.emissiveIntensity = m.baseIntensity;
         }
       }
+    }
+
+    // status effects — BURN DoT (orange flicker) and SOAK timer
+    if (e.burnT > 0) {
+      e.burnT = Math.max(0, e.burnT - dt);
+      damageEnemyTick(e, 4 * dt);
+      if (e.dead) continue;
+      if (Math.random() < dt * 7) {
+        e.flash = Math.max(e.flash, 0.07);
+        e.flashColor = 0xff7722;
+      }
+      statusWord(e, "BURN", "#ff8830");
+      if (e.burnT <= 0) e.flashColor = 0xffffff;
+    }
+    if (e.soaked > 0) {
+      e.soaked = Math.max(0, e.soaked - dt);
+      statusWord(e, "SOAKED", "#55c8ff");
     }
 
     const toPlayer = player.pos.clone().sub(e.pos);
@@ -1900,6 +2015,7 @@ function gainXp(amount) {
       }
       HUD.pkmnName.textContent = `${currentChar.name} ⚡MEGA`;
       announce("⚡ MEGA EVOLUTION! Your inner power erupts!", 3000);
+      AudioSys.sfx?.roar();
       explosionFX(player.pos.clone(), 1.6);
       state.shake = 0.55;
       hitStop(0.1, 8);
@@ -1931,6 +2047,10 @@ function updateWaves(dt) {
     if (state.waveCooldown <= 0) {
       state.waveCooldown = 4;
       announce("ROUND WON!");
+      showDialogue(victoryLine(state.wave, state.lastFoe || "the wild"));
+      launchFireworks(new THREE.Vector3(0, 0, 0));
+      AudioSys.sfx?.cheer();
+      AudioSys.music?.setMode("victory");
       player.hp = Math.min(player.maxHp, player.hp + player.maxHp * 0.2);
       AudioSys.levelUp();
     } else {
@@ -1950,8 +2070,10 @@ function gameOver() {
   AudioSys.explosion();
   AudioSys.setWind(0);
   explosionFX(player.pos.clone(), 1.6);
+  AudioSys.music?.setMode("off");
   document.getElementById("final-stats").innerHTML =
-    `SCORE ${state.score}<br/>WAVE ${state.wave} · Lv ${state.level}`;
+    `SCORE ${state.score}<br/>ROUND ${state.wave} · Lv ${state.level}` +
+    `<br/><span style="font-size:15px;color:#dbc9a8">${defeatLine(state.wave)}</span>`;
   setTimeout(() => { document.getElementById("gameover-overlay").style.display = "flex"; }, 900);
 }
 
@@ -2363,6 +2485,7 @@ function updateHud() {
   const hpFrac = clamp(player.hp / player.maxHp, 0, 1);
   HUD.hpFill.style.width = `${hpFrac * 100}%`;
   HUD.hpFill.className = "fill" + (hpFrac < 0.25 ? " danger" : hpFrac < 0.55 ? " warn" : "");
+  document.body.classList.toggle("low-hp", hpFrac < 0.3 && state.running && !state.over);
   HUD.hpLabel.textContent = `${Math.ceil(player.hp)} / ${player.maxHp}`;
   HUD.xpFill.style.width = `${(state.xp / state.xpNeeded) * 100}%`;
   HUD.lvlLabel.textContent = `Lv ${state.level}`;
@@ -2449,8 +2572,9 @@ function tick() {
     updateWaves(sdt);
     updateAshNpc(sdt);
     updateHud();
-    AudioSys.updateMusic(true);
-    updateCamera(dt);
+    AudioSys.music?.update();
+    if (cine.active) cine.update(dt);
+    else updateCamera(dt);
   } else if (!state.running) {
     // title screen: Charizard hovers over the stadium while the camera circles
     player.pos.set(0, 12 + Math.sin(state.time * 1.2) * 0.6, 0);
@@ -2480,6 +2604,9 @@ function tick() {
   updateScorches(sdt);
   updateShockwaves(sdt);
   updateSlashArcs(sdt);
+  updateEnvironment(dt, state.time);
+  updateAmbience(dt, state.time, player.pos);
+  adaptiveQ.update(dt);
   composer.render();
 }
 tick();
