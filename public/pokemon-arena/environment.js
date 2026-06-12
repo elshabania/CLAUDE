@@ -7,10 +7,16 @@ import * as THREE from "three";
 // internal state
 // ---------------------------------------------------------------------------
 const state = {
-  banners: [],        // { mesh, phase, speed }
-  jumbotrons: [],     // { screenMat, baseIntensity, phase }
-  blimp: null,        // { group, angle, speed, radius, height, bannerMat }
+  banners: [],        // { mesh, phase, speed, colorCycle, hue }
+  jumbotrons: [],     // { screenMat, baseIntensity, phase, bar, msgOffset }
+  jumboTextures: [],  // pre-rendered message frames, swapped every ~0.5s
+  jumboTimer: 0,
+  jumboIndex: 0,
+  blimp: null,        // { group, angle, speed, radius, height, bannerMat, cone }
   torches: [],        // { sprite, light|null, baseScale, phase }
+  flashes: [],        // crowd flash-photography twinkles { sprite, next }
+  confetti: null,     // { mesh, items, dummy } InstancedMesh confetti cannon
+  terrainHeight: null,
   isTouch: false,
   scene: null,
   // fireworks
@@ -49,7 +55,66 @@ function makeGlowTexture(inner, outer) {
   });
 }
 
-// vertical team banner design
+// geometric team-crest emblems drawn into the banner shield disc
+function drawCrest(ctx, kind, cx, cy, color) {
+  ctx.fillStyle = color;
+  ctx.strokeStyle = color;
+  ctx.beginPath();
+  if (kind === 0) {
+    // crown
+    ctx.moveTo(cx - 20, cy + 12);
+    ctx.lineTo(cx - 20, cy - 8);
+    ctx.lineTo(cx - 10, cy + 2);
+    ctx.lineTo(cx, cy - 16);
+    ctx.lineTo(cx + 10, cy + 2);
+    ctx.lineTo(cx + 20, cy - 8);
+    ctx.lineTo(cx + 20, cy + 12);
+    ctx.closePath();
+    ctx.fill();
+  } else if (kind === 1) {
+    // lightning bolt
+    ctx.moveTo(cx + 7, cy - 18);
+    ctx.lineTo(cx - 13, cy + 4);
+    ctx.lineTo(cx - 2, cy + 4);
+    ctx.lineTo(cx - 7, cy + 18);
+    ctx.lineTo(cx + 13, cy - 4);
+    ctx.lineTo(cx + 2, cy - 4);
+    ctx.closePath();
+    ctx.fill();
+  } else if (kind === 2) {
+    // twin chevron peaks
+    ctx.moveTo(cx - 18, cy + 14);
+    ctx.lineTo(cx, cy - 16);
+    ctx.lineTo(cx + 18, cy + 14);
+    ctx.lineTo(cx + 10, cy + 14);
+    ctx.lineTo(cx, cy - 2);
+    ctx.lineTo(cx - 10, cy + 14);
+    ctx.closePath();
+    ctx.fill();
+  } else if (kind === 3) {
+    // ring and core
+    ctx.lineWidth = 6;
+    ctx.arc(cx, cy, 14, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(cx, cy, 5, 0, Math.PI * 2);
+    ctx.fill();
+  } else {
+    // four-point star
+    ctx.moveTo(cx, cy - 18);
+    ctx.lineTo(cx + 5, cy - 5);
+    ctx.lineTo(cx + 18, cy);
+    ctx.lineTo(cx + 5, cy + 5);
+    ctx.lineTo(cx, cy + 18);
+    ctx.lineTo(cx - 5, cy + 5);
+    ctx.lineTo(cx - 18, cy);
+    ctx.lineTo(cx - 5, cy - 5);
+    ctx.closePath();
+    ctx.fill();
+  }
+}
+
+// vertical team banner design with geometric crest
 function makeBannerTexture(i) {
   const palettes = [
     ["#e23a3a", "#ffd24a"], // ember red / gold
@@ -59,7 +124,6 @@ function makeBannerTexture(i) {
     ["#e2762e", "#ffe9b0"], // flame orange
   ];
   const [a, b] = palettes[i % palettes.length];
-  const emblems = ["★", "⚡", "▲", "●", "✷"];
   return makeCanvas(128, 256, (ctx, w, h) => {
     const grad = ctx.createLinearGradient(0, 0, 0, h);
     grad.addColorStop(0, a);
@@ -79,21 +143,42 @@ function makeBannerTexture(i) {
     ctx.strokeStyle = b;
     ctx.lineWidth = 8;
     ctx.strokeRect(4, 4, w - 8, h - 8);
-    // emblem
-    ctx.fillStyle = "#ffffff";
-    ctx.font = "bold 72px sans-serif";
+    // crest shield disc
+    const cx = w / 2;
+    const cy = h * 0.26;
+    ctx.fillStyle = "rgba(12,8,28,0.85)";
+    ctx.beginPath();
+    ctx.arc(cx, cy, 32, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = b;
+    ctx.lineWidth = 4;
+    ctx.stroke();
+    drawCrest(ctx, i % 5, cx, cy, "#ffffff");
+    // lower chevron stripes
+    ctx.fillStyle = b;
+    for (let k = 0; k < 3; k++) {
+      const y = h * 0.7 + k * 14;
+      ctx.beginPath();
+      ctx.moveTo(w * 0.2, y + 8);
+      ctx.lineTo(w * 0.5, y);
+      ctx.lineTo(w * 0.8, y + 8);
+      ctx.lineTo(w * 0.8, y + 4);
+      ctx.lineTo(w * 0.5, y - 4);
+      ctx.lineTo(w * 0.2, y + 4);
+      ctx.closePath();
+      ctx.fill();
+    }
+    // tail label
+    ctx.fillStyle = b;
+    ctx.font = "bold 26px sans-serif";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    ctx.fillText(emblems[i % emblems.length], w / 2, h * 0.26);
-    // tail notch
-    ctx.fillStyle = b;
-    ctx.font = "bold 30px sans-serif";
-    ctx.fillText("ARENA", w / 2, h * 0.84);
+    ctx.fillText("ARENA", w / 2, h * 0.6);
   });
 }
 
-// jumbotron screen
-function makeJumbotronTexture(line1, line2) {
+// jumbotron screen — takes 1 or 2 lines of text
+function makeJumbotronTexture(lines) {
   return makeCanvas(512, 256, (ctx, w, h) => {
     const grad = ctx.createLinearGradient(0, 0, 0, h);
     grad.addColorStop(0, "#120a2e");
@@ -108,20 +193,34 @@ function makeJumbotronTexture(line1, line2) {
     ctx.textBaseline = "middle";
     ctx.lineWidth = 10;
     ctx.strokeStyle = "#000000";
-    ctx.font = "900 56px Arial Black, sans-serif";
-    ctx.fillStyle = "#ffd24a";
-    ctx.strokeText(line1, w / 2, h * 0.32);
-    ctx.fillText(line1, w / 2, h * 0.32);
-    ctx.font = "900 88px Arial Black, sans-serif";
-    ctx.fillStyle = "#ff5a3c";
-    ctx.strokeText(line2, w / 2, h * 0.72);
-    ctx.fillText(line2, w / 2, h * 0.72);
+    if (lines.length === 1) {
+      ctx.font = "900 92px Arial Black, sans-serif";
+      ctx.fillStyle = "#ff5a3c";
+      ctx.strokeText(lines[0], w / 2, h / 2);
+      ctx.fillText(lines[0], w / 2, h / 2);
+    } else {
+      ctx.font = "900 56px Arial Black, sans-serif";
+      ctx.fillStyle = "#ffd24a";
+      ctx.strokeText(lines[0], w / 2, h * 0.32);
+      ctx.fillText(lines[0], w / 2, h * 0.32);
+      ctx.font = "900 64px Arial Black, sans-serif";
+      ctx.fillStyle = "#ff5a3c";
+      ctx.strokeText(lines[1], w / 2, h * 0.72);
+      ctx.fillText(lines[1], w / 2, h * 0.72);
+    }
     // border glow
     ctx.strokeStyle = "#7df0ff";
     ctx.lineWidth = 12;
     ctx.strokeRect(6, 6, w - 12, h - 12);
   });
 }
+
+// the three cycling jumbotron messages, pre-rendered at init
+const JUMBO_MESSAGES = [
+  ["EMBER CROWN", "GRAND PRIX"],
+  ["FIGHT!"],
+  ["★ ROUND IN", "PROGRESS ★"],
+];
 
 function makeBlimpBannerTexture() {
   return makeCanvas(256, 64, (ctx, w, h) => {
@@ -183,14 +282,16 @@ function buildBanners(scene) {
       mesh: flag,
       phase: Math.random() * Math.PI * 2,
       speed: 1.6 + Math.random() * 0.8,
+      colorCycle: i === 2 || i === 6, // two banners slowly cycle hue
+      hue: i / COUNT,
     });
   }
 }
 
 function buildJumbotrons(scene) {
   const defs = [
-    { angle: 0, text1: "EMBER CROWN", text2: "GRAND PRIX" },
-    { angle: Math.PI, text1: "EMBER CROWN", text2: "FIGHT!" },
+    { angle: 0, msgOffset: 0 },
+    { angle: Math.PI, msgOffset: 1 }, // opposite screen shows next message
   ];
   const R = 56;
   const Y = 22;
@@ -199,6 +300,9 @@ function buildJumbotrons(scene) {
     metalness: 0.6,
     roughness: 0.5,
   });
+
+  // pre-render all message frames once; swap .map at runtime (cheap)
+  state.jumboTextures = JUMBO_MESSAGES.map((lines) => makeJumbotronTexture(lines));
 
   for (const def of defs) {
     const group = new THREE.Group();
@@ -217,7 +321,7 @@ function buildJumbotrons(scene) {
       group.add(strut);
     }
 
-    const tex = makeJumbotronTexture(def.text1, def.text2);
+    const tex = state.jumboTextures[def.msgOffset];
     const screenMat = new THREE.MeshStandardMaterial({
       map: tex,
       emissive: 0xffffff,
@@ -230,6 +334,20 @@ function buildJumbotrons(scene) {
     screen.position.z = 0.75;
     group.add(screen);
 
+    // scrolling highlight bar — additive quad sweeping across the screen
+    const bar = new THREE.Mesh(
+      new THREE.PlaneGeometry(1.4, 6.3),
+      new THREE.MeshBasicMaterial({
+        color: 0x9fe8ff,
+        transparent: true,
+        opacity: 0.2,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+      })
+    );
+    bar.position.z = 0.8;
+    group.add(bar);
+
     group.position.set(x, Y, z);
     group.lookAt(0, Y - 4, 0); // tilt slightly down at the field
     scene.add(group);
@@ -238,6 +356,8 @@ function buildJumbotrons(scene) {
       screenMat,
       baseIntensity: 1.8,
       phase: def.angle,
+      bar,
+      msgOffset: def.msgOffset,
     });
   }
 }
@@ -294,6 +414,23 @@ function buildBlimp(scene) {
   banner.position.set(0, 0, 0); // wraps wider than hull z, reads from both sides
   group.add(banner);
 
+  // searchlight — fake volumetric cone, additive, no actual light
+  const coneGeo = new THREE.ConeGeometry(9, 55, 16, 1, true);
+  coneGeo.translate(0, -27.5, 0); // apex at origin, beam opens downward
+  const cone = new THREE.Mesh(
+    coneGeo,
+    new THREE.MeshBasicMaterial({
+      color: 0xbfe8ff,
+      transparent: true,
+      opacity: 0.09,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+    })
+  );
+  cone.position.set(0, -3.9, 0); // hangs from the gondola
+  group.add(cone);
+
   scene.add(group);
   state.blimp = {
     group,
@@ -302,6 +439,7 @@ function buildBlimp(scene) {
     radius: 90,
     height: 70,
     bannerMat,
+    cone,
   };
 }
 
@@ -353,6 +491,124 @@ function buildTorches(scene, isTouch) {
       phase: Math.random() * Math.PI * 2,
     });
   }
+}
+
+// crowd flash photography — tiny camera-facing sprites in the stands that
+// randomly spike to full opacity then decay. Pure opacity animation, no lights.
+function buildCrowdFlashes(scene) {
+  const COUNT = 20;
+  const tex = makeGlowTexture("rgba(255,255,255,1)", "rgba(215,232,255,0.7)");
+  for (let i = 0; i < COUNT; i++) {
+    const a = Math.random() * Math.PI * 2;
+    const r = 45 + Math.random() * 9; // stand bowl radius band
+    const y = 12.5 + Math.random() * 6.5;
+    const sprite = new THREE.Sprite(
+      new THREE.SpriteMaterial({
+        map: tex,
+        color: 0xffffff,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+        transparent: true,
+        opacity: 0,
+      })
+    );
+    sprite.scale.set(0.9, 0.9, 1);
+    sprite.position.set(Math.cos(a) * r, y, Math.sin(a) * r);
+    scene.add(sprite);
+    state.flashes.push({ sprite, next: -1 }); // next seeded on first update
+  }
+}
+
+// ---------------------------------------------------------------------------
+// confetti cannons (single pooled InstancedMesh, reused every launch)
+// ---------------------------------------------------------------------------
+const CONFETTI_COUNT = 60;
+
+function ensureConfetti() {
+  if (state.confetti) return;
+  const geo = new THREE.PlaneGeometry(0.4, 0.26);
+  const mat = new THREE.MeshBasicMaterial({ side: THREE.DoubleSide });
+  const mesh = new THREE.InstancedMesh(geo, mat, CONFETTI_COUNT);
+  mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+  mesh.frustumCulled = false;
+  const col = new THREE.Color();
+  const items = [];
+  for (let i = 0; i < CONFETTI_COUNT; i++) {
+    col.setHex(FIREWORK_COLORS[i % FIREWORK_COLORS.length]);
+    mesh.setColorAt(i, col);
+    items.push({
+      active: false,
+      pos: new THREE.Vector3(),
+      vel: new THREE.Vector3(),
+      phase: Math.random() * Math.PI * 2,
+      spin: 2 + Math.random() * 5,
+    });
+  }
+  mesh.visible = false;
+  state.scene.add(mesh);
+  state.confetti = { mesh, items, dummy: new THREE.Object3D() };
+}
+
+function fireConfetti(c) {
+  ensureConfetti();
+  const cf = state.confetti;
+  cf.mesh.visible = true;
+  for (const it of cf.items) {
+    const a = Math.random() * Math.PI * 2;
+    const r = 3 + Math.random() * 9;
+    it.pos.set(c.x + Math.cos(a) * r, c.y + 1, c.z + Math.sin(a) * r);
+    it.vel.set(
+      (Math.random() - 0.5) * 5,
+      9 + Math.random() * 7,
+      (Math.random() - 0.5) * 5
+    );
+    it.active = true;
+  }
+}
+
+function groundYAt(x, z) {
+  return typeof state.terrainHeight === "function"
+    ? state.terrainHeight(x, z)
+    : 0;
+}
+
+function updateConfetti(dt, time) {
+  const cf = state.confetti;
+  if (!cf || !cf.mesh.visible) return;
+  const d = cf.dummy;
+  let alive = 0;
+  for (let i = 0; i < CONFETTI_COUNT; i++) {
+    const it = cf.items[i];
+    if (!it.active) {
+      d.position.set(0, -1000, 0);
+      d.scale.setScalar(0.0001);
+      d.rotation.set(0, 0, 0);
+    } else {
+      // gravity down to a slow flutter terminal velocity, with sway
+      it.vel.y = Math.max(it.vel.y - 11 * dt, -2.4);
+      it.vel.x *= 1 - 1.4 * dt;
+      it.vel.z *= 1 - 1.4 * dt;
+      it.pos.addScaledVector(it.vel, dt);
+      it.pos.x += Math.sin(time * 2.4 + it.phase) * 1.4 * dt;
+      it.pos.z += Math.cos(time * 2.1 + it.phase * 1.7) * 1.4 * dt;
+      if (it.pos.y <= groundYAt(it.pos.x, it.pos.z) + 0.1) {
+        it.active = false;
+      } else {
+        alive++;
+      }
+      d.position.copy(it.pos);
+      d.scale.setScalar(1);
+      d.rotation.set(
+        time * it.spin + it.phase,
+        it.phase,
+        time * it.spin * 0.7 + it.phase * 2
+      );
+    }
+    d.updateMatrix();
+    cf.mesh.setMatrixAt(i, d.matrix);
+  }
+  cf.mesh.instanceMatrix.needsUpdate = true;
+  if (alive === 0) cf.mesh.visible = false;
 }
 
 // ---------------------------------------------------------------------------
@@ -448,11 +704,13 @@ function updateFireworks(dt) {
 // ---------------------------------------------------------------------------
 export function initEnvironment(scene, terrainHeight, isTouch) {
   state.scene = scene;
+  state.terrainHeight = terrainHeight;
   state.isTouch = !!isTouch;
   buildBanners(scene);
   buildJumbotrons(scene);
   buildBlimp(scene);
   buildTorches(scene, state.isTouch);
+  buildCrowdFlashes(scene);
 }
 
 export function updateEnvironment(dt, time) {
@@ -464,12 +722,44 @@ export function updateEnvironment(dt, time) {
     const w = Math.sin(time * b.speed + b.phase);
     b.mesh.rotation.z = w * 0.16;
     b.mesh.rotation.x = Math.sin(time * b.speed * 0.7 + b.phase * 1.3) * 0.08;
+    if (b.colorCycle) {
+      // slow hue drift, kept light so the texture stays readable
+      const hue = (time * 0.05 + b.hue) % 1;
+      b.mesh.material.color.setHSL(hue, 0.55, 0.78);
+      b.mesh.material.emissive.setHSL(hue, 0.55, 0.78);
+    }
   }
 
-  // jumbotrons — subtle electric shimmer (stays near 1.8, always blooming)
+  // jumbotrons — message cycle every ~0.5s (pre-rendered textures, map swap)
+  state.jumboTimer += d;
+  if (state.jumboTimer >= 0.5) {
+    state.jumboTimer -= 0.5;
+    state.jumboIndex = (state.jumboIndex + 1) % JUMBO_MESSAGES.length;
+    for (const j of state.jumbotrons) {
+      const tex =
+        state.jumboTextures[(state.jumboIndex + j.msgOffset) % JUMBO_MESSAGES.length];
+      j.screenMat.map = tex;
+      j.screenMat.emissiveMap = tex;
+      j.screenMat.needsUpdate = true;
+    }
+  }
+  // subtle electric shimmer + scrolling highlight bar
   for (const j of state.jumbotrons) {
     j.screenMat.emissiveIntensity =
       j.baseIntensity + Math.sin(time * 9 + j.phase) * 0.12;
+    j.bar.position.x = ((time * 5 + j.phase) % 14.4) - 7.2; // sweep past edges
+  }
+
+  // crowd flash photography — random opacity spikes that decay fast
+  for (const f of state.flashes) {
+    const m = f.sprite.material;
+    if (f.next < 0) f.next = time + Math.random() * 8; // seed stagger
+    if (m.opacity > 0.01) {
+      m.opacity = Math.max(0, m.opacity - d * 5); // ~0.2s decay
+    } else if (time >= f.next) {
+      m.opacity = 1;
+      f.next = time + 0.8 + Math.random() * 7;
+    }
   }
 
   // blimp — drift around its circle, nose along the path, gentle bob
@@ -481,6 +771,10 @@ export function updateEnvironment(dt, time) {
     bl.group.position.set(x, bl.height + Math.sin(time * 0.4) * 1.5, z);
     bl.group.rotation.y = -bl.angle; // hull +x axis points along the tangent
     bl.bannerMat.emissiveIntensity = 1.6 + Math.sin(time * 2.2) * 0.2;
+    // searchlight sweep — slow figure-eight wander beneath the gondola
+    bl.cone.rotation.x = Math.sin(time * 0.5) * 0.28;
+    bl.cone.rotation.z = Math.cos(time * 0.37) * 0.28;
+    bl.cone.material.opacity = 0.08 + Math.sin(time * 1.3) * 0.025;
   }
 
   // torches — flicker scale, opacity, and light intensity
@@ -495,10 +789,12 @@ export function updateEnvironment(dt, time) {
   }
 
   updateFireworks(d);
+  updateConfetti(d, time);
 }
 
 export function launchFireworks(center) {
   const c = center || new THREE.Vector3();
+  fireConfetti(c); // confetti cannons pop alongside the rockets
   const n = 4 + Math.floor(Math.random() * 3); // 4-6 rockets
   for (let i = 0; i < n; i++) {
     const s = getFireworkSprite();
