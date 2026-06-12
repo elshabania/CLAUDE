@@ -66,6 +66,22 @@ function makeHideTextures() {
     ctx.fillStyle = rng() < 0.5 ? "rgba(25,60,105,0.16)" : "rgba(160,205,240,0.10)";
     ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
   }
+  // Subtle reptile crosshatch: two diagonal scale-line families
+  ctx.lineWidth = 1;
+  for (const sl of [0.6, -0.6]) {
+    ctx.strokeStyle = "rgba(22,52,92,0.07)";
+    for (let o = -S; o < S * 1.7; o += 11) {
+      ctx.beginPath();
+      ctx.moveTo(o, 0); ctx.lineTo(o + S * sl, S);
+      ctx.stroke();
+    }
+  }
+  // Lighter throat/underside (sphere v=0 maps to canvas bottom)
+  const tg = ctx.createLinearGradient(0, S * 0.60, 0, S);
+  tg.addColorStop(0, "rgba(205,230,250,0)");
+  tg.addColorStop(1, "rgba(212,234,250,0.34)");
+  ctx.fillStyle = tg;
+  ctx.fillRect(0, S * 0.60, S, S * 0.40);
   // Bump map: same statistics in grayscale
   const rng2 = makeRng(90210);
   const [cb, ctb] = makeCanvas(S);
@@ -84,13 +100,29 @@ function makeHideTextures() {
     ctb.fillStyle = rng2() < 0.5 ? "rgba(40,40,40,0.30)" : "rgba(220,220,220,0.18)";
     ctb.beginPath(); ctb.arc(x, y, r, 0, Math.PI * 2); ctb.fill();
   }
+  // Crosshatch grooves in the bump for the reptile-scale read
+  ctb.lineWidth = 1;
+  ctb.strokeStyle = "rgba(45,45,45,0.12)";
+  for (const sl of [0.6, -0.6]) {
+    for (let o = -S; o < S * 1.7; o += 11) {
+      ctb.beginPath();
+      ctb.moveTo(o, 0); ctb.lineTo(o + S * sl, S);
+      ctb.stroke();
+    }
+  }
+  // Smoother throat skin
+  const bg = ctb.createLinearGradient(0, S * 0.60, 0, S);
+  bg.addColorStop(0, "rgba(128,128,128,0)");
+  bg.addColorStop(1, "rgba(128,128,128,0.55)");
+  ctb.fillStyle = bg;
+  ctb.fillRect(0, S * 0.60, S, S * 0.40);
   return { map: canvasTexture(c, true), bump: canvasTexture(cb, false) };
 }
 
-// ---- Carapace: brown shell with engraved scute plate grid + bump -----------
+// ---- Carapace: 1024px brown shell, engraved hex scutes, bevels, wear -------
 function makeShellTextures() {
   const rng = makeRng(424242);
-  const S = 512;
+  const S = 1024;
   const [c, ctx] = makeCanvas(S);
   const [cb, ctb] = makeCanvas(S);
   ctx.fillStyle = "#8a5a2e";
@@ -98,46 +130,88 @@ function makeShellTextures() {
   ctb.fillStyle = "#909090";
   ctb.fillRect(0, 0, S, S);
   // Weathering mottle on the brown
-  for (let i = 0; i < 220; i++) {
-    const x = rng() * S, y = rng() * S, r = 10 + rng() * 44;
+  for (let i = 0; i < 520; i++) {
+    const x = rng() * S, y = rng() * S, r = 16 + rng() * 78;
     const g = ctx.createRadialGradient(x, y, 0, x, y, r);
     g.addColorStop(0, rng() < 0.5 ? "rgba(168,116,62,0.20)" : "rgba(92,54,24,0.22)");
     g.addColorStop(1, "rgba(0,0,0,0)");
     ctx.fillStyle = g;
     ctx.fillRect(x - r, y - r, r * 2, r * 2);
   }
-  // Scute plates: brick-offset rounded rectangles with deep groove lines.
-  const pw = 128, ph = 100;
-  const plate = (cx2, dark, groove, inset) => {
-    for (let row = -1; row * ph < S + ph; row++) {
-      const off = (row % 2 === 0) ? 0 : pw * 0.5;
-      for (let col = -1; col * pw < S + pw; col++) {
-        const x = col * pw + off, y = row * ph;
-        const m = 7; // groove half-width
-        cx2.lineJoin = "round";
-        cx2.lineWidth = m * 2;
-        cx2.strokeStyle = groove;
-        cx2.strokeRect(x + m, y + m, pw - m * 2, ph - m * 2);
-        cx2.lineWidth = 3;
-        cx2.strokeStyle = dark;
-        cx2.strokeRect(x + m, y + m, pw - m * 2, ph - m * 2);
-        // raised-center highlight ring inside each plate
-        cx2.lineWidth = 4;
-        cx2.strokeStyle = inset;
-        cx2.strokeRect(x + m + 12, y + m + 10, pw - m * 2 - 24, ph - m * 2 - 20);
-      }
+  // Engraved hexagonal scute plates (flat-top hex grid, offset columns)
+  const hexPath = (cx2, x, y, r) => {
+    cx2.beginPath();
+    for (let k = 0; k < 6; k++) {
+      const a = (Math.PI / 3) * k;
+      const px = x + Math.cos(a) * r, py = y + Math.sin(a) * r;
+      if (k === 0) cx2.moveTo(px, py); else cx2.lineTo(px, py);
     }
+    cx2.closePath();
   };
-  plate(ctx, "rgba(58,32,12,0.85)", "rgba(74,44,18,0.55)", "rgba(186,132,76,0.30)");
-  plate(ctb, "rgba(20,20,20,0.9)", "rgba(45,45,45,0.7)", "rgba(225,225,225,0.4)");
-  // Subtle scratch lines across plates
-  for (let i = 0; i < 70; i++) {
-    const x = rng() * S, y = rng() * S, a = rng() * Math.PI, l = 8 + rng() * 30;
-    ctx.strokeStyle = "rgba(60,34,14,0.25)";
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(x, y); ctx.lineTo(x + Math.cos(a) * l, y + Math.sin(a) * l);
-    ctx.stroke();
+  const R = 88, HS = R * 1.5, VS = R * Math.sqrt(3);
+  ctx.lineJoin = ctb.lineJoin = "round";
+  for (let col = -1; col * HS < S + HS; col++) {
+    for (let row = -1; row * VS < S + VS; row++) {
+      const x = col * HS, y = row * VS + (col % 2 ? VS / 2 : 0);
+      // Per-plate tonal variation
+      hexPath(ctx, x, y, R - 4);
+      ctx.fillStyle = rng() < 0.5
+        ? `rgba(178,124,66,${0.06 + rng() * 0.10})`
+        : `rgba(96,58,26,${0.06 + rng() * 0.10})`;
+      ctx.fill();
+      // Beveled highlight: light upper-left -> dark lower-right gradient stroke
+      const bevel = ctx.createLinearGradient(x - R, y - R, x + R, y + R);
+      bevel.addColorStop(0, "rgba(226,176,112,0.55)");
+      bevel.addColorStop(0.5, "rgba(0,0,0,0)");
+      bevel.addColorStop(1, "rgba(46,24,8,0.50)");
+      hexPath(ctx, x, y, R - 8);
+      ctx.lineWidth = 7;
+      ctx.strokeStyle = bevel;
+      ctx.stroke();
+      // Deep engraved groove between plates
+      hexPath(ctx, x, y, R);
+      ctx.lineWidth = 10;
+      ctx.strokeStyle = "rgba(58,31,12,0.80)";
+      ctx.stroke();
+      hexPath(ctx, x, y, R);
+      ctx.lineWidth = 3.5;
+      ctx.strokeStyle = "rgba(30,15,5,0.90)";
+      ctx.stroke();
+      // Bump: groove trench, bevel ridge, raised dome center
+      hexPath(ctb, x, y, R);
+      ctb.lineWidth = 11;
+      ctb.strokeStyle = "rgba(12,12,12,0.95)";
+      ctb.stroke();
+      hexPath(ctb, x, y, R - 9);
+      ctb.lineWidth = 5;
+      ctb.strokeStyle = "rgba(238,238,238,0.55)";
+      ctb.stroke();
+      const dome = ctb.createRadialGradient(x, y, 0, x, y, R - 12);
+      dome.addColorStop(0, "rgba(208,208,208,0.50)");
+      dome.addColorStop(1, "rgba(0,0,0,0)");
+      hexPath(ctb, x, y, R - 7);
+      ctb.fillStyle = dome;
+      ctb.fill();
+    }
+  }
+  // Wear scratches: pale worn streak + dark shadow edge + bump nick
+  for (let i = 0; i < 260; i++) {
+    const x = rng() * S, y = rng() * S, a = rng() * Math.PI, l = 12 + rng() * 70;
+    const dx = Math.cos(a) * l, dy = Math.sin(a) * l;
+    ctx.lineWidth = 1 + rng() * 1.4;
+    ctx.strokeStyle = rng() < 0.6 ? "rgba(216,170,112,0.35)" : "rgba(54,30,12,0.30)";
+    ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + dx, y + dy); ctx.stroke();
+    ctb.lineWidth = 1.4;
+    ctb.strokeStyle = rng() < 0.5 ? "rgba(40,40,40,0.45)" : "rgba(215,215,215,0.30)";
+    ctb.beginPath(); ctb.moveTo(x, y); ctb.lineTo(x + dx, y + dy); ctb.stroke();
+  }
+  // Battle chips: small bright gouges along plate edges
+  for (let i = 0; i < 60; i++) {
+    const x = rng() * S, y = rng() * S, r = 2 + rng() * 5;
+    ctx.fillStyle = "rgba(222,180,124,0.45)";
+    ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
+    ctb.fillStyle = "rgba(55,55,55,0.6)";
+    ctb.beginPath(); ctb.arc(x, y, r, 0, Math.PI * 2); ctb.fill();
   }
   return { map: canvasTexture(c, true), bump: canvasTexture(cb, false) };
 }
@@ -170,17 +244,49 @@ function makePlastronTextures() {
     cx2.stroke();
   };
   for (let y = 38; y < S; y += 86) {
-    const grad = ctx.createLinearGradient(0, y, 0, y + 16);
-    grad.addColorStop(0, "rgba(132,102,52,0.55)");
+    const grad = ctx.createLinearGradient(0, y, 0, y + 24);
+    grad.addColorStop(0, "rgba(118,88,42,0.68)");
     grad.addColorStop(1, "rgba(0,0,0,0)");
     ctx.fillStyle = grad;
-    ctx.fillRect(0, y, S, 16);
-    hline(ctx, y, "rgba(96,70,32,0.8)", 4);
-    hline(ctx, y - 3, "rgba(255,248,222,0.5)", 2);
-    hline(ctb, y, "rgba(30,30,30,0.9)", 5);       // bump groove
-    hline(ctb, y - 4, "rgba(230,230,230,0.6)", 2); // bump ridge
+    ctx.fillRect(0, y, S, 24);
+    hline(ctx, y, "rgba(82,58,24,0.95)", 6);
+    hline(ctx, y + 4, "rgba(48,32,12,0.55)", 2);
+    hline(ctx, y - 4, "rgba(255,250,228,0.65)", 3);
+    hline(ctb, y, "rgba(8,8,8,1.0)", 8);            // deep bump groove
+    hline(ctb, y + 6, "rgba(60,60,60,0.6)", 3);     // trench falloff
+    hline(ctb, y - 5, "rgba(248,248,248,0.85)", 3); // crisp bump ridge
   }
   return { map: canvasTexture(c, true), bump: canvasTexture(cb, false) };
+}
+
+// ---- Brushed metal: streaky color + roughness maps (fake anisotropy) --------
+// Streaks run vertically in the canvas = along the barrel axis (cylinder v).
+function makeBrushedMetalTextures() {
+  const rng = makeRng(31337);
+  const S = 256;
+  const [c, ctx] = makeCanvas(S);
+  const [cr, ctr] = makeCanvas(S);
+  ctx.fillStyle = "#6b7580";
+  ctx.fillRect(0, 0, S, S);
+  ctr.fillStyle = "#5a5a5a"; // mid roughness base
+  ctr.fillRect(0, 0, S, S);
+  for (let i = 0; i < 900; i++) {
+    const x = rng() * S, y = rng() * S, w = 0.5 + rng() * 1.5, l = 30 + rng() * 200;
+    const lighter = rng() < 0.5;
+    ctx.fillStyle = lighter ? "rgba(228,236,244,0.06)" : "rgba(18,24,32,0.07)";
+    ctx.fillRect(x, y, w, l);
+    ctr.fillStyle = lighter ? "rgba(28,28,28,0.10)" : "rgba(205,205,205,0.08)";
+    ctr.fillRect(x, y, w, l);
+  }
+  // Stronger full-length machining streaks
+  for (let i = 0; i < 70; i++) {
+    const x = rng() * S, w = 1 + rng() * 2;
+    ctx.fillStyle = rng() < 0.5 ? "rgba(238,245,252,0.10)" : "rgba(10,16,24,0.12)";
+    ctx.fillRect(x, 0, w, S);
+    ctr.fillStyle = rng() < 0.7 ? "rgba(22,22,22,0.18)" : "rgba(225,225,225,0.14)";
+    ctr.fillRect(x, 0, w, S);
+  }
+  return { map: canvasTexture(c, true), rough: canvasTexture(cr, false) };
 }
 
 // ---- Soft radial glow (sprite) ----------------------------------------------
@@ -277,6 +383,16 @@ function buildCannon(side, mats) {
   band.quaternion.setFromUnitVectors(Z_AXIS, dir);
   g.add(band);
 
+  // Glowing cyan charge rings seated into the barrel (2 per barrel)
+  for (const t of [0.34, 0.72]) {
+    const rr = 0.155 - 0.030 * t + 0.008; // hugs the tapered barrel
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(rr, 0.013, 10, 32), mats.chargeGlow);
+    ring.position.copy(dir).multiplyScalar(LEN * t);
+    ring.quaternion.setFromUnitVectors(Z_AXIS, dir);
+    ring.userData.noShadow = true;
+    g.add(ring);
+  }
+
   // Ringed muzzle rim: heavy outer ring + thin lip ring
   const rim = new THREE.Mesh(new THREE.TorusGeometry(0.135, 0.032, 14, 32), mats.gunmetalDark);
   rim.position.copy(muzzle);
@@ -343,7 +459,12 @@ export function buildBlastoise() {
   });
   const shellMat = new THREE.MeshStandardMaterial({
     color: 0xa97a48, map: shellTex.map, bumpMap: shellTex.bump,
-    bumpScale: 1.4, roughness: 0.74, metalness: 0.02,
+    bumpScale: 2.2, roughness: 0.74, metalness: 0.02,
+  });
+  // Wet water sheen: glassy transparent overlay shell
+  const sheenMat = new THREE.MeshPhysicalMaterial({
+    color: 0xd6ecff, transparent: true, opacity: 0.12, roughness: 0.05,
+    metalness: 0, clearcoat: 1, clearcoatRoughness: 0.05, depthWrite: false,
   });
   const rimMat = new THREE.MeshStandardMaterial({
     color: 0xf2e6c2, roughness: 0.6, metalness: 0.02,
@@ -351,9 +472,12 @@ export function buildBlastoise() {
   });
   const plastronMat = new THREE.MeshStandardMaterial({
     color: 0xf0e0ae, map: plastronTex.map, bumpMap: plastronTex.bump,
-    bumpScale: 1.0, roughness: 0.58, metalness: 0.02,
+    bumpScale: 1.8, roughness: 0.58, metalness: 0.02,
   });
-  const clawMat = new THREE.MeshStandardMaterial({ color: 0xf4f1e6, roughness: 0.35, metalness: 0.05 });
+  const clawMat = new THREE.MeshPhysicalMaterial({
+    color: 0xf4f1e6, roughness: 0.15, metalness: 0.05,
+    clearcoat: 0.8, clearcoatRoughness: 0.15,
+  });
   const scleraMat = new THREE.MeshStandardMaterial({ color: 0xfdfdf8, roughness: 0.25 });
   const irisMat = new THREE.MeshStandardMaterial({ color: 0x6b3a1a, roughness: 0.25 }); // brown eyes
   const pupilMat = new THREE.MeshStandardMaterial({ color: 0x0b0805, roughness: 0.3 });
@@ -362,12 +486,27 @@ export function buildBlastoise() {
   const tongueMat = new THREE.MeshStandardMaterial({ color: 0xc25a6e, roughness: 0.65 });
   const nostrilMat = new THREE.MeshStandardMaterial({ color: 0x16314f, roughness: 0.8 });
 
+  const metalTex = makeBrushedMetalTextures();
   const cannonMats = {
-    gunmetal: new THREE.MeshStandardMaterial({ color: 0x5d6670, metalness: 0.6, roughness: 0.3 }),
-    gunmetalDark: new THREE.MeshStandardMaterial({ color: 0x3c434c, metalness: 0.62, roughness: 0.34 }),
-    boreMat: new THREE.MeshStandardMaterial({ color: 0x10151c, roughness: 0.9, side: THREE.DoubleSide }),
+    // Brushed metal: streaky roughnessMap fakes an anisotropic machined finish
+    gunmetal: new THREE.MeshStandardMaterial({
+      color: 0xb8c4d0, map: metalTex.map, roughnessMap: metalTex.rough,
+      metalness: 0.85, roughness: 0.95,
+    }),
+    gunmetalDark: new THREE.MeshStandardMaterial({
+      color: 0x6e7882, map: metalTex.map, roughnessMap: metalTex.rough,
+      metalness: 0.8, roughness: 1.0,
+    }),
+    chargeGlow: new THREE.MeshStandardMaterial({
+      color: 0x0a2030, emissive: 0x55ccff, emissiveIntensity: 1.6,
+      roughness: 0.35, metalness: 0.2,
+    }),
+    boreMat: new THREE.MeshStandardMaterial({
+      color: 0x10151c, roughness: 0.9, side: THREE.DoubleSide,
+      emissive: 0x1a4a66, emissiveIntensity: 0.6, // faint inner-barrel glow
+    }),
     coreGlow: new THREE.MeshStandardMaterial({
-      color: 0x081018, emissive: 0x55ccff, emissiveIntensity: 2.4, roughness: 1,
+      color: 0x081018, emissive: 0x55ccff, emissiveIntensity: 3.4, roughness: 1,
     }),
     dripMat: new THREE.MeshPhysicalMaterial({
       color: 0xbfe6ff, transparent: true, opacity: 0.5,
@@ -392,6 +531,11 @@ export function buildBlastoise() {
   const carapace = sph(shellMat, 0.84, 1.0, 1.04, 0.80);
   carapace.position.set(0, 0.06, -0.26);
   root.add(carapace);
+  // Water sheen overlay: slightly larger transparent shell over the back
+  const shellSheen = sph(sheenMat, 0.84, 1.035, 1.075, 0.83);
+  shellSheen.position.copy(carapace.position);
+  shellSheen.userData.noShadow = true;
+  root.add(shellSheen);
   // Cream rim band ringing the shell edge, tilted slightly forward at the top
   const rimBand = new THREE.Mesh(new THREE.TorusGeometry(0.76, 0.105, 16, 44), rimMat);
   rimBand.position.set(0, 0.05, 0.16);
@@ -446,10 +590,13 @@ export function buildBlastoise() {
     iris.position.z = 0.040;
     const pupil = sph(pupilMat, 0.020, 1, 1, 0.5);
     pupil.position.z = 0.056;
-    const glint = sph(glintMat, 0.0095, 1, 1, 1);
-    glint.position.set(0.013, 0.015, 0.063);
+    const glint = sph(glintMat, 0.014, 1, 1, 1);
+    glint.position.set(0.014, 0.016, 0.062);
     glint.userData.noShadow = true;
-    eye.add(sclera, iris, pupil, glint);
+    const glint2 = sph(glintMat, 0.006, 1, 1, 1);
+    glint2.position.set(-0.015, -0.009, 0.060);
+    glint2.userData.noShadow = true;
+    eye.add(sclera, iris, pupil, glint, glint2);
     head.add(eye);
   }
 
@@ -570,6 +717,11 @@ export function buildBlastoise() {
     const shoulderPad = sph(hideMat, 0.245, 1.05, 0.95, 1.0);
     shoulderPad.position.set(s * 0.72, 0.30, 0.16);
     root.add(shoulderPad);
+    // Wet sheen cap over each shoulder
+    const padSheen = sph(sheenMat, 0.245, 1.10, 1.0, 1.05);
+    padSheen.position.copy(shoulderPad.position);
+    padSheen.userData.noShadow = true;
+    root.add(padSheen);
     const shoulder = new THREE.Vector3(s * 0.78, 0.26, 0.16);
     const armGroup = new THREE.Group();
     armGroup.name = s === 1 ? "armRight" : "armLeft";
