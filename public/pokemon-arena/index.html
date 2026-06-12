@@ -339,55 +339,135 @@
     box-shadow: 0 2px 14px rgba(255,140,30,.6); border: 2px solid rgba(255,255,255,.4);
   }
   #tgt-btn {
-    position: absolute; right: 18px; bottom: 235px; width: 56px; height: 56px;
-    border-radius: 50%; pointer-events: auto; display: flex; align-items: center;
-    justify-content: center; font-size: 26px;
+    position: absolute; right: 18px; bottom: 235px; width: 64px; height: 64px;
+    border-radius: 50%; pointer-events: auto; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; font-size: 22px; line-height: 1;
     background: rgba(10,14,30,.6); border: 2px solid rgba(255,90,90,.5);
     backdrop-filter: blur(3px);
   }
   #tgt-btn:active { background: rgba(255,90,90,.35); }
   #boost-btn {
-    position: absolute; right: 92px; bottom: 235px; width: 68px; height: 68px;
-    border-radius: 50%; pointer-events: auto; display: flex; align-items: center;
-    justify-content: center; font-size: 30px;
+    position: absolute; right: 94px; bottom: 235px; width: 68px; height: 68px;
+    border-radius: 50%; pointer-events: auto; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; font-size: 26px; line-height: 1;
     background: radial-gradient(circle at 35% 30%, rgba(255,170,60,.5), rgba(180,60,10,.55));
     border: 2px solid rgba(255,170,60,.7); backdrop-filter: blur(3px);
     box-shadow: 0 0 18px rgba(255,130,20,.4);
   }
   #boost-btn:active { background: radial-gradient(circle at 35% 30%, rgba(255,210,90,.8), rgba(220,90,20,.8)); }
   #dodge-btn {
-    position: absolute; right: 166px; bottom: 235px; width: 56px; height: 56px;
-    border-radius: 50%; pointer-events: auto; display: flex; align-items: center;
-    justify-content: center; font-size: 24px;
+    position: absolute; right: 174px; bottom: 235px; width: 64px; height: 64px;
+    border-radius: 50%; pointer-events: auto; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; font-size: 22px; line-height: 1;
     background: rgba(10,14,30,.6); border: 2px solid rgba(160,210,255,.5);
     backdrop-filter: blur(3px);
   }
   #dodge-btn:active { background: rgba(120,180,255,.35); }
+  #tgt-btn small, #boost-btn small, #dodge-btn small {
+    font-size: 9px; font-weight: 700; letter-spacing: .7px; color: #e6eeff;
+    font-family: "Rajdhani", sans-serif; margin-top: 2px; text-shadow: 0 1px 2px #000;
+  }
+  /* invisible expanded hit areas (~+12px) for thumbs */
+  #fly-btn::after, #tgt-btn::after, #boost-btn::after, #dodge-btn::after {
+    content: ""; position: absolute; inset: -12px; border-radius: 50%;
+  }
+
+  /* ---- Portrait rotate hint (touch only, non-blocking) ---- */
+  #rotate-hint {
+    position: fixed; inset: 0; z-index: 60; display: none;
+    flex-direction: column; align-items: center; justify-content: center;
+    gap: 14px; text-align: center; pointer-events: none;
+    background: rgba(3,5,14,.86);
+  }
+  #rotate-hint .rot-icon { font-size: 54px; line-height: 1;
+    filter: drop-shadow(0 0 14px rgba(255,150,30,.6));
+    animation: rotNudge 1.6s ease-in-out infinite; }
+  @keyframes rotNudge {
+    0%, 100% { transform: rotate(0deg); }
+    50% { transform: rotate(-90deg); }
+  }
+  #rotate-hint .rot-text { font-family: "Bungee", cursive; font-size: 17px;
+    color: #ffd99a; max-width: 80vw; line-height: 1.6;
+    text-shadow: 0 0 12px rgba(255,130,0,.55), 0 2px 4px #000; }
+  @media (orientation: portrait) and (pointer: coarse) {
+    #rotate-hint { display: flex; }
+  }
 
   /* ---- Phone layout ---- */
   @media (pointer: coarse) {
     #controls-hint { display: none !important; }
     #crosshair { width: 7px; height: 7px; }
-    #player-panel { width: 230px; padding: 8px 10px; transform: scale(.92); transform-origin: top left; }
-    #player-panel .pkmn-name { font-size: 15px; }
-    #score-panel { padding: 6px 12px; transform: scale(.92); transform-origin: top right; }
-    #target-panel { width: 220px; top: 12px; padding: 6px 10px 8px; }
-    #attack-bar {
-      left: auto; right: 12px; bottom: 76px; transform: none;
-      width: 200px; flex-wrap: wrap; gap: 6px; justify-content: flex-end;
+    /* perf: skip backdrop blur on touch devices, compensate with opacity */
+    #player-panel, #score-panel, #target-panel, .move, #dialogue,
+    #fly-btn, #joy-base, #tgt-btn, #boost-btn, #dodge-btn {
+      backdrop-filter: none; -webkit-backdrop-filter: none;
     }
-    .move { width: 62px; padding: 5px 2px 4px; pointer-events: auto; }
+    #player-panel {
+      width: 230px; padding: 8px 10px; transform: scale(.92); transform-origin: top left;
+      top: calc(12px + env(safe-area-inset-top)); left: calc(12px + env(safe-area-inset-left));
+      background: linear-gradient(135deg, rgba(10,14,30,.92), rgba(20,28,55,.86));
+    }
+    #player-panel .pkmn-name { font-size: 15px; }
+    #score-panel {
+      padding: 6px 12px; transform: scale(.92); transform-origin: top right;
+      top: calc(12px + env(safe-area-inset-top)); right: calc(12px + env(safe-area-inset-right));
+      background: linear-gradient(135deg, rgba(10,14,30,.9), rgba(20,28,55,.84));
+    }
+    #target-panel {
+      width: 220px; top: calc(12px + env(safe-area-inset-top)); padding: 6px 10px 8px;
+      background: linear-gradient(135deg, rgba(40,8,8,.9), rgba(60,16,16,.82));
+    }
+    #mute-hint { right: calc(22px + env(safe-area-inset-right)); }
+    /* 3x2 grid sized so it clears the joystick with a >=12px gap at 360px wide */
+    #attack-bar {
+      left: auto; transform: none;
+      right: calc(12px + env(safe-area-inset-right));
+      bottom: calc(76px + env(safe-area-inset-bottom));
+      width: 184px; flex-wrap: wrap; gap: 6px; justify-content: flex-end;
+    }
+    .move {
+      width: 56px; padding: 5px 2px 4px; pointer-events: auto;
+      background: linear-gradient(160deg, rgba(15,18,38,.95), rgba(30,24,18,.92));
+    }
     .move .icon { font-size: 17px; }
     .move .mname { font-size: 7.5px; letter-spacing: 0; }
     .move .key { display: none; }
-    #fly-btn { right: 18px; bottom: 308px; width: 58px; height: 58px; font-size: 20px; }
-    #combo { font-size: 19px; top: 96px; }
+    #fly-btn {
+      right: calc(18px + env(safe-area-inset-right));
+      bottom: calc(315px + env(safe-area-inset-bottom));
+      width: 64px; height: 64px; font-size: 20px;
+      background: radial-gradient(circle at 35% 30%, rgba(90,150,255,.55), rgba(20,40,90,.88));
+    }
+    #joy-zone {
+      left: calc(8px + env(safe-area-inset-left));
+      bottom: calc(14px + env(safe-area-inset-bottom)); width: 148px;
+    }
+    #joy-base { left: 14px; background: rgba(10,14,30,.55); }
+    #tgt-btn {
+      right: calc(18px + env(safe-area-inset-right));
+      bottom: calc(235px + env(safe-area-inset-bottom));
+      background: rgba(10,14,30,.78);
+    }
+    #boost-btn {
+      right: calc(94px + env(safe-area-inset-right));
+      bottom: calc(235px + env(safe-area-inset-bottom));
+    }
+    #dodge-btn {
+      right: calc(174px + env(safe-area-inset-right));
+      bottom: calc(235px + env(safe-area-inset-bottom));
+      background: rgba(10,14,30,.78);
+    }
+    #combo { font-size: 19px; top: calc(96px + env(safe-area-inset-top)); }
     #announce { font-size: 22px; white-space: normal; width: 90vw; }
-    #callout { font-size: 14px; bottom: auto; top: 64px; padding: 4px 14px; }
+    #callout { font-size: 14px; bottom: auto; top: calc(64px + env(safe-area-inset-top)); padding: 4px 14px; }
     .overlay .panel { font-size: 13px; padding: 12px 18px; line-height: 1.9; }
     .overlay h1 { font-size: clamp(26px, 8vw, 44px); }
     .overlay .fine { font-size: 10.5px; max-width: 86vw; }
-    #dialogue { max-width: 90vw; font-size: 13.5px; bottom: auto; top: 92px; padding: 8px 14px; }
+    #dialogue {
+      max-width: 90vw; font-size: 13.5px; bottom: auto;
+      top: calc(92px + env(safe-area-inset-top)); padding: 8px 14px;
+      background: linear-gradient(135deg, rgba(10,14,30,.94), rgba(24,20,12,.9));
+    }
     #round-banner { font-size: clamp(22px, 7.5vw, 36px); white-space: normal; width: 92vw; }
   }
 </style>
@@ -438,9 +518,9 @@
 
   <div id="touch-ui">
     <div id="joy-zone"><div id="joy-base"><div id="joy-knob"></div></div></div>
-    <div id="tgt-btn">🎯</div>
-    <div id="boost-btn">🔥</div>
-    <div id="dodge-btn">💨</div>
+    <div id="tgt-btn">🎯<small>TARGET</small></div>
+    <div id="boost-btn">🔥<small>BOOST</small></div>
+    <div id="dodge-btn">💨<small>DODGE</small></div>
   </div>
 
   <div id="controls-hint">
@@ -474,6 +554,11 @@
     and fight with claws, fangs and fire. Win the round to face a stronger challenger.
     Level up to unlock the MEGA BLAZE surge.<br/><br/>
     Unofficial fan-made demo. Pokémon characters © Nintendo / Game Freak / Creatures Inc.</div>
+</div>
+
+<div id="rotate-hint">
+  <div class="rot-icon">📱</div>
+  <div class="rot-text">↻ Rotate your device for the best experience</div>
 </div>
 
 <div class="overlay" id="gameover-overlay">
