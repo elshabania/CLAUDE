@@ -791,7 +791,51 @@ function burst(pos, { count = 14, color = 0xff8822, speed = 6, size = 0.55, life
   }
 }
 
+// Pooled FX point lights — 3 reusable lights cycled for explosion / muzzle
+// flashes; intensity fades out over 0.25s in updateFxLights (called in tick).
+const fxLights = [];
+for (let i = 0; i < 3; i++) {
+  const l = new THREE.PointLight(0xffaa44, 0, 18, 2);
+  scene.add(l);
+  fxLights.push({ light: l, t: 0, dur: 0.25, peak: 0 });
+}
+let fxLightCursor = 0;
+function flashFxLight(pos, color = 0xffaa44, intensity = 30, range = 16) {
+  const f = fxLights[fxLightCursor++ % fxLights.length];
+  f.light.color.set(color);
+  f.light.position.copy(pos);
+  f.light.distance = range;
+  f.peak = intensity;
+  f.t = f.dur = 0.25;
+  f.light.intensity = intensity;
+}
+function updateFxLights(dt) {
+  for (const f of fxLights) {
+    if (f.t <= 0) continue;
+    f.t = Math.max(0, f.t - dt);
+    const k = f.t / f.dur;
+    f.light.intensity = f.peak * k * k; // ease-out fade
+  }
+}
+
 function explosionFX(pos, scale = 1) {
+  // 1-frame white core flash
+  spawnParticle({
+    pos, color: 0xffffff, size: 5.5 * scale, endSize: 1.8 * scale,
+    life: 0.08, vel: ZERO3, spin: 0,
+  });
+  // hot streaking sparks — fast, heavy, shrinking to nothing
+  const nSparks = 6 + Math.floor(rand(0, 5));
+  for (let i = 0; i < nSparks; i++) {
+    spawnParticle({
+      pos, color: 0xffeeaa, size: rand(0.45, 0.8) * scale, endSize: 0.02,
+      life: rand(0.35, 0.7),
+      vel: new THREE.Vector3(rand(-1, 1), rand(0.35, 1), rand(-1, 1))
+        .normalize().multiplyScalar(rand(16, 26) * scale),
+      gravity: 14, spin: 0,
+    });
+  }
+  flashFxLight(pos, 0xffbb66, 34 * scale, 12 + 8 * scale);
   burst(pos, { count: Math.round(30 * scale), color: 0xff6611, speed: 11 * scale, size: 1.2 * scale, life: 0.8 });
   burst(pos, { count: Math.round(14 * scale), color: 0xffdd55, speed: 7 * scale, size: 0.8 * scale, life: 0.5 });
   for (let i = 0; i < 8 * scale; i++) {
@@ -1137,12 +1181,40 @@ function slashFX(yaw, color = 0xffeecc) {
   m.scale.setScalar(0.5);
   scene.add(m);
   slashArcs.push({ mesh: m, t: 0 });
+
+  // thinner counter-rotated echo arc trailing the main swipe
+  const m2 = new THREE.Mesh(
+    new THREE.TorusGeometry(1.6, 0.055, 5, 20, Math.PI * 0.8),
+    new THREE.MeshBasicMaterial({
+      color: 0xffffff, transparent: true, opacity: 0.7,
+      blending: THREE.AdditiveBlending, depthWrite: false,
+    }));
+  m2.position.copy(m.position);
+  m2.rotation.order = "YXZ";
+  m2.rotation.set(0, yaw, -m.rotation.z);
+  m2.scale.setScalar(0.42);
+  scene.add(m2);
+  slashArcs.push({ mesh: m2, t: 0, spin: -7 });
+
+  // 4 hot sparks flung outward along the main arc
+  const q = new THREE.Quaternion().setFromEuler(m.rotation);
+  for (let i = 0; i < 4; i++) {
+    const a = (i / 3) * Math.PI * 0.95;
+    const local = new THREE.Vector3(Math.cos(a) * 2, Math.sin(a) * 2, 0).applyQuaternion(q);
+    spawnParticle({
+      pos: m.position.clone().addScaledVector(local, 0.6),
+      color: 0xffffff, size: rand(0.14, 0.24), endSize: 0.02, life: rand(0.25, 0.42),
+      vel: local.clone().multiplyScalar(rand(2.5, 4.5)).add(new THREE.Vector3(0, rand(0.5, 1.5), 0)),
+      gravity: 8, spin: 0,
+    });
+  }
 }
 function updateSlashArcs(dt) {
   for (let i = slashArcs.length - 1; i >= 0; i--) {
     const s = slashArcs[i];
     s.t += dt * 5.5;
     const k = Math.min(s.t, 1);
+    if (s.spin) s.mesh.rotation.z += s.spin * dt; // counter-rotating echo arcs
     s.mesh.scale.setScalar(lerp(0.5, 1.4, k));
     s.mesh.material.opacity = 0.95 * (1 - k);
     if (k >= 1) {
@@ -1525,6 +1597,11 @@ function spawnProjectile({ pos, dir, speed, size, color, damage, friendly, trail
   group.add(light);
   group.position.copy(pos);
   scene.add(group);
+  if (friendly) {
+    // muzzle flash: small radial burst + brief light pulse at the mouth
+    burst(pos, { count: 6, color, speed: 4.5, size: 0.3 * (1 + size), life: 0.18, up: 1 });
+    flashFxLight(pos, color, 14, 8);
+  }
   projectiles.push({
     group, vel: dir.clone().multiplyScalar(speed), speed,
     damage, friendly, trail, gravity, aoe, size, color, life: 5,
@@ -1578,10 +1655,26 @@ function updateProjectiles(dt) {
     const pos = p.group.position;
 
     if (p.trail) {
+      // tighter colored halo
       spawnParticle({
-        pos, color: p.trail, size: p.size * 2.6, endSize: 0.05, life: 0.35,
-        vel: new THREE.Vector3(rand(-0.5, 0.5), rand(0, 1), rand(-0.5, 0.5)),
+        pos, color: p.trail, size: p.size * 2.1, endSize: 0.05, life: 0.28,
+        vel: new THREE.Vector3(rand(-0.3, 0.3), rand(0, 0.6), rand(-0.3, 0.3)),
       });
+      // hot bright core hugging the projectile path
+      spawnParticle({
+        pos, color: 0xfff2cc, size: p.size * 1.1, endSize: 0.02, life: 0.16,
+        vel: new THREE.Vector3(rand(-0.15, 0.15), rand(0, 0.3), rand(-0.15, 0.15)),
+        spin: 0,
+      });
+      // occasional spark tumbling off the trail
+      if (Math.random() < 0.16) {
+        spawnParticle({
+          pos, color: 0xffdd88, size: p.size * 0.5, endSize: 0.02, life: rand(0.3, 0.5),
+          vel: new THREE.Vector3(rand(-1, 1), rand(0.3, 1), rand(-1, 1))
+            .normalize().multiplyScalar(rand(2.5, 5)),
+          gravity: 9, spin: 0,
+        });
+      }
     }
 
     let dead = p.life <= 0;
@@ -1787,6 +1880,15 @@ function damageEnemy(e, amount, { noStatus = false } = {}) {
     state.score += (e.spec.score + state.wave * 10) * (e.boss ? 4 : 1);
     gainXp(e.spec.xp * (e.boss ? 4 : 1));
     explosionFX(e.pos.clone().add(new THREE.Vector3(0, 1, 0)), e.boss ? 2 : 0.9);
+    // soul motes — soft glints drifting skyward from the fallen foe
+    for (let k = 0; k < 8; k++) {
+      spawnParticle({
+        pos: e.pos.clone().add(new THREE.Vector3(rand(-0.8, 0.8), rand(0.6, 1.8), rand(-0.8, 0.8))),
+        color: 0xbfe8ff, size: rand(0.16, 0.3), endSize: 0.03, life: rand(1.2, 2),
+        vel: new THREE.Vector3(rand(-0.6, 0.6), rand(1.1, 2.2), rand(-0.6, 0.6)),
+        gravity: -1.2, drag: 0.4, spin: rand(-1, 1),
+      });
+    }
     if (e.boss) AudioSys.explosion();
     // Ash celebrates your kills
     if (state.time - ashNpc.lastCheer > 6) {
@@ -2374,6 +2476,17 @@ function updatePlayer(dt) {
         vel: new THREE.Vector3(rand(-0.5, 0.5), rand(1, 2), rand(-0.5, 0.5)),
       });
     }
+    // ember sparks tumbling out of the stream and raining down
+    if (Math.random() < dt * 26) {
+      spawnParticle({
+        pos: mouth.clone().addScaledVector(fwd, rand(4, 18))
+          .add(new THREE.Vector3(rand(-0.8, 0.8), rand(-0.4, 0.4), rand(-0.8, 0.8))),
+        color: 0xffcc55, size: rand(0.08, 0.16), endSize: 0.02, life: rand(0.6, 1.1),
+        vel: fwd.clone().multiplyScalar(rand(2, 6))
+          .add(new THREE.Vector3(rand(-1.5, 1.5), rand(-0.5, 0.5), rand(-1.5, 1.5))),
+        gravity: 7, spin: 0,
+      });
+    }
     for (const e of enemies) {
       if (e.dead) continue;
       const to = e.pos.clone().sub(mouth);
@@ -2600,6 +2713,7 @@ function tick() {
   }
 
   updateParticles(sdt);
+  updateFxLights(sdt);
   updateDamageNumbers(sdt);
   updateScorches(sdt);
   updateShockwaves(sdt);
