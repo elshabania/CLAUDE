@@ -44,58 +44,66 @@ function paintFur(ctx, size, base, dappleHi, dappleLo, strandHi, strandLo, rng) 
   ctx.fillStyle = base;
   ctx.fillRect(0, 0, size, size);
   // soft dappled mottling so big surfaces never look flat
-  for (let i = 0; i < 220; i++) {
-    const x = rng() * size, y = rng() * size, r = 14 + rng() * 52;
+  const dapples = Math.floor(size * 0.43);
+  for (let i = 0; i < dapples; i++) {
+    const x = rng() * size, y = rng() * size, r = (14 + rng() * 52) * (size / 512);
     const g = ctx.createRadialGradient(x, y, 0, x, y, r);
     g.addColorStop(0, rng() < 0.5 ? dappleHi : dappleLo);
     g.addColorStop(1, "rgba(0,0,0,0)");
     ctx.fillStyle = g;
     ctx.fillRect(x - r, y - r, r * 2, r * 2);
   }
-  // thousands of short, gently curved fur strands flowing downward
+  // thousands of short, curved fur strands following a directional flow field —
+  // strokes sweep down and around like pelt growth over musculature
   ctx.lineCap = "round";
-  for (let i = 0; i < 2400; i++) {
+  const strands = Math.floor((size * size) / 112);
+  for (let i = 0; i < strands; i++) {
     const x = rng() * size, y = rng() * size;
-    const len = 6 + rng() * 13;
-    const ang = Math.PI / 2 + (rng() - 0.5) * 0.9; // mostly downward
-    const bow = (rng() - 0.5) * 6;
+    const len = (6 + rng() * 13) * (0.6 + size / 1280);
+    // flow field: strands part around the spine line and ripple along height
+    const flow = Math.sin((x / size) * Math.PI * 2) * 0.5
+               + Math.cos((y / size) * Math.PI * 3) * 0.28;
+    const ang = Math.PI / 2 + flow + (rng() - 0.5) * 0.5;
+    const bow = (rng() - 0.5) * 7; // sideways belly of the curve
+    const px = Math.cos(ang + Math.PI / 2), py = Math.sin(ang + Math.PI / 2);
     ctx.strokeStyle = rng() < 0.5 ? strandHi : strandLo;
     ctx.lineWidth = 0.7 + rng() * 1.1;
     ctx.beginPath();
     ctx.moveTo(x, y);
     ctx.quadraticCurveTo(
-      x + Math.cos(ang) * len * 0.5 + bow, y + Math.sin(ang) * len * 0.5,
+      x + Math.cos(ang) * len * 0.5 + px * bow,
+      y + Math.sin(ang) * len * 0.5 + py * bow,
       x + Math.cos(ang) * len, y + Math.sin(ang) * len);
     ctx.stroke();
   }
 }
 
-// Golden-yellow body fur (color map + matching grayscale bump).
+// Golden-yellow body fur, 1024px (color map + matching grayscale bump).
 function makeBodyFurTextures() {
-  const [c, ctx] = makeCanvas(512);
-  paintFur(ctx, 512, "#f2b21e",
+  const [c, ctx] = makeCanvas(1024);
+  paintFur(ctx, 1024, "#f2b21e",
     "rgba(255,214,90,0.14)", "rgba(170,105,12,0.14)",
-    "rgba(255,228,130,0.30)", "rgba(146,88,10,0.26)", makeRng(60601));
+    "rgba(255,228,130,0.32)", "rgba(146,88,10,0.28)", makeRng(60601));
   const map = canvasTexture(c, true);
-  const [cb, ctxb] = makeCanvas(512);
-  paintFur(ctxb, 512, "#808080",
+  const [cb, ctxb] = makeCanvas(1024);
+  paintFur(ctxb, 1024, "#808080",
     "rgba(210,210,210,0.12)", "rgba(70,70,70,0.12)",
-    "rgba(235,235,235,0.42)", "rgba(40,40,40,0.38)", makeRng(60601));
+    "rgba(240,240,240,0.50)", "rgba(30,30,30,0.46)", makeRng(60601));
   const bump = canvasTexture(cb, false);
   return { map, bump };
 }
 
-// Lighter cream-gold chest ruff fur.
+// Lighter cream-gold chest ruff fur (brighter, fluffier strands).
 function makeRuffTextures() {
-  const [c, ctx] = makeCanvas(256);
-  paintFur(ctx, 256, "#ffe9a8",
-    "rgba(255,248,210,0.16)", "rgba(214,168,80,0.14)",
-    "rgba(255,252,228,0.34)", "rgba(190,142,58,0.26)", makeRng(70707));
+  const [c, ctx] = makeCanvas(512);
+  paintFur(ctx, 512, "#fff0bc",
+    "rgba(255,250,222,0.18)", "rgba(214,168,80,0.13)",
+    "rgba(255,253,236,0.38)", "rgba(190,142,58,0.24)", makeRng(70707));
   const map = canvasTexture(c, true);
-  const [cb, ctxb] = makeCanvas(256);
-  paintFur(ctxb, 256, "#8a8a8a",
-    "rgba(220,220,220,0.12)", "rgba(90,90,90,0.12)",
-    "rgba(240,240,240,0.40)", "rgba(50,50,50,0.36)", makeRng(70707));
+  const [cb, ctxb] = makeCanvas(512);
+  paintFur(ctxb, 512, "#8a8a8a",
+    "rgba(225,225,225,0.13)", "rgba(85,85,85,0.13)",
+    "rgba(245,245,245,0.46)", "rgba(40,40,40,0.42)", makeRng(70707));
   const bump = canvasTexture(cb, false);
   return { map, bump };
 }
@@ -145,11 +153,10 @@ function claw(len, r, mat) {
 
 // One jagged electric arc: a zigzag chain of thin cylinders radiating from the
 // spark core outward, like frozen static electricity.
-function makeArc(rng, mat) {
+function makeArc(rng, mat, kinks = 3) {
   const group = new THREE.Group();
   const pts = [new THREE.Vector3((rng() - 0.5) * 0.05, (rng() - 0.5) * 0.05, (rng() - 0.5) * 0.05)];
   const heading = new THREE.Vector3(rng() - 0.5, rng() - 0.5, rng() - 0.5).normalize();
-  const kinks = 4 + Math.floor(rng() * 2);
   for (let i = 0; i < kinks; i++) {
     const step = heading.clone()
       .addScaledVector(new THREE.Vector3(rng() - 0.5, rng() - 0.5, rng() - 0.5), 1.1)
@@ -176,13 +183,13 @@ export function buildVoltaron() {
   // --- materials ------------------------------------------------------------
   const bodyTex = makeBodyFurTextures();
   const furMat = new THREE.MeshStandardMaterial({
-    map: bodyTex.map, bumpMap: bodyTex.bump, bumpScale: 0.55,
+    map: bodyTex.map, bumpMap: bodyTex.bump, bumpScale: 0.9,
     color: 0xffd23c, roughness: 0.88, metalness: 0.04,
   });
   const ruffTex = makeRuffTextures();
   const ruffMat = new THREE.MeshStandardMaterial({
-    map: ruffTex.map, bumpMap: ruffTex.bump, bumpScale: 0.5,
-    color: 0xffe9a8, roughness: 0.9, metalness: 0.02,
+    map: ruffTex.map, bumpMap: ruffTex.bump, bumpScale: 0.85,
+    color: 0xfff0bc, roughness: 0.92, metalness: 0.02,
   });
   const creamMat = new THREE.MeshStandardMaterial({ color: 0xfdf0c8, roughness: 0.85 });
   const brownMat = new THREE.MeshStandardMaterial({ color: 0x6e4218, roughness: 0.92 });
@@ -191,10 +198,17 @@ export function buildVoltaron() {
     color: 0xffd84e, roughness: 0.85, emissive: 0x553f00, emissiveIntensity: 0.25,
   });
   const cheekMat = new THREE.MeshStandardMaterial({
-    color: 0xff3a22, emissive: 0xff2e08, emissiveIntensity: 1.8, roughness: 0.45,
+    color: 0xff3a22, emissive: 0xff2e08, emissiveIntensity: 2.4, roughness: 0.45,
+  });
+  const cheekHaloMat = new THREE.MeshStandardMaterial({
+    color: 0xff5530, emissive: 0xff4412, emissiveIntensity: 1.2, roughness: 0.6,
+    transparent: true, opacity: 0.4, depthWrite: false, blending: THREE.AdditiveBlending,
   });
   const eyeMat = new THREE.MeshStandardMaterial({
-    color: 0x1c1106, roughness: 0.18, metalness: 0.25,
+    color: 0x100b04, roughness: 0.18, metalness: 0.25,
+  });
+  const irisMat = new THREE.MeshStandardMaterial({
+    color: 0x2a8cff, emissive: 0x3fb8ff, emissiveIntensity: 1.3, roughness: 0.3,
   });
   const glintMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
   const mouthMat = new THREE.MeshStandardMaterial({ color: 0x5e1717, roughness: 0.8 });
@@ -202,7 +216,12 @@ export function buildVoltaron() {
   const toothMat = new THREE.MeshStandardMaterial({ color: 0xfdfaf0, roughness: 0.35 });
   const clawMat = new THREE.MeshStandardMaterial({ color: 0xe8ddc4, roughness: 0.4 });
   const seamMat = new THREE.MeshStandardMaterial({
-    color: 0xc9a32e, emissive: 0xffe85a, emissiveIntensity: 1.2, roughness: 0.5,
+    color: 0xc9a32e, emissive: 0xffe85a, emissiveIntensity: 1.6, roughness: 0.5,
+  });
+  const chevronEdgeMat = new THREE.MeshStandardMaterial({ color: 0x2c1604, roughness: 0.95 });
+  const trimMat = new THREE.MeshStandardMaterial({
+    color: 0xd9a823, metalness: 0.85, roughness: 0.28,
+    emissive: 0xffcf3e, emissiveIntensity: 0.9,
   });
   const arcMat = new THREE.MeshBasicMaterial({ color: 0xfff8c8 });
   const coreMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
@@ -216,19 +235,31 @@ export function buildVoltaron() {
   const hips = ball(0.36, furMat, 0.84, 0.9, 0.95);
   hips.position.set(0, -0.46, -0.06);
   torso.add(hips);
-  // lighter chest ruff — a soft cream-gold mane plate over the sternum
+  // lighter chest ruff — three overlapping flattened tufts give a fluffy,
+  // broken silhouette instead of one smooth plate
   const ruff = ball(0.32, ruffMat, 0.86, 1.05, 0.55);
   ruff.position.set(0, 0.16, 0.3);
   ruff.rotation.x = 0.22;
   torso.add(ruff);
+  for (const s of [-1, 1]) {
+    const tuft = ball(0.24, ruffMat, 0.78, 0.92, 0.5);
+    tuft.position.set(s * 0.17, 0.04, 0.33);
+    tuft.rotation.set(0.3, s * 0.25, s * -0.5); // flared collar lobes
+    torso.add(tuft);
+  }
   const belly = ball(0.26, ruffMat, 0.8, 1.0, 0.55);
   belly.position.set(0, -0.28, 0.22);
   torso.add(belly);
 
-  // brown back stripes — two flattened chevron patches hugging the spine
+  // brown back stripes — two flattened chevron patches hugging the spine,
+  // each bar backed by a slightly larger near-black plate for a crisp outline
   for (let i = 0; i < 2; i++) {
     const y = 0.34 - i * 0.34, z = -0.385 - i * 0.015;
     for (const s of [-1, 1]) {
+      const outline = new THREE.Mesh(new THREE.BoxGeometry(0.305, 0.135, 0.04), chevronEdgeMat);
+      outline.position.set(s * 0.115, y + 0.04, z - 0.012);
+      outline.rotation.set(0.28, s * 0.22, s * 0.65);
+      torso.add(outline);
       const bar = new THREE.Mesh(new THREE.BoxGeometry(0.27, 0.1, 0.05), brownMat);
       bar.position.set(s * 0.115, y + 0.04, z);
       bar.rotation.set(0.28, s * 0.22, s * 0.65); // arms of a V meeting low
@@ -314,23 +345,40 @@ export function buildVoltaron() {
     eye.rotation.y = s * 0.35;
     eye.userData.noShadow = true;
     head.add(eye);
+    // electric-blue iris ring hugging the dark pupil
+    const iris = new THREE.Mesh(new THREE.TorusGeometry(0.033, 0.011, 8, 20), irisMat);
+    iris.position.set(s * 0.151, 0.078, 0.245);
+    iris.rotation.y = s * 0.38;
+    iris.userData.noShadow = true;
+    head.add(iris);
+    // double glint: bright key catchlight high, smaller bounce glint low-opposite
     const glint = ball(0.015, glintMat, 1, 1, 1, 8, 6);
     glint.position.set(s * 0.155, 0.105, 0.245);
     glint.userData.noShadow = true;
     head.add(glint);
+    const glint2 = ball(0.0075, glintMat, 1, 1, 1, 8, 6);
+    glint2.position.set(s * 0.128, 0.052, 0.248);
+    glint2.userData.noShadow = true;
+    head.add(glint2);
     const brow = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.035, 0.06), furMat);
     brow.position.set(s * 0.135, 0.145, 0.2);
     brow.rotation.set(-0.15, 0, s * -0.42); // angled-down scowl
     head.add(brow);
   }
 
-  // --- round electric-red cheek pods (they bloom) ------------------------------
+  // --- round electric-red cheek pods: layered double-emissive so they BLOOM ---
+  // inner core burns at 2.4; a translucent additive halo shell at 1.2 wraps it
   for (const s of [-1, 1]) {
     const pod = ball(0.1, cheekMat, 0.55, 1, 1, 14, 10);
     pod.position.set(s * 0.235, -0.055, 0.1);
     pod.rotation.y = s * 0.2;
     pod.userData.noShadow = true;
     head.add(pod);
+    const halo = ball(0.125, cheekHaloMat, 0.55, 1, 1, 14, 10);
+    halo.position.set(s * 0.237, -0.055, 0.1);
+    halo.rotation.y = s * 0.2;
+    halo.userData.noShadow = true;
+    head.add(halo);
   }
 
   // --- long pointed ears: black tips, yellow inner -----------------------------
@@ -458,6 +506,14 @@ export function buildVoltaron() {
     seg.position.copy(cursor).addScaledVector(dir, 0.5 * segLens[i]);
     seg.quaternion.setFromUnitVectors(FWD, dir);
     tailGroup.add(seg);
+    // metallic-gold edge trim: thin emissive border box across each chevron's
+    // leading edge, catching light like hammered brass
+    const trim = new THREE.Mesh(
+      new THREE.BoxGeometry(0.26 - i * 0.015, 0.062, 0.035), trimMat);
+    trim.position.copy(cursor).addScaledVector(dir, segLens[i] * 0.97);
+    trim.quaternion.setFromUnitVectors(FWD, dir);
+    trim.userData.noShadow = true;
+    tailGroup.add(trim);
     // chevron notch cap at each elbow of the bolt
     const cap = new THREE.Mesh(new THREE.ConeGeometry(0.085 - i * 0.008, 0.16, 4), segMat);
     cap.position.copy(next);
@@ -483,9 +539,18 @@ export function buildVoltaron() {
   glowSprite.userData.noShadow = true;
   flame.add(glowSprite);
 
-  // 4 thin jagged static arcs snapping off the core
-  for (let i = 0; i < 4; i++) {
-    const arc = makeArc(rng, arcMat);
+  // faint, wide outer halo behind the hot glow — soft corona falloff
+  const haloSprite = new THREE.Sprite(new THREE.SpriteMaterial({
+    map: makeSparkGlowTexture(), color: 0xfff0a0, opacity: 0.3,
+    blending: THREE.AdditiveBlending, transparent: true, depthWrite: false,
+  }));
+  haloSprite.scale.set(1.7, 1.7, 1);
+  haloSprite.userData.noShadow = true;
+  flame.add(haloSprite);
+
+  // 6 thin jagged static arcs snapping off the core
+  for (let i = 0; i < 6; i++) {
+    const arc = makeArc(rng, arcMat, 3);
     arc.rotation.set(rng() * Math.PI * 2, rng() * Math.PI * 2, rng() * Math.PI * 2);
     flame.add(arc);
   }

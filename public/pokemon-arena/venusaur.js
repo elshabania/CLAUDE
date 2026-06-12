@@ -42,11 +42,61 @@ function remapUVs(geo) {
   return geo;
 }
 
+// Curl a flat ShapeGeometry petal: tip recurves backward (curl) and the side
+// edges cup upward (cup), then rebuild normals so lighting follows the bend.
+function bendPetal(geo, w, l, curl, cup) {
+  const pos = geo.attributes.position;
+  for (let i = 0; i < pos.count; i++) {
+    const x = pos.getX(i);
+    const t = Math.min(Math.max(pos.getY(i) / l, 0), 1);
+    pos.setZ(i, curl * l * t * t + cup * (Math.abs(x) / w) ** 2);
+  }
+  pos.needsUpdate = true;
+  geo.computeVertexNormals();
+  return geo;
+}
+
 // SECTION 2 — canvas textures
 
-// Teal-green warty hide: mottled spots + darker irregular patches.
-function makeHideTexture() {
-  return canvasTexture(512, (ctx, s) => {
+// Shared feature layout so the 1024px color map and bump map stay in register:
+// the same mottle patches and wart clusters drive both canvases.
+function makeHideFeatures(s) {
+  const patches = [];
+  for (let i = 0; i < 20; i++) {
+    const lobes = [];
+    for (let k = 0; k < 7; k++) lobes.push(rand(0.6, 1.2));
+    patches.push({
+      x: rand(0, s), y: rand(0, s), r: rand(s * 0.05, s * 0.13),
+      lobes, olive: Math.random() < 0.45, a: rand(0.3, 0.55),
+    });
+  }
+  const warts = [];
+  for (let c = 0; c < 30; c++) { // tight clusters of 3..8 warts
+    const cx = rand(0, s), cy = rand(0, s), n = 3 + Math.floor(rand(0, 6));
+    for (let i = 0; i < n; i++) {
+      warts.push({
+        x: cx + rand(-s * 0.04, s * 0.04),
+        y: cy + rand(-s * 0.04, s * 0.04),
+        r: rand(s * 0.004, s * 0.011),
+      });
+    }
+  }
+  return { patches, warts };
+}
+
+function tracePatch(ctx, p) {
+  ctx.beginPath();
+  for (let k = 0; k < p.lobes.length; k++) {
+    const a = (k / p.lobes.length) * Math.PI * 2;
+    const rr = p.r * p.lobes[k];
+    ctx[k ? "lineTo" : "moveTo"](p.x + Math.cos(a) * rr, p.y + Math.sin(a) * rr);
+  }
+  ctx.closePath();
+}
+
+// Teal-green warty hide: two-tone mottled patches + crisp clustered warts.
+function makeHideTexture(features) {
+  return canvasTexture(1024, (ctx, s) => {
     const g = ctx.createLinearGradient(0, 0, 0, s);
     g.addColorStop(0, "#3da06d");
     g.addColorStop(0.55, "#349161");
@@ -54,51 +104,65 @@ function makeHideTexture() {
     ctx.fillStyle = g;
     ctx.fillRect(0, 0, s, s);
 
-    // Big darker patches — irregular multi-lobe blobs
-    for (let i = 0; i < 16; i++) {
-      const x = rand(0, s), y = rand(0, s), r = rand(28, 70);
-      ctx.fillStyle = `rgba(28, 84, 56, ${rand(0.35, 0.6)})`;
-      ctx.beginPath();
-      for (let k = 0; k < 6; k++) {
-        const a = (k / 6) * Math.PI * 2;
-        const rr = r * rand(0.6, 1.15);
-        ctx[k ? "lineTo" : "moveTo"](x + Math.cos(a) * rr, y + Math.sin(a) * rr);
-      }
-      ctx.closePath();
+    // Two-tone mottle: deep forest patches vs warm olive patches
+    for (const p of features.patches) {
+      ctx.fillStyle = p.olive
+        ? `rgba(104, 138, 58, ${p.a * 0.8})`
+        : `rgba(24, 80, 52, ${p.a})`;
+      tracePatch(ctx, p);
       ctx.fill();
+      // darker core gives the patch a soft two-step edge
+      ctx.save();
+      ctx.translate(p.x, p.y); ctx.scale(0.62, 0.62); ctx.translate(-p.x, -p.y);
+      ctx.fillStyle = p.olive
+        ? `rgba(86, 116, 44, ${p.a * 0.55})`
+        : `rgba(16, 62, 40, ${p.a * 0.6})`;
+      tracePatch(ctx, p);
+      ctx.fill();
+      ctx.restore();
     }
-    // Mid-tone mottle
-    for (let i = 0; i < 90; i++) {
-      ctx.fillStyle = `rgba(46, 120, 80, ${rand(0.2, 0.45)})`;
-      ctx.beginPath(); ctx.arc(rand(0, s), rand(0, s), rand(6, 20), 0, Math.PI * 2); ctx.fill();
+    // Mid-tone mottle scatter
+    for (let i = 0; i < 140; i++) {
+      ctx.fillStyle = `rgba(46, 120, 80, ${rand(0.18, 0.4)})`;
+      ctx.beginPath(); ctx.arc(rand(0, s), rand(0, s), rand(10, 36), 0, Math.PI * 2); ctx.fill();
     }
-    // Lighter warts with a small highlight dot
-    for (let i = 0; i < 130; i++) {
-      const x = rand(0, s), y = rand(0, s), r = rand(2.5, 8);
-      ctx.fillStyle = `rgba(110, 200, 150, ${rand(0.35, 0.7)})`;
-      ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = "rgba(190, 240, 205, 0.5)";
-      ctx.beginPath(); ctx.arc(x - r * 0.3, y - r * 0.3, r * 0.35, 0, Math.PI * 2); ctx.fill();
+    // Crisp warts: dark rim ring, bright body, sharp highlight dot
+    for (const w of features.warts) {
+      ctx.fillStyle = "rgba(18, 60, 38, 0.6)";
+      ctx.beginPath(); ctx.arc(w.x, w.y + w.r * 0.18, w.r * 1.28, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = `rgba(116, 206, 152, ${rand(0.55, 0.85)})`;
+      ctx.beginPath(); ctx.arc(w.x, w.y, w.r, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = "rgba(214, 248, 222, 0.8)";
+      ctx.beginPath(); ctx.arc(w.x - w.r * 0.32, w.y - w.r * 0.32, w.r * 0.32, 0, Math.PI * 2); ctx.fill();
     }
   });
 }
 
-// Grayscale bump partner for the hide: raised warts, recessed patches.
-function makeHideBump() {
-  return canvasTexture(512, (ctx, s) => {
+// Grayscale bump partner: raised warts and recessed patches, matching layout.
+function makeHideBump(features) {
+  return canvasTexture(1024, (ctx, s) => {
     ctx.fillStyle = "#7f7f7f";
     ctx.fillRect(0, 0, s, s);
-    for (let i = 0; i < 16; i++) {
-      ctx.fillStyle = `rgba(60, 60, 60, ${rand(0.3, 0.5)})`;
-      ctx.beginPath(); ctx.arc(rand(0, s), rand(0, s), rand(28, 70), 0, Math.PI * 2); ctx.fill();
+    // Patches recess slightly
+    for (const p of features.patches) {
+      ctx.fillStyle = `rgba(58, 58, 58, ${p.a * 0.9})`;
+      tracePatch(ctx, p);
+      ctx.fill();
     }
-    for (let i = 0; i < 200; i++) {
-      const x = rand(0, s), y = rand(0, s), r = rand(2.5, 9);
-      const rg = ctx.createRadialGradient(x, y, 0, x, y, r);
-      rg.addColorStop(0, "rgba(255,255,255,0.85)");
+    // Fine grain so the hide isn't mirror-flat between features
+    for (let i = 0; i < 900; i++) {
+      const v = Math.floor(rand(105, 150));
+      ctx.fillStyle = `rgba(${v},${v},${v},0.35)`;
+      ctx.beginPath(); ctx.arc(rand(0, s), rand(0, s), rand(1.5, 4), 0, Math.PI * 2); ctx.fill();
+    }
+    // Warts: steep radial falloff for a crisp raised bead
+    for (const w of features.warts) {
+      const rg = ctx.createRadialGradient(w.x, w.y, 0, w.x, w.y, w.r * 1.15);
+      rg.addColorStop(0, "rgba(255,255,255,0.95)");
+      rg.addColorStop(0.7, "rgba(255,255,255,0.75)");
       rg.addColorStop(1, "rgba(255,255,255,0)");
       ctx.fillStyle = rg;
-      ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(w.x, w.y, w.r * 1.15, 0, Math.PI * 2); ctx.fill();
     }
   }, { srgb: false });
 }
@@ -138,14 +202,22 @@ function makePetalTexture() {
     g.addColorStop(1, "#d62f78");
     ctx.fillStyle = g;
     ctx.fillRect(0, 0, s, s);
-    // White streaks fanning from the base
-    ctx.strokeStyle = "rgba(255, 245, 250, 0.5)";
-    ctx.lineWidth = 3;
-    for (let i = 0; i < 9; i++) {
-      const x0 = s * 0.5 + rand(-14, 14);
+    // Deep magenta vein streaks fanning from the base, with pale echoes
+    for (let i = 0; i < 11; i++) {
+      const x0 = s * 0.5 + rand(-12, 12);
+      const xTip = s * 0.5 + (i - 5) * 22, yTip = rand(0, s * 0.28);
+      const cx = x0 + rand(-26, 26);
+      ctx.strokeStyle = `rgba(186, 30, 96, ${rand(0.3, 0.55)})`;
+      ctx.lineWidth = rand(2, 4.5);
       ctx.beginPath();
       ctx.moveTo(x0, s);
-      ctx.quadraticCurveTo(x0 + rand(-30, 30), s * 0.55, s * 0.5 + (i - 4) * 24, rand(0, s * 0.3));
+      ctx.quadraticCurveTo(cx, s * 0.55, xTip, yTip);
+      ctx.stroke();
+      ctx.strokeStyle = "rgba(255, 240, 248, 0.45)";
+      ctx.lineWidth = 1.6;
+      ctx.beginPath();
+      ctx.moveTo(x0 + 4, s);
+      ctx.quadraticCurveTo(cx + 5, s * 0.55, xTip + 5, yTip + 8);
       ctx.stroke();
     }
     // Deep magenta freckles toward the tip
@@ -262,8 +334,9 @@ export function buildVenusaur() {
   root.name = "venusaur";
 
   // ---- materials -----------------------------------------------------------
-  const hideTex = makeHideTexture();
-  const hideBump = makeHideBump();
+  const hideFeatures = makeHideFeatures(1024);
+  const hideTex = makeHideTexture(hideFeatures);
+  const hideBump = makeHideBump(hideFeatures);
   const hideMat = new THREE.MeshStandardMaterial({
     map: hideTex, bumpMap: hideBump, bumpScale: 1.4, roughness: 0.88, metalness: 0.02,
   });
@@ -280,18 +353,37 @@ export function buildVenusaur() {
     map: petalTexture, roughness: 0.62, metalness: 0, side: THREE.DoubleSide,
     emissive: 0x551133, emissiveIntensity: 0.18,
   });
+  const leafTex = makeLeafTexture();
   const leafMat = new THREE.MeshStandardMaterial({
-    map: makeLeafTexture(), roughness: 0.78, side: THREE.DoubleSide,
+    map: leafTex, roughness: 0.78, side: THREE.DoubleSide,
+  });
+  // Big fronds droop with their +z normal facing the ground, so the visible
+  // topside is the BackSide and the underside is the FrontSide.
+  const leafTopMat = new THREE.MeshStandardMaterial({
+    map: leafTex, roughness: 0.68, side: THREE.BackSide,
+  });
+  const leafUnderMat = new THREE.MeshStandardMaterial({
+    color: 0x76ad6e, roughness: 0.96, side: THREE.FrontSide,
   });
   const trunkMat = new THREE.MeshStandardMaterial({ map: makeTrunkTexture(), roughness: 0.95 });
   const pistilMat = new THREE.MeshStandardMaterial({ color: 0xf7c930, roughness: 0.55, emissive: 0x664400, emissiveIntensity: 0.25 });
+  const pollenMat = new THREE.MeshStandardMaterial({
+    color: 0xffe27a, emissive: 0xffc83c, emissiveIntensity: 1.7, roughness: 0.4,
+  });
+  const dewMat = new THREE.MeshPhysicalMaterial({
+    color: 0xe8fbff, roughness: 0.05, metalness: 0, clearcoat: 1, clearcoatRoughness: 0.04,
+    transparent: true, opacity: 0.68, envMapIntensity: 1.5,
+  });
   const vineMat = new THREE.MeshStandardMaterial({ color: 0x3f9148, roughness: 0.8 });
-  const clawMat = new THREE.MeshStandardMaterial({ color: 0xf3eedd, roughness: 0.45 });
+  const clawMat = new THREE.MeshStandardMaterial({
+    color: 0xf3eedd, roughness: 0.2, metalness: 0.08, envMapIntensity: 1.3,
+  });
   const fangMat = new THREE.MeshStandardMaterial({ color: 0xfffcf2, roughness: 0.3 });
   const mouthMat = new THREE.MeshStandardMaterial({ color: 0x55181c, roughness: 0.9 });
   const tongueMat = new THREE.MeshStandardMaterial({ color: 0xc25668, roughness: 0.7 });
   const scleraMat = new THREE.MeshStandardMaterial({ color: 0xfff6ee, roughness: 0.35 });
   const irisMat = new THREE.MeshStandardMaterial({ color: 0xd41f1f, roughness: 0.25, emissive: 0x551010, emissiveIntensity: 0.5 });
+  const irisRimMat = new THREE.MeshStandardMaterial({ color: 0x5e0a0e, roughness: 0.3 });
   const pupilMat = new THREE.MeshStandardMaterial({ color: 0x140808, roughness: 0.2 });
   const glintMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
 
@@ -366,6 +458,12 @@ export function buildVenusaur() {
     sclera.scale.set(1, 1.05, 0.7);
     sclera.userData.noShadow = true;
     eye.add(sclera);
+    // Dark crimson limbal rim framing the iris
+    const rim = new THREE.Mesh(new THREE.SphereGeometry(0.079, 16, 12), irisRimMat);
+    rim.position.z = 0.046;
+    rim.scale.set(1, 1.1, 0.5);
+    rim.userData.noShadow = true;
+    eye.add(rim);
     const iris = new THREE.Mesh(new THREE.SphereGeometry(0.066, 16, 12), irisMat);
     iris.position.z = 0.052;
     iris.scale.set(1, 1.1, 0.55);
@@ -376,8 +474,8 @@ export function buildVenusaur() {
     pupil.scale.set(0.62, 1.45, 0.4); // vertical slit
     pupil.userData.noShadow = true;
     eye.add(pupil);
-    const glint = new THREE.Mesh(new THREE.SphereGeometry(0.013, 8, 6), glintMat);
-    glint.position.set(0.026, 0.04, 0.1);
+    const glint = new THREE.Mesh(new THREE.SphereGeometry(0.021, 10, 8), glintMat);
+    glint.position.set(0.03, 0.044, 0.103);
     glint.userData.noShadow = true;
     eye.add(glint);
     head.add(eye);
@@ -475,22 +573,39 @@ export function buildVenusaur() {
   trunk.position.y = 0.02;
   flame.add(trunk);
 
-  // Fan of large serrated fronds drooping under the flower
-  const leafGeo = remapUVs(new THREE.ShapeGeometry(serratedLeafShape(0.42, 1.25, 7), 10));
+  // Fan of large serrated fronds drooping under the flower. Each frond is two
+  // meshes sharing one geometry: textured topside (BackSide, faces the sky)
+  // and a pale matte underside (FrontSide).
+  const leafGeo = remapUVs(new THREE.ShapeGeometry(serratedLeafShape(0.42, 1.25, 8), 12));
+  const dewGeo = new THREE.SphereGeometry(0.034, 12, 10);
   for (let i = 0; i < 9; i++) {
     const pivot = new THREE.Group();
     pivot.rotation.y = (i / 9) * Math.PI * 2 + rand(-0.1, 0.1);
-    const leaf = new THREE.Mesh(leafGeo, leafMat);
+    const leaf = new THREE.Mesh(leafGeo, leafTopMat);
     leaf.position.set(0, 0.16, 0.18);
     leaf.rotation.x = 1.62 + rand(0.06, 0.22); // a hair past flat = slight droop
     leaf.rotation.z = rand(-0.08, 0.08);
     pivot.add(leaf);
+    const under = new THREE.Mesh(leafGeo, leafUnderMat);
+    under.position.copy(leaf.position);
+    under.rotation.copy(leaf.rotation);
+    pivot.add(under);
+    // Dew drop resting on every other frond's topside (local -z is up)
+    if (i % 2 === 0) {
+      const dew = new THREE.Mesh(dewGeo, dewMat);
+      dew.position.set(rand(-0.14, 0.14), rand(0.45, 0.92), -0.024);
+      dew.scale.set(1, 1.15, 0.72); // squashed against the leaf
+      dew.userData.noShadow = true;
+      leaf.add(dew);
+    }
     flame.add(pivot);
   }
 
-  // Two rings of big gradient-pink petals
-  const petalGeoOuter = remapUVs(new THREE.ShapeGeometry(petalShape(0.46, 1.05), 12));
-  const petalGeoInner = remapUVs(new THREE.ShapeGeometry(petalShape(0.38, 0.85), 12));
+  // Two rings of big gradient-pink petals, gently recurved and cupped
+  const petalGeoOuter = bendPetal(
+    remapUVs(new THREE.ShapeGeometry(petalShape(0.46, 1.05), 16)), 0.46, 1.05, 0.22, -0.09);
+  const petalGeoInner = bendPetal(
+    remapUVs(new THREE.ShapeGeometry(petalShape(0.38, 0.85), 16)), 0.38, 0.85, 0.16, -0.07);
   for (let i = 0; i < 7; i++) {
     const pivot = new THREE.Group();
     pivot.position.y = 0.26;
@@ -529,6 +644,17 @@ export function buildVenusaur() {
     const anther = new THREE.Mesh(new THREE.SphereGeometry(0.035, 8, 6), pistilMat);
     anther.position.set(Math.cos(a) * 0.27, 0.78, Math.sin(a) * 0.27);
     flame.add(anther);
+  }
+
+  // Static glowing pollen dots drifting around the pistil
+  const pollenGeo = new THREE.SphereGeometry(0.022, 8, 6);
+  for (let i = 0; i < 8; i++) {
+    const a = (i / 8) * Math.PI * 2 + rand(-0.25, 0.25);
+    const r = rand(0.2, 0.34);
+    const dot = new THREE.Mesh(pollenGeo, pollenMat);
+    dot.position.set(Math.cos(a) * r, rand(0.56, 0.92), Math.sin(a) * r);
+    dot.userData.noShadow = true;
+    flame.add(dot);
   }
 
   // Soft green additive aura sprite
