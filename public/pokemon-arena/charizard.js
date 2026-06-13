@@ -653,52 +653,56 @@ export function buildCharizard() {
   head.add(muzzle);
   addOutline(muzzle, 0.035);
 
-  // dark mouth interior (visible when the jaw opens)
-  const palate = sph(mouthMat, 0.225, 0.78, 0.60, 1.3);
-  palate.position.set(0, -0.06, 0.30);
+  // dark mouth interior (mostly enclosed at rest; revealed when the jaw opens)
+  const palate = sph(mouthMat, 0.185, 0.76, 0.5, 1.2);
+  palate.position.set(0, -0.045, 0.28);
   palate.userData.noShadow = true;
   head.add(palate);
 
-  // Brow ridges (slanted toward the nose for a fierce expression)
+  // Heavy brow ridges hooding the eyes — Charizard's signature determined look.
+  // The inner end (toward the nose) dips lower than the outer end.
   for (const s of [1, -1]) {
-    const brow = sph(skinMat, 0.10, 1.5, 0.42, 1.05);
-    brow.position.set(s * 0.17, 0.225, 0.235);
-    brow.rotation.z = -s * 0.38;
-    brow.rotation.x = -0.12;
+    const brow = sph(skinMat, 0.095, 1.7, 0.40, 1.0);
+    brow.position.set(s * 0.165, 0.235, 0.235);
+    brow.rotation.z = s * 0.30;    // inner-low -> fierce, not sad
+    brow.rotation.x = -0.16;
     head.add(brow);
   }
 
-  // Big expressive cartoon eyes: bold black outline ring + white sclera +
-  // large blue-green iris + a big white catchlight. Unlit so they read flat.
+  // Almond, forward-facing eyes: bold black ink ring + white sclera + blue-green
+  // iris + a small catchlight. Smaller and slanted (vs a big round cartoon eye)
+  // so the expression reads as fierce Charizard rather than chibi. Unlit/flat.
   const eyeRingMat = new THREE.MeshBasicMaterial({ color: 0x140a04 });
   for (const s of [1, -1]) {
     const eye = new THREE.Group();
-    eye.position.set(s * 0.205, 0.155, 0.225);
-    eye.rotation.y = s * 0.85;     // local +z points outward/forward
-    eye.rotation.x = -0.06;
+    eye.position.set(s * 0.188, 0.182, 0.246);
+    eye.rotation.y = s * 0.66;     // local +z points outward/forward
+    eye.rotation.x = -0.05;
+    eye.rotation.z = s * 0.34;     // slant the almond for an intense gaze
+    eye.scale.set(1.06, 0.66, 1);  // flatten into an almond
     // bold black ink ring framing the eye
-    const ring = sph(eyeRingMat, 0.105, 1, 1.05, 0.5);
+    const ring = sph(eyeRingMat, 0.082, 1, 1.05, 0.5);
     ring.position.z = -0.005;
     ring.userData.noShadow = true;
-    const sclera = sph(scleraMat, 0.092, 1, 1.02, 0.7);
+    const sclera = sph(scleraMat, 0.07, 1, 1.02, 0.7);
     sclera.position.z = 0.012;
     sclera.userData.noShadow = true;
-    const iris = sph(irisMat, 0.072, 1, 0.78, 1);
+    const iris = sph(irisMat, 0.058, 1, 0.86, 1);
     iris.rotation.x = Math.PI / 2; // +y pole (texture center) faces forward
-    iris.position.z = 0.052;
+    iris.position.z = 0.04;
     iris.userData.noShadow = true;
-    // big white catchlight (the signature cartoon eye sparkle)
-    const glint = sph(glintMat, 0.028, 1, 1, 0.5);
-    glint.position.set(s * 0.026, 0.034, 0.098);
+    // small white catchlight (the eye sparkle)
+    const glint = sph(glintMat, 0.02, 1, 1, 0.5);
+    glint.position.set(s * 0.02, 0.026, 0.078);
     glint.userData.noShadow = true;
     eye.add(ring, sclera, iris, glint);
     head.add(eye);
   }
 
-  // Nostrils: small dark pits near the snout tip
+  // Nostrils: small dark pits on top of the (shortened) snout tip
   for (const s of [1, -1]) {
-    const n = sph(nostrilMat, 0.022, 1, 0.8, 1.2);
-    n.position.set(s * 0.07, 0.07, 0.66);
+    const n = sph(nostrilMat, 0.017, 1, 0.8, 1.2);
+    n.position.set(s * 0.06, 0.045, 0.485);
     n.userData.noShadow = true;
     head.add(n);
   }
@@ -736,14 +740,14 @@ export function buildCharizard() {
   jaw.position.set(0, -0.2, 0.10);    // pivot at the hinge, y = -0.2 exactly
   head.add(jaw);
   const mandible = sph(skinMat, 0.205, 0.78, 0.46, 1.5);
-  mandible.position.set(0, 0.035, 0.26);
+  mandible.position.set(0, 0.082, 0.25);   // raised so the rest mouth sits closed
   jaw.add(mandible);
   addOutline(mandible, 0.035);   // outline follows the jaw as it opens
   const chinPlate = sph(bellyMat, 0.17, 0.72, 0.40, 1.42);
-  chinPlate.position.set(0, 0.000, 0.27);
+  chinPlate.position.set(0, 0.048, 0.26);
   jaw.add(chinPlate);
   const tongue = sph(tongueMat, 0.13, 0.64, 0.30, 1.4);
-  tongue.position.set(0, 0.085, 0.26);
+  tongue.position.set(0, 0.12, 0.25);
   tongue.userData.noShadow = true;
   jaw.add(tongue);
   // Small lower teeth pointing up
