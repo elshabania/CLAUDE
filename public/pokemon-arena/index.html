@@ -304,6 +304,16 @@
 
   #mute-hint { position: absolute; top: 96px; right: 22px; font-size: 12px; color: #8fa0c5; }
 
+  /* Accessibility: respect reduced-motion — cut flashes and looping animations */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.001s !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.06s !important;
+    }
+    #encounter-flash, #vignette { display: none !important; }
+  }
+
   /* ============================================================
      CATCH-'EM ADVENTURE UI
      ============================================================ */

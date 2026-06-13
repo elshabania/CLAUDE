@@ -18,7 +18,7 @@ import { SPECIES } from "./enemies.js";
 import { buildVenusaur } from "./venusaur.js";
 import { buildBlastoise } from "./blastoise.js";
 import { buildVoltaron } from "./voltaron.js";
-import { getRoundScript, victoryLine, defeatLine, milestoneLine, encounterLine, catchSuccessLine, catchFailLine, commandLine, dexBlurb } from "./story.js";
+import { getRoundScript, victoryLine, defeatLine, milestoneLine, encounterLine, catchSuccessLine, catchFailLine, commandLine, dexBlurb, ADVENTURE_OPENING } from "./story.js";
 import { initEnvironment, updateEnvironment, launchFireworks } from "./environment.js";
 import { initAmbience, updateAmbience } from "./ambience.js";
 import { createSfx } from "./sfx.js";
@@ -2236,6 +2236,10 @@ document.getElementById("start-btn").addEventListener("click", () => {
   if (!IS_TOUCH) renderer.domElement.requestPointerLock();
   startWave();
   callout("Explore! Find wild Pokémon · command CHARIZARD with 1–6 · press F to throw a Poké Ball", 5500);
+  // adventure opening narration
+  if (ADVENTURE_OPENING && ADVENTURE_OPENING.length) {
+    ADVENTURE_OPENING.forEach((line, i) => setTimeout(() => { if (state.running) showDialogue(line); }, 800 + i * 4200));
+  }
 });
 
 // ----------------------------------------------------------------------------
