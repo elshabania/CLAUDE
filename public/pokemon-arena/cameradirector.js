@@ -50,8 +50,9 @@ export function createCameraDirector(camera) {
     const speed = Math.max(0, ctx.speed || 0);
     const speedN = Math.min(1, speed / 8);
 
-    // distance breathes: in ~5.5 when still, out ~9 when fast.
-    const dist = 5.5 + speedN * 3.5;
+    // distance breathes: trainer watches from a comfortable distance —
+    // in ~7.5 when still, out ~12 when fast.
+    const dist = 7.5 + speedN * 4.5;
 
     // orbit offset behind Ash at yaw/pitch.
     const cp = Math.cos(pitch);
@@ -70,28 +71,65 @@ export function createCameraDirector(camera) {
     return 58 + speedN * 6; // breathing fov
   }
 
+  // Frame the Pokémon clash (partner + target), keeping Ash out of the
+  // tight shot so he reads as watching from a distance.
   function poseCommand(ctx) {
-    const target = ctx.targetPos || ctx.ashPos;
-    _mid.copy(ctx.ashPos).add(target).multiplyScalar(0.5);
-    _mid.y += CHEST;
+    const a = ctx.partnerPos || ctx.ashPos;
+    const target = ctx.targetPos || a;
+    _mid.copy(a).add(target).multiplyScalar(0.5);
+    _mid.y += 0.8;
 
-    const sep = ctx.ashPos.distanceTo(target);
+    const sep = a.distanceTo(target);
     const yaw = ctx.yaw || 0;
-    const dist = 6.5 + sep * 0.9;     // pull back with separation
+    const dist = 6.0 + sep * 0.7;
 
-    const pitch = 0.32;               // slightly higher angle
+    const pitch = 0.3;
     const cp = Math.cos(pitch);
-    _offset.set(
-      Math.sin(yaw) * cp,
-      Math.sin(pitch),
-      Math.cos(yaw) * cp
-    ).multiplyScalar(dist);
+    _offset.set(Math.sin(yaw) * cp, Math.sin(pitch), Math.cos(yaw) * cp).multiplyScalar(dist);
 
     _desiredLook.copy(_mid);
     _desiredPos.copy(_mid).add(_offset);
     clampToTerrain(_desiredPos, ctx.terrainHeight, 0.8);
-
     return 52;
+  }
+
+  // Punch-in on the Pokémon when an attack lands.
+  function poseAttack(ctx) {
+    const a = ctx.partnerPos || ctx.ashPos;
+    const target = ctx.targetPos || a;
+    _mid.copy(a).add(target).multiplyScalar(0.5);
+    _mid.y += 0.9;
+
+    const sep = a.distanceTo(target);
+    const yaw = ctx.yaw || 0;
+    const dist = 4.2 + sep * 0.45;   // tight
+    const pitch = 0.22;
+    const cp = Math.cos(pitch);
+    _offset.set(Math.sin(yaw) * cp, Math.sin(pitch), Math.cos(yaw) * cp).multiplyScalar(dist);
+
+    _desiredLook.copy(_mid);
+    _desiredPos.copy(_mid).add(_offset);
+    clampToTerrain(_desiredPos, ctx.terrainHeight, 0.7);
+    return 44;
+  }
+
+  // Follow the Seismic Slam: a dramatic side shot that frames the diver and
+  // the ground below so the soar + crash both stay on screen.
+  function poseSlam(ctx) {
+    const a = ctx.partnerPos || ctx.ashPos;
+    const groundY = (typeof ctx.terrainHeight === "function") ? ctx.terrainHeight(a.x, a.z) : 0;
+    _mid.set(a.x, (a.y + groundY) * 0.5 + 1.0, a.z); // between the dragon and the ground
+    const yaw = (ctx.yaw || 0) + 0.6;     // bias to a side angle for drama
+    const dist = 13;
+    const pitch = 0.16;
+    const cp = Math.cos(pitch);
+    _offset.set(Math.sin(yaw) * cp, Math.sin(pitch), Math.cos(yaw) * cp).multiplyScalar(dist);
+
+    _desiredLook.copy(_mid);
+    _desiredPos.copy(_mid).add(_offset);
+    _desiredPos.y += 2.0;
+    clampToTerrain(_desiredPos, ctx.terrainHeight, 1.0);
+    return 56;
   }
 
   function poseCapture(ctx, dt) {
@@ -163,6 +201,8 @@ export function createCameraDirector(camera) {
   function computeDesired(ctx, dt) {
     switch (mode) {
       case "command": return poseCommand(ctx);
+      case "attack":  return poseAttack(ctx);
+      case "slam":    return poseSlam(ctx);
       case "capture": return poseCapture(ctx, dt);
       case "victory": return poseVictory(ctx, dt);
       case "title":   return poseTitle(ctx, dt);

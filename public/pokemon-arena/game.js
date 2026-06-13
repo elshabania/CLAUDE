@@ -43,22 +43,22 @@ const CHARACTERS = {
   charizard: {
     name: "CHARIZARD", element: "fire", build: buildCharizard, color: 0xff7711, glow: 0xffaa33,
     breath: [0xff4400, 0xff8800, 0xffcc44],
-    moves: ["CLAW", "BITE", "FLAMETHROWER", "FLAME BURST", "TAIL SLAM", "HYPER BEAM"],
+    moves: ["CLAW", "BITE", "FLAMETHROWER", "FLAME BURST", "TAIL SLAM", "HYPER BEAM", "SEISMIC SLAM"],
   },
   venusaur: {
     name: "VENUSAUR", element: "grass", build: buildVenusaur, color: 0x66dd33, glow: 0xaaff66,
     breath: [0x44aa22, 0x77dd44, 0xc8ff88],
-    moves: ["VINE SLASH", "CHOMP", "RAZOR LEAF", "SEED BOMB", "PETAL SPIN", "SOLAR BEAM"],
+    moves: ["VINE SLASH", "CHOMP", "RAZOR LEAF", "SEED BOMB", "PETAL SPIN", "SOLAR BEAM", "VINE SUPLEX"],
   },
   blastoise: {
     name: "BLASTOISE", element: "water", build: buildBlastoise, color: 0x33aaff, glow: 0x88ddff,
     breath: [0x1177cc, 0x44aaff, 0xbbeeff],
-    moves: ["AQUA PUNCH", "CRUNCH", "HYDRO PUMP", "WATER PULSE", "SHELL SPIN", "HYDRO BEAM"],
+    moves: ["AQUA PUNCH", "CRUNCH", "HYDRO PUMP", "WATER PULSE", "SHELL SPIN", "HYDRO BEAM", "TIDAL CRASH"],
   },
   voltaron: {
     name: "VOLTARON", element: "electric", build: buildVoltaron, color: 0xffdd22, glow: 0xffee88,
     breath: [0xddaa00, 0xffdd33, 0xffffaa],
-    moves: ["THUNDER CLAW", "SPARK FANG", "VOLT STREAM", "THUNDER BOMB", "VOLT SPIN", "GIGA BOLT"],
+    moves: ["THUNDER CLAW", "SPARK FANG", "VOLT STREAM", "THUNDER BOMB", "VOLT SPIN", "GIGA BOLT", "THUNDER DROP"],
   },
 };
 let currentChar = CHARACTERS.charizard;
@@ -1043,7 +1043,7 @@ const HUD = {
   vignette: document.getElementById("vignette"),
   muteHint: document.getElementById("mute-hint"),
   flyBtn: document.getElementById("fly-btn"),
-  moves: [1, 2, 3, 4, 5, 6].map(i => {
+  moves: [1, 2, 3, 4, 5, 6, 7].map(i => {
     const el = document.getElementById(`move-${i}`);
     return { el, shade: el.querySelector(".cd-shade"), num: el.querySelector(".cd-num") };
   }),
@@ -1120,6 +1120,8 @@ const player = {
   autoTimer: 2,
   ai: true,          // companion is AI-driven (Ash commands it)
   commandT: 0,       // >0 while pressing an attack toward the target
+  attackCamT: 0,     // >0 holds the camera zoomed on the Pokémon clash
+  slam: null,        // active Seismic Slam sequence state
 };
 scene.add(player.group);
 player.mode = "fly"; // the companion flies alongside Ash
@@ -1169,6 +1171,7 @@ const MOVES = [
   { cd: 9.0, timer: 0 },   // BURST (AoE projectile)
   { cd: 6.0, timer: 0 },   // SPIN SLAM (360° melee)
   { cd: 14.0, timer: 0 },  // HYPER BEAM
+  { cd: 16.0, timer: 0 },  // SEISMIC SLAM (grab + dive-bomb)
 ];
 
 // character selection (title screen)
@@ -1348,6 +1351,7 @@ document.addEventListener("keydown", (e) => {
     if (e.code === "Digit4") command(3);
     if (e.code === "Digit5") command(4);
     if (e.code === "Digit6") command(5);
+    if (e.code === "Digit7") command(6);
     if (e.code === "KeyF" || e.code === "Space") { e.preventDefault(); attemptCatch(); }
     if (e.code === "KeyQ") dodge(-1);
     if (e.code === "KeyE") dodge(1);
@@ -1509,6 +1513,7 @@ function useMove(i) {
   if (!target || target.dead) target = pickTarget();
   move.timer = move.cd;
   player.fireFlash = 0.3;
+  player.attackCamT = 0.9; // punch the camera in on the Pokémon during the hit
 
   // assisted aim: whip around to face the enemy you're attacking
   if (target && !target.dead) {
@@ -1598,7 +1603,142 @@ function useMove(i) {
     AudioSys.tone({ freq: 1200, dur: 0.7, type: "sawtooth", gain: 0.12, slide: 0.3 });
     player.beamT = 0.75;
     callout(`<b>${currentChar.moves[5]}</b>!!`);
+  } else if (i === 6) {
+    // SEISMIC SLAM — grab the wild Pokémon, soar up, and dive-bomb it down
+    if (!target || target.dead) return;
+    player.slam = { phase: "grab", t: 0, e: target, diveX: 0, diveZ: 0 };
+    player.attackCamT = 4.0; // keep the camera on the whole cinematic
+    callout(`<b>${currentChar.moves[6]}</b>!`);
+    AudioSys.sfx?.roar?.();
   }
+}
+
+// ----------------------------------------------------------------------------
+// SEISMIC SLAM — cinematic grab → soar → dive-bomb → earth shatter
+// ----------------------------------------------------------------------------
+const debris = [];
+const _debrisGeo = new THREE.DodecahedronGeometry(1, 0);
+function spawnDebris(center, count) {
+  for (let i = 0; i < count; i++) {
+    const s = rand(0.18, 0.7);
+    const m = new THREE.Mesh(_debrisGeo, new THREE.MeshStandardMaterial({
+      color: new THREE.Color().setHSL(0.09, 0.35, rand(0.3, 0.5)), roughness: 1, flatShading: true,
+    }));
+    m.scale.setScalar(s);
+    m.position.copy(center).add(new THREE.Vector3(rand(-1.5, 1.5), 0.2, rand(-1.5, 1.5)));
+    m.castShadow = true;
+    scene.add(m);
+    const a = rand(0, TAU), out = rand(4, 11);
+    debris.push({
+      mesh: m, life: rand(1.1, 1.9),
+      vel: new THREE.Vector3(Math.cos(a) * out, rand(7, 13), Math.sin(a) * out),
+      spin: new THREE.Vector3(rand(-6, 6), rand(-6, 6), rand(-6, 6)),
+    });
+  }
+  if (debris.length > 80) { const d = debris.shift(); scene.remove(d.mesh); d.mesh.material.dispose(); }
+}
+function updateDebris(dt) {
+  for (let i = debris.length - 1; i >= 0; i--) {
+    const d = debris[i];
+    d.life -= dt;
+    d.vel.y -= 26 * dt;
+    d.mesh.position.addScaledVector(d.vel, dt);
+    d.mesh.rotation.x += d.spin.x * dt; d.mesh.rotation.y += d.spin.y * dt;
+    const gy = terrainHeight(d.mesh.position.x, d.mesh.position.z);
+    if (d.mesh.position.y < gy) { d.mesh.position.y = gy; d.vel.set(0, 0, 0); d.spin.set(0, 0, 0); }
+    if (d.life <= 0) { scene.remove(d.mesh); d.mesh.material.dispose(); debris.splice(i, 1); }
+  }
+}
+function earthShatter(center) {
+  addScorch(center, 3.4);
+  addScorch(center.clone().add(new THREE.Vector3(rand(-2, 2), 0, rand(-2, 2))), 1.8);
+  addShockwave(center, 13, 0xe6d2a4);
+  addShockwave(center, 8, 0xfff2d4);
+  // billowing dust plume
+  for (let i = 0; i < 48; i++) {
+    const a = rand(0, TAU), sp = rand(2, 9);
+    spawnParticle({
+      pos: center.clone().add(new THREE.Vector3(rand(-2, 2), rand(0, 0.6), rand(-2, 2))),
+      smoke: true, color: 0xb8a589, size: rand(1.3, 2.8), endSize: rand(4.5, 7.5),
+      life: rand(1.1, 2.0),
+      vel: new THREE.Vector3(Math.cos(a) * sp, rand(1.5, 5), Math.sin(a) * sp),
+      drag: 0.8, spin: rand(-1, 1),
+    });
+  }
+  // hot ground sparks
+  burst(center, { count: 24, color: 0xffcf7a, speed: 13, size: 0.55, life: 0.6, up: 3 });
+  spawnDebris(center, 18);
+  flashFxLight(center, 0xfff0c0, 22, 10);
+}
+function endSlam() {
+  if (player.slam && player.slam.e) player.slam.e.grabbed = false;
+  player.slam = null;
+}
+function slamImpact(s) {
+  const p = new THREE.Vector3(player.pos.x, terrainHeight(player.pos.x, player.pos.z), player.pos.z);
+  earthShatter(p);
+  state.shake = Math.max(state.shake, 1.0);
+  state.hitStopHold = 0.14;
+  state.timeScale = 0.05;
+  state.fovKick = 9;
+  AudioSys.explosion?.();
+  AudioSys.sfx?.superHit?.();
+  const e = s.e;
+  if (e && !e.dead) {
+    e.grabbed = false;
+    e.pos.copy(p).add(new THREE.Vector3(0, 0.4, 0));
+    if (e.group) e.group.position.copy(e.pos);
+    e.slow = Math.max(e.slow || 0, 1.4);
+    damageEnemy(e, 85 * player.dmgMul);
+  }
+}
+function updateSlam(dt) {
+  const s = player.slam, e = s.e;
+  if (!e || e.dead) { endSlam(); return; }
+  s.t += dt;
+  const baseY = terrainHeight(e.pos.x, e.pos.z);
+  player.attackCamT = Math.max(player.attackCamT, 0.3);
+
+  if (s.phase === "grab") {
+    const grab = e.pos.clone(); grab.y = baseY + 2.4;
+    player.pos.lerp(grab, 1 - Math.pow(0.0006, dt));
+    player.pitch = lerp(player.pitch, 0.5, 1 - Math.pow(0.05, dt));
+    player.yaw = lerpAngle(player.yaw, Math.atan2(e.pos.x - player.pos.x, e.pos.z - player.pos.z), 1 - Math.pow(0.05, dt));
+    if (s.t > 0.32 || player.pos.distanceTo(grab) < 0.7) {
+      e.grabbed = true; s.colX = player.pos.x; s.colZ = player.pos.z;
+      s.phase = "rise"; s.t = 0; AudioSys.flap?.();
+    }
+  } else if (s.phase === "rise") {
+    const k = Math.min(1, s.t / 0.6), ease = k * k;
+    player.pos.x = lerp(player.pos.x, s.colX, 1 - Math.pow(0.1, dt));
+    player.pos.z = lerp(player.pos.z, s.colZ, 1 - Math.pow(0.1, dt));
+    player.pos.y = baseY + lerp(2.4, 24, ease);
+    player.yaw += dt * 5; player.pitch = lerp(player.pitch, -0.25, 1 - Math.pow(0.06, dt));
+    if (k >= 1) { s.phase = "hang"; s.t = 0; }
+  } else if (s.phase === "hang") {
+    player.pos.y = baseY + 24;
+    if (s.t > 0.2) { s.phase = "dive"; s.t = 0; s.diveX = player.pos.x; s.diveZ = player.pos.z; }
+  } else if (s.phase === "dive") {
+    const k = Math.min(1, s.t / 0.3), ease = k * k * k;
+    const top = terrainHeight(s.diveX, s.diveZ) + 24, bot = terrainHeight(s.diveX, s.diveZ) + 1.8;
+    player.pos.x = s.diveX; player.pos.z = s.diveZ;
+    player.pos.y = lerp(top, bot, ease);
+    player.pitch = lerp(player.pitch, 1.2, 1 - Math.pow(0.02, dt));
+    if (Math.random() < dt * 50) {
+      spawnParticle({ pos: player.pos.clone(), smoke: true, color: 0xccbb99, size: rand(0.5, 1), endSize: 2, life: 0.4,
+        vel: new THREE.Vector3(rand(-1, 1), rand(1, 3), rand(-1, 1)) });
+    }
+    if (k >= 1) { slamImpact(s); endSlam(); return; }
+  }
+
+  // carry the wild Pokémon clutched beneath the claws (not during the grab approach)
+  if (s.phase !== "grab" && e && !e.dead) {
+    e.grabbed = true;
+    e.pos.set(player.pos.x, player.pos.y - 1.7, player.pos.z);
+    if (e.group) { e.group.position.copy(e.pos); e.group.rotation.set(Math.sin(s.t * 22) * 0.4, e.yaw || 0, 0); }
+  }
+  player.group.position.copy(player.pos);
+  player.group.rotation.set(-player.pitch, player.yaw, 0);
 }
 
 // quick sidestep dodge with brief invulnerability
@@ -1966,6 +2106,9 @@ function updateEnemies(dt) {
       continue;
     }
 
+    // grabbed by a Seismic Slam — its position is driven by the slam sequence
+    if (e.grabbed) { if (e.group) e.group.position.copy(e.pos); continue; }
+
     if (e.flash > 0) {
       e.flash -= dt;
       const on = e.flash > 0;
@@ -2245,8 +2388,8 @@ document.getElementById("start-btn").addEventListener("click", () => {
 // ----------------------------------------------------------------------------
 // Trainer commands & catching
 // ----------------------------------------------------------------------------
-const MELEE_MOVES = new Set([0, 1, 4]);        // STRIKE, BITE, SPIN are melee
-const MELEE_RANGE = [4.6, 3.8, 0, 0, 7, 0];    // per-move reach
+const MELEE_MOVES = new Set([0, 1, 4, 6]);      // STRIKE, BITE, SPIN, SEISMIC SLAM are melee
+const MELEE_RANGE = [4.6, 3.8, 0, 0, 7, 0, 4];  // per-move reach
 function command(i) {
   if (!state.running || state.over) return;
   if (!target || target.dead) target = pickTarget();
@@ -2351,7 +2494,7 @@ function switchActive(idx) {
     currentChar = {
       name: wk.name, build: wk.build, color: col, glow: col,
       breath: [col, 0xffcc66, 0xffffff], element: wk.type || "normal",
-      moves: ["STRIKE", "BITE", "BREATH", "BURST", "SPIN", "BEAM"],
+      moves: ["STRIKE", "BITE", "BREATH", "BURST", "SPIN", "BEAM", "SEISMIC SLAM"],
     };
   }
   const lvl = mon.level ?? 5;
@@ -2440,6 +2583,9 @@ function renderDex() {
 // Companion AI — Charizard follows Ash and flies in to attack on command
 // ----------------------------------------------------------------------------
 function updatePlayer(dt) {
+  player.attackCamT = Math.max(0, player.attackCamT - dt);
+  // Seismic Slam fully scripts the companion's motion — skip normal AI.
+  if (player.slam) { updateSlam(dt); return; }
   const grounded = false, landing = false, boost = false;
   player.commandT = Math.max(0, player.commandT - dt);
   const engaged = player.commandT > 0 && target && !target.dead;
@@ -2825,7 +2971,9 @@ function updateCamera(dt) {
   // on touch (no mouse orbit) the camera eases in behind Ash's heading
   if (IS_TOUCH) orbit.yaw = lerpAngle(orbit.yaw, ash.yaw, 1 - Math.pow(0.06, dt));
   let mode = "explore";
-  if (throwActive) mode = "capture";
+  if (player.slam) mode = "slam";                 // follow the soar + dive-bomb
+  else if (throwActive) mode = "capture";
+  else if (player.attackCamT > 0 && target && !target.dead) mode = "attack"; // zoom on the clash
   else if (player.commandT > 0 && target && !target.dead) mode = "command";
   cameraDir.setMode(mode);
   if (state.shake > 0.01) { cameraDir.shake(state.shake); state.shake = 0; }
@@ -2977,6 +3125,7 @@ function tick() {
   updateScorches(sdt);
   updateShockwaves(sdt);
   updateSlashArcs(sdt);
+  updateDebris(sdt);
   updateEnvironment(dt, state.time);
   updateAmbience(dt, state.time, ash.pos);
   adaptiveQ.update(dt);
