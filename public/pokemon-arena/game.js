@@ -233,7 +233,10 @@ class Game {
   }
 
   deployPartner(idx) {
-    if (this.partner) { this.scene.add(this.partner.group); this.scene.remove(this.partner.group); this.partner.group.parent && this.partner.group.parent.remove(this.partner.group); }
+    if (this.partner && this.partner.group) {
+      if (this.partner.beamStop) { this.partner.beamStop(); this.partner.beamStop = null; }
+      this.scene.remove(this.partner.group);
+    }
     const entry = this.state.roster[idx];
     const built = buildPokemon(entry);
     const grp = built.group;
@@ -520,6 +523,7 @@ class Game {
     if (!w) { this.showCallout('NO TARGET', 0xff8888); return; }
     if (this.state.caught[w.species.id]) { this.showCallout('ALREADY CAUGHT', 0x88ccff); }
     this.catchCooldown = 1.6;
+    this.ashAnim.throw = 0.4; // trigger throw-arm animation
     if (this.sfx) this.sfx.catchBall();
     // Ball projectile
     const ball = this.makeBall();
@@ -546,6 +550,7 @@ class Game {
   }
 
   resolveCatch(w, ball) {
+    w.catching = true; // freeze its AI while the ball does its thing
     // catch chance based on HP ratio + status
     const ratio = w.hp / w.hpMax;
     let chance = 0.12 + (1 - ratio) * 0.7;
@@ -580,6 +585,7 @@ class Game {
       this.afterEncounter(true);
     } else {
       w.group.visible = true;
+      w.catching = false;
       this.showCallout('IT BROKE FREE!', 0xff8888);
       if (this.sfx) this.sfx.hurt();
     }
@@ -802,6 +808,12 @@ class Game {
     this.ash.rotation.y = damp(this.ash.rotation.y, this.ashFacing, 12, dt);
     const moveSpeed = Math.hypot(this.ashVel.x, this.ashVel.z);
     this.animateRig(this.ash, dt, t, moveSpeed, false, this.ashAnim, false);
+    // Throw-arm flourish when tossing a Poké Ball.
+    if (this.ashAnim.throw > 0) {
+      this.ashAnim.throw -= dt;
+      const arm = this.ash.userData.throwArm;
+      if (arm) arm.rotation.x = -Math.sin(clamp(this.ashAnim.throw / 0.4, 0, 1) * Math.PI) * 2.4;
+    }
     if (moveSpeed > 1 && this.sfx && Math.random() < dt * moveSpeed * 0.6) this.sfx.step();
   }
 
@@ -822,6 +834,9 @@ class Game {
     let attacking = false, moveSpeed = 0;
     p.cmdT += dt;
     if (p.iframe > 0) p.iframe -= dt;
+
+    // If our target vanished (caught/KO'd) mid-action, bail out so we don't get stuck.
+    if ((p.cmd === 'dash' || p.cmd === 'attack') && !target) { this.endMove(p); }
 
     if (p.cmd === 'dash' && target) {
       // dash toward target until in move range
@@ -1001,6 +1016,7 @@ class Game {
       this.applyFlash(w);
 
       let moveSpeed = 0;
+      if (w.catching) { continue; }
       if (w.hp <= 0 || w.ai === 'down') {
         // downed: slump, no action
         this.animateRig(w.group, dt, t, 0, w.flying, w.anim, false);
@@ -1517,4 +1533,5 @@ class Game {
 }
 
 // ----------------------------------------------------------------------------
-window.addEventListener('DOMContentLoaded', () => { new Game(); });
+if (document.readyState === 'loading') window.addEventListener('DOMContentLoaded', () => { new Game(); });
+else new Game();
