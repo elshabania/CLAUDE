@@ -270,5 +270,270 @@ export function createSfx(ctx, masterGain) {
     });
   }
 
-  return { roar, cheer, superHit, weakHit, countdown, levelFanfare };
+  // --- Catch-'em loop SFX -------------------------------------------------
+
+  function ballThrow() {
+    if (!ctx) return;
+    const t0 = ctx.currentTime;
+    const dur = 0.25;
+    const bus = makeBus(1);
+
+    // Filtered noise sweeping up = quick whoosh.
+    const noise = makeNoiseSource();
+    const bp = ctx.createBiquadFilter();
+    bp.type = 'bandpass';
+    bp.Q.value = 1.5;
+    bp.frequency.setValueAtTime(400, t0);
+    bp.frequency.exponentialRampToValueAtTime(2400, t0 + dur);
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.linearRampToValueAtTime(0.28, t0 + 0.05);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+    noise.connect(bp);
+    bp.connect(g);
+    g.connect(bus);
+
+    noise.start(t0);
+    noise.stop(t0 + dur);
+  }
+
+  function ballBounce() {
+    if (!ctx) return;
+    const t0 = ctx.currentTime;
+    const dur = 0.18;
+    const bus = makeBus(1);
+
+    // Hollow "tok": short sine pluck.
+    const osc = ctx.createOscillator();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(200, t0);
+    osc.frequency.exponentialRampToValueAtTime(140, t0 + dur);
+    const oscGain = ctx.createGain();
+    envelope(oscGain, t0, 0.28, 0.002, dur);
+    osc.connect(oscGain);
+    oscGain.connect(bus);
+
+    // Click transient on landing.
+    const click = makeNoiseSource();
+    const hp = ctx.createBiquadFilter();
+    hp.type = 'highpass';
+    hp.frequency.value = 2000;
+    const clickGain = ctx.createGain();
+    envelope(clickGain, t0, 0.15, 0.001, 0.03);
+    click.connect(hp);
+    hp.connect(clickGain);
+    clickGain.connect(bus);
+
+    osc.start(t0);
+    osc.stop(t0 + dur);
+    click.start(t0);
+    click.stop(t0 + 0.04);
+  }
+
+  function ballWobble() {
+    if (!ctx) return;
+    const t0 = ctx.currentTime;
+    const dur = 0.15;
+    const bus = makeBus(1);
+
+    // Mechanical click.
+    const click = makeNoiseSource();
+    const bpClick = ctx.createBiquadFilter();
+    bpClick.type = 'bandpass';
+    bpClick.frequency.value = 1800;
+    bpClick.Q.value = 4;
+    const clickGain = ctx.createGain();
+    envelope(clickGain, t0, 0.2, 0.001, 0.04);
+    click.connect(bpClick);
+    bpClick.connect(clickGain);
+    clickGain.connect(bus);
+
+    // Creak: short rising filtered noise after the click.
+    const tc = t0 + 0.05;
+    const creak = makeNoiseSource();
+    const bpCreak = ctx.createBiquadFilter();
+    bpCreak.type = 'bandpass';
+    bpCreak.Q.value = 6;
+    bpCreak.frequency.setValueAtTime(600, tc);
+    bpCreak.frequency.exponentialRampToValueAtTime(1100, tc + 0.1);
+    const creakGain = ctx.createGain();
+    envelope(creakGain, tc, 0.12, 0.01, 0.1);
+    creak.connect(bpCreak);
+    bpCreak.connect(creakGain);
+    creakGain.connect(bus);
+
+    click.start(t0);
+    click.stop(t0 + 0.05);
+    creak.start(tc);
+    creak.stop(tc + 0.1);
+  }
+
+  function catchSuccess() {
+    if (!ctx) return;
+    const t0 = ctx.currentTime;
+    const bus = makeBus(1);
+
+    // Iconic 3-blip "ding-ding-ding!".
+    const blipFreq = 1318.51; // E6
+    for (let i = 0; i < 3; i++) {
+      const tn = t0 + i * 0.16;
+      const osc = ctx.createOscillator();
+      osc.type = 'square';
+      osc.frequency.value = blipFreq;
+      const g = ctx.createGain();
+      envelope(g, tn, 0.16, 0.005, 0.1);
+      osc.connect(g);
+      g.connect(bus);
+      osc.start(tn);
+      osc.stop(tn + 0.1);
+    }
+
+    // Happy 4-note jingle after the blips.
+    const jingleStart = t0 + 0.55;
+    const notes = [659.25, 783.99, 987.77, 1318.51]; // E5 G5 B5 E6
+    const step = 0.18;
+    notes.forEach((freq, i) => {
+      const tn = jingleStart + i * step;
+      const noteDur = i === notes.length - 1 ? 0.3 : 0.18;
+      const osc = ctx.createOscillator();
+      osc.type = 'triangle';
+      osc.frequency.value = freq;
+      const g = ctx.createGain();
+      envelope(g, tn, 0.24, 0.008, noteDur);
+      osc.connect(g);
+      g.connect(bus);
+      osc.start(tn);
+      osc.stop(tn + noteDur);
+    });
+  }
+
+  function catchFail() {
+    if (!ctx) return;
+    const t0 = ctx.currentTime;
+    const bus = makeBus(1);
+
+    // Descending two-tone "aww".
+    const tones = [[440, 0], [330, 0.22]]; // A4 -> E4
+    tones.forEach(([freq, off]) => {
+      const tn = t0 + off;
+      const noteDur = 0.26;
+      const osc = ctx.createOscillator();
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(freq, tn);
+      osc.frequency.linearRampToValueAtTime(freq * 0.94, tn + noteDur);
+      const g = ctx.createGain();
+      envelope(g, tn, 0.18, 0.01, noteDur);
+      osc.connect(g);
+      g.connect(bus);
+      osc.start(tn);
+      osc.stop(tn + noteDur);
+    });
+
+    // Soft noise burst = the ball pops open / break-out.
+    const tb = t0 + 0.42;
+    const burst = makeNoiseSource();
+    const bp = ctx.createBiquadFilter();
+    bp.type = 'bandpass';
+    bp.frequency.value = 1200;
+    bp.Q.value = 0.7;
+    const burstGain = ctx.createGain();
+    envelope(burstGain, tb, 0.14, 0.005, 0.1);
+    burst.connect(bp);
+    bp.connect(burstGain);
+    burstGain.connect(bus);
+    burst.start(tb);
+    burst.stop(tb + 0.1);
+  }
+
+  function encounter() {
+    if (!ctx) return;
+    const t0 = ctx.currentTime;
+    const dur = 0.6;
+    const bus = makeBus(1);
+
+    // Tense rising stinger: two detuned saws sweeping up.
+    for (const detune of [-8, 8]) {
+      const osc = ctx.createOscillator();
+      osc.type = 'sawtooth';
+      osc.detune.value = detune;
+      osc.frequency.setValueAtTime(220, t0);
+      osc.frequency.exponentialRampToValueAtTime(660, t0 + dur);
+      const g = ctx.createGain();
+      g.gain.setValueAtTime(0.0001, t0);
+      g.gain.linearRampToValueAtTime(0.14, t0 + 0.4);
+      g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+      osc.connect(g);
+      g.connect(bus);
+      osc.start(t0);
+      osc.stop(t0 + dur);
+    }
+
+    // Tremolo shimmer on top via a fast LFO-driven gain.
+    const top = ctx.createOscillator();
+    top.type = 'triangle';
+    top.frequency.setValueAtTime(880, t0);
+    top.frequency.exponentialRampToValueAtTime(1320, t0 + dur);
+    const topGain = ctx.createGain();
+    topGain.gain.setValueAtTime(0.0001, t0);
+    topGain.gain.linearRampToValueAtTime(0.08, t0 + dur);
+    const lfo = ctx.createOscillator();
+    lfo.type = 'sine';
+    lfo.frequency.value = 14;
+    const lfoGain = ctx.createGain();
+    lfoGain.gain.value = 0.04;
+    lfo.connect(lfoGain);
+    lfoGain.connect(topGain.gain);
+    top.connect(topGain);
+    topGain.connect(bus);
+    top.start(t0);
+    top.stop(t0 + dur);
+    lfo.start(t0);
+    lfo.stop(t0 + dur);
+  }
+
+  function wildCry(typeStr) {
+    if (!ctx) return;
+    const t0 = ctx.currentTime;
+    const dur = 0.3;
+    const bus = makeBus(1);
+
+    // Per-type voice: waveform, base pitch and warble depth/speed.
+    const voices = {
+      fire:     { type: 'sawtooth', base: 520, warbleHz: 22, warbleCents: 60 },
+      water:    { type: 'sine',     base: 440, warbleHz: 9,  warbleCents: 90 },
+      grass:    { type: 'triangle', base: 480, warbleHz: 14, warbleCents: 50 },
+      electric: { type: 'square',   base: 720, warbleHz: 30, warbleCents: 40 },
+      rock:     { type: 'square',   base: 300, warbleHz: 7,  warbleCents: 70 },
+    };
+    const v = voices[typeStr] || { type: 'triangle', base: 600, warbleHz: 16, warbleCents: 55 };
+
+    const osc = ctx.createOscillator();
+    osc.type = v.type;
+    osc.frequency.setValueAtTime(v.base, t0);
+    osc.frequency.exponentialRampToValueAtTime(v.base * 1.4, t0 + dur);
+
+    // Warble: LFO modulating detune.
+    const lfo = ctx.createOscillator();
+    lfo.type = 'sine';
+    lfo.frequency.value = v.warbleHz;
+    const lfoGain = ctx.createGain();
+    lfoGain.gain.value = v.warbleCents;
+    lfo.connect(lfoGain);
+    lfoGain.connect(osc.detune);
+
+    const g = ctx.createGain();
+    envelope(g, t0, 0.22, 0.01, dur);
+    osc.connect(g);
+    g.connect(bus);
+
+    osc.start(t0);
+    osc.stop(t0 + dur);
+    lfo.start(t0);
+    lfo.stop(t0 + dur);
+  }
+
+  return {
+    roar, cheer, superHit, weakHit, countdown, levelFanfare,
+    ballThrow, ballBounce, ballWobble, catchSuccess, catchFail, encounter, wildCry,
+  };
 }
