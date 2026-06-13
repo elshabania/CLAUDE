@@ -10,14 +10,60 @@ import * as THREE from "three";
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
+// Cel/toon shading: quantize diffuse lighting into 3 hard bands via an
+// onBeforeCompile hook so every MeshStandardMaterial reads like flat anime ink.
+function celShade(material) {
+  material.onBeforeCompile = (shader) => {
+    shader.fragmentShader = shader.fragmentShader.replace(
+      "#include <lights_fragment_begin>",
+      `#include <lights_fragment_begin>
+       {
+         // Re-quantize the accumulated direct diffuse into 3 toon bands.
+         float _lum = dot(reflectedLight.directDiffuse, vec3(0.299, 0.587, 0.114));
+         float _band = _lum < 0.18 ? 0.45 : (_lum < 0.55 ? 0.78 : 1.0);
+         reflectedLight.directDiffuse = _lum > 0.0001
+           ? reflectedLight.directDiffuse * (_band / _lum)
+           : reflectedLight.directDiffuse;
+       }`
+    );
+  };
+  // Force a recompile if the material is reused.
+  material.customProgramCacheKey = () => "ashToon3band";
+  return material;
+}
+
 function mat(color, roughness = 0.8, opts = {}) {
-  return new THREE.MeshStandardMaterial({
-    color,
-    roughness,
-    metalness: 0.0,
-    envMapIntensity: 0.5,
-    ...opts,
-  });
+  return celShade(
+    new THREE.MeshStandardMaterial({
+      color,
+      roughness,
+      metalness: 0.0,
+      envMapIntensity: 0.5,
+      ...opts,
+    })
+  );
+}
+
+// Thin inverted-hull outline: clone geometry, draw backfaces pushed out along
+// the normals in solid black for an anime ink-line silhouette.
+function addOutline(mesh, thickness = 0.012) {
+  const outline = new THREE.Mesh(
+    mesh.geometry,
+    new THREE.MeshBasicMaterial({
+      color: 0x0a0a0a,
+      side: THREE.BackSide,
+    })
+  );
+  // Scale the hull outward in local space proportional to the mesh size.
+  mesh.geometry.computeBoundingSphere();
+  const r = mesh.geometry.boundingSphere ? mesh.geometry.boundingSphere.radius : 1;
+  const k = 1 + thickness / Math.max(r, 0.02);
+  outline.scale.set(k, k, k);
+  outline.userData.noShadow = true;
+  outline.castShadow = false;
+  outline.receiveShadow = false;
+  mesh.add(outline);
+  return outline;
 }
 
 function canvasTexture(size, draw, srgb = true) {
@@ -553,6 +599,11 @@ function buildArm(side, restAtBelt = false) {
   fingers.scale.set(1, 0.7, 0.8);
   elbow.add(fingers);
 
+  // Ink outlines on the arm masses for the anime line look.
+  addOutline(sleeve, 0.012);
+  addOutline(forearm, 0.012);
+  addOutline(hand, 0.012);
+
   if (restAtBelt) {
     // Static elbow bend: forearm swings forward/inward so the gloved hand
     // hovers right beside the PokéBall on the belt. Shoulder pivot stays 0.
@@ -566,23 +617,30 @@ function buildArm(side, restAtBelt = false) {
 }
 
 function buildLeg(side, jeansTex, sneakerTex) {
+  // Hip-pivot Group: rest rotation 0, the engine swings rotation.x +-0.7 for a
+  // walk/run cycle. The pivot sits at the hip joint (HY); every child keeps the
+  // same WORLD position it had before by being offset -HY in y, so the rest pose
+  // is pixel-identical to the previous static stance.
+  const HY = 0.86;
   const leg = new THREE.Group();
+  leg.position.y = HY;
+  leg.userData.side = side;
   const jeans = mat(0xffffff, FABRIC, { map: jeansTex });
 
   // Stance v2: feet planted slightly apart with a hint of toe-out.
   const thigh = new THREE.Mesh(new THREE.CylinderGeometry(0.077, 0.068, 0.4, 12), jeans);
-  thigh.position.set(side * 0.105, 0.66, 0);
+  thigh.position.set(side * 0.105, 0.66 - HY, 0);
   thigh.rotation.z = -side * 0.08;
   leg.add(thigh);
 
   // Boot-cut: calf flares slightly at the ankle
   const calf = new THREE.Mesh(new THREE.CylinderGeometry(0.062, 0.082, 0.36, 12), jeans);
-  calf.position.set(side * 0.13, 0.29, 0.005);
+  calf.position.set(side * 0.13, 0.29 - HY, 0.005);
   leg.add(calf);
 
   // Sneaker: white sole, two-tone laced upper from texture, black stripe
   const sole = new THREE.Mesh(new THREE.BoxGeometry(0.135, 0.045, 0.27), mat(0xe9e9e9, 0.7));
-  sole.position.set(side * 0.132, 0.025, 0.045);
+  sole.position.set(side * 0.132, 0.025 - HY, 0.045);
   sole.rotation.y = side * 0.09;
   leg.add(sole);
 
@@ -590,15 +648,20 @@ function buildLeg(side, jeansTex, sneakerTex) {
     new THREE.SphereGeometry(0.085, 14, 12),
     mat(0xffffff, 0.65, { map: sneakerTex })
   );
-  upper.position.set(side * 0.132, 0.085, 0.06);
+  upper.position.set(side * 0.132, 0.085 - HY, 0.06);
   upper.scale.set(0.75, 0.75, 1.5);
   upper.rotation.y = side * 0.09;
   leg.add(upper);
 
   const stripe = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.035, 0.13), mat(0x141414, 0.6));
-  stripe.position.set(side * 0.132, 0.085, 0.0);
+  stripe.position.set(side * 0.132, 0.085 - HY, 0.0);
   stripe.rotation.y = side * 0.09;
   leg.add(stripe);
+
+  // Ink outlines on the leg masses.
+  addOutline(thigh, 0.014);
+  addOutline(calf, 0.014);
+  addOutline(upper, 0.012);
 
   return leg;
 }
@@ -637,6 +700,10 @@ function buildCap() {
   button.position.y = 0.135;
   cap.add(button);
 
+  // Ink outline on the cap dome + brim.
+  addOutline(dome, 0.013);
+  addOutline(brim, 0.01);
+
   cap.position.y = 1.605;
   return cap;
 }
@@ -653,7 +720,10 @@ export function buildAsh() {
   const weaveBump = makeWeaveBumpTexture();
 
   // ---- Legs & belt (feet slightly apart for a confident stance) ----
-  group.add(buildLeg(1, jeansTex, sneakerTex), buildLeg(-1, jeansTex, sneakerTex));
+  // Hip-pivot Groups: the engine swings rotation.x +-0.7 for the walk/run cycle.
+  const leftLeg = buildLeg(1, jeansTex, sneakerTex);
+  const rightLeg = buildLeg(-1, jeansTex, sneakerTex);
+  group.add(leftLeg, rightLeg);
 
   const hips = new THREE.Mesh(
     new THREE.CylinderGeometry(0.155, 0.16, 0.12, 16),
@@ -681,12 +751,14 @@ export function buildAsh() {
   ball.rotation.y = 0.5; // angle the button outward
   const ballButton = new THREE.Mesh(
     new THREE.SphereGeometry(0.009, 8, 8),
-    new THREE.MeshStandardMaterial({
-      color: 0xffffff,
-      roughness: 0.2,
-      emissive: 0xbfe8ff,
-      emissiveIntensity: 0.9,
-    })
+    celShade(
+      new THREE.MeshStandardMaterial({
+        color: 0xffffff,
+        roughness: 0.2,
+        emissive: 0xbfe8ff,
+        emissiveIntensity: 0.9,
+      })
+    )
   );
   ballButton.position.set(0, 0, 0.048); // sits on the drawn button (+z local)
   ball.add(ballButton);
@@ -700,6 +772,7 @@ export function buildAsh() {
   torso.position.y = 1.13;
   torso.scale.z = 0.78;
   group.add(torso);
+  addOutline(torso, 0.016);
 
   // White t-shirt peeking at the neckline
   const tee = new THREE.Mesh(new THREE.CylinderGeometry(0.095, 0.12, 0.08, 14), mat(0xf2f2f2, FABRIC));
@@ -753,25 +826,33 @@ export function buildAsh() {
     group.add(strap);
   }
 
-  // ---- Neck & head ----
+  // ---- Neck (stays on the body so it doesn't shear during a look-at) ----
   const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.055, 0.09, 10), SKIN_MAT());
   neck.position.y = 1.43;
   group.add(neck);
+
+  // ---- Head Group: pivots at the neck base so the engine can do a subtle
+  // look-at (small rotation.x/y). Every child is offset by -HPY in y so the
+  // rest pose (rotation 0) is identical to the previous static head.
+  const headGroup = new THREE.Group();
+  const HPY = 1.45; // pivot at the top of the neck
+  headGroup.position.y = HPY;
 
   const head = new THREE.Mesh(
     new THREE.SphereGeometry(0.15, 32, 24),
     mat(0xffffff, 0.55, { map: makeFaceTexture() })
   );
-  head.position.y = 1.555;
+  head.position.y = 1.555 - HPY;
   head.rotation.y = -Math.PI / 2; // canvas center -> +z, face forward
   head.scale.set(0.97, 1.03, 0.97);
-  group.add(head);
+  headGroup.add(head);
+  addOutline(head, 0.012);
 
   for (const sgn of [-1, 1]) {
     const ear = new THREE.Mesh(new THREE.SphereGeometry(0.028, 8, 8), SKIN_MAT());
-    ear.position.set(sgn * 0.143, 1.55, -0.01);
+    ear.position.set(sgn * 0.143, 1.55 - HPY, -0.01);
     ear.scale.set(0.6, 1, 0.8);
-    group.add(ear);
+    headGroup.add(ear);
   }
 
   // ---- Spiky black hair poking out under the cap ----
@@ -789,18 +870,22 @@ export function buildAsh() {
   for (const [ang, y, tilt, len] of spikes) {
     const spike = new THREE.Mesh(new THREE.ConeGeometry(0.038, len, 6), hairMat);
     const dx = Math.sin(ang), dz = Math.cos(ang);
-    spike.position.set(dx * 0.125, y, dz * 0.125);
+    spike.position.set(dx * 0.125, y - HPY, dz * 0.125);
     spike.scale.z = 0.55; // flattened spikes
     // Point the cone outward and downward away from the head
     spike.quaternion.setFromUnitVectors(
       new THREE.Vector3(0, 1, 0),
       new THREE.Vector3(dx * Math.sin(tilt), Math.cos(tilt), dz * Math.sin(tilt)).normalize()
     );
-    group.add(spike);
+    headGroup.add(spike);
   }
 
-  // ---- Cap ----
-  group.add(buildCap());
+  // ---- Cap (re-parented into the head so it turns with the look-at) ----
+  const cap = buildCap();
+  cap.position.y -= HPY;
+  headGroup.add(cap);
+
+  group.add(headGroup);
 
   // ---- Arms (the hard contract) ----
   // Left hangs naturally; right elbow is statically bent so the hand rests by
@@ -810,14 +895,18 @@ export function buildAsh() {
   const rightArm = buildArm(-1, true);
   group.add(leftArm, rightArm);
 
-  // ---- Shadows ----
+  // ---- Shadows (outline hulls opt out via userData.noShadow) ----
   group.traverse((obj) => {
     if (obj.isMesh) {
-      obj.castShadow = true;
+      obj.castShadow = !obj.userData.noShadow;
       obj.receiveShadow = false;
     }
   });
 
+  // ---- Rig contract for the engine ----
   group.userData.arms = [leftArm, rightArm];
+  group.userData.legs = [leftLeg, rightLeg];     // hip-pivot Groups, swing rotation.x +-0.7
+  group.userData.throwArm = rightArm;            // engine cocks/snaps to throw a Poke Ball
+  group.userData.head = headGroup;               // subtle look-at via rotation.x/y
   return group;
 }
