@@ -109,15 +109,17 @@ function makeSkinTextures() {
     paintScales(ctx, SIZE, pal, rng, grad);
     return c;
   };
+  // Bright saturated show-orange (~0xff7a1c) with flatter, graphic shading so
+  // the cel ramp does the heavy lifting; subtle scales for texture only.
   const map = canvasTexture(make({
-    base: "#e8821f",
-    blobLight: "rgba(255,170,70,0.10)", blobDark: "rgba(150,70,10,0.12)",
-    scaleHi: "rgba(255,178,88,0.45)", scaleMid: "rgba(232,130,32,0.18)",
-    scaleLo: "rgba(120,52,8,0.42)",
-    edge: "rgba(96,40,5,0.50)", rim: "rgba(255,205,135,0.30)",
+    base: "#ff7a1c",
+    blobLight: "rgba(255,180,90,0.08)", blobDark: "rgba(210,90,20,0.07)",
+    scaleHi: "rgba(255,196,120,0.22)", scaleMid: "rgba(255,128,30,0.10)",
+    scaleLo: "rgba(190,80,16,0.20)",
+    edge: "rgba(150,62,10,0.28)", rim: "rgba(255,222,170,0.20)",
   }, [
-    [0.0, "rgba(88,34,4,0.26)"], [0.45, "rgba(160,80,20,0.06)"],
-    [0.8, "rgba(255,160,70,0.08)"], [1.0, "rgba(255,185,95,0.14)"],
+    [0.0, "rgba(200,90,18,0.14)"], [0.5, "rgba(255,128,30,0.02)"],
+    [1.0, "rgba(255,170,80,0.10)"],
   ]), true);
   // Matching grayscale bump (high contrast so the crescents really read)
   const bump = canvasTexture(make({
@@ -187,9 +189,10 @@ function makeBellyTextures() {
     }
     return c;
   };
+  // Cream belly (~0xffe1a0), warm and bright with soft segment seams.
   const map = canvasTexture(
-    make("#f3e2b8", "rgba(255,250,225,0.30)", "rgba(180,140,80,0.22)",
-      "rgba(140,105,55,0.55)", "rgba(170,130,75,0.20)"), true);
+    make("#ffe1a0", "rgba(255,248,220,0.28)", "rgba(214,170,100,0.16)",
+      "rgba(176,132,72,0.40)", "rgba(206,162,98,0.16)"), true);
   const bump = canvasTexture(
     make("#8a8a8a", "rgba(225,225,225,0.35)", "rgba(60,60,60,0.30)",
       "rgba(20,20,20,0.75)", "rgba(55,55,55,0.35)"), false);
@@ -206,12 +209,13 @@ function makeWingTexture() {
   const rng = makeRng(9001);
   const SIZE = 1024, S = 2;
   const [c, ctx] = makeCanvas(SIZE);
-  ctx.fillStyle = "#2a777b";
+  // Bright show teal (~0x2fae8e)
+  ctx.fillStyle = "#2fae8e";
   ctx.fillRect(0, 0, SIZE, SIZE);
   for (let i = 0; i < 140 * S * S; i++) {
     const x = rng() * SIZE, y = rng() * SIZE, r = (14 + rng() * 60) * S;
     const g = ctx.createRadialGradient(x, y, 0, x, y, r);
-    g.addColorStop(0, rng() < 0.5 ? "rgba(90,190,185,0.10)" : "rgba(16,68,74,0.15)");
+    g.addColorStop(0, rng() < 0.5 ? "rgba(120,224,196,0.10)" : "rgba(24,120,98,0.12)");
     g.addColorStop(1, "rgba(0,0,0,0)");
     ctx.fillStyle = g;
     ctx.fillRect(x - r, y - r, r * 2, r * 2);
@@ -288,21 +292,23 @@ function makeWingTexture() {
 function makeIrisTexture() {
   const rng = makeRng(77);
   const [c, ctx] = makeCanvas(128);
+  // Big expressive blue-green anime iris with a hard black pupil and a bold
+  // dark limbal ring (the outline-ish rim around the eye).
   const g = ctx.createLinearGradient(0, 0, 0, 128);
-  g.addColorStop(0.00, "#08090c");
-  g.addColorStop(0.14, "#08090c");   // pupil
-  g.addColorStop(0.20, "#5aa6ee");   // bright flare at the pupil edge
-  g.addColorStop(0.34, "#2d72cc");
-  g.addColorStop(0.46, "#173e8e");   // deepening outer iris
-  g.addColorStop(0.52, "#060d1d");   // dark limbal rim
-  g.addColorStop(1.00, "#060d1d");
+  g.addColorStop(0.00, "#070908");
+  g.addColorStop(0.22, "#070908");   // large pupil
+  g.addColorStop(0.27, "#6fe8c8");   // bright cyan flare at pupil edge
+  g.addColorStop(0.42, "#33c2a0");   // blue-green iris body
+  g.addColorStop(0.60, "#1c8f86");   // deepening teal outer iris
+  g.addColorStop(0.70, "#0a3a3a");   // dark limbal rim
+  g.addColorStop(1.00, "#072020");
   ctx.fillStyle = g;
   ctx.fillRect(0, 0, 128, 128);
   for (let i = 0; i < 60; i++) {
     const x = rng() * 128;
     ctx.strokeStyle = rng() < 0.5
-      ? `rgba(140,200,255,${0.08 + rng() * 0.18})`
-      : `rgba(10,25,70,${0.10 + rng() * 0.20})`;
+      ? `rgba(150,255,225,${0.08 + rng() * 0.18})`
+      : `rgba(8,60,55,${0.10 + rng() * 0.20})`;
     ctx.lineWidth = 1 + rng() * 1.6;
     ctx.beginPath();
     ctx.moveTo(x, 20 + rng() * 8);
@@ -316,10 +322,10 @@ function makeIrisTexture() {
 function makeGlowTexture() {
   const [c, ctx] = makeCanvas(128);
   const g = ctx.createRadialGradient(64, 64, 0, 64, 64, 64);
-  g.addColorStop(0, "rgba(255,235,190,1)");
-  g.addColorStop(0.25, "rgba(255,170,70,0.65)");
-  g.addColorStop(0.6, "rgba(255,90,20,0.22)");
-  g.addColorStop(1, "rgba(255,60,0,0)");
+  g.addColorStop(0, "rgba(255,252,235,1)");
+  g.addColorStop(0.22, "rgba(255,200,95,0.85)");
+  g.addColorStop(0.55, "rgba(255,110,25,0.34)");
+  g.addColorStop(1, "rgba(255,70,0,0)");
   ctx.fillStyle = g;
   ctx.fillRect(0, 0, 128, 128);
   return canvasTexture(c, true);
@@ -374,10 +380,10 @@ const FLAME_FRAG = /* glsl */ `
     float alpha = smoothstep(0.12, 0.55, m);
     alpha *= 0.82 + 0.18 * sin(uTime * 22.0 + vPos.y * 11.0);
     float heat = clamp(m * 1.25 + uCore * 0.45 - vT * 0.15, 0.0, 1.0);
-    vec3 col = mix(vec3(0.65, 0.06, 0.01), vec3(1.0, 0.42, 0.04), smoothstep(0.12, 0.48, heat));
-    col = mix(col, vec3(1.0, 0.85, 0.25), smoothstep(0.48, 0.76, heat));
-    col = mix(col, vec3(1.0, 0.99, 0.90), smoothstep(0.76, 0.96, heat));
-    col *= 0.8 + uBoost * 1.1; // > 1 so UnrealBloom (threshold 0.8) catches it
+    vec3 col = mix(vec3(0.95, 0.16, 0.02), vec3(1.0, 0.52, 0.06), smoothstep(0.10, 0.46, heat));
+    col = mix(col, vec3(1.0, 0.92, 0.30), smoothstep(0.44, 0.74, heat));
+    col = mix(col, vec3(1.0, 1.0, 0.95), smoothstep(0.72, 0.95, heat));
+    col *= 1.05 + uBoost * 1.25; // brighter: punchier bloom for the cartoon look
     gl_FragColor = vec4(col, alpha);
   }
 `;
@@ -402,6 +408,76 @@ function makeFlameMesh(radius, height, core = 0) {
   const mesh = new THREE.Mesh(geo, mat);
   mesh.userData.noShadow = true;
   return mesh;
+}
+
+// ============================================================================
+// SECTION 2b — Cel shading + ink outlines (the cartoon look)
+// ============================================================================
+
+// Inject a stepped (3-4 band) diffuse ramp into a standard material so lighting
+// reads flat like an animation cel. Also flattens specular so highlights stay
+// graphic rather than glossy. Applied via onBeforeCompile so the textures,
+// bump/rough maps and PBR pipeline keep working underneath.
+function celShade(mat, bands = 4) {
+  mat.onBeforeCompile = (shader) => {
+    shader.uniforms.uBands = { value: bands };
+    // strengthen ambient floor so shadowed cels stay bright & saturated
+    shader.fragmentShader = shader.fragmentShader
+      .replace(
+        "#include <common>",
+        "#include <common>\nuniform float uBands;\n" +
+        "float celStep(float v){\n" +
+        "  float b = max(2.0, uBands);\n" +
+        "  // soft-quantize: snap to bands but keep tiny AA on the borders\n" +
+        "  float q = floor(v * b) / b;\n" +
+        "  float f = fract(v * b);\n" +
+        "  q += smoothstep(0.78, 0.96, f) / b;\n" +
+        "  return clamp(q * 0.78 + 0.30, 0.0, 1.15);\n" +
+        "}\n"
+      )
+      // quantize the direct light contribution from every light type
+      .replace(
+        "vec3 irradiance = dotNL * directLight.color;",
+        "vec3 irradiance = celStep(dotNL) * directLight.color;"
+      );
+  };
+  mat.needsUpdate = true;
+  return mat;
+}
+
+// Bold anime ink line via inverted-hull: a slightly inflated BackSide copy in
+// flat unlit near-black. Parented as a CHILD of the source mesh so it inherits
+// all animation transforms automatically. Kept out of bodyMats and shadows.
+const OUTLINE_MAT = new THREE.MeshBasicMaterial({
+  color: 0x140a04, side: THREE.BackSide,
+});
+function addOutline(mesh, thickness = 0.045) {
+  // inflate along the mesh's own local scale so the hull hugs the silhouette
+  const o = new THREE.Mesh(mesh.geometry, OUTLINE_MAT);
+  const sx = 1 + thickness / Math.max(0.05, Math.abs(mesh.scale.x));
+  const sy = 1 + thickness / Math.max(0.05, Math.abs(mesh.scale.y));
+  const sz = 1 + thickness / Math.max(0.05, Math.abs(mesh.scale.z));
+  o.scale.set(sx, sy, sz);
+  o.userData.noShadow = true;
+  o.userData.isOutline = true;
+  mesh.add(o);
+  return o;
+}
+
+// Flat membranes can't use a back-side hull, so the wing ink line is a slightly
+// enlarged, double-sided black copy sitting just behind the membrane — the
+// black border peeks out all around the silhouette and scallops.
+const WING_OUTLINE_MAT = new THREE.MeshBasicMaterial({
+  color: 0x140a04, side: THREE.DoubleSide,
+});
+function addWingOutline(mesh, grow = 1.06) {
+  const o = new THREE.Mesh(mesh.geometry, WING_OUTLINE_MAT);
+  o.scale.set(grow, grow, grow);
+  o.position.y -= 0.012;   // tuck just under the membrane plane
+  o.userData.noShadow = true;
+  o.userData.isOutline = true;
+  mesh.add(o);
+  return o;
 }
 
 // ============================================================================
@@ -451,44 +527,44 @@ export function buildCharizard() {
   skinTex.map.repeat.set(2.2, 2.2);
   skinTex.bump.repeat.set(2.2, 2.2);
   skinTex.rough.repeat.set(2.2, 2.2);
-  // roughness 0.9 x map (~0.4 crests .. ~0.8 grooves) so scale sheen varies
-  const skinMat = new THREE.MeshStandardMaterial({
-    map: skinTex.map, bumpMap: skinTex.bump, bumpScale: 0.06,
-    roughnessMap: skinTex.rough, roughness: 0.9,
-    color: 0xffffff, metalness: 0.0, envMapIntensity: 0.5,
-  });
+  // Bright cel-shaded show orange. Flat-ish (high roughness, no env) so the
+  // toon ramp reads as crisp light/shadow cels rather than a glossy reptile.
+  const skinMat = celShade(new THREE.MeshStandardMaterial({
+    map: skinTex.map, bumpMap: skinTex.bump, bumpScale: 0.03,
+    roughnessMap: skinTex.rough, roughness: 1.0,
+    color: 0xff7a1c, metalness: 0.0, envMapIntensity: 0.12,
+  }), 4);
   // darker burnt-orange multiplier on the same maps: dorsal spikes, scars
-  const dorsalMat = new THREE.MeshStandardMaterial({
-    map: skinTex.map, bumpMap: skinTex.bump, bumpScale: 0.06,
-    roughnessMap: skinTex.rough, roughness: 0.9,
-    color: 0xa9743f, metalness: 0.0, envMapIntensity: 0.5,
-  });
+  const dorsalMat = celShade(new THREE.MeshStandardMaterial({
+    map: skinTex.map, bumpMap: skinTex.bump, bumpScale: 0.03,
+    roughnessMap: skinTex.rough, roughness: 1.0,
+    color: 0xc85a14, metalness: 0.0, envMapIntensity: 0.12,
+  }), 4);
   const bellyTex = makeBellyTextures();
   bellyTex.map.repeat.set(1.4, 1.6);
   bellyTex.bump.repeat.set(1.4, 1.6);
   bellyTex.rough.repeat.set(1.4, 1.6);
-  const bellyMat = new THREE.MeshStandardMaterial({
-    map: bellyTex.map, bumpMap: bellyTex.bump, bumpScale: 0.065,
-    roughnessMap: bellyTex.rough, roughness: 0.95,
-    color: 0xffffff, metalness: 0.0, envMapIntensity: 0.5,
-  });
-  const membraneMat = new THREE.MeshStandardMaterial({
-    map: makeWingTexture(), color: 0xffffff, roughness: 0.52, metalness: 0.0,
-    side: THREE.DoubleSide, envMapIntensity: 0.5,
-    emissive: 0xff5512, emissiveIntensity: 0.08, // warm backlit translucency
-  });
-  const hornMat = new THREE.MeshStandardMaterial({
-    color: 0xf0e0bd, roughness: 0.32, metalness: 0.05, envMapIntensity: 0.55,
-  });
-  // glossy keratin: clearcoat sheen so claws and teeth catch the light
-  const clawMat = new THREE.MeshPhysicalMaterial({
-    color: 0xf7eed6, roughness: 0.18, metalness: 0.05, envMapIntensity: 0.8,
-    clearcoat: 0.6, clearcoatRoughness: 0.3,
-  });
-  const mouthMat = new THREE.MeshStandardMaterial({ color: 0x4a1410, roughness: 0.9 });
-  const tongueMat = new THREE.MeshStandardMaterial({ color: 0x8e2330, roughness: 0.7 });
-  const scleraMat = new THREE.MeshStandardMaterial({ color: 0xf4f4f0, roughness: 0.25 });
-  const irisMat = new THREE.MeshStandardMaterial({ map: makeIrisTexture(), roughness: 0.15 });
+  const bellyMat = celShade(new THREE.MeshStandardMaterial({
+    map: bellyTex.map, bumpMap: bellyTex.bump, bumpScale: 0.03,
+    roughnessMap: bellyTex.rough, roughness: 1.0,
+    color: 0xffe1a0, metalness: 0.0, envMapIntensity: 0.12,
+  }), 4);
+  const membraneMat = celShade(new THREE.MeshStandardMaterial({
+    map: makeWingTexture(), color: 0x2fae8e, roughness: 0.9, metalness: 0.0,
+    side: THREE.DoubleSide, envMapIntensity: 0.12,
+    emissive: 0x115c4a, emissiveIntensity: 0.10, // gentle teal glow in shadow
+  }), 3);
+  const hornMat = celShade(new THREE.MeshStandardMaterial({
+    color: 0xf5e8c8, roughness: 0.55, metalness: 0.0, envMapIntensity: 0.15,
+  }), 3);
+  // bright cream keratin claws/teeth, cel-shaded to match the body
+  const clawMat = celShade(new THREE.MeshStandardMaterial({
+    color: 0xfff4dc, roughness: 0.6, metalness: 0.0, envMapIntensity: 0.1,
+  }), 3);
+  const mouthMat = new THREE.MeshStandardMaterial({ color: 0x5a1812, roughness: 1.0 });
+  const tongueMat = new THREE.MeshStandardMaterial({ color: 0xc44256, roughness: 0.9 });
+  const scleraMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+  const irisMat = new THREE.MeshBasicMaterial({ map: makeIrisTexture() });
   const glintMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
   const nostrilMat = new THREE.MeshStandardMaterial({ color: 0x331008, roughness: 0.95 });
 
@@ -504,6 +580,7 @@ export function buildCharizard() {
   torsoGeo.scale(0.96, 1.06, 1.0);        // slightly oval cross-section
   const torso = new THREE.Mesh(torsoGeo, skinMat);
   root.add(torso);
+  addOutline(torso, 0.05);   // thick ink line around the main body mass
 
   // Belly plate: narrower cream lathe pushed down so it peeks on the underside
   const bellyGeo = new THREE.LatheGeometry(
@@ -532,7 +609,7 @@ export function buildCharizard() {
     new THREE.Vector3(0, 0.82, 1.16),
     new THREE.Vector3(0, 0.93, 1.28),
   ]);
-  const NECK_N = 7;
+  const NECK_N = 6;
   for (let i = 0; i < NECK_N; i++) {
     const t = i / (NECK_N - 1);
     const p = neckCurve.getPoint(t);
@@ -557,17 +634,21 @@ export function buildCharizard() {
   head.position.set(0, 0.95, 1.3);
   root.add(head);
 
-  const skull = sph(skinMat, 0.30, 1.0, 0.95, 1.12);
-  skull.position.set(0, 0.06, 0.02);
+  // rounder, friendlier cartoon cranium
+  const skull = sph(skinMat, 0.33, 1.02, 1.0, 1.05);
+  skull.position.set(0, 0.07, 0.0);
   head.add(skull);
+  addOutline(skull, 0.045);
 
-  const muzzle = sph(skinMat, 0.24, 0.80, 0.62, 1.85);
-  muzzle.position.set(0, -0.03, 0.36);
+  // shorter, blunter snout (cartoon Charizard has a stubby muzzle)
+  const muzzle = sph(skinMat, 0.255, 0.86, 0.70, 1.35);
+  muzzle.position.set(0, -0.04, 0.30);
   head.add(muzzle);
+  addOutline(muzzle, 0.035);
 
   // dark mouth interior (visible when the jaw opens)
-  const palate = sph(mouthMat, 0.215, 0.74, 0.55, 1.8);
-  palate.position.set(0, -0.055, 0.36);
+  const palate = sph(mouthMat, 0.225, 0.78, 0.60, 1.3);
+  palate.position.set(0, -0.06, 0.30);
   palate.userData.noShadow = true;
   head.add(palate);
 
@@ -580,60 +661,56 @@ export function buildCharizard() {
     head.add(brow);
   }
 
-  // Eyes: sclera + painted iris (pupil and dark limbal rim baked into the
-  // texture) + a larger specular glint, set under the brow
+  // Big expressive cartoon eyes: bold black outline ring + white sclera +
+  // large blue-green iris + a big white catchlight. Unlit so they read flat.
+  const eyeRingMat = new THREE.MeshBasicMaterial({ color: 0x140a04 });
   for (const s of [1, -1]) {
     const eye = new THREE.Group();
-    eye.position.set(s * 0.20, 0.135, 0.235);
-    eye.rotation.y = s * 0.95;     // local +z points outward/forward
-    eye.rotation.x = -0.08;
-    const sclera = sph(scleraMat, 0.068, 1, 1, 0.85);
+    eye.position.set(s * 0.205, 0.155, 0.225);
+    eye.rotation.y = s * 0.85;     // local +z points outward/forward
+    eye.rotation.x = -0.06;
+    // bold black ink ring framing the eye
+    const ring = sph(eyeRingMat, 0.105, 1, 1.05, 0.5);
+    ring.position.z = -0.005;
+    ring.userData.noShadow = true;
+    const sclera = sph(scleraMat, 0.092, 1, 1.02, 0.7);
+    sclera.position.z = 0.012;
     sclera.userData.noShadow = true;
-    const iris = sph(irisMat, 0.046, 1, 0.62, 1);
+    const iris = sph(irisMat, 0.072, 1, 0.78, 1);
     iris.rotation.x = Math.PI / 2; // +y pole (texture center) faces forward
-    iris.position.z = 0.040;
+    iris.position.z = 0.052;
     iris.userData.noShadow = true;
-    const glint = sph(glintMat, 0.015, 1, 1, 0.5);
-    glint.position.set(0.018, 0.022, 0.075);
+    // big white catchlight (the signature cartoon eye sparkle)
+    const glint = sph(glintMat, 0.028, 1, 1, 0.5);
+    glint.position.set(s * 0.026, 0.034, 0.098);
     glint.userData.noShadow = true;
-    eye.add(sclera, iris, glint);
+    eye.add(ring, sclera, iris, glint);
     head.add(eye);
   }
 
   // Nostrils: small dark pits near the snout tip
   for (const s of [1, -1]) {
     const n = sph(nostrilMat, 0.022, 1, 0.8, 1.2);
-    n.position.set(s * 0.066, 0.075, 0.755);
+    n.position.set(s * 0.07, 0.07, 0.66);
     n.userData.noShadow = true;
     head.add(n);
   }
 
-  // Two back-swept cream horns
+  // Two straight back-swept cream horns (the show's clean tapered spikes)
   for (const s of [1, -1]) {
     const horn = spike(hornMat,
-      new THREE.Vector3(s * 0.13, 0.24, -0.06),
-      new THREE.Vector3(s * 0.10, 0.42, -0.95), 0.062, 0.5);
+      new THREE.Vector3(s * 0.135, 0.28, -0.04),
+      new THREE.Vector3(s * 0.16, 0.30, -1.0), 0.058, 0.46);
+    addOutline(horn, 0.02);
     head.add(horn);
   }
 
-  // Battle scars: thin raised ridges in the darker dorsal tone
-  const scarBrow = sph(dorsalMat, 0.085, 1.55, 0.16, 0.42);
-  scarBrow.position.set(-0.155, 0.30, 0.13);   // slash across the left brow
-  scarBrow.rotation.set(0, 0.3, 0.55);
-  head.add(scarBrow);
-  const scarCheek = sph(dorsalMat, 0.07, 1.5, 0.16, 0.4);
-  scarCheek.position.set(0.16, 0.02, 0.50);    // nick along the right muzzle
-  scarCheek.rotation.set(0, -0.45, -0.35);
-  head.add(scarCheek);
-  const scarSnout = sph(dorsalMat, 0.06, 0.35, 0.18, 1.5);
-  scarSnout.position.set(0.03, 0.118, 0.48);   // old notch down the snout
-  scarSnout.rotation.z = 0.12;
-  head.add(scarSnout);
+  // (No battle scars — the anime Charizard has clean, smooth skin.)
 
   // Upper teeth: cones hanging from the muzzle rim (seen when jaw opens)
   const toothRows = [
-    [0.30, 0.135, 0.060], [0.42, 0.125, 0.055], [0.54, 0.112, 0.052],
-    [0.66, 0.090, 0.068], // front fangs slightly longer
+    [0.26, 0.140, 0.058], [0.37, 0.128, 0.054], [0.47, 0.112, 0.052],
+    [0.56, 0.090, 0.066], // front fangs slightly longer
   ];
   for (const [z, x, len] of toothRows) {
     for (const s of [1, -1]) {
@@ -649,18 +726,19 @@ export function buildCharizard() {
   const jaw = new THREE.Group();
   jaw.position.set(0, -0.2, 0.10);    // pivot at the hinge, y = -0.2 exactly
   head.add(jaw);
-  const mandible = sph(skinMat, 0.20, 0.72, 0.42, 1.95);
-  mandible.position.set(0, 0.035, 0.30);
+  const mandible = sph(skinMat, 0.205, 0.78, 0.46, 1.5);
+  mandible.position.set(0, 0.035, 0.26);
   jaw.add(mandible);
-  const chinPlate = sph(bellyMat, 0.165, 0.68, 0.36, 1.85);
-  chinPlate.position.set(0, 0.000, 0.31);
+  addOutline(mandible, 0.035);   // outline follows the jaw as it opens
+  const chinPlate = sph(bellyMat, 0.17, 0.72, 0.40, 1.42);
+  chinPlate.position.set(0, 0.000, 0.27);
   jaw.add(chinPlate);
-  const tongue = sph(tongueMat, 0.13, 0.62, 0.28, 1.6);
-  tongue.position.set(0, 0.085, 0.30);
+  const tongue = sph(tongueMat, 0.13, 0.64, 0.30, 1.4);
+  tongue.position.set(0, 0.085, 0.26);
   tongue.userData.noShadow = true;
   jaw.add(tongue);
   // Small lower teeth pointing up
-  for (const [z, x] of [[0.40, 0.095], [0.52, 0.082]]) {
+  for (const [z, x] of [[0.34, 0.095], [0.45, 0.082]]) {
     for (const s of [1, -1]) {
       const t = spike(clawMat,
         new THREE.Vector3(s * x, 0.095, z),
@@ -672,7 +750,7 @@ export function buildCharizard() {
 
   // ---- Mouth anchor + glow light (fire breath origin) ------------------------
   const mouthAnchor = new THREE.Object3D();
-  mouthAnchor.position.set(0, -0.12, 0.82);
+  mouthAnchor.position.set(0, -0.12, 0.72);
   head.add(mouthAnchor);
   const mouthGlow = new THREE.PointLight(0xff8a33, 0, 6, 2);
   mouthAnchor.add(mouthGlow);
@@ -688,7 +766,7 @@ export function buildCharizard() {
     new THREE.Vector3(0, 0.28, -1.75),
     new THREE.Vector3(0, 0.58, -2.05),
   ]);
-  const TAIL_N = 14;
+  const TAIL_N = 12;
   let tailTip = new THREE.Vector3();
   for (let i = 0; i < TAIL_N; i++) {
     const t = i / (TAIL_N - 1);
@@ -740,7 +818,7 @@ export function buildCharizard() {
   glowSprite.position.y = 0.3;
   glowSprite.userData.noShadow = true;
   flame.add(glowSprite);
-  const flameLight = new THREE.PointLight(0xff7726, 10, 7, 2);
+  const flameLight = new THREE.PointLight(0xff8a3a, 13, 8, 2);
   flameLight.position.y = 0.35;
   flame.add(flameLight);
 
@@ -753,6 +831,7 @@ export function buildCharizard() {
     haunch.position.set(s * 0.46, -0.18, -0.42);
     haunch.rotation.x = 0.35;
     root.add(haunch);
+    addOutline(haunch, 0.04);
     const hip = new THREE.Vector3(s * 0.50, -0.28, -0.50);
     const legGroup = new THREE.Group();
     legGroup.name = s === 1 ? "legRight" : "legLeft";
@@ -764,9 +843,13 @@ export function buildCharizard() {
     const ankleL = new THREE.Vector3(s * 0.55, -0.62, -0.78).sub(hip);
     legGroup.add(bone(skinMat, new THREE.Vector3(0, 0, 0), kneeL, 0.17, 0.115));
     legGroup.add(bone(skinMat, kneeL, ankleL, 0.115, 0.085));
-    const foot = sph(skinMat, 0.11, 1.0, 0.7, 1.5);
-    foot.position.copy(ankleL).add(new THREE.Vector3(0, -0.02, -0.10));
+    // sturdy foot with a cream sole pad underneath
+    const foot = sph(skinMat, 0.13, 1.05, 0.8, 1.45);
+    foot.position.copy(ankleL).add(new THREE.Vector3(0, -0.02, -0.08));
     legGroup.add(foot);
+    const sole = sph(bellyMat, 0.10, 1.05, 0.55, 1.4);
+    sole.position.copy(ankleL).add(new THREE.Vector3(0, -0.09, -0.05));
+    legGroup.add(sole);
     // bony knee spur jutting up-forward off the joint
     legGroup.add(spike(hornMat,
       kneeL.clone().add(new THREE.Vector3(s * 0.05, 0.06, 0.04)),
@@ -880,6 +963,7 @@ function buildWing(sign, skinMat, clawMat, membraneMat) {
     s.lineTo(0, 0.34);
   }, sign, membraneMat);
   wing.add(inner);
+  addWingOutline(inner);
 
   // Inner leading-edge bone (humerus): shoulder to mid joint
   wing.add(bone(skinMat,
@@ -919,6 +1003,7 @@ function buildWing(sign, skinMat, clawMat, membraneMat) {
     s.lineTo(0, 0.30);
   }, sign, membraneMat);
   outerGroup.add(outer);
+  addWingOutline(outer);
 
   // Outer leading-edge bone + finger bones fanning to each scallop cusp
   outerGroup.add(bone(skinMat,
