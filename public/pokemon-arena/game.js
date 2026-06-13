@@ -1087,6 +1087,8 @@ const state = {
   spawnTimer: 0,
   bossQueued: false,
   hitStopHold: 0,
+  fightFreeze: 0,   // brief trainer hold during an encounter intro
+  fight: false,     // true while a wild Pokémon is in battle
 };
 
 // YOU — Charizard. Starts grounded; the FLY button takes off.
@@ -1987,6 +1989,11 @@ function spawnEnemy(boss = false) {
   flashScreen();
   AudioSys.music?.setMode(boss ? "boss" : "battle");
   cine.start(e.pos.clone(), 1.5);
+  // enter FIGHT MODE: hold the trainer, lock the camera on the foe, target it
+  state.fight = true;
+  state.fightFreeze = 1.2;
+  target = e;
+  showBanner(boss ? `⚔ BOSS BATTLE — ${spec.name}` : `⚔ FIGHT! — ${spec.name}`, 2000);
   return e;
 }
 
@@ -2328,6 +2335,7 @@ function updateWaves(dt) {
   }
   if (wasInCombat) {                 // the encounter just ended (caught or defeated)
     wasInCombat = false;
+    state.fight = false;
     AudioSys.music?.setMode("overworld");
     collection.addBalls(2); updateBallCount();
     callout("Found 2 Poké Balls in the grass!");
@@ -2918,26 +2926,34 @@ function updateFireSpins(dt) {
 // YOU — Ash, walking the overworld (camera-relative movement)
 function updateAshNpc(dt) {
   const g = ash.group;
+  // hold the trainer still during the encounter intro cinematic
+  if (state.fightFreeze > 0) { state.fightFreeze -= dt; ash.speed = lerp(ash.speed, 0, 1 - Math.pow(0.001, dt)); }
   let mx = 0, mz = 0;
-  if (keys["KeyW"]) mz += 1;
-  if (keys["KeyS"]) mz -= 1;
-  if (keys["KeyA"]) mx -= 1;
-  if (keys["KeyD"]) mx += 1;
-  if (joy.mag > 0.12) { mx += joy.x; mz += -joy.y; }
+  if (state.fightFreeze <= 0) {
+    if (keys["KeyW"]) mz += 1;
+    if (keys["KeyS"]) mz -= 1;
+    if (keys["KeyA"]) mx -= 1;
+    if (keys["KeyD"]) mx += 1;
+    if (joy.mag > 0.12) { mx += joy.x; mz += -joy.y; }
+  }
   const moving = (mx * mx + mz * mz) > 0.02;
   if (moving) {
     const len = Math.hypot(mx, mz); mx /= len; mz /= len;
     const camF = orbit.yaw; // forward = away from the camera
     const wx = Math.sin(camF) * mz + Math.cos(camF) * mx;
     const wz = Math.cos(camF) * mz - Math.sin(camF) * mx;
-    const spd = (keys["ShiftLeft"] || keys["ShiftRight"]) ? 11 : 7;
-    ash.pos.x = clamp(ash.pos.x + wx * spd * dt, -228, 228);
-    ash.pos.z = clamp(ash.pos.z + wz * spd * dt, -228, 228);
-    ash.yaw = Math.atan2(wx, wz);
-    ash.speed = spd;
-    ash.walkPhase += dt * spd * 1.7;
+    const sprint = keys["ShiftLeft"] || keys["ShiftRight"];
+    const targetSpd = sprint ? 15 : 9;            // snappier exploration pace
+    ash.speed = lerp(ash.speed, targetSpd, 1 - Math.pow(0.0003, dt)); // smooth accel
+    ash.pos.x = clamp(ash.pos.x + wx * ash.speed * dt, -228, 228);
+    ash.pos.z = clamp(ash.pos.z + wz * ash.speed * dt, -228, 228);
+    ash.yaw = lerpAngle(ash.yaw, Math.atan2(wx, wz), 1 - Math.pow(0.0005, dt));
+    ash.walkPhase += dt * ash.speed * 1.7;
+    // follow-cam: trail the camera behind the direction of travel so
+    // exploration steering stays intuitive (gentle, mouse can still nudge)
+    orbit.yaw = lerpAngle(orbit.yaw, ash.yaw, 1 - Math.pow(0.22, dt));
   } else {
-    ash.speed = lerp(ash.speed, 0, 1 - Math.pow(0.001, dt));
+    ash.speed = lerp(ash.speed, 0, 1 - Math.pow(0.0001, dt));
   }
   ash.pos.y = terrainHeight(ash.pos.x, ash.pos.z);
   g.position.copy(ash.pos);
@@ -2975,6 +2991,7 @@ function updateCamera(dt) {
   else if (throwActive) mode = "capture";
   else if (player.attackCamT > 0 && target && !target.dead) mode = "attack"; // zoom on the clash
   else if (player.commandT > 0 && target && !target.dead) mode = "command";
+  else if (state.fight && target && !target.dead) mode = "command"; // hold a battle framing during a fight
   cameraDir.setMode(mode);
   if (state.shake > 0.01) { cameraDir.shake(state.shake); state.shake = 0; }
   if (state.fovKick > 0.01) { cameraDir.kickFov(state.fovKick); state.fovKick = 0; }
