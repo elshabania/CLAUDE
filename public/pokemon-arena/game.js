@@ -2765,7 +2765,9 @@ function updatePlayer(dt) {
   const ud = g.userData;
   const hover = player.speed < 9;
   const flapRate = grounded ? 1.4 : boost ? 2.2 : hover ? 7.5 : 3.4;
-  const flapAmp = grounded ? 0.05 : boost ? 0.12 : hover ? 0.55 : 0.28;
+  // keep the beat shallow enough that the wings never swing edge-on to the
+  // chase cam (which made the broad membrane vanish and read as thin spears)
+  const flapAmp = grounded ? 0.05 : boost ? 0.12 : hover ? 0.22 : 0.16;
   const prevPhase = player.flapPhase;
   player.flapPhase += dt * flapRate;
   // wing-beat whoosh at the bottom of each stroke
@@ -2774,8 +2776,10 @@ function updatePlayer(dt) {
     AudioSys.flap();
   }
   for (const w of ud.wings) {
-    // folded against the back on the ground, spread in flight
-    const lift = grounded ? -0.95 : boost ? -0.25 : 0.15;
+    // folded against the back on the ground, spread with a strong upward
+    // dihedral in flight so the broad membrane faces the chase cam (Charizard
+    // holds its wings up like sails — flat wings vanish edge-on from behind)
+    const lift = grounded ? -0.95 : boost ? 0.45 : 0.78;
     w.rotation.z = w.userData.sign * (lift + Math.sin(player.flapPhase) * flapAmp);
     w.rotation.x = grounded ? 0 : Math.sin(player.flapPhase - 0.6) * 0.1 * flapAmp * 3;
   }
