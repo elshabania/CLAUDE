@@ -1,0 +1,852 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+<title>Pokémon Arena 3D — Ash & Charmander</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Bungee&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet" />
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 100%; height: 100%; overflow: hidden; background: #000;
+    touch-action: none; overscroll-behavior: none; }
+  body { font-family: "Rajdhani", "Segoe UI", sans-serif; user-select: none;
+    -webkit-user-select: none; -webkit-tap-highlight-color: transparent; }
+  canvas { display: block; touch-action: none; }
+
+  #hud { position: fixed; inset: 0; pointer-events: none; z-index: 10; }
+
+  /* ---- Player panel (top-left) ---- */
+  #player-panel {
+    position: absolute; top: 18px; left: 18px; width: 320px;
+    background: linear-gradient(135deg, rgba(10,14,30,.82), rgba(20,28,55,.72));
+    border: 1px solid rgba(255,160,40,.45); border-radius: 14px;
+    padding: 12px 14px; backdrop-filter: blur(6px);
+    box-shadow: 0 4px 18px rgba(0,0,0,.5), inset 0 0 30px rgba(255,120,0,.06);
+  }
+  #player-panel .name-row { display: flex; align-items: baseline; gap: 10px; }
+  #player-panel .pkmn-name {
+    font-family: "Bungee", cursive; font-size: 19px; color: #ffb24d;
+    text-shadow: 0 0 12px rgba(255,120,0,.7);
+  }
+  #player-panel .trainer { font-size: 13px; color: #9fb4dd; font-weight: 600; letter-spacing: .8px; }
+  #player-panel .lvl {
+    margin-left: auto; font-weight: 700; font-size: 15px; color: #ffe9a8;
+    background: rgba(255,160,30,.18); border: 1px solid rgba(255,180,60,.4);
+    padding: 1px 9px; border-radius: 999px;
+  }
+  .bar { position: relative; height: 14px; border-radius: 999px; margin-top: 8px;
+    background: rgba(0,0,0,.55); border: 1px solid rgba(255,255,255,.14); overflow: hidden; }
+  .bar .fill { position: absolute; inset: 0; width: 100%; border-radius: 999px;
+    transition: width .18s ease-out; }
+  #hp-fill { background: linear-gradient(90deg, #2bd66b, #8aff6e); box-shadow: 0 0 12px rgba(70,255,120,.6); }
+  #hp-fill.warn { background: linear-gradient(90deg, #ffb02b, #ffd86e); }
+  #hp-fill.danger { background: linear-gradient(90deg, #ff3b3b, #ff7a5e); }
+  .bar.xp { height: 7px; margin-top: 7px; }
+  #xp-fill { background: linear-gradient(90deg, #3fa9ff, #7ee0ff); }
+  .bar-label { position: absolute; right: 8px; top: -1px; font-size: 10.5px; font-weight: 700;
+    color: #fff; text-shadow: 0 1px 2px #000; line-height: 14px; }
+  /* segment ticks every 10% on full-size bars (not the thin XP bar) */
+  .bar:not(.xp)::after {
+    content: ""; position: absolute; inset: 0; pointer-events: none; border-radius: 999px;
+    background: repeating-linear-gradient(90deg,
+      transparent 0, transparent calc(10% - 1px),
+      rgba(0,0,0,.45) calc(10% - 1px), rgba(0,0,0,.45) 10%);
+  }
+  /* low-HP alert hook: game may toggle body.low-hp */
+  body.low-hp #player-panel {
+    border-color: rgba(255,80,80,.6);
+    animation: lowHpPulse 1.1s ease-in-out infinite;
+  }
+  @keyframes lowHpPulse {
+    0%, 100% { box-shadow: 0 4px 18px rgba(0,0,0,.5), 0 0 0 rgba(255,40,40,0), inset 0 0 30px rgba(255,40,40,.08); }
+    50% { box-shadow: 0 4px 18px rgba(0,0,0,.5), 0 0 26px rgba(255,40,40,.55), inset 0 0 30px rgba(255,40,40,.18); }
+  }
+
+  /* ---- Wave / score (top-right) ---- */
+  #score-panel {
+    position: absolute; top: 18px; right: 18px; text-align: right;
+    background: linear-gradient(135deg, rgba(10,14,30,.8), rgba(20,28,55,.7));
+    border: 1px solid rgba(110,160,255,.35); border-radius: 14px;
+    padding: 10px 18px; backdrop-filter: blur(6px);
+    box-shadow: 0 4px 18px rgba(0,0,0,.5);
+  }
+  #wave-label { font-family: "Bungee", cursive; font-size: 17px; color: #8fc3ff;
+    text-shadow: 0 0 10px rgba(80,150,255,.7); }
+  #score-label { font-size: 15px; color: #e8eeff; font-weight: 700; letter-spacing: 1px; }
+  #enemies-left { font-size: 12.5px; color: #9fb4dd; font-weight: 600; }
+
+  /* ---- Target frame (top-center) ---- */
+  #target-panel {
+    position: absolute; top: 18px; left: 50%; transform: translateX(-50%); width: 300px;
+    background: linear-gradient(135deg, rgba(40,8,8,.78), rgba(60,16,16,.66));
+    border: 1px solid rgba(255,80,80,.45); border-radius: 14px;
+    padding: 8px 14px 11px; backdrop-filter: blur(6px); display: none;
+    box-shadow: 0 4px 18px rgba(0,0,0,.5);
+  }
+  #target-name { font-family: "Bungee", cursive; font-size: 14px; color: #ff9d9d;
+    text-shadow: 0 0 10px rgba(255,60,60,.7); }
+  #target-hp-fill { background: linear-gradient(90deg, #ff3b3b, #ff9d5e); }
+
+  /* ---- Attack bar (bottom-center) ---- */
+  #attack-bar {
+    position: absolute; bottom: 22px; left: 50%; transform: translateX(-50%);
+    display: flex; gap: 12px;
+  }
+  .move {
+    position: relative; width: 92px; padding: 8px 6px 7px; text-align: center;
+    background: linear-gradient(160deg, rgba(15,18,38,.88), rgba(30,24,18,.82));
+    border: 1.5px solid rgba(255,150,40,.5); border-radius: 12px;
+    backdrop-filter: blur(6px); overflow: hidden;
+    box-shadow: 0 4px 14px rgba(0,0,0,.5);
+  }
+  .move .key {
+    position: absolute; top: 5px; left: 7px; font-size: 11px; font-weight: 700;
+    color: #ffd99a; background: rgba(255,160,40,.2); border: 1px solid rgba(255,170,60,.45);
+    border-radius: 5px; padding: 0 6px;
+  }
+  .move .icon { font-size: 24px; line-height: 1.15; filter: drop-shadow(0 0 8px rgba(255,120,0,.8)); }
+  .move .mname { font-size: 13.5px; font-weight: 700; color: #ffe6c4; letter-spacing: .6px; }
+  .move .cd-shade {
+    position: absolute; inset: 0; background: rgba(5,8,18,.82);
+    transform-origin: bottom; transform: scaleY(0); pointer-events: none;
+  }
+  .move .cd-num { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+    font-family: "Bungee", cursive; font-size: 21px; color: #fff; opacity: 0; pointer-events: none;
+    text-shadow: 0 0 10px #ff7700; }
+  .move.ready { animation: readyPulse 1.6s ease-in-out infinite; }
+  @keyframes readyPulse {
+    0%,100% { box-shadow: 0 4px 14px rgba(0,0,0,.5), 0 0 0px rgba(255,140,30,0); }
+    50% { box-shadow: 0 4px 14px rgba(0,0,0,.5), 0 0 16px rgba(255,140,30,.55); }
+  }
+
+  /* ---- Center messages ---- */
+  #announce {
+    position: absolute; top: 22%; left: 50%; transform: translateX(-50%) scale(1);
+    font-family: "Bungee", cursive; font-size: 34px; color: #ffd24d; text-align: center;
+    text-shadow: 0 0 22px rgba(255,140,0,.95), 0 0 46px rgba(255,90,0,.45), 0 3px 6px rgba(0,0,0,.85);
+    opacity: 0; transition: opacity .25s, transform .25s ease-out;
+    white-space: nowrap; letter-spacing: 1px;
+  }
+
+  /* ---- Story dialogue box (bottom-center, above attack bar) ---- */
+  #dialogue {
+    position: absolute; bottom: 132px; left: 50%; transform: translateX(-50%) translateY(12px);
+    width: max-content; max-width: 640px;
+    background: linear-gradient(135deg, rgba(10,14,30,.86), rgba(24,20,12,.8));
+    border: 1px solid rgba(255,210,100,.55); border-radius: 12px;
+    padding: 12px 22px; backdrop-filter: blur(6px);
+    font-family: "Rajdhani", sans-serif; font-size: 16px; font-style: italic;
+    font-weight: 600; line-height: 1.55; color: #f3e9d2; text-align: center;
+    text-shadow: 0 1px 3px #000; letter-spacing: .4px;
+    box-shadow: 0 4px 18px rgba(0,0,0,.5), inset 0 0 24px rgba(255,190,60,.05);
+    opacity: 0; pointer-events: none;
+    transition: opacity .3s ease, transform .3s ease;
+  }
+  #dialogue.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  #dialogue b { color: #ffd99a; font-style: normal; }
+
+  /* ---- Round banner (big center-screen title) ---- */
+  #round-banner {
+    position: absolute; top: 34%; left: 50%;
+    transform: translateX(-50%) translateY(-26px) scale(.92);
+    font-family: "Bungee", cursive; font-size: clamp(34px, 5.5vw, 56px);
+    text-align: center; white-space: nowrap; pointer-events: none;
+    background: linear-gradient(180deg, #fff3c4, #ffd24d 40%, #ff8c1a 75%, #ff5a00);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+    filter: drop-shadow(0 0 24px rgba(255,150,20,.65)) drop-shadow(0 4px 8px rgba(0,0,0,.8));
+    opacity: 0; transition: opacity .35s ease, transform .35s cubic-bezier(.2,1.4,.4,1);
+  }
+  #round-banner.show { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
+  #callout {
+    position: absolute; bottom: 132px; left: 50%; transform: translateX(-50%);
+    font-size: 19px; font-weight: 700; color: #fff; letter-spacing: .5px;
+    background: rgba(8,10,24,.72); border: 1px solid rgba(255,255,255,.18);
+    border-radius: 999px; padding: 6px 22px; opacity: 0; transition: opacity .2s;
+    text-shadow: 0 1px 3px #000; white-space: nowrap;
+  }
+  #callout b { color: #ffb24d; }
+
+  /* ---- Combo counter ---- */
+  #combo {
+    position: absolute; top: 116px; left: 50%; transform: translateX(-50%) scale(1);
+    font-family: "Bungee", cursive; font-size: 27px; color: #ffd24d; white-space: nowrap;
+    text-shadow: 0 0 16px rgba(255,140,0,.95), 0 3px 6px rgba(0,0,0,.8);
+    opacity: 0; transition: opacity .25s, transform .09s ease-out;
+  }
+  #combo.pop { transform: translateX(-50%) scale(1.28); }
+  #combo .crit { color: #ff5e3a; }
+
+  /* ---- Crosshair ---- */
+  #crosshair {
+    position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
+    width: 10px; height: 10px; border-radius: 50%;
+    border: 2px solid rgba(255,255,255,.65); box-shadow: 0 0 8px rgba(0,0,0,.6);
+  }
+
+  /* ---- Controls hint ---- */
+  #controls-hint {
+    position: absolute; bottom: 20px; left: 18px; font-size: 12.5px; line-height: 1.75;
+    color: #c5d2ee; background: rgba(8,10,24,.6); border: 1px solid rgba(255,255,255,.12);
+    border-radius: 12px; padding: 8px 14px; backdrop-filter: blur(4px);
+  }
+  #controls-hint b { color: #ffd99a; font-weight: 700; }
+
+  /* ---- Overlays ---- */
+  .overlay {
+    position: fixed; inset: 0; z-index: 50; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; text-align: center;
+    background: radial-gradient(ellipse at 50% 35%, rgba(30,20,60,.88), rgba(2,3,10,.96));
+    pointer-events: auto;
+  }
+  .overlay h1 {
+    font-family: "Bungee", cursive; font-size: clamp(34px, 6vw, 64px);
+    background: linear-gradient(180deg, #ffe9a8, #ff8c1a 55%, #ff4d00);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+    filter: drop-shadow(0 0 22px rgba(255,120,0,.55)); margin-bottom: 6px;
+  }
+  /* ---- Title screen: animated backdrop + glow pulse ---- */
+  #title-overlay {
+    background:
+      linear-gradient(120deg, rgba(60,20,90,.35), rgba(10,20,70,.35), rgba(90,40,5,.35), rgba(60,20,90,.35)),
+      radial-gradient(ellipse at 50% 35%, rgba(30,20,60,.88), rgba(2,3,10,.96));
+    background-size: 300% 300%, 100% 100%;
+    animation: titleDrift 18s ease-in-out infinite;
+    overflow: hidden;
+  }
+  @keyframes titleDrift {
+    0%, 100% { background-position: 0% 50%, center; }
+    50% { background-position: 100% 50%, center; }
+  }
+  #title-overlay h1 { animation: titleGlow 3.2s ease-in-out infinite; }
+  @keyframes titleGlow {
+    0%, 100% { filter: drop-shadow(0 0 16px rgba(255,120,0,.4)); }
+    50% { filter: drop-shadow(0 0 30px rgba(255,150,30,.8)); }
+  }
+  /* floating ember particles */
+  .ember {
+    position: absolute; bottom: -12px; width: 6px; height: 6px; border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%, #ffe9a8, #ff8c1a 60%, rgba(255,80,0,0));
+    box-shadow: 0 0 10px rgba(255,140,20,.85); pointer-events: none; opacity: 0;
+    animation: emberRise 9s linear infinite;
+  }
+  @keyframes emberRise {
+    0% { transform: translateY(0) translateX(0) scale(1); opacity: 0; }
+    8% { opacity: .85; }
+    50% { transform: translateY(-55vh) translateX(24px) scale(.8); opacity: .6; }
+    100% { transform: translateY(-108vh) translateX(-18px) scale(.4); opacity: 0; }
+  }
+  .ember:nth-child(1) { left: 8%; animation-duration: 10s; animation-delay: 0s; }
+  .ember:nth-child(2) { left: 19%; animation-duration: 8s; animation-delay: 2.4s; width: 4px; height: 4px; }
+  .ember:nth-child(3) { left: 31%; animation-duration: 11s; animation-delay: 1.1s; }
+  .ember:nth-child(4) { left: 43%; animation-duration: 9s; animation-delay: 4.6s; width: 5px; height: 5px; }
+  .ember:nth-child(5) { left: 55%; animation-duration: 12s; animation-delay: 3.2s; width: 4px; height: 4px; }
+  .ember:nth-child(6) { left: 66%; animation-duration: 8.5s; animation-delay: 5.8s; }
+  .ember:nth-child(7) { left: 77%; animation-duration: 10.5s; animation-delay: 1.9s; width: 7px; height: 7px; }
+  .ember:nth-child(8) { left: 87%; animation-duration: 9.5s; animation-delay: 4.1s; width: 4px; height: 4px; }
+  .ember:nth-child(9) { left: 95%; animation-duration: 11.5s; animation-delay: 6.7s; width: 5px; height: 5px; }
+  .overlay h2 { font-family: "Bungee", cursive; font-size: 19px; color: #8fc3ff; margin-bottom: 26px;
+    text-shadow: 0 0 14px rgba(80,150,255,.6); }
+  .overlay .panel {
+    background: rgba(10,14,30,.7); border: 1px solid rgba(255,255,255,.14);
+    border-radius: 16px; padding: 20px 34px; margin-bottom: 28px;
+    font-size: 16px; line-height: 2; color: #dbe5fb; font-weight: 600;
+  }
+  .overlay .panel b { color: #ffd99a; background: rgba(255,160,40,.14);
+    border: 1px solid rgba(255,170,60,.35); border-radius: 6px; padding: 0 8px; }
+  #char-select { display: flex; gap: 12px; margin-bottom: 26px; flex-wrap: wrap; justify-content: center; }
+  .char-btn {
+    font-family: "Bungee", cursive; font-size: 14px; color: #dfe8ff; cursor: pointer;
+    padding: 12px 18px; border-radius: 12px; border: 2px solid var(--c);
+    background: rgba(10,14,30,.7); transition: transform .12s, box-shadow .12s, background .12s;
+    box-shadow: 0 0 0 rgba(0,0,0,0);
+  }
+  .char-btn:hover { transform: translateY(-2px); }
+  .char-btn.selected {
+    background: color-mix(in srgb, var(--c) 28%, rgba(10,14,30,.8));
+    box-shadow: 0 0 22px color-mix(in srgb, var(--c) 60%, transparent);
+    color: #fff; position: relative; overflow: hidden;
+  }
+  .char-btn.selected::before {
+    content: ""; position: absolute; top: -20%; bottom: -20%; left: -60%; width: 40%;
+    background: linear-gradient(105deg, transparent, rgba(255,255,255,.55), transparent);
+    transform: skewX(-18deg); pointer-events: none;
+    animation: shineSweep .7s ease-out 1;
+  }
+  @keyframes shineSweep {
+    from { left: -60%; }
+    to { left: 130%; }
+  }
+  .overlay button {
+    font-family: "Bungee", cursive; font-size: 21px; color: #1a0e00; cursor: pointer;
+    background: linear-gradient(180deg, #ffd24d, #ff8c1a); border: none; border-radius: 999px;
+    padding: 14px 52px; box-shadow: 0 6px 28px rgba(255,130,10,.5);
+    transition: transform .12s, box-shadow .12s;
+  }
+  .overlay button:hover { transform: scale(1.06); box-shadow: 0 8px 36px rgba(255,140,20,.75); }
+  .overlay .fine { margin-top: 18px; font-size: 12px; color: #6f7fa5; max-width: 560px; line-height: 1.6; }
+  #gameover-overlay { display: none;
+    background:
+      radial-gradient(ellipse at center, transparent 40%, rgba(120,5,5,.5) 100%),
+      radial-gradient(ellipse at 50% 35%, rgba(45,10,16,.9), rgba(8,2,4,.97));
+  }
+  #gameover-overlay h1 { background: linear-gradient(180deg, #ffb3b3, #ff3b3b 60%, #a30000);
+    -webkit-background-clip: text; background-clip: text;
+    filter: drop-shadow(0 0 26px rgba(255,40,40,.5)); }
+  #final-stats { font-family: "Bungee", cursive; font-size: 22px; color: #ffd24d; margin-bottom: 26px;
+    text-shadow: 0 0 14px rgba(255,150,0,.6); line-height: 2; }
+
+  /* ---- Damage vignette ---- */
+  #vignette { position: fixed; inset: 0; pointer-events: none; z-index: 8; opacity: 0;
+    background: radial-gradient(ellipse at center, transparent 55%, rgba(255,20,20,.55) 100%);
+    transition: opacity .35s; }
+
+  #mute-hint { position: absolute; top: 96px; right: 22px; font-size: 12px; color: #8fa0c5; }
+
+  /* Accessibility: respect reduced-motion — cut flashes and looping animations */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.001s !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.06s !important;
+    }
+    #encounter-flash, #vignette { display: none !important; }
+  }
+
+  /* ============================================================
+     CATCH-'EM ADVENTURE UI
+     ============================================================ */
+
+  /* ---- Party bar (bottom-left, above controls hint) ---- */
+  #party-bar {
+    position: absolute; left: 18px; bottom: 64px; display: flex; gap: 9px;
+    z-index: 12;
+  }
+  .party-slot {
+    position: relative; width: 46px; height: 46px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    background: linear-gradient(150deg, rgba(15,18,38,.85), rgba(30,24,18,.78));
+    border: 2px solid rgba(255,160,40,.5); backdrop-filter: blur(5px);
+    box-shadow: 0 3px 12px rgba(0,0,0,.5);
+    transition: transform .12s ease, box-shadow .15s ease, border-color .15s ease;
+  }
+  .party-slot .slot-icon {
+    font-size: 22px; line-height: 1;
+    filter: drop-shadow(0 0 6px rgba(255,140,0,.6));
+  }
+  .party-slot .slot-hp {
+    position: absolute; left: 7px; right: 7px; bottom: 5px; height: 4px;
+    border-radius: 999px; background: rgba(0,0,0,.6);
+    border: 1px solid rgba(255,255,255,.18); overflow: hidden;
+  }
+  .party-slot .slot-hp::before {
+    content: ""; position: absolute; inset: 0; width: var(--hp, 100%);
+    border-radius: 999px; background: linear-gradient(90deg, #2bd66b, #8aff6e);
+    transition: width .2s ease-out;
+  }
+  .party-slot.active {
+    border-color: #ffe9a8; transform: translateY(-4px) scale(1.08);
+    box-shadow: 0 0 18px rgba(255,170,40,.7), 0 4px 14px rgba(0,0,0,.5);
+  }
+  .party-slot.empty {
+    border-style: dashed; border-color: rgba(255,255,255,.2);
+    background: rgba(8,10,24,.45); box-shadow: none;
+  }
+  .party-slot.empty .slot-icon { opacity: .35; filter: none; font-size: 16px; }
+  .party-slot.empty .slot-hp { display: none; }
+
+  /* ---- Ball counter (under score panel) ---- */
+  #ball-counter {
+    position: absolute; top: 96px; right: 18px;
+    display: flex; align-items: center; gap: 7px;
+    background: linear-gradient(135deg, rgba(30,8,10,.82), rgba(55,14,16,.72));
+    border: 1px solid rgba(255,90,90,.45); border-radius: 999px;
+    padding: 5px 14px 5px 9px; backdrop-filter: blur(6px);
+    box-shadow: 0 4px 14px rgba(0,0,0,.5);
+  }
+  #ball-counter .ball-glyph {
+    width: 20px; height: 20px; border-radius: 50%;
+    background:
+      linear-gradient(180deg, #ff3b3b 0 47%, #1a1a1a 47% 53%, #f5f5f5 53% 100%);
+    border: 1.5px solid #1a1a1a; position: relative; flex: none;
+    box-shadow: 0 0 8px rgba(255,60,60,.5);
+  }
+  #ball-counter .ball-glyph::after {
+    content: ""; position: absolute; left: 50%; top: 50%;
+    transform: translate(-50%,-50%); width: 7px; height: 7px; border-radius: 50%;
+    background: #f5f5f5; border: 1.5px solid #1a1a1a;
+  }
+  #ball-counter #ball-count {
+    font-family: "Bungee", cursive; font-size: 16px; color: #ffe6c4;
+    text-shadow: 0 0 8px rgba(255,90,40,.6); min-width: 18px; text-align: center;
+  }
+
+  /* ---- Catch prompt (center-bottom) ---- */
+  #catch-prompt {
+    position: absolute; bottom: 188px; left: 50%;
+    transform: translateX(-50%) translateY(8px);
+    display: flex; align-items: center; gap: 8px;
+    font-family: "Bungee", cursive; font-size: 17px; color: #fff;
+    background: linear-gradient(135deg, rgba(30,8,10,.85), rgba(55,14,16,.78));
+    border: 1.5px solid rgba(255,90,90,.6); border-radius: 999px;
+    padding: 9px 22px; backdrop-filter: blur(6px);
+    text-shadow: 0 1px 3px #000; white-space: nowrap;
+    box-shadow: 0 4px 18px rgba(0,0,0,.55);
+    opacity: 0; pointer-events: none;
+    transition: opacity .25s ease, transform .25s ease;
+  }
+  #catch-prompt .cp-key {
+    font-size: 12px; font-weight: 700; color: #ffd99a;
+    background: rgba(255,90,40,.25); border: 1px solid rgba(255,120,60,.5);
+    border-radius: 6px; padding: 1px 8px; font-family: "Rajdhani", sans-serif;
+  }
+  #catch-prompt.show {
+    opacity: 1; transform: translateX(-50%) translateY(0);
+    animation: catchPulse 1.1s ease-in-out infinite;
+  }
+  @keyframes catchPulse {
+    0%, 100% { box-shadow: 0 4px 18px rgba(0,0,0,.55), 0 0 0 rgba(255,60,60,0); }
+    50% { box-shadow: 0 4px 18px rgba(0,0,0,.55), 0 0 24px rgba(255,60,60,.7); }
+  }
+
+  /* ---- Catch result banner (center) ---- */
+  #catch-result {
+    position: absolute; top: 40%; left: 50%;
+    transform: translate(-50%,-50%) translateY(26px) scale(.92);
+    font-family: "Bungee", cursive; font-size: clamp(26px, 4.6vw, 44px);
+    text-align: center; white-space: nowrap; pointer-events: none; z-index: 14;
+    background: linear-gradient(180deg, #fff3c4, #ffd24d 42%, #ffb02b 70%, #ff8c1a);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+    filter: drop-shadow(0 0 22px rgba(255,170,30,.7)) drop-shadow(0 4px 8px rgba(0,0,0,.85));
+    opacity: 0;
+    transition: opacity .3s ease, transform .35s cubic-bezier(.2,1.4,.4,1);
+  }
+  #catch-result.show {
+    opacity: 1; transform: translate(-50%,-50%) translateY(0) scale(1);
+  }
+
+  /* ---- Pokédex button (corner) ---- */
+  #pokedex-btn {
+    position: absolute; top: 142px; right: 18px; width: 48px; height: 48px;
+    border-radius: 14px; pointer-events: auto; cursor: pointer; z-index: 13;
+    display: flex; align-items: center; justify-content: center; font-size: 22px;
+    background: linear-gradient(150deg, rgba(15,30,55,.82), rgba(20,28,55,.72));
+    border: 1.5px solid rgba(110,160,255,.5); backdrop-filter: blur(6px);
+    box-shadow: 0 4px 14px rgba(0,0,0,.5); transition: transform .1s, box-shadow .15s;
+  }
+  #pokedex-btn:hover { box-shadow: 0 0 18px rgba(90,150,255,.55), 0 4px 14px rgba(0,0,0,.5); }
+  #pokedex-btn:active { transform: scale(.92); }
+
+  /* ---- Pokédex overlay ---- */
+  #pokedex-panel {
+    position: fixed; inset: 0; z-index: 55; display: none;
+    flex-direction: column; align-items: center; justify-content: center;
+    background: radial-gradient(ellipse at 50% 35%, rgba(14,22,52,.92), rgba(2,3,10,.97));
+    pointer-events: auto;
+  }
+  #pokedex-panel.show { display: flex; }
+  #pokedex-panel h2 {
+    font-family: "Bungee", cursive; font-size: clamp(24px, 4vw, 38px);
+    background: linear-gradient(180deg, #cfe2ff, #6ea8ff 60%, #3a7bff);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+    filter: drop-shadow(0 0 18px rgba(80,150,255,.55)); margin-bottom: 18px;
+  }
+  #pokedex-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 12px; width: min(680px, 88vw); max-height: 60vh; overflow-y: auto;
+    padding: 6px 4px;
+  }
+  #pokedex-grid:empty::before {
+    content: "No Pokémon caught yet — weaken a wild Pokémon, then throw a Poké Ball!";
+    grid-column: 1 / -1; text-align: center; color: #9fb4dd;
+    font-weight: 600; font-size: 15px; line-height: 1.6; padding: 30px 10px;
+  }
+  .dex-card {
+    background: linear-gradient(150deg, rgba(15,22,46,.85), rgba(22,30,58,.78));
+    border: 1px solid rgba(110,160,255,.4); border-radius: 12px;
+    padding: 12px 10px; text-align: center;
+    box-shadow: 0 3px 12px rgba(0,0,0,.45);
+  }
+  .dex-card .dex-icon { font-size: 28px; line-height: 1.1;
+    filter: drop-shadow(0 0 8px rgba(90,150,255,.55)); }
+  .dex-card .dex-name {
+    font-family: "Bungee", cursive; font-size: 12px; color: #cfe2ff;
+    margin-top: 6px; letter-spacing: .4px; word-break: break-word;
+  }
+  .dex-card .dex-count {
+    font-size: 12px; font-weight: 700; color: #ffe6c4; margin-top: 3px;
+    background: rgba(255,160,40,.16); border: 1px solid rgba(255,170,60,.35);
+    border-radius: 999px; padding: 1px 8px; display: inline-block;
+  }
+  #pokedex-close {
+    margin-top: 22px; font-family: "Bungee", cursive; font-size: 17px; color: #1a0e00;
+    cursor: pointer; background: linear-gradient(180deg, #cfe2ff, #6ea8ff);
+    border: none; border-radius: 999px; padding: 11px 40px;
+    box-shadow: 0 6px 24px rgba(60,120,255,.45); transition: transform .12s, box-shadow .12s;
+  }
+  #pokedex-close:hover { transform: scale(1.06); box-shadow: 0 8px 30px rgba(80,150,255,.7); }
+
+  /* ---- Encounter white flash ---- */
+  #encounter-flash {
+    position: fixed; inset: 0; z-index: 58; pointer-events: none;
+    background: #fff; opacity: 0; transition: opacity .55s ease;
+  }
+  #encounter-flash.show { opacity: 1; transition: opacity .08s ease; }
+
+  /* ---- Throw button (touch only) ---- */
+  #throw-btn {
+    position: absolute; right: 18px; bottom: 160px; width: 64px; height: 64px;
+    border-radius: 50%; pointer-events: auto; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; font-size: 24px; line-height: 1;
+    background: radial-gradient(circle at 35% 30%, rgba(255,90,90,.55), rgba(150,20,20,.6));
+    border: 2px solid rgba(255,90,90,.7); backdrop-filter: blur(3px);
+    box-shadow: 0 0 16px rgba(255,60,60,.4);
+  }
+  #throw-btn:active { background: radial-gradient(circle at 35% 30%, rgba(255,130,130,.85), rgba(190,30,30,.85)); }
+  #throw-btn small {
+    font-size: 9px; font-weight: 700; letter-spacing: .7px; color: #ffe6ea;
+    font-family: "Rajdhani", sans-serif; margin-top: 2px; text-shadow: 0 1px 2px #000;
+  }
+  #throw-btn::after { content: ""; position: absolute; inset: -12px; border-radius: 50%; }
+
+  /* ---- Fly / Land toggle (all devices) ---- */
+  #fly-btn {
+    position: absolute; right: 22px; bottom: 96px; width: 66px; height: 66px;
+    border-radius: 50%; pointer-events: auto; cursor: pointer; z-index: 30;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    font-size: 24px; line-height: 1;
+    background: radial-gradient(circle at 35% 30%, rgba(90,150,255,.45), rgba(20,40,90,.7));
+    border: 2px solid rgba(130,190,255,.6); backdrop-filter: blur(4px);
+    box-shadow: 0 0 16px rgba(80,150,255,.35);
+    transition: transform .1s;
+  }
+  #fly-btn:active { transform: scale(.92); }
+  #fly-btn small {
+    font-size: 9.5px; color: #cfe2ff; font-weight: 700; letter-spacing: .8px;
+    font-family: "Rajdhani", sans-serif; margin-top: 2px;
+  }
+
+  /* ---- Touch controls (shown only on touch devices) ---- */
+  #touch-ui { position: fixed; inset: 0; pointer-events: none; z-index: 20; display: none; }
+  #joy-zone {
+    position: absolute; left: 14px; bottom: 14px; width: 170px; height: 170px;
+    pointer-events: auto;
+  }
+  #joy-base {
+    position: absolute; left: 25px; bottom: 25px; width: 120px; height: 120px;
+    border-radius: 50%; background: rgba(10,14,30,.4);
+    border: 2px solid rgba(255,255,255,.25); backdrop-filter: blur(3px);
+  }
+  #joy-knob {
+    position: absolute; left: 50%; top: 50%; width: 54px; height: 54px;
+    border-radius: 50%; transform: translate(-50%,-50%);
+    background: radial-gradient(circle at 35% 30%, rgba(255,210,120,.95), rgba(255,130,30,.85));
+    box-shadow: 0 2px 14px rgba(255,140,30,.6); border: 2px solid rgba(255,255,255,.4);
+  }
+  #tgt-btn {
+    position: absolute; right: 18px; bottom: 235px; width: 64px; height: 64px;
+    border-radius: 50%; pointer-events: auto; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; font-size: 22px; line-height: 1;
+    background: rgba(10,14,30,.6); border: 2px solid rgba(255,90,90,.5);
+    backdrop-filter: blur(3px);
+  }
+  #tgt-btn:active { background: rgba(255,90,90,.35); }
+  #boost-btn {
+    position: absolute; right: 94px; bottom: 235px; width: 68px; height: 68px;
+    border-radius: 50%; pointer-events: auto; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; font-size: 26px; line-height: 1;
+    background: radial-gradient(circle at 35% 30%, rgba(255,170,60,.5), rgba(180,60,10,.55));
+    border: 2px solid rgba(255,170,60,.7); backdrop-filter: blur(3px);
+    box-shadow: 0 0 18px rgba(255,130,20,.4);
+  }
+  #boost-btn:active { background: radial-gradient(circle at 35% 30%, rgba(255,210,90,.8), rgba(220,90,20,.8)); }
+  #dodge-btn {
+    position: absolute; right: 174px; bottom: 235px; width: 64px; height: 64px;
+    border-radius: 50%; pointer-events: auto; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; font-size: 22px; line-height: 1;
+    background: rgba(10,14,30,.6); border: 2px solid rgba(160,210,255,.5);
+    backdrop-filter: blur(3px);
+  }
+  #dodge-btn:active { background: rgba(120,180,255,.35); }
+  #tgt-btn small, #boost-btn small, #dodge-btn small {
+    font-size: 9px; font-weight: 700; letter-spacing: .7px; color: #e6eeff;
+    font-family: "Rajdhani", sans-serif; margin-top: 2px; text-shadow: 0 1px 2px #000;
+  }
+  /* invisible expanded hit areas (~+12px) for thumbs */
+  #fly-btn::after, #tgt-btn::after, #boost-btn::after, #dodge-btn::after {
+    content: ""; position: absolute; inset: -12px; border-radius: 50%;
+  }
+
+  /* ---- Portrait rotate hint (touch only, non-blocking) ---- */
+  #rotate-hint {
+    position: fixed; inset: 0; z-index: 60; display: none;
+    flex-direction: column; align-items: center; justify-content: center;
+    gap: 14px; text-align: center; pointer-events: none;
+    background: rgba(3,5,14,.86);
+  }
+  #rotate-hint .rot-icon { font-size: 54px; line-height: 1;
+    filter: drop-shadow(0 0 14px rgba(255,150,30,.6));
+    animation: rotNudge 1.6s ease-in-out infinite; }
+  @keyframes rotNudge {
+    0%, 100% { transform: rotate(0deg); }
+    50% { transform: rotate(-90deg); }
+  }
+  #rotate-hint .rot-text { font-family: "Bungee", cursive; font-size: 17px;
+    color: #ffd99a; max-width: 80vw; line-height: 1.6;
+    text-shadow: 0 0 12px rgba(255,130,0,.55), 0 2px 4px #000; }
+  @media (orientation: portrait) and (pointer: coarse) {
+    #rotate-hint { display: flex; }
+  }
+
+  /* ---- Phone layout ---- */
+  @media (pointer: coarse) {
+    #controls-hint { display: none !important; }
+    #crosshair { width: 7px; height: 7px; }
+    /* perf: skip backdrop blur on touch devices, compensate with opacity */
+    #player-panel, #score-panel, #target-panel, .move, #dialogue,
+    #fly-btn, #joy-base, #tgt-btn, #boost-btn, #dodge-btn,
+    .party-slot, #ball-counter, #catch-prompt, #pokedex-btn, #throw-btn {
+      backdrop-filter: none; -webkit-backdrop-filter: none;
+    }
+    #player-panel {
+      width: 230px; padding: 8px 10px; transform: scale(.92); transform-origin: top left;
+      top: calc(12px + env(safe-area-inset-top)); left: calc(12px + env(safe-area-inset-left));
+      background: linear-gradient(135deg, rgba(10,14,30,.92), rgba(20,28,55,.86));
+    }
+    #player-panel .pkmn-name { font-size: 15px; }
+    #score-panel {
+      padding: 6px 12px; transform: scale(.92); transform-origin: top right;
+      top: calc(12px + env(safe-area-inset-top)); right: calc(12px + env(safe-area-inset-right));
+      background: linear-gradient(135deg, rgba(10,14,30,.9), rgba(20,28,55,.84));
+    }
+    #target-panel {
+      width: 220px; top: calc(12px + env(safe-area-inset-top)); padding: 6px 10px 8px;
+      background: linear-gradient(135deg, rgba(40,8,8,.9), rgba(60,16,16,.82));
+    }
+    #mute-hint { right: calc(22px + env(safe-area-inset-right)); }
+    /* 3x2 grid sized so it clears the joystick with a >=12px gap at 360px wide */
+    #attack-bar {
+      left: auto; transform: none;
+      right: calc(12px + env(safe-area-inset-right));
+      bottom: calc(76px + env(safe-area-inset-bottom));
+      width: 184px; flex-wrap: wrap; gap: 6px; justify-content: flex-end;
+    }
+    .move {
+      width: 56px; padding: 5px 2px 4px; pointer-events: auto;
+      background: linear-gradient(160deg, rgba(15,18,38,.95), rgba(30,24,18,.92));
+    }
+    .move .icon { font-size: 17px; }
+    .move .mname { font-size: 7.5px; letter-spacing: 0; }
+    .move .key { display: none; }
+    #fly-btn {
+      right: calc(18px + env(safe-area-inset-right));
+      bottom: calc(315px + env(safe-area-inset-bottom));
+      width: 64px; height: 64px; font-size: 20px;
+      background: radial-gradient(circle at 35% 30%, rgba(90,150,255,.55), rgba(20,40,90,.88));
+    }
+    #joy-zone {
+      left: calc(8px + env(safe-area-inset-left));
+      bottom: calc(14px + env(safe-area-inset-bottom)); width: 148px;
+    }
+    #joy-base { left: 14px; background: rgba(10,14,30,.55); }
+    #tgt-btn {
+      right: calc(18px + env(safe-area-inset-right));
+      bottom: calc(235px + env(safe-area-inset-bottom));
+      background: rgba(10,14,30,.78);
+    }
+    #boost-btn {
+      right: calc(94px + env(safe-area-inset-right));
+      bottom: calc(235px + env(safe-area-inset-bottom));
+    }
+    #dodge-btn {
+      right: calc(174px + env(safe-area-inset-right));
+      bottom: calc(235px + env(safe-area-inset-bottom));
+      background: rgba(10,14,30,.78);
+    }
+    #combo { font-size: 19px; top: calc(96px + env(safe-area-inset-top)); }
+    #announce { font-size: 22px; white-space: normal; width: 90vw; }
+    #callout { font-size: 14px; bottom: auto; top: calc(64px + env(safe-area-inset-top)); padding: 4px 14px; }
+    .overlay .panel { font-size: 13px; padding: 12px 18px; line-height: 1.9; }
+    .overlay h1 { font-size: clamp(26px, 8vw, 44px); }
+    .overlay .fine { font-size: 10.5px; max-width: 86vw; }
+    #dialogue {
+      max-width: 90vw; font-size: 13.5px; bottom: auto;
+      top: calc(92px + env(safe-area-inset-top)); padding: 8px 14px;
+      background: linear-gradient(135deg, rgba(10,14,30,.94), rgba(24,20,12,.9));
+    }
+    #round-banner { font-size: clamp(22px, 7.5vw, 36px); white-space: normal; width: 92vw; }
+
+    /* ---- Catch-'em UI on phones ---- */
+    /* Party bar moves to top-left under the player panel (joystick owns
+       the bottom-left), shrunk and scaled to clear the 360px layout. */
+    #party-bar {
+      left: calc(10px + env(safe-area-inset-left));
+      bottom: auto; top: calc(96px + env(safe-area-inset-top));
+      gap: 6px; transform: scale(.82); transform-origin: top left;
+    }
+    .party-slot { width: 38px; height: 38px; }
+    .party-slot .slot-icon { font-size: 18px; }
+    /* Ball counter tucks under the score panel (top-right). */
+    #ball-counter {
+      top: calc(70px + env(safe-area-inset-top));
+      right: calc(12px + env(safe-area-inset-right));
+      padding: 4px 11px 4px 7px;
+    }
+    #ball-counter #ball-count { font-size: 14px; }
+    /* Pokédex button below the ball counter. */
+    #pokedex-btn {
+      top: calc(108px + env(safe-area-inset-top));
+      right: calc(12px + env(safe-area-inset-right));
+      width: 42px; height: 42px; font-size: 19px;
+    }
+    #catch-prompt {
+      bottom: auto; top: calc(150px + env(safe-area-inset-top));
+      font-size: 13px; padding: 7px 16px;
+    }
+    #catch-result { font-size: clamp(22px, 7vw, 36px); white-space: normal; width: 90vw; }
+    /* Throw button sits in the right action column, below tgt/boost/dodge
+       (which are at 235px) and above the attack grid (top edge ~140px). */
+    #throw-btn {
+      right: calc(18px + env(safe-area-inset-right));
+      bottom: calc(160px + env(safe-area-inset-bottom));
+      width: 60px; height: 60px; font-size: 22px;
+    }
+    #pokedex-grid { grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); }
+  }
+</style>
+</head>
+<body>
+
+<div id="vignette"></div>
+
+<div id="hud">
+  <div id="player-panel">
+    <div class="name-row">
+      <span class="pkmn-name" id="pkmn-name">CHARIZARD</span>
+      <span class="trainer">Trainer: ASH</span>
+      <span class="lvl" id="lvl-label">Lv 1</span>
+    </div>
+    <div class="bar"><div class="fill" id="hp-fill"></div><span class="bar-label" id="hp-label">100 / 100</span></div>
+    <div class="bar xp"><div class="fill" id="xp-fill" style="width:0%"></div></div>
+  </div>
+
+  <div id="score-panel">
+    <div id="wave-label">WAVE 1</div>
+    <div id="score-label">SCORE 0</div>
+    <div id="enemies-left">&nbsp;</div>
+  </div>
+
+  <div id="ball-counter" title="Poké Balls">
+    <span class="ball-glyph"></span><span id="ball-count">10</span>
+  </div>
+
+  <div id="pokedex-btn" title="Pokédex">📕</div>
+
+  <div id="target-panel">
+    <div id="target-name">WILD ENEMY</div>
+    <div class="bar"><div class="fill" id="target-hp-fill"></div><span class="bar-label" id="target-hp-label"></span></div>
+  </div>
+
+  <div id="announce"></div>
+  <div id="round-banner"></div>
+  <div id="combo"></div>
+  <div id="callout"></div>
+  <div id="crosshair"></div>
+  <div id="dialogue"></div>
+  <div id="catch-result"></div>
+  <div id="catch-prompt"><span class="cp-icon">⚲</span> It's weak! Throw a Poké Ball <span class="cp-key">F</span></div>
+
+  <div id="party-bar">
+    <div class="party-slot active"><span class="slot-icon">🔥</span><div class="slot-hp" style="--hp:100%"></div></div>
+    <div class="party-slot empty"><span class="slot-icon">＋</span><div class="slot-hp"></div></div>
+    <div class="party-slot empty"><span class="slot-icon">＋</span><div class="slot-hp"></div></div>
+    <div class="party-slot empty"><span class="slot-icon">＋</span><div class="slot-hp"></div></div>
+    <div class="party-slot empty"><span class="slot-icon">＋</span><div class="slot-hp"></div></div>
+    <div class="party-slot empty"><span class="slot-icon">＋</span><div class="slot-hp"></div></div>
+  </div>
+
+  <div id="attack-bar">
+    <div class="move ready" id="move-1"><span class="key">1</span><div class="icon">⚔️</div><div class="mname">STRIKE</div><div class="cd-shade"></div><div class="cd-num"></div></div>
+    <div class="move ready" id="move-2"><span class="key">2</span><div class="icon">🦷</div><div class="mname">BITE</div><div class="cd-shade"></div><div class="cd-num"></div></div>
+    <div class="move ready" id="move-3"><span class="key">3</span><div class="icon">💨</div><div class="mname">BREATH</div><div class="cd-shade"></div><div class="cd-num"></div></div>
+    <div class="move ready" id="move-4"><span class="key">4</span><div class="icon">☄️</div><div class="mname">BURST</div><div class="cd-shade"></div><div class="cd-num"></div></div>
+    <div class="move ready" id="move-5"><span class="key">5</span><div class="icon">🌀</div><div class="mname">SPIN</div><div class="cd-shade"></div><div class="cd-num"></div></div>
+    <div class="move ready" id="move-6"><span class="key">6</span><div class="icon">💥</div><div class="mname">BEAM</div><div class="cd-shade"></div><div class="cd-num"></div></div>
+    <div class="move ready" id="move-7"><span class="key">7</span><div class="icon">🌋</div><div class="mname">SEISMIC SLAM</div><div class="cd-shade"></div><div class="cd-num"></div></div>
+  </div>
+
+  <div id="fly-btn">🕊<small>FLY</small></div>
+
+  <div id="touch-ui">
+    <div id="joy-zone"><div id="joy-base"><div id="joy-knob"></div></div></div>
+    <div id="tgt-btn">🎯<small>TARGET</small></div>
+    <div id="boost-btn">🔥<small>BOOST</small></div>
+    <div id="dodge-btn">💨<small>DODGE</small></div>
+    <div id="throw-btn">🔴<small>THROW</small></div>
+  </div>
+
+  <div id="controls-hint">
+    <b>Mouse</b> steer flight &nbsp;·&nbsp; <b>Shift</b> boost &nbsp;·&nbsp; <b>S</b> brake<br/>
+    <b>1–6</b> attacks &nbsp;·&nbsp; <b>Q/E</b> dodge &nbsp;·&nbsp; <b>Tab</b> target &nbsp;·&nbsp; <b>M</b> mute
+  </div>
+  <div id="mute-hint"></div>
+</div>
+
+<div class="overlay" id="title-overlay">
+  <div class="ember"></div><div class="ember"></div><div class="ember"></div>
+  <div class="ember"></div><div class="ember"></div><div class="ember"></div>
+  <div class="ember"></div><div class="ember"></div><div class="ember"></div>
+  <h1>POKÉMON ARENA 3D</h1>
+  <h2>YOU ARE ASH — Explore & Catch Wild Pokémon</h2>
+  <div class="panel">
+    🚶 <b>WASD</b> / joystick — walk &nbsp;·&nbsp; 🖱 <b>Mouse</b> / drag — look around<br/>
+    🌿 Wander into <b>tall grass</b> to find wild Pokémon<br/>
+    <b>1–6</b> — command CHARIZARD to attack &nbsp;·&nbsp; <b>Tab</b> — switch target<br/>
+    🔴 Weaken a wild below <b>half HP</b>, then press <b>F</b> to throw a Poké Ball<br/>
+    <b>M</b> mute &nbsp;·&nbsp; 📱 phone: joystick + tap move cards + 🔴 throw
+  </div>
+  <div class="char-pick-label" style="font-family:'Bungee',cursive;font-size:14px;color:#9fb4dd;margin-bottom:10px;letter-spacing:1px">CHOOSE YOUR PARTNER</div>
+  <div id="char-select">
+    <div class="char-btn selected" data-char="charizard" style="--c:#ff7711">🔥 CHARIZARD</div>
+    <div class="char-btn" data-char="venusaur" style="--c:#55cc44">🌿 VENUSAUR</div>
+    <div class="char-btn" data-char="blastoise" style="--c:#3399ff">💧 BLASTOISE</div>
+    <div class="char-btn" data-char="voltaron" style="--c:#ffd91a">⚡ VOLTARON</div>
+  </div>
+  <button id="start-btn">🔴 START YOUR ADVENTURE</button>
+  <div class="fine">Set out as Ash with your partner Pokémon at your side. Explore the Ember Wilds,
+    search the tall grass for wild Pokémon, command your partner to weaken them, then throw a
+    Poké Ball to catch them and grow your team.<br/><br/>
+    Unofficial fan-made demo. Pokémon characters © Nintendo / Game Freak / Creatures Inc.</div>
+</div>
+
+<div id="rotate-hint">
+  <div class="rot-icon">📱</div>
+  <div class="rot-text">↻ Rotate your device for the best experience</div>
+</div>
+
+<div id="encounter-flash"></div>
+
+<div id="pokedex-panel">
+  <h2>POKÉDEX</h2>
+  <div id="pokedex-grid"></div>
+  <button id="pokedex-close">CLOSE</button>
+</div>
+
+<div class="overlay" id="gameover-overlay">
+  <h1>YOUR POKéMON FAINTED!</h1>
+  <div id="final-stats"></div>
+  <button id="retry-btn">🔥 BATTLE AGAIN</button>
+</div>
+
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+} }
+</script>
+<!-- Absolute path: the page is also served at /pokemon-arena (no trailing
+     slash), where a relative ./game.js would wrongly resolve to /game.js -->
+<script type="module" src="/pokemon-arena/game.js"></script>
+</body>
+</html>
