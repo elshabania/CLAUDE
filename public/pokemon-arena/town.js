@@ -156,6 +156,28 @@ export function buildTown(scene, ground, center) {
   sBoard.position.y = 2; sign.add(sBoard);
   group.add(sign);
 
+  // ---- a tall light beacon + floating marker, visible from across the map ---
+  const beacon = new THREE.Mesh(
+    new THREE.CylinderGeometry(1.4, 2.6, 70, 18, 1, true),
+    new THREE.MeshBasicMaterial({
+      color: 0xffc46a, transparent: true, opacity: 0.26,
+      blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide,
+    }));
+  beacon.position.set(cx, gy(cx, cz) + 34, cz);
+  group.add(beacon);
+  const beaconLight = new THREE.PointLight(0xffb347, 6, 140, 2);
+  beaconLight.position.set(cx, gy(cx, cz) + 16, cz);
+  group.add(beaconLight);
+  // a big floating chevron that always draws on top so you can steer to it
+  const marker = new THREE.Mesh(
+    new THREE.ConeGeometry(2.4, 4.4, 4),
+    new THREE.MeshBasicMaterial({ color: 0x73d0ff, transparent: true, opacity: 0.95, depthTest: false }));
+  marker.rotation.x = Math.PI;
+  marker.position.set(cx, gy(cx, cz) + 26, cz);
+  marker.renderOrder = 999;
+  group.add(marker);
+  const markerBaseY = marker.position.y;
+
   // ---- NPCs ----------------------------------------------------------------
   const npcs = [];
   function placeNpc(def, ax, az, palette, face = 0) {
@@ -204,6 +226,9 @@ export function buildTown(scene, ground, center) {
       }
     }
     for (const f of braziers) f.scale.y = 1 + Math.sin(time * 12 + f.position.x) * 0.18;
+    marker.position.y = markerBaseY + Math.sin(time * 2) * 0.8;
+    marker.rotation.z = time * 0.6;
+    beacon.material.opacity = 0.22 + Math.sin(time * 2.5) * 0.06;
   }
 
   return { group, npcs, center: new THREE.Vector3(cx, gy(cx, cz), cz), gymPos: new THREE.Vector3(gymX, gy(gymX, gymZ), gymZ), update };

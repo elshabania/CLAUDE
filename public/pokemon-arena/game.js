@@ -3232,9 +3232,8 @@ function updateAshNpc(dt) {
     if (keys["KeyS"]) mz -= 1;
     if (keys["KeyA"]) mx -= 1;
     if (keys["KeyD"]) mx += 1;
-    // push UP on the stick = walk FORWARD, DOWN = back (joy.y is negative when
-    // the knob is up, so negate it onto the forward axis)
-    if (joy.mag > 0.12) { mx += joy.x; mz += -joy.y; }
+    // reversed vertical: push UP on the stick = walk BACK, DOWN = forward
+    if (joy.mag > 0.12) { mx += joy.x; mz += joy.y; }
   }
   const moving = (mx * mx + mz * mz) > 0.02;
   if (moving) {
