@@ -101,6 +101,15 @@
   #mega-wrap.ready { animation: megaPulse .9s ease-in-out infinite; }
   @keyframes megaPulse { 50% { box-shadow: 0 0 16px 3px rgba(255,200,61,.85); } }
   #status-row, #enemy-status-row { display: flex; gap: 5px; margin-top: 6px; min-height: 18px; }
+  #roster-bar { display: flex; gap: 6px; margin-top: 8px; pointer-events: auto; }
+  .roster-ball { width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center;
+    justify-content: center; font-size: 12px; font-weight: 900; cursor: pointer; color: #fff;
+    background: radial-gradient(circle at 35% 30%, rgba(255,255,255,.5), var(--rc, #888) 55%, rgba(0,0,0,.4));
+    border: 2px solid rgba(255,255,255,.3); transition: transform .15s, border-color .15s;
+    text-shadow: 0 1px 2px rgba(0,0,0,.7); }
+  .roster-ball.active { border-color: var(--gold); transform: scale(1.18);
+    box-shadow: 0 0 12px rgba(255,200,61,.7); }
+  .roster-ball.fainted { filter: grayscale(.85) brightness(.6); }
   .status-chip { font-size: 10px; font-weight: 800; letter-spacing: 1px; padding: 2px 8px;
     border-radius: 999px; background: rgba(0,0,0,.5); border: 1px solid currentColor; }
 
@@ -281,6 +290,7 @@
       <div class="xp-bar"><div id="xp-fill"></div></div>
       <div id="mega-wrap"><div id="mega-fill"></div></div>
       <div id="status-row"></div>
+      <div id="roster-bar"></div>
     </div>
     <div id="enemy-panel" class="panel" style="opacity:0">
       <div class="hp-head"><span id="enemy-name">—</span><span id="enemy-sub"></span></div>

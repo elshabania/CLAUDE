@@ -39,6 +39,11 @@ for (const f of files) {
     idCount++;
     if (!htmlIds.has(m[1])) fail(`${f}: getElementById('${m[1]}') — id not in index.html`);
   }
+  // $('id') helper pattern (engine uses const $ = (id) => document.getElementById(id))
+  for (const m of src.matchAll(/(?<![A-Za-z0-9_$.])\$\(\s*['"`]([A-Za-z][\w-]*)['"`]\s*\)/g)) {
+    idCount++;
+    if (!htmlIds.has(m[1])) fail(`${f}: $('${m[1]}') — id not in index.html`);
+  }
   for (const m of src.matchAll(/querySelector(?:All)?\(\s*['"`]#([A-Za-z0-9_-]+)['"`]\s*\)/g)) {
     idCount++;
     if (!htmlIds.has(m[1])) fail(`${f}: querySelector('#${m[1]}') — id not in index.html`);
