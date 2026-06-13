@@ -11,3 +11,4 @@ tsconfig.tsbuildinfo
 # local render-test scaffolding (not shipped)
 public/pokemon-arena/_render_harness.html
 public/vendor/
+public/pokemon-arena/_glb_harness.html

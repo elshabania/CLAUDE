@@ -641,68 +641,68 @@ export function buildCharizard() {
   head.position.set(0, 0.95, 1.3);
   root.add(head);
 
-  // rounder, friendlier cartoon cranium
-  const skull = sph(skinMat, 0.33, 1.02, 1.0, 1.05);
-  skull.position.set(0, 0.07, 0.0);
+  // Lean, streamlined cranium (smaller and longer than a round chibi head).
+  const skull = sph(skinMat, 0.275, 0.95, 0.94, 1.14);
+  skull.position.set(0, 0.055, 0.0);
   head.add(skull);
-  addOutline(skull, 0.045);
+  addOutline(skull, 0.04);
 
-  // short, blunt snout (Charizard has a stubby muzzle, not a long reptilian one)
-  const muzzle = sph(skinMat, 0.265, 0.92, 0.78, 1.02);
-  muzzle.position.set(0, -0.03, 0.26);
+  // Tapered dragon snout: a slim ellipsoid narrowing to the nose, plus a small
+  // rounded tip so it reads as a tapered muzzle, not a fat blob.
+  const muzzle = sph(skinMat, 0.205, 0.80, 0.68, 1.42);
+  muzzle.position.set(0, -0.02, 0.30);
   head.add(muzzle);
-  addOutline(muzzle, 0.035);
+  addOutline(muzzle, 0.03);
+  const snoutTip = sph(skinMat, 0.115, 0.78, 0.66, 0.95);
+  snoutTip.position.set(0, -0.012, 0.5);
+  head.add(snoutTip);
 
   // dark mouth interior (mostly enclosed at rest; revealed when the jaw opens)
-  const palate = sph(mouthMat, 0.185, 0.76, 0.5, 1.2);
-  palate.position.set(0, -0.045, 0.28);
+  const palate = sph(mouthMat, 0.165, 0.74, 0.46, 1.3);
+  palate.position.set(0, -0.04, 0.31);
   palate.userData.noShadow = true;
   head.add(palate);
 
-  // Heavy brow ridges hooding the eyes — Charizard's signature determined look.
-  // The inner end (toward the nose) dips lower than the outer end.
+  // Subtle brow ridge over each eye (a defined ridge, not a heavy hood).
   for (const s of [1, -1]) {
-    const brow = sph(skinMat, 0.095, 1.7, 0.40, 1.0);
-    brow.position.set(s * 0.165, 0.235, 0.235);
-    brow.rotation.z = s * 0.30;    // inner-low -> fierce, not sad
-    brow.rotation.x = -0.16;
+    const brow = sph(skinMat, 0.058, 1.7, 0.34, 0.9);
+    brow.position.set(s * 0.15, 0.225, 0.26);
+    brow.rotation.z = s * 0.24;    // inner-low -> determined, not sad
+    brow.rotation.x = -0.12;
     head.add(brow);
   }
 
-  // Almond, forward-facing eyes: bold black ink ring + white sclera + blue-green
-  // iris + a small catchlight. Smaller and slanted (vs a big round cartoon eye)
-  // so the expression reads as fierce Charizard rather than chibi. Unlit/flat.
+  // Small, angular blue-green eyes set high on the head — sleek and fierce like
+  // the official art, not big round chibi orbs. Bold ink ring + sclera + iris.
   const eyeRingMat = new THREE.MeshBasicMaterial({ color: 0x140a04 });
   for (const s of [1, -1]) {
     const eye = new THREE.Group();
-    eye.position.set(s * 0.188, 0.182, 0.246);
-    eye.rotation.y = s * 0.66;     // local +z points outward/forward
-    eye.rotation.x = -0.05;
-    eye.rotation.z = s * 0.34;     // slant the almond for an intense gaze
-    eye.scale.set(1.06, 0.66, 1);  // flatten into an almond
-    // bold black ink ring framing the eye
-    const ring = sph(eyeRingMat, 0.082, 1, 1.05, 0.5);
-    ring.position.z = -0.005;
+    eye.position.set(s * 0.158, 0.2, 0.275);
+    eye.rotation.y = s * 0.6;      // local +z points outward/forward
+    eye.rotation.x = -0.04;
+    eye.rotation.z = s * 0.36;     // slant the almond for an intense gaze
+    eye.scale.set(1.0, 0.5, 1);    // narrow almond
+    const ring = sph(eyeRingMat, 0.06, 1, 1.08, 0.5);
+    ring.position.z = -0.004;
     ring.userData.noShadow = true;
-    const sclera = sph(scleraMat, 0.07, 1, 1.02, 0.7);
-    sclera.position.z = 0.012;
+    const sclera = sph(scleraMat, 0.05, 1, 1.04, 0.7);
+    sclera.position.z = 0.01;
     sclera.userData.noShadow = true;
-    const iris = sph(irisMat, 0.058, 1, 0.86, 1);
+    const iris = sph(irisMat, 0.042, 1, 0.9, 1);
     iris.rotation.x = Math.PI / 2; // +y pole (texture center) faces forward
-    iris.position.z = 0.04;
+    iris.position.z = 0.028;
     iris.userData.noShadow = true;
-    // small white catchlight (the eye sparkle)
-    const glint = sph(glintMat, 0.02, 1, 1, 0.5);
-    glint.position.set(s * 0.02, 0.026, 0.078);
+    const glint = sph(glintMat, 0.013, 1, 1, 0.5);
+    glint.position.set(s * 0.014, 0.018, 0.05);
     glint.userData.noShadow = true;
     eye.add(ring, sclera, iris, glint);
     head.add(eye);
   }
 
-  // Nostrils: small dark pits on top of the (shortened) snout tip
+  // Nostrils: small dark pits near the snout tip
   for (const s of [1, -1]) {
-    const n = sph(nostrilMat, 0.017, 1, 0.8, 1.2);
-    n.position.set(s * 0.06, 0.045, 0.485);
+    const n = sph(nostrilMat, 0.015, 1, 0.8, 1.2);
+    n.position.set(s * 0.045, 0.03, 0.56);
     n.userData.noShadow = true;
     head.add(n);
   }
@@ -720,46 +720,33 @@ export function buildCharizard() {
 
   // (No battle scars — the anime Charizard has clean, smooth skin.)
 
-  // Upper teeth: cones hanging from the muzzle rim (seen when jaw opens)
-  const toothRows = [
-    [0.26, 0.140, 0.058], [0.37, 0.128, 0.054], [0.47, 0.112, 0.052],
-    [0.56, 0.090, 0.066], // front fangs slightly longer
-  ];
-  for (const [z, x, len] of toothRows) {
-    for (const s of [1, -1]) {
-      const tooth = spike(clawMat,
-        new THREE.Vector3(s * x, -0.115, z),
-        new THREE.Vector3(0, -1, 0.12), 0.016, len);
-      tooth.userData.noShadow = true;
-      head.add(tooth);
-    }
+  // A single pronounced fang at each mouth corner resting over the lower lip —
+  // clean, like the official art (not a full sawtooth row).
+  for (const s of [1, -1]) {
+    const fang = spike(clawMat,
+      new THREE.Vector3(s * 0.092, -0.1, 0.42),
+      new THREE.Vector3(s * 0.05, -1, 0.06), 0.017, 0.07);
+    fang.userData.noShadow = true;
+    head.add(fang);
   }
 
   // ---- Jaw (closed local position.y MUST be -0.2; rotation.x 0..0.6 opens) --
   const jaw = new THREE.Group();
   jaw.position.set(0, -0.2, 0.10);    // pivot at the hinge, y = -0.2 exactly
   head.add(jaw);
-  const mandible = sph(skinMat, 0.205, 0.78, 0.46, 1.5);
-  mandible.position.set(0, 0.082, 0.25);   // raised so the rest mouth sits closed
+  const mandible = sph(skinMat, 0.18, 0.74, 0.44, 1.62);
+  mandible.position.set(0, 0.082, 0.28);   // slim + raised so rest mouth sits closed
   jaw.add(mandible);
-  addOutline(mandible, 0.035);   // outline follows the jaw as it opens
-  const chinPlate = sph(bellyMat, 0.17, 0.72, 0.40, 1.42);
-  chinPlate.position.set(0, 0.048, 0.26);
+  addOutline(mandible, 0.03);   // outline follows the jaw as it opens
+  const chinPlate = sph(bellyMat, 0.15, 0.7, 0.38, 1.5);
+  chinPlate.position.set(0, 0.05, 0.29);
   jaw.add(chinPlate);
-  const tongue = sph(tongueMat, 0.13, 0.64, 0.30, 1.4);
-  tongue.position.set(0, 0.12, 0.25);
+  const tongue = sph(tongueMat, 0.11, 0.62, 0.28, 1.45);
+  tongue.position.set(0, 0.115, 0.27);
   tongue.userData.noShadow = true;
   jaw.add(tongue);
-  // Small lower teeth pointing up
-  for (const [z, x] of [[0.34, 0.095], [0.45, 0.082]]) {
-    for (const s of [1, -1]) {
-      const t = spike(clawMat,
-        new THREE.Vector3(s * x, 0.095, z),
-        new THREE.Vector3(0, 1, 0.1), 0.013, 0.042);
-      t.userData.noShadow = true;
-      jaw.add(t);
-    }
-  }
+  // (Lower teeth omitted — only the two upper corner fangs show at rest, which
+  // keeps the closed mouth clean like the official art.)
 
   // ---- Mouth anchor + glow light (fire breath origin) ------------------------
   const mouthAnchor = new THREE.Object3D();
