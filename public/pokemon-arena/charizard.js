@@ -112,14 +112,14 @@ function makeSkinTextures() {
   // Bright saturated show-orange (~0xff7a1c) with flatter, graphic shading so
   // the cel ramp does the heavy lifting; subtle scales for texture only.
   const map = canvasTexture(make({
-    base: "#ff7a1c",
-    blobLight: "rgba(255,180,90,0.08)", blobDark: "rgba(210,90,20,0.07)",
-    scaleHi: "rgba(255,196,120,0.22)", scaleMid: "rgba(255,128,30,0.10)",
-    scaleLo: "rgba(190,80,16,0.20)",
-    edge: "rgba(150,62,10,0.28)", rim: "rgba(255,222,170,0.20)",
+    base: "#ff8a26",
+    blobLight: "rgba(255,190,104,0.08)", blobDark: "rgba(214,100,28,0.05)",
+    scaleHi: "rgba(255,202,130,0.22)", scaleMid: "rgba(255,138,40,0.10)",
+    scaleLo: "rgba(206,96,24,0.16)",
+    edge: "rgba(168,74,16,0.24)", rim: "rgba(255,226,180,0.20)",
   }, [
-    [0.0, "rgba(200,90,18,0.14)"], [0.5, "rgba(255,128,30,0.02)"],
-    [1.0, "rgba(255,170,80,0.10)"],
+    [0.0, "rgba(214,104,26,0.08)"], [0.5, "rgba(255,140,40,0.02)"],
+    [1.0, "rgba(255,182,96,0.12)"],
   ]), true);
   // Matching grayscale bump (high contrast so the crescents really read)
   const bump = canvasTexture(make({
@@ -209,13 +209,13 @@ function makeWingTexture() {
   const rng = makeRng(9001);
   const SIZE = 1024, S = 2;
   const [c, ctx] = makeCanvas(SIZE);
-  // Bright show teal (~0x2fae8e)
-  ctx.fillStyle = "#2fae8e";
+  // Bright blue-teal show membrane (~0x39c8c4) — Charizard's iconic wing color
+  ctx.fillStyle = "#39c8c4";
   ctx.fillRect(0, 0, SIZE, SIZE);
   for (let i = 0; i < 140 * S * S; i++) {
     const x = rng() * SIZE, y = rng() * SIZE, r = (14 + rng() * 60) * S;
     const g = ctx.createRadialGradient(x, y, 0, x, y, r);
-    g.addColorStop(0, rng() < 0.5 ? "rgba(120,224,196,0.10)" : "rgba(24,120,98,0.12)");
+    g.addColorStop(0, rng() < 0.5 ? "rgba(150,238,228,0.10)" : "rgba(36,150,140,0.10)");
     g.addColorStop(1, "rgba(0,0,0,0)");
     ctx.fillStyle = g;
     ctx.fillRect(x - r, y - r, r * 2, r * 2);
@@ -223,9 +223,9 @@ function makeWingTexture() {
   // translucent backlight: warm glow pooling at the root, darkening outward
   const rootY = SIZE / 2;
   const back = ctx.createRadialGradient(0, rootY, 40 * S, 0, rootY, SIZE * 1.15);
-  back.addColorStop(0, "rgba(255,158,84,0.20)");
-  back.addColorStop(0.45, "rgba(214,120,60,0.06)");
-  back.addColorStop(1, "rgba(8,38,42,0.30)");
+  back.addColorStop(0, "rgba(255,170,96,0.16)");
+  back.addColorStop(0.45, "rgba(120,224,214,0.05)");
+  back.addColorStop(1, "rgba(22,96,98,0.18)");
   ctx.fillStyle = back;
   ctx.fillRect(0, 0, SIZE, SIZE);
   // Fibrous streaks fanning from the root point
@@ -531,10 +531,12 @@ export function buildCharizard() {
   skinTex.rough.repeat.set(2.2, 2.2);
   // Bright cel-shaded show orange. Flat-ish (high roughness, no env) so the
   // toon ramp reads as crisp light/shadow cels rather than a glossy reptile.
+  // NOTE: the canvas map already bakes the show-orange; tint stays white so the
+  // map isn't multiplied by its own hue (which squares to a muddy red).
   const skinMat = celShade(new THREE.MeshStandardMaterial({
     map: skinTex.map, bumpMap: skinTex.bump, bumpScale: 0.03,
     roughnessMap: skinTex.rough, roughness: 1.0,
-    color: 0xff7a1c, metalness: 0.0, envMapIntensity: 0.12,
+    color: 0xffffff, metalness: 0.0, envMapIntensity: 0.12,
   }), 4);
   // darker burnt-orange multiplier on the same maps: dorsal spikes, scars
   const dorsalMat = celShade(new THREE.MeshStandardMaterial({
@@ -549,12 +551,15 @@ export function buildCharizard() {
   const bellyMat = celShade(new THREE.MeshStandardMaterial({
     map: bellyTex.map, bumpMap: bellyTex.bump, bumpScale: 0.03,
     roughnessMap: bellyTex.rough, roughness: 1.0,
-    color: 0xffe1a0, metalness: 0.0, envMapIntensity: 0.12,
+    color: 0xffffff, metalness: 0.0, envMapIntensity: 0.12,
+    // keeps the cream reading warm on the shadowed underside instead of picking
+    // up the scene's greenish hemisphere bounce
+    emissive: 0x4a3a1e, emissiveIntensity: 0.22,
   }), 4);
   const membraneMat = celShade(new THREE.MeshStandardMaterial({
-    map: makeWingTexture(), color: 0x2fae8e, roughness: 0.9, metalness: 0.0,
+    map: makeWingTexture(), color: 0xffffff, roughness: 0.9, metalness: 0.0,
     side: THREE.DoubleSide, envMapIntensity: 0.12,
-    emissive: 0x115c4a, emissiveIntensity: 0.10, // gentle teal glow in shadow
+    emissive: 0x1f8c86, emissiveIntensity: 0.20, // keeps the teal vivid in shadow
   }), 3);
   const hornMat = celShade(new THREE.MeshStandardMaterial({
     color: 0xf5e8c8, roughness: 0.55, metalness: 0.0, envMapIntensity: 0.15,
@@ -642,9 +647,9 @@ export function buildCharizard() {
   head.add(skull);
   addOutline(skull, 0.045);
 
-  // shorter, blunter snout (cartoon Charizard has a stubby muzzle)
-  const muzzle = sph(skinMat, 0.255, 0.86, 0.70, 1.35);
-  muzzle.position.set(0, -0.04, 0.30);
+  // short, blunt snout (Charizard has a stubby muzzle, not a long reptilian one)
+  const muzzle = sph(skinMat, 0.265, 0.92, 0.78, 1.02);
+  muzzle.position.set(0, -0.03, 0.26);
   head.add(muzzle);
   addOutline(muzzle, 0.035);
 
@@ -938,8 +943,8 @@ function membraneFromPoints(builderFn, sign, mat) {
 
 function buildWing(sign, skinMat, clawMat, membraneMat) {
   const wing = new THREE.Group();
-  const INNER = 1.25;   // inner panel span
-  const OUTER = 1.75;   // outer panel span
+  const INNER = 1.55;   // inner panel span (Charizard's wings are large)
+  const OUTER = 2.15;   // outer panel span
 
   // ---- Inner membrane: shoulder out to the mid joint
   const inner = membraneFromPoints((s, g) => {
