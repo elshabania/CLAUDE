@@ -99,15 +99,19 @@ export function createCameraDirector(camera) {
     const dir = ctx.duelDir || _tmp2.set(0, 0, 1);
     const home = ctx.duelCharHome || ctx.partnerPos || ctx.ashPos; // Charizard's station
     const zoom = ctx.attackZoom ? 1 : 0;
-    // stable look point out in the gap so both fighters stay framed as they
-    // lunge and retreat (don't chase live positions — keeps the shot steady)
-    _desiredLook.copy(home).addScaledVector(dir, 4.2);
-    _desiredLook.y += 0.5;
-    // camera over Charizard's shoulder: behind & above its station, toward the foe
-    _desiredPos.copy(home).addScaledVector(dir, -(4.6 - zoom * 1.4));
-    _desiredPos.y += 3.0 - zoom * 0.3;
-    clampToTerrain(_desiredPos, ctx.terrainHeight, 1.0);
-    return 52 - zoom * 6;
+    const px = dir.z, pz = -dir.x;          // perpendicular (side) axis
+    // look out into the gap/foe so the clash is centered and the attacks are
+    // clearly visible (don't chase live positions — keeps the shot steady)
+    _desiredLook.copy(home).addScaledVector(dir, 5.6);
+    _desiredLook.y += 1.3;
+    // elevated 3/4 angle: high and offset to the side behind Charizard's station
+    // so its wings sit low in the frame instead of covering the battlefield.
+    _desiredPos.copy(home).addScaledVector(dir, -(4.4 - zoom * 1.0));
+    _desiredPos.x += px * 3.8;
+    _desiredPos.z += pz * 3.8;
+    _desiredPos.y += 5.8 - zoom * 0.6;
+    clampToTerrain(_desiredPos, ctx.terrainHeight, 1.2);
+    return 54 - zoom * 5;
   }
 
   // Punch-in on the Pokémon when an attack lands.
