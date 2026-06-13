@@ -103,7 +103,7 @@ function lerpAngle(a, b, t) {
 }
 
 // Touch devices get the virtual joystick UI and lighter render settings
-const IS_TOUCH = ("ontouchstart" in window) || matchMedia("(pointer: coarse)").matches;
+const IS_TOUCH = ("ontouchstart" in window) || (navigator.maxTouchPoints > 0) || matchMedia("(pointer: coarse)").matches;
 
 // ----------------------------------------------------------------------------
 // Renderer / scene / camera / post-processing
@@ -1401,28 +1401,23 @@ if (IS_TOUCH) {
     joyKnob.style.transform = "translate(-50%,-50%)";
   };
 
-  document.getElementById("joy-zone").addEventListener("touchstart", (e) => {
+  // Pointer events drive the stick — works for touch, mouse and pen alike, and
+  // pointer capture keeps the drag tracking even when the finger slides off the
+  // pad. (Previously touch-only, which is why it could feel dead on some setups.)
+  const joyZone = document.getElementById("joy-zone");
+  joyZone.style.touchAction = "none";
+  joyZone.addEventListener("pointerdown", (e) => {
     e.preventDefault();
-    const t = e.changedTouches[0];
-    joy.id = t.identifier;
-    setJoy(t);
-  }, { passive: false });
-
-  document.addEventListener("touchmove", (e) => {
-    let handled = false;
-    for (const t of e.changedTouches) {
-      if (t.identifier === joy.id) { setJoy(t); handled = true; }
-    }
-    if (handled) e.preventDefault();
-  }, { passive: false });
-
-  const endTouch = (e) => {
-    for (const t of e.changedTouches) {
-      if (t.identifier === joy.id) resetJoy();
-    }
-  };
-  document.addEventListener("touchend", endTouch);
-  document.addEventListener("touchcancel", endTouch);
+    joy.id = e.pointerId;
+    try { joyZone.setPointerCapture(e.pointerId); } catch (_) {}
+    setJoy(e);
+  });
+  joyZone.addEventListener("pointermove", (e) => {
+    if (e.pointerId === joy.id) { e.preventDefault(); setJoy(e); }
+  });
+  const endPtr = (e) => { if (e.pointerId === joy.id) resetJoy(); };
+  joyZone.addEventListener("pointerup", endPtr);
+  joyZone.addEventListener("pointercancel", endPtr);
 
   const boostBtn = document.getElementById("boost-btn");
   boostBtn.addEventListener("pointerdown", (e) => { e.preventDefault(); touchBoost.on = true; });
@@ -3147,6 +3142,8 @@ function updateAshNpc(dt) {
     if (keys["KeyS"]) mz -= 1;
     if (keys["KeyA"]) mx -= 1;
     if (keys["KeyD"]) mx += 1;
+    // push UP on the stick = walk FORWARD, DOWN = back (joy.y is negative when
+    // the knob is up, so negate it onto the forward axis)
     if (joy.mag > 0.12) { mx += joy.x; mz += -joy.y; }
   }
   const moving = (mx * mx + mz * mz) > 0.02;
