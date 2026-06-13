@@ -18,13 +18,23 @@ import { SPECIES } from "./enemies.js";
 import { buildVenusaur } from "./venusaur.js";
 import { buildBlastoise } from "./blastoise.js";
 import { buildVoltaron } from "./voltaron.js";
-import { getRoundScript, victoryLine, defeatLine, milestoneLine } from "./story.js";
+import { getRoundScript, victoryLine, defeatLine, milestoneLine, encounterLine, catchSuccessLine, catchFailLine, commandLine, dexBlurb } from "./story.js";
 import { initEnvironment, updateEnvironment, launchFireworks } from "./environment.js";
 import { initAmbience, updateAmbience } from "./ambience.js";
 import { createSfx } from "./sfx.js";
 import { createMusicSystem } from "./music.js";
 import { createAdaptiveQuality } from "./perf.js";
 import { createCinematics } from "./cinematics.js";
+// Adventure / collection modules
+import { createCollection } from "./capture.js";
+import { buildPokeball, createCaptureFx } from "./pokeball.js";
+import { createCameraDirector } from "./cameradirector.js";
+import { initOverworld } from "./overworld.js";
+import { LEAFCUB } from "./wild_leafcub.js";
+import { SPARKMOUSE } from "./wild_sparkmouse.js";
+import { EMBERPUP } from "./wild_emberpup.js";
+import { MISTFIN } from "./wild_mistfin.js";
+import { PEBBLADE } from "./wild_pebblade.js";
 
 // ----------------------------------------------------------------------------
 // Playable Pokémon roster — same rig contract, different element & moves
@@ -1108,16 +1118,38 @@ const player = {
   dodgeCd: 0,
   flapPhase: 0,
   autoTimer: 2,
+  ai: true,          // companion is AI-driven (Ash commands it)
+  commandT: 0,       // >0 while pressing an attack toward the target
 };
 scene.add(player.group);
+player.mode = "fly"; // the companion flies alongside Ash
 
 // where the player is aiming (mouse / joystick steer this)
 const aim = { yaw: 0, pitch: 0.05 };
 
 // Ash cheering from the arena floor
-const ashNpc = { group: buildAsh(), cheer: 0, lastCheer: 0 };
-ashNpc.group.position.set(3, terrainHeight(3, 3) + 0.02, 3);
-scene.add(ashNpc.group);
+const ash = {
+  group: buildAsh(), cheer: 0, lastCheer: 0,
+  pos: new THREE.Vector3(0, 0, 0), yaw: 0, walkPhase: 0, speed: 0, throwT: 0,
+};
+ash.group.position.set(0, terrainHeight(0, 0), 0);
+scene.add(ash.group);
+
+// ---- Adventure subsystems: collection, capture VFX, camera, overworld ----
+const WILD = {
+  leafcub: LEAFCUB, sparkmouse: SPARKMOUSE, emberpup: EMBERPUP, mistfin: MISTFIN, pebblade: PEBBLADE,
+  rockor: { ...SPECIES.rockor, catchRate: 0.8 },
+  vinex: { ...SPECIES.vinex, catchRate: 0.9 },
+  aquish: { ...SPECIES.aquish, catchRate: 0.95 },
+  zephyra: { ...SPECIES.zephyra, catchRate: 0.85 },
+};
+const WILD_KEYS = Object.keys(WILD);
+const collection = createCollection(WILD_KEYS);
+const captureFx = createCaptureFx(scene);
+const cameraDir = createCameraDirector(camera);
+const overworldData = initOverworld(scene, terrainHeight, IS_TOUCH);
+const orbit = { yaw: 0, pitch: 0.42 };   // camera orbit (mouse / auto-follow)
+let throwActive = false;                  // a Poke Ball is mid-flight / capturing
 const CHEERS = [
   "Ash: “Yeah! Great shot, CHARIZARD!”",
   "Ash: “Amazing, buddy!”",
@@ -1302,7 +1334,6 @@ document.getElementById("fly-btn").addEventListener("pointerdown", (e) => {
 
 document.addEventListener("keydown", (e) => {
   keys[e.code] = true;
-  if (e.code === "Space") { e.preventDefault(); toggleFlight(); }
   if (e.code === "Tab") { e.preventDefault(); cycleTarget(); }
   if (e.code === "KeyM") {
     const muted = AudioSys.toggleMute();
@@ -1310,12 +1341,13 @@ document.addEventListener("keydown", (e) => {
     HUD.muteHint.textContent = muted ? "🔇 muted" : "";
   }
   if (state.running && !state.over) {
-    if (e.code === "Digit1") useMove(0);
-    if (e.code === "Digit2") useMove(1);
-    if (e.code === "Digit3") useMove(2);
-    if (e.code === "Digit4") useMove(3);
-    if (e.code === "Digit5") useMove(4);
-    if (e.code === "Digit6") useMove(5);
+    if (e.code === "Digit1") command(0);
+    if (e.code === "Digit2") command(1);
+    if (e.code === "Digit3") command(2);
+    if (e.code === "Digit4") command(3);
+    if (e.code === "Digit5") command(4);
+    if (e.code === "Digit6") command(5);
+    if (e.code === "KeyF" || e.code === "Space") { e.preventDefault(); attemptCatch(); }
     if (e.code === "KeyQ") dodge(-1);
     if (e.code === "KeyE") dodge(1);
   }
@@ -1327,9 +1359,8 @@ renderer.domElement.addEventListener("click", () => {
 });
 document.addEventListener("mousemove", (e) => {
   if (document.pointerLockElement !== renderer.domElement) return;
-  aim.yaw -= e.movementX * 0.0023;
-  aim.pitch = clamp(aim.pitch - e.movementY * 0.0018, -0.8, 0.8);
-  if (Math.abs(e.movementX) + Math.abs(e.movementY) > 2) input.lastSteer = nowSec();
+  orbit.yaw -= e.movementX * 0.0024;
+  orbit.pitch = clamp(orbit.pitch - e.movementY * 0.0018, -0.05, 1.1);
 });
 
 const joy = { x: 0, y: 0, mag: 0, id: null };
@@ -1392,9 +1423,11 @@ if (IS_TOUCH) {
   HUD.moves.forEach((ui, i) => {
     ui.el.addEventListener("pointerdown", (e) => {
       e.preventDefault();
-      if (state.running && !state.over) useMove(i);
+      if (state.running && !state.over) command(i);
     });
   });
+  const throwBtn = document.getElementById("throw-btn");
+  if (throwBtn) throwBtn.addEventListener("pointerdown", (e) => { e.preventDefault(); attemptCatch(); });
 }
 
 // ----------------------------------------------------------------------------
@@ -1719,16 +1752,10 @@ function updateProjectiles(dt) {
 // Enemies — grounded gunners and aerial chasers
 // ----------------------------------------------------------------------------
 function spawnEnemy(boss = false) {
-  let spec;
-  if (boss) {
-    const pool = [SPECIES.rockor, SPECIES.vinex, SPECIES.aquish];
-    spec = pool[Math.floor(Math.random() * pool.length)];
-  } else if (state.wave >= 2 && Math.random() < 0.35) {
-    spec = SPECIES.zephyra;
-  } else {
-    const ground = [SPECIES.rockor, SPECIES.vinex, SPECIES.aquish];
-    spec = ground[Math.floor(Math.random() * ground.length)];
-  }
+  const key = boss
+    ? ["rockor", "vinex", "aquish", "pebblade"][Math.floor(Math.random() * 4)]
+    : WILD_KEYS[Math.floor(Math.random() * WILD_KEYS.length)];
+  const spec = WILD[key];
 
   // duelists step in close — this is a brawl, not a shooting gallery
   const a = player.yaw + rand(-0.9, 0.9); // roughly in front of you
@@ -1743,7 +1770,8 @@ function spawnEnemy(boss = false) {
 
   const mul = (1 + (state.wave - 1) * 0.35) * (boss ? 3.5 : 2.2);
   const e = {
-    spec, group, boss,
+    spec, group, boss, key,
+    catchable: !boss, catchRate: spec.catchRate ?? 0.9,
     flying: spec.flying,
     pos: group.position,
     hp: spec.hp * mul, maxHp: spec.hp * mul,
@@ -1761,7 +1789,7 @@ function spawnEnemy(boss = false) {
     orbitDir: Math.random() < 0.5 ? 1 : -1,
     knock: new THREE.Vector3(),
     slow: 0, dead: false, deathT: 0, flash: 0, flashColor: 0xffffff,
-    element: ENEMY_ELEMENT[spec.name.toLowerCase()] ?? "normal",
+    element: spec.type ?? ENEMY_ELEMENT[spec.name.toLowerCase()] ?? "normal",
     burnT: 0, soaked: 0, statusWordAt: 0,
     bobPhase: rand(0, TAU),
     mats: [],
@@ -1891,9 +1919,9 @@ function damageEnemy(e, amount, { noStatus = false } = {}) {
     }
     if (e.boss) AudioSys.explosion();
     // Ash celebrates your kills
-    if (state.time - ashNpc.lastCheer > 6) {
-      ashNpc.lastCheer = state.time;
-      ashNpc.cheer = 1.8;
+    if (state.time - ash.lastCheer > 6) {
+      ash.lastCheer = state.time;
+      ash.cheer = 1.8;
       callout(CHEERS[Math.floor(Math.random() * CHEERS.length)], 2200);
     }
     if (target === e) target = pickTarget();
@@ -2184,75 +2212,187 @@ document.getElementById("start-btn").addEventListener("click", () => {
   AudioSys.init();
   document.getElementById("title-overlay").style.display = "none";
   state.running = true;
-  // begin grounded on the stadium turf, facing the center
-  player.mode = "ground";
-  player.pos.set(5, terrainHeight(5, -11) + 1.45, -11);
+  // Ash starts in the meadow; Charizard hovers at his side
+  ash.pos.set(0, terrainHeight(0, 0), 0); ash.yaw = 0; ash.speed = 0;
+  player.mode = "fly";
+  player.pos.set(2.4, ash.pos.y + 3.2, -2.6);
   player.vel.set(0, 0, 0);
-  player.speed = 0;
-  player.yaw = Math.atan2(-5, 11);
-  aim.yaw = player.yaw;
-  aim.pitch = 0.04;
+  player.commandT = 0;
+  orbit.yaw = 0; orbit.pitch = 0.42;
+  document.getElementById("fly-btn")?.style.setProperty("display", "none");
+  refreshParty();
+  cameraDir.setMode("explore");
+  AudioSys.music?.setMode("overworld");
   if (!IS_TOUCH) renderer.domElement.requestPointerLock();
   startWave();
-  setTimeout(() => callout("Press 🕊 FLY (or Space) to take off!", 3500), 1200);
+  callout("Explore! Find wild Pokémon · command CHARIZARD with 1–6 · press F to throw a Poké Ball", 5500);
 });
 
 // ----------------------------------------------------------------------------
-// Flight — the heart of feeling like the Pokémon
+// Trainer commands & catching
+// ----------------------------------------------------------------------------
+function command(i) {
+  if (!state.running || state.over) return;
+  if (!target || target.dead) target = pickTarget();
+  if (!target) { callout("No wild Pokémon nearby!"); return; }
+  if (MOVES[i].timer > 0) return;
+  player.commandT = 1.4;                 // companion flies in and presses the attack
+  showDialogue(commandLine(currentChar.moves[i]));
+  useMove(i);
+}
+
+function attemptCatch() {
+  if (!state.running || state.over || throwActive) return;
+  if (!target || target.dead || !target.catchable) {
+    callout(target && !target.catchable ? "That one can't be caught!" : "No wild Pokémon to catch!");
+    return;
+  }
+  if (collection.ballCount <= 0) { callout("Out of Poké Balls!"); return; }
+  const wild = target;
+  const hpFrac = clamp(wild.hp / wild.maxHp, 0, 1);
+  const statusBonus = (wild.soaked > 0 || wild.burnT > 0 || wild.slow > 0) ? 1.3 : 1;
+  const res = collection.rollCatch({ hpFrac, ballPower: 1, statusBonus, baseRate: (wild.catchRate ?? 0.9) * 0.5 });
+  if (res.noBalls) { callout("Out of Poké Balls!"); return; }
+  throwActive = true;
+  ash.throwT = 0.4;
+  AudioSys.sfx?.ballThrow();
+  let from;
+  if (ash.group.userData.throwArm) {
+    from = new THREE.Vector3();
+    ash.group.userData.throwArm.getWorldPosition(from);
+  } else from = ash.pos.clone().add(new THREE.Vector3(0, 1.4, 0));
+  const to = wild.pos.clone().add(new THREE.Vector3(0, 0.8, 0));
+  updateBallCount();
+  captureFx.throwBall(from, to, 4, 0.6, () => {
+    AudioSys.sfx?.ballBounce();
+    captureFx.playCapture(to, res.captured ? 3 : res.shakes, res.captured, (success) => {
+      throwActive = false;
+      if (success) {
+        wild.dead = true; wild.deathT = 0.74;   // fade-cleanup without an explosion
+        if (wild.group) wild.group.visible = false;
+        if (target === wild) target = null;
+        collection.addCaught(wild.key, 5);
+        collection.save?.();
+        refreshParty();
+        AudioSys.sfx?.catchSuccess();
+        AudioSys.music?.setMode("catch");
+        showCatchResult(`Gotcha! ${wild.spec.name} was caught!`, true);
+        showDialogue(catchSuccessLine(wild.spec.name));
+        state.score += 200;
+      } else {
+        AudioSys.sfx?.catchFail();
+        showCatchResult(`Oh no! ${wild.spec.name} broke free!`, false);
+        showDialogue(catchFailLine(wild.spec.name));
+      }
+    });
+  });
+}
+
+const TYPE_ICON = { fire: "🔥", water: "💧", grass: "🌿", electric: "⚡", rock: "🪨", flying: "🪽", normal: "✦" };
+function refreshParty() {
+  const slots = document.querySelectorAll("#party-bar .party-slot");
+  if (!slots.length) return;
+  slots.forEach((slot, idx) => {
+    const mon = collection.party[idx];
+    const icon = slot.querySelector(".slot-icon");
+    const hp = slot.querySelector(".slot-hp");
+    if (mon) {
+      slot.classList.remove("empty");
+      slot.classList.toggle("active", idx === collection.activeIndex);
+      const wk = WILD[mon.key];
+      if (icon) icon.textContent = TYPE_ICON[(wk && wk.type) || (CHARACTERS[mon.key] && CHARACTERS[mon.key].element) || "normal"] || "✦";
+      if (hp) hp.style.setProperty("--hp", `${clamp((mon.hp ?? 1) / (mon.maxHp ?? 1), 0, 1) * 100}%`);
+    } else {
+      slot.classList.add("empty"); slot.classList.remove("active");
+      if (icon) icon.textContent = "";
+    }
+  });
+  updateBallCount();
+}
+function updateBallCount() {
+  const el = document.getElementById("ball-count");
+  if (el) el.textContent = String(collection.ballCount);
+}
+let catchResultTimer = null;
+function showCatchResult(text, ok) {
+  const el = document.getElementById("catch-result");
+  if (!el) return;
+  el.textContent = text;
+  el.style.color = ok ? "" : "#ff8a8a";
+  el.classList.add("show");
+  clearTimeout(catchResultTimer);
+  catchResultTimer = setTimeout(() => el.classList.remove("show"), 2400);
+}
+function renderDex() {
+  const grid = document.getElementById("pokedex-grid");
+  if (!grid) return;
+  grid.innerHTML = "";
+  for (const key of WILD_KEYS.concat(Object.keys(CHARACTERS))) {
+    const caught = collection.dex.has(key) || (collection.party || []).some(p => p.key === key);
+    const card = document.createElement("div");
+    card.className = "dex-card" + (caught ? "" : " unknown");
+    const nm = (WILD[key] && WILD[key].name) || (CHARACTERS[key] && CHARACTERS[key].name) || key.toUpperCase();
+    card.innerHTML = caught
+      ? `<b>${nm}</b><span>${dexBlurb(key)}</span>`
+      : `<b>???</b><span>Not yet seen</span>`;
+    grid.appendChild(card);
+  }
+}
+{
+  const dexBtn = document.getElementById("pokedex-btn");
+  const dexPanel = document.getElementById("pokedex-panel");
+  const dexClose = document.getElementById("pokedex-close");
+  if (dexBtn && dexPanel) dexBtn.addEventListener("pointerdown", (e) => {
+    e.preventDefault(); renderDex(); dexPanel.style.display = "flex";
+  });
+  if (dexClose && dexPanel) dexClose.addEventListener("pointerdown", (e) => {
+    e.preventDefault(); dexPanel.style.display = "none";
+  });
+}
+
+// ----------------------------------------------------------------------------
+// Companion AI — Charizard follows Ash and flies in to attack on command
 // ----------------------------------------------------------------------------
 function updatePlayer(dt) {
-  const grounded = player.mode === "ground";
-  const landing = player.mode === "landing";
+  const grounded = false, landing = false, boost = false;
+  player.commandT = Math.max(0, player.commandT - dt);
+  const engaged = player.commandT > 0 && target && !target.dead;
 
-  // steering input
-  if (joy.mag > 0.1) {
-    aim.yaw -= joy.x * 2.1 * dt;
-    if (!grounded) aim.pitch = clamp(aim.pitch - joy.y * 1.5 * dt, -0.8, 0.8);
-    if (Math.abs(joy.x) > 0.25) input.lastSteer = nowSec();
+  // desired hover spot: near the target when engaged, else at Ash's shoulder
+  const goal = new THREE.Vector3();
+  if (engaged) {
+    const toT = target.pos.clone().sub(ash.pos); toT.y = 0;
+    if (toT.lengthSq() < 1e-4) toT.set(0, 0, 1); else toT.normalize();
+    goal.copy(target.pos).addScaledVector(toT, -6).add(new THREE.Vector3(0, 3.4, 0));
+  } else {
+    goal.set(
+      ash.pos.x - Math.sin(ash.yaw) * 2.6 + Math.cos(ash.yaw) * 2.2,
+      ash.pos.y + 3.2,
+      ash.pos.z - Math.cos(ash.yaw) * 2.6 - Math.sin(ash.yaw) * 2.2);
   }
-  if (keys["ArrowLeft"]) { aim.yaw += 1.8 * dt; input.lastSteer = nowSec(); }
-  if (keys["ArrowRight"]) { aim.yaw -= 1.8 * dt; input.lastSteer = nowSec(); }
-  if (!grounded && keys["ArrowUp"]) aim.pitch = clamp(aim.pitch + 1.4 * dt, -0.8, 0.8);
-  if (!grounded && keys["ArrowDown"]) aim.pitch = clamp(aim.pitch - 1.4 * dt, -0.8, 0.8);
-  if (grounded) aim.pitch = lerp(aim.pitch, 0.04, 1 - Math.pow(0.05, dt));
-  if (landing) aim.pitch = lerp(aim.pitch, -0.42, 1 - Math.pow(0.1, dt));
+  const goalMinY = terrainHeight(goal.x, goal.z) + 2.6;
+  if (goal.y < goalMinY) goal.y = goalMinY;
 
-  // AIM ASSIST — when you aren't actively steering, track the locked enemy
-  if (target && !target.dead && nowSec() - input.lastSteer > 0.55) {
-    const to = target.pos.clone().sub(player.pos);
-    const yawT = Math.atan2(to.x, to.z);
-    const diff = Math.abs(angleDiff(yawT, aim.yaw));
-    if (grounded) {
-      aim.yaw = lerpAngle(aim.yaw, yawT, 1 - Math.pow(0.18, dt)); // pivot onto the target
-    } else if (diff < 1.1 && !landing) {
-      aim.yaw = lerpAngle(aim.yaw, yawT, 1 - Math.pow(0.5, dt)); // gentle in flight
-      const pitchT = clamp(Math.atan2(to.y, Math.hypot(to.x, to.z)), -0.7, 0.7);
-      aim.pitch = lerp(aim.pitch, pitchT, 1 - Math.pow(0.5, dt));
-    }
+  const toGoal = goal.clone().sub(player.pos);
+  const gdist = toGoal.length();
+  player.speed = clamp(gdist * 3.4, 0, engaged ? 30 : 18);
+  if (gdist > 0.001) player.vel.lerp(toGoal.multiplyScalar(player.speed / gdist), 1 - Math.pow(0.015, dt));
+  player.pos.addScaledVector(player.vel, dt);
+
+  // facing: toward the target when engaged, else along travel / Ash heading
+  let faceYaw, facePitch = 0;
+  if (engaged) {
+    const f = target.pos.clone().add(new THREE.Vector3(0, 0.6, 0)).sub(player.pos);
+    faceYaw = Math.atan2(f.x, f.z);
+    facePitch = clamp(Math.atan2(f.y, Math.hypot(f.x, f.z)), -0.6, 0.6);
+  } else {
+    faceYaw = gdist > 1.5 ? Math.atan2(player.vel.x, player.vel.z) : ash.yaw;
   }
-
-  // the dragon chases your aim with weight
-  player.yaw = lerpAngle(player.yaw, aim.yaw, 1 - Math.pow(grounded ? 0.03 : 0.085, dt));
-  player.pitch = lerp(player.pitch, grounded ? 0 : aim.pitch, 1 - Math.pow(0.05, dt));
-
-  const boost = keys["ShiftLeft"] || keys["ShiftRight"] || touchBoost.on;
-  const brake = keys["KeyS"];
-  // on the ground he stands still unless you actually push forward
-  let walkInput = 0;
-  if (grounded) {
-    if (keys["KeyW"]) walkInput = 1;
-    if (joy.mag > 0.15) walkInput = Math.max(walkInput, clamp(-joy.y, 0, 1));
-  }
-  const targetSpeed = grounded
-    ? walkInput * (boost ? 12 : 6.5)
-    : (boost ? 32 : brake ? 5 : keys["KeyW"] ? 20 : 14);
-  player.speed = lerp(player.speed, targetSpeed, 1 - Math.pow(0.3, dt));
+  aim.yaw = faceYaw; aim.pitch = facePitch;
+  player.yaw = lerpAngle(player.yaw, faceYaw, 1 - Math.pow(0.05, dt));
+  player.pitch = lerp(player.pitch, facePitch, 1 - Math.pow(0.06, dt));
 
   const fwd = playerForward();
-  tmpAim.copy(fwd).multiplyScalar(player.speed);
-  if (grounded) tmpAim.y = 0;
-  player.vel.lerp(tmpAim, 1 - Math.pow(0.02, dt));
-  player.pos.addScaledVector(player.vel, dt);
 
   // world bounds
   const r = Math.hypot(player.pos.x, player.pos.z);
@@ -2528,20 +2668,52 @@ function updateFireSpins(dt) {
 // ----------------------------------------------------------------------------
 // Ash cheering
 // ----------------------------------------------------------------------------
+// YOU — Ash, walking the overworld (camera-relative movement)
 function updateAshNpc(dt) {
-  const g = ashNpc.group;
-  // face the dragon
-  const to = player.pos.clone().sub(g.position);
-  g.rotation.y = Math.atan2(to.x, to.z);
-  ashNpc.cheer = Math.max(0, ashNpc.cheer - dt);
-  const arms = g.userData.arms;
-  if (ashNpc.cheer > 0) {
-    // both arms pumping overhead
-    arms[0].rotation.x = -2.6 + Math.sin(state.time * 10) * 0.5;
-    arms[1].rotation.x = -2.6 + Math.sin(state.time * 10 + 1.2) * 0.5;
+  const g = ash.group;
+  let mx = 0, mz = 0;
+  if (keys["KeyW"]) mz += 1;
+  if (keys["KeyS"]) mz -= 1;
+  if (keys["KeyA"]) mx -= 1;
+  if (keys["KeyD"]) mx += 1;
+  if (joy.mag > 0.12) { mx += joy.x; mz += -joy.y; }
+  const moving = (mx * mx + mz * mz) > 0.02;
+  if (moving) {
+    const len = Math.hypot(mx, mz); mx /= len; mz /= len;
+    const camF = orbit.yaw; // forward = away from the camera
+    const wx = Math.sin(camF) * mz + Math.cos(camF) * mx;
+    const wz = Math.cos(camF) * mz - Math.sin(camF) * mx;
+    const spd = (keys["ShiftLeft"] || keys["ShiftRight"]) ? 11 : 7;
+    ash.pos.x = clamp(ash.pos.x + wx * spd * dt, -228, 228);
+    ash.pos.z = clamp(ash.pos.z + wz * spd * dt, -228, 228);
+    ash.yaw = Math.atan2(wx, wz);
+    ash.speed = spd;
+    ash.walkPhase += dt * spd * 1.7;
   } else {
-    arms[0].rotation.x = Math.sin(state.time * 1.8) * 0.12;
-    arms[1].rotation.x = -Math.sin(state.time * 1.8) * 0.12;
+    ash.speed = lerp(ash.speed, 0, 1 - Math.pow(0.001, dt));
+  }
+  ash.pos.y = terrainHeight(ash.pos.x, ash.pos.z);
+  g.position.copy(ash.pos);
+  g.rotation.y = ash.yaw;
+
+  // leg / arm walk cycle, plus a Poké Ball throw windup
+  const legs = g.userData.legs || [];
+  const arms = g.userData.arms || [];
+  const mf = clamp(ash.speed / 6, 0, 1);
+  for (let k = 0; k < legs.length; k++)
+    legs[k].rotation.x = Math.sin(ash.walkPhase + (k ? Math.PI : 0)) * 0.6 * mf;
+  g.position.y = ash.pos.y + Math.abs(Math.sin(ash.walkPhase)) * 0.05 * mf;
+
+  ash.throwT = Math.max(0, ash.throwT - dt);
+  ash.cheer = Math.max(0, ash.cheer - dt);
+  for (let k = 0; k < arms.length; k++) {
+    let rx = Math.sin(ash.walkPhase + (k ? 0 : Math.PI)) * 0.4 * mf;
+    if (ash.cheer > 0) rx = -2.6 + Math.sin(state.time * 10 + k) * 0.5;
+    arms[k].rotation.x = rx;
+  }
+  if (ash.throwT > 0 && g.userData.throwArm) {
+    const t = 1 - ash.throwT / 0.4;
+    g.userData.throwArm.rotation.x = t < 0.5 ? lerp(0, -2.6, t / 0.5) : lerp(-2.6, 0.6, (t - 0.5) / 0.5);
   }
 }
 
@@ -2549,46 +2721,25 @@ function updateAshNpc(dt) {
 // Camera — tight over-the-shoulder dragon cam with banked horizon
 // ----------------------------------------------------------------------------
 function updateCamera(dt) {
-  const grounded = player.mode === "ground";
-  const fwd = playerForward();
-  // over-the-shoulder framing: offset to the right so the tail flame
-  // doesn't sit between the camera and the view center
-  const side = new THREE.Vector3(Math.cos(player.yaw), 0, -Math.sin(player.yaw));
-  const desired = player.pos.clone()
-    .addScaledVector(fwd, grounded ? -6.6 : -7.4)
-    .addScaledVector(side, grounded ? 1.7 : 2.2)
-    .add(new THREE.Vector3(0, grounded ? 2.5 : 2.9, 0));
-  const minY = terrainHeight(desired.x, desired.z) + 0.7;
-  if (desired.y < minY) desired.y = minY;
-  camera.position.lerp(desired, 1 - Math.pow(0.0005, dt));
-
-  if (state.shake > 0) {
-    state.shake = Math.max(0, state.shake - dt * 1.6);
-    camera.position.x += rand(-1, 1) * state.shake * 0.32;
-    camera.position.y += rand(-1, 1) * state.shake * 0.32;
-  }
-
-  // bank the horizon with the dragon's roll — sells the turn
-  camera.up.set(Math.sin(-player.roll * 0.45), Math.cos(player.roll * 0.45), 0);
-  const look = player.pos.clone().addScaledVector(fwd, 9)
-    .addScaledVector(side, 1.1).add(new THREE.Vector3(0, 0.6, 0));
-  // in a ground duel, frame the opponent too so telegraphs stay on screen
-  if (grounded && target && !target.dead && target.pos.distanceTo(player.pos) < 16) {
-    look.lerp(target.pos.clone().add(new THREE.Vector3(0, 1, 0)), 0.4);
-  }
-  camera.lookAt(look);
-
-  state.fovKick = Math.max(0, state.fovKick - dt * 22);
-  let speedFov = 58 + clamp((player.speed - 5) / 27, 0, 1) * 18;
-  if (grounded) speedFov = Math.max(speedFov, 62);
-  const targetFov = speedFov + state.fovKick;
-  if (Math.abs(camera.fov - targetFov) > 0.01) {
-    camera.fov = lerp(camera.fov, targetFov, 1 - Math.pow(0.001, dt));
-    camera.updateProjectionMatrix();
-  }
-
-  sun.position.set(player.pos.x + 55, player.pos.y + 80, player.pos.z + 35);
-  sun.target.position.copy(player.pos);
+  // on touch (no mouse orbit) the camera eases in behind Ash's heading
+  if (IS_TOUCH) orbit.yaw = lerpAngle(orbit.yaw, ash.yaw, 1 - Math.pow(0.06, dt));
+  let mode = "explore";
+  if (throwActive) mode = "capture";
+  else if (player.commandT > 0 && target && !target.dead) mode = "command";
+  cameraDir.setMode(mode);
+  if (state.shake > 0.01) { cameraDir.shake(state.shake); state.shake = 0; }
+  if (state.fovKick > 0.01) { cameraDir.kickFov(state.fovKick); state.fovKick = 0; }
+  cameraDir.update(dt, {
+    ashPos: ash.pos,
+    partnerPos: player.pos,
+    targetPos: (target && !target.dead) ? target.pos : null,
+    speed: ash.speed,
+    terrainHeight,
+    yaw: orbit.yaw,
+    pitch: orbit.pitch,
+  });
+  sun.position.set(ash.pos.x + 55, ash.pos.y + 80, ash.pos.z + 35);
+  sun.target.position.copy(ash.pos);
 }
 
 // ----------------------------------------------------------------------------
@@ -2632,9 +2783,14 @@ function updateHud() {
     HUD.combo.style.opacity = "0";
   }
 
-  const flyLabel = player.mode === "ground" ? "🕊<small>FLY</small>"
-    : player.mode === "fly" ? "🛬<small>LAND</small>" : "⏬<small>…</small>";
-  if (HUD.flyBtn.innerHTML !== flyLabel) HUD.flyBtn.innerHTML = flyLabel;
+  // adventure HUD: ball count + catch prompt when a weakened wild is close
+  updateBallCount();
+  const cp = document.getElementById("catch-prompt");
+  if (cp) {
+    const can = target && !target.dead && target.catchable && collection.ballCount > 0
+      && clamp(target.hp / target.maxHp, 0, 1) < 0.6 && ash.pos.distanceTo(target.pos) < 24;
+    cp.classList.toggle("show", !!can && !throwActive);
+  }
 
   for (let i = 0; i < MOVES.length; i++) {
     const m = MOVES[i], ui = HUD.moves[i];
@@ -2684,6 +2840,8 @@ function tick() {
     updateFireSpins(sdt);
     updateWaves(sdt);
     updateAshNpc(sdt);
+    captureFx.update(sdt);
+    overworldData.update(sdt, state.time, ash.pos);
     updateHud();
     AudioSys.music?.update();
     if (cine.active) cine.update(dt);
@@ -2719,7 +2877,7 @@ function tick() {
   updateShockwaves(sdt);
   updateSlashArcs(sdt);
   updateEnvironment(dt, state.time);
-  updateAmbience(dt, state.time, player.pos);
+  updateAmbience(dt, state.time, ash.pos);
   adaptiveQ.update(dt);
   composer.render();
 }
