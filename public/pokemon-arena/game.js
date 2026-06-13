@@ -2308,6 +2308,59 @@ function attemptCatch() {
   });
 }
 
+// Give any built model the userData the battle engine expects, so a caught
+// wild creature can be sent out as the active partner without crashing.
+function ensureBattlerRig(g) {
+  const ud = g.userData;
+  if (!ud.mouthAnchor) { const m = new THREE.Object3D(); m.position.set(0, 1.0, 0.6); g.add(m); ud.mouthAnchor = m; }
+  if (!ud.mouthGlow) { const l = new THREE.PointLight(0xffaa44, 0, 6, 2); ud.mouthAnchor.add(l); ud.mouthGlow = l; }
+  if (!ud.head) ud.head = new THREE.Object3D();
+  if (!ud.jaw) { ud.jaw = new THREE.Object3D(); ud.jaw.position.y = -0.2; }
+  if (!ud.tailGroup) ud.tailGroup = new THREE.Object3D();
+  if (!ud.flame) { ud.flame = new THREE.Object3D(); g.add(ud.flame); }
+  if (!ud.flameLight) { ud.flameLight = new THREE.PointLight(0xff7722, 0, 6, 2); g.add(ud.flameLight); }
+  if (!ud.wings) ud.wings = [];
+  if (!ud.arms) ud.arms = [];
+  if (!ud.legs) ud.legs = [];
+  if (!ud.bodyMats) { ud.bodyMats = []; g.traverse(o => { if (o.isMesh && o.material && o.material.emissive) ud.bodyMats.push(o.material); }); }
+}
+
+// Send out a different party member as the active partner
+function switchActive(idx) {
+  const mon = collection.party[idx];
+  if (!mon || idx === collection.activeIndex) return;
+  collection.setActive(idx);
+  const cc = CHARACTERS[mon.key];
+  const wk = WILD[mon.key];
+  const builder = (cc && cc.build) || (wk && wk.build);
+  if (!builder) return;
+  const oldPos = player.pos.clone();
+  scene.remove(player.group);
+  player.group = builder();
+  ensureBattlerRig(player.group);
+  scene.add(player.group);
+  player.group.position.copy(oldPos);
+  if (cc) {
+    currentChar = cc;
+  } else {
+    const col = (wk.projectile && wk.projectile.color) || 0xffcc55;
+    currentChar = {
+      name: wk.name, build: wk.build, color: col, glow: col,
+      breath: [col, 0xffcc66, 0xffffff], element: wk.type || "normal",
+      moves: ["STRIKE", "BITE", "BREATH", "BURST", "SPIN", "BEAM"],
+    };
+  }
+  const lvl = mon.level ?? 5;
+  player.maxHp = 100 + (lvl - 1) * 20; player.hp = player.maxHp;
+  player.dmgMul = 1 + (lvl - 1) * 0.12;
+  HUD.pkmnName.textContent = currentChar.name;
+  for (let i = 0; i < MOVES.length; i++)
+    HUD.moves[i].el.querySelector(".mname").textContent = currentChar.moves[i];
+  refreshParty();
+  callout(`Go, ${currentChar.name}!`);
+  AudioSys.sfx?.wildCry?.(currentChar.element);
+}
+
 const TYPE_ICON = { fire: "🔥", water: "💧", grass: "🌿", electric: "⚡", rock: "🪨", flying: "🪽", normal: "✦" };
 function refreshParty() {
   const slots = document.querySelectorAll("#party-bar .party-slot");
@@ -2322,9 +2375,12 @@ function refreshParty() {
       const wk = WILD[mon.key];
       if (icon) icon.textContent = TYPE_ICON[(wk && wk.type) || (CHARACTERS[mon.key] && CHARACTERS[mon.key].element) || "normal"] || "✦";
       if (hp) hp.style.setProperty("--hp", `${clamp((mon.hp ?? 1) / (mon.maxHp ?? 1), 0, 1) * 100}%`);
+      slot.onpointerdown = (e) => { e.preventDefault(); switchActive(idx); };  // tap to send out
+      slot.style.cursor = "pointer";
     } else {
       slot.classList.add("empty"); slot.classList.remove("active");
       if (icon) icon.textContent = "";
+      slot.onpointerdown = null;
     }
   });
   updateBallCount();
