@@ -698,9 +698,11 @@ export function buildCharizard() {
     head.add(n);
   }
 
-  // Two straight back-swept cream horns (the show's clean tapered spikes)
+  // Two straight back-swept horns. In the official art these are the same
+  // body-orange as the head (NOT cream), so they use skinMat; the ink outline
+  // keeps them reading against the cranium.
   for (const s of [1, -1]) {
-    const horn = spike(hornMat,
+    const horn = spike(skinMat,
       new THREE.Vector3(s * 0.135, 0.28, -0.04),
       new THREE.Vector3(s * 0.16, 0.30, -1.0), 0.058, 0.46);
     addOutline(horn, 0.02);
@@ -780,29 +782,12 @@ export function buildCharizard() {
     seg.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), tan);
     tailGroup.add(seg);
     if (i === TAIL_N - 1) tailTip.copy(p).addScaledVector(tan, -r * 0.4);
-    // dorsal ridge continues onto the tail
-    if (i >= 1 && i % 2 === 1 && t < 0.85) {
-      tailGroup.add(spike(dorsalMat,
-        p.clone().add(new THREE.Vector3(0, r * 0.85, 0)),
-        new THREE.Vector3(0, 1, -0.55), 0.038, 0.11 * (1 - t * 0.6) + 0.03));
-    }
+    // (Official Charizard's tail is smooth — no dorsal ridge spikes.)
   }
 
-  // ---- Dorsal ridge spikes along neck + spine --------------------------------
-  const spineSpots = [
-    [0, 0.58, 0.55], [0, 0.62, 0.25], [0, 0.60, -0.05],
-    [0, 0.54, -0.35], [0, 0.45, -0.65],
-  ];
-  for (const [x, y, z] of spineSpots) {
-    root.add(spike(dorsalMat, new THREE.Vector3(x, y, z),
-      new THREE.Vector3(0, 1, -0.5), 0.045, 0.14));
-  }
-  // a couple on the neck following the curve
-  for (const t of [0.35, 0.65]) {
-    const p = neckCurve.getPoint(t);
-    root.add(spike(dorsalMat, p.clone().add(new THREE.Vector3(0, 0.24, -0.06)),
-      new THREE.Vector3(0, 1, -0.6), 0.038, 0.11));
-  }
+  // ---- Smooth back -----------------------------------------------------------
+  // Official Charizard has NO dorsal spine ridge — the neck, back and tail are
+  // smooth, so the generic-dragon spike rows have been removed entirely.
 
   // ---- Tail flame -------------------------------------------------------------
   const flame = new THREE.Group();
