@@ -421,24 +421,26 @@ function makeFlameMesh(radius, height, core = 0) {
 function celShade(mat, bands = 4) {
   mat.onBeforeCompile = (shader) => {
     shader.uniforms.uBands = { value: bands };
-    // strengthen ambient floor so shadowed cels stay bright & saturated
     shader.fragmentShader = shader.fragmentShader
       .replace(
         "#include <common>",
         "#include <common>\nuniform float uBands;\n" +
         "float celStep(float v){\n" +
         "  float b = max(2.0, uBands);\n" +
-        "  // soft-quantize: snap to bands but keep tiny AA on the borders\n" +
+        "  // soft-quantize n.l into hard bands with a tiny AA border, then\n" +
+        "  // lift the floor so shadowed cels stay bright & saturated\n" +
         "  float q = floor(v * b) / b;\n" +
         "  float f = fract(v * b);\n" +
-        "  q += smoothstep(0.78, 0.96, f) / b;\n" +
-        "  return clamp(q * 0.78 + 0.30, 0.0, 1.15);\n" +
+        "  q += smoothstep(0.80, 0.96, f) / b;\n" +
+        "  return clamp(q * 0.80 + 0.34, 0.0, 1.18);\n" +
         "}\n"
       )
-      // quantize the direct light contribution from every light type
+      // MeshStandard uses RE_Direct_Physical — quantize dotNL there. The
+      // USE_CLEARCOAT marker uniquely identifies the physical direct path so we
+      // don't touch the Lambert/Phong copies of the same line.
       .replace(
-        "vec3 irradiance = dotNL * directLight.color;",
-        "vec3 irradiance = celStep(dotNL) * directLight.color;"
+        "float dotNL = saturate( dot( geometryNormal, directLight.direction ) );\n\tvec3 irradiance = dotNL * directLight.color;\n\t#ifdef USE_CLEARCOAT",
+        "float dotNL = saturate( dot( geometryNormal, directLight.direction ) );\n\tdotNL = celStep( dotNL );\n\tvec3 irradiance = dotNL * directLight.color;\n\t#ifdef USE_CLEARCOAT"
       );
   };
   mat.needsUpdate = true;
