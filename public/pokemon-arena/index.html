@@ -304,6 +304,202 @@
 
   #mute-hint { position: absolute; top: 96px; right: 22px; font-size: 12px; color: #8fa0c5; }
 
+  /* ============================================================
+     CATCH-'EM ADVENTURE UI
+     ============================================================ */
+
+  /* ---- Party bar (bottom-left, above controls hint) ---- */
+  #party-bar {
+    position: absolute; left: 18px; bottom: 64px; display: flex; gap: 9px;
+    z-index: 12;
+  }
+  .party-slot {
+    position: relative; width: 46px; height: 46px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    background: linear-gradient(150deg, rgba(15,18,38,.85), rgba(30,24,18,.78));
+    border: 2px solid rgba(255,160,40,.5); backdrop-filter: blur(5px);
+    box-shadow: 0 3px 12px rgba(0,0,0,.5);
+    transition: transform .12s ease, box-shadow .15s ease, border-color .15s ease;
+  }
+  .party-slot .slot-icon {
+    font-size: 22px; line-height: 1;
+    filter: drop-shadow(0 0 6px rgba(255,140,0,.6));
+  }
+  .party-slot .slot-hp {
+    position: absolute; left: 7px; right: 7px; bottom: 5px; height: 4px;
+    border-radius: 999px; background: rgba(0,0,0,.6);
+    border: 1px solid rgba(255,255,255,.18); overflow: hidden;
+  }
+  .party-slot .slot-hp::before {
+    content: ""; position: absolute; inset: 0; width: var(--hp, 100%);
+    border-radius: 999px; background: linear-gradient(90deg, #2bd66b, #8aff6e);
+    transition: width .2s ease-out;
+  }
+  .party-slot.active {
+    border-color: #ffe9a8; transform: translateY(-4px) scale(1.08);
+    box-shadow: 0 0 18px rgba(255,170,40,.7), 0 4px 14px rgba(0,0,0,.5);
+  }
+  .party-slot.empty {
+    border-style: dashed; border-color: rgba(255,255,255,.2);
+    background: rgba(8,10,24,.45); box-shadow: none;
+  }
+  .party-slot.empty .slot-icon { opacity: .35; filter: none; font-size: 16px; }
+  .party-slot.empty .slot-hp { display: none; }
+
+  /* ---- Ball counter (under score panel) ---- */
+  #ball-counter {
+    position: absolute; top: 96px; right: 18px;
+    display: flex; align-items: center; gap: 7px;
+    background: linear-gradient(135deg, rgba(30,8,10,.82), rgba(55,14,16,.72));
+    border: 1px solid rgba(255,90,90,.45); border-radius: 999px;
+    padding: 5px 14px 5px 9px; backdrop-filter: blur(6px);
+    box-shadow: 0 4px 14px rgba(0,0,0,.5);
+  }
+  #ball-counter .ball-glyph {
+    width: 20px; height: 20px; border-radius: 50%;
+    background:
+      linear-gradient(180deg, #ff3b3b 0 47%, #1a1a1a 47% 53%, #f5f5f5 53% 100%);
+    border: 1.5px solid #1a1a1a; position: relative; flex: none;
+    box-shadow: 0 0 8px rgba(255,60,60,.5);
+  }
+  #ball-counter .ball-glyph::after {
+    content: ""; position: absolute; left: 50%; top: 50%;
+    transform: translate(-50%,-50%); width: 7px; height: 7px; border-radius: 50%;
+    background: #f5f5f5; border: 1.5px solid #1a1a1a;
+  }
+  #ball-counter #ball-count {
+    font-family: "Bungee", cursive; font-size: 16px; color: #ffe6c4;
+    text-shadow: 0 0 8px rgba(255,90,40,.6); min-width: 18px; text-align: center;
+  }
+
+  /* ---- Catch prompt (center-bottom) ---- */
+  #catch-prompt {
+    position: absolute; bottom: 188px; left: 50%;
+    transform: translateX(-50%) translateY(8px);
+    display: flex; align-items: center; gap: 8px;
+    font-family: "Bungee", cursive; font-size: 17px; color: #fff;
+    background: linear-gradient(135deg, rgba(30,8,10,.85), rgba(55,14,16,.78));
+    border: 1.5px solid rgba(255,90,90,.6); border-radius: 999px;
+    padding: 9px 22px; backdrop-filter: blur(6px);
+    text-shadow: 0 1px 3px #000; white-space: nowrap;
+    box-shadow: 0 4px 18px rgba(0,0,0,.55);
+    opacity: 0; pointer-events: none;
+    transition: opacity .25s ease, transform .25s ease;
+  }
+  #catch-prompt .cp-key {
+    font-size: 12px; font-weight: 700; color: #ffd99a;
+    background: rgba(255,90,40,.25); border: 1px solid rgba(255,120,60,.5);
+    border-radius: 6px; padding: 1px 8px; font-family: "Rajdhani", sans-serif;
+  }
+  #catch-prompt.show {
+    opacity: 1; transform: translateX(-50%) translateY(0);
+    animation: catchPulse 1.1s ease-in-out infinite;
+  }
+  @keyframes catchPulse {
+    0%, 100% { box-shadow: 0 4px 18px rgba(0,0,0,.55), 0 0 0 rgba(255,60,60,0); }
+    50% { box-shadow: 0 4px 18px rgba(0,0,0,.55), 0 0 24px rgba(255,60,60,.7); }
+  }
+
+  /* ---- Catch result banner (center) ---- */
+  #catch-result {
+    position: absolute; top: 40%; left: 50%;
+    transform: translate(-50%,-50%) translateY(26px) scale(.92);
+    font-family: "Bungee", cursive; font-size: clamp(26px, 4.6vw, 44px);
+    text-align: center; white-space: nowrap; pointer-events: none; z-index: 14;
+    background: linear-gradient(180deg, #fff3c4, #ffd24d 42%, #ffb02b 70%, #ff8c1a);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+    filter: drop-shadow(0 0 22px rgba(255,170,30,.7)) drop-shadow(0 4px 8px rgba(0,0,0,.85));
+    opacity: 0;
+    transition: opacity .3s ease, transform .35s cubic-bezier(.2,1.4,.4,1);
+  }
+  #catch-result.show {
+    opacity: 1; transform: translate(-50%,-50%) translateY(0) scale(1);
+  }
+
+  /* ---- Pokédex button (corner) ---- */
+  #pokedex-btn {
+    position: absolute; top: 142px; right: 18px; width: 48px; height: 48px;
+    border-radius: 14px; pointer-events: auto; cursor: pointer; z-index: 13;
+    display: flex; align-items: center; justify-content: center; font-size: 22px;
+    background: linear-gradient(150deg, rgba(15,30,55,.82), rgba(20,28,55,.72));
+    border: 1.5px solid rgba(110,160,255,.5); backdrop-filter: blur(6px);
+    box-shadow: 0 4px 14px rgba(0,0,0,.5); transition: transform .1s, box-shadow .15s;
+  }
+  #pokedex-btn:hover { box-shadow: 0 0 18px rgba(90,150,255,.55), 0 4px 14px rgba(0,0,0,.5); }
+  #pokedex-btn:active { transform: scale(.92); }
+
+  /* ---- Pokédex overlay ---- */
+  #pokedex-panel {
+    position: fixed; inset: 0; z-index: 55; display: none;
+    flex-direction: column; align-items: center; justify-content: center;
+    background: radial-gradient(ellipse at 50% 35%, rgba(14,22,52,.92), rgba(2,3,10,.97));
+    pointer-events: auto;
+  }
+  #pokedex-panel.show { display: flex; }
+  #pokedex-panel h2 {
+    font-family: "Bungee", cursive; font-size: clamp(24px, 4vw, 38px);
+    background: linear-gradient(180deg, #cfe2ff, #6ea8ff 60%, #3a7bff);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+    filter: drop-shadow(0 0 18px rgba(80,150,255,.55)); margin-bottom: 18px;
+  }
+  #pokedex-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 12px; width: min(680px, 88vw); max-height: 60vh; overflow-y: auto;
+    padding: 6px 4px;
+  }
+  #pokedex-grid:empty::before {
+    content: "No Pokémon caught yet — weaken a wild Pokémon, then throw a Poké Ball!";
+    grid-column: 1 / -1; text-align: center; color: #9fb4dd;
+    font-weight: 600; font-size: 15px; line-height: 1.6; padding: 30px 10px;
+  }
+  .dex-card {
+    background: linear-gradient(150deg, rgba(15,22,46,.85), rgba(22,30,58,.78));
+    border: 1px solid rgba(110,160,255,.4); border-radius: 12px;
+    padding: 12px 10px; text-align: center;
+    box-shadow: 0 3px 12px rgba(0,0,0,.45);
+  }
+  .dex-card .dex-icon { font-size: 28px; line-height: 1.1;
+    filter: drop-shadow(0 0 8px rgba(90,150,255,.55)); }
+  .dex-card .dex-name {
+    font-family: "Bungee", cursive; font-size: 12px; color: #cfe2ff;
+    margin-top: 6px; letter-spacing: .4px; word-break: break-word;
+  }
+  .dex-card .dex-count {
+    font-size: 12px; font-weight: 700; color: #ffe6c4; margin-top: 3px;
+    background: rgba(255,160,40,.16); border: 1px solid rgba(255,170,60,.35);
+    border-radius: 999px; padding: 1px 8px; display: inline-block;
+  }
+  #pokedex-close {
+    margin-top: 22px; font-family: "Bungee", cursive; font-size: 17px; color: #1a0e00;
+    cursor: pointer; background: linear-gradient(180deg, #cfe2ff, #6ea8ff);
+    border: none; border-radius: 999px; padding: 11px 40px;
+    box-shadow: 0 6px 24px rgba(60,120,255,.45); transition: transform .12s, box-shadow .12s;
+  }
+  #pokedex-close:hover { transform: scale(1.06); box-shadow: 0 8px 30px rgba(80,150,255,.7); }
+
+  /* ---- Encounter white flash ---- */
+  #encounter-flash {
+    position: fixed; inset: 0; z-index: 58; pointer-events: none;
+    background: #fff; opacity: 0; transition: opacity .55s ease;
+  }
+  #encounter-flash.show { opacity: 1; transition: opacity .08s ease; }
+
+  /* ---- Throw button (touch only) ---- */
+  #throw-btn {
+    position: absolute; right: 18px; bottom: 160px; width: 64px; height: 64px;
+    border-radius: 50%; pointer-events: auto; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; font-size: 24px; line-height: 1;
+    background: radial-gradient(circle at 35% 30%, rgba(255,90,90,.55), rgba(150,20,20,.6));
+    border: 2px solid rgba(255,90,90,.7); backdrop-filter: blur(3px);
+    box-shadow: 0 0 16px rgba(255,60,60,.4);
+  }
+  #throw-btn:active { background: radial-gradient(circle at 35% 30%, rgba(255,130,130,.85), rgba(190,30,30,.85)); }
+  #throw-btn small {
+    font-size: 9px; font-weight: 700; letter-spacing: .7px; color: #ffe6ea;
+    font-family: "Rajdhani", sans-serif; margin-top: 2px; text-shadow: 0 1px 2px #000;
+  }
+  #throw-btn::after { content: ""; position: absolute; inset: -12px; border-radius: 50%; }
+
   /* ---- Fly / Land toggle (all devices) ---- */
   #fly-btn {
     position: absolute; right: 22px; bottom: 96px; width: 66px; height: 66px;
@@ -399,7 +595,8 @@
     #crosshair { width: 7px; height: 7px; }
     /* perf: skip backdrop blur on touch devices, compensate with opacity */
     #player-panel, #score-panel, #target-panel, .move, #dialogue,
-    #fly-btn, #joy-base, #tgt-btn, #boost-btn, #dodge-btn {
+    #fly-btn, #joy-base, #tgt-btn, #boost-btn, #dodge-btn,
+    .party-slot, #ball-counter, #catch-prompt, #pokedex-btn, #throw-btn {
       backdrop-filter: none; -webkit-backdrop-filter: none;
     }
     #player-panel {
@@ -469,6 +666,43 @@
       background: linear-gradient(135deg, rgba(10,14,30,.94), rgba(24,20,12,.9));
     }
     #round-banner { font-size: clamp(22px, 7.5vw, 36px); white-space: normal; width: 92vw; }
+
+    /* ---- Catch-'em UI on phones ---- */
+    /* Party bar moves to top-left under the player panel (joystick owns
+       the bottom-left), shrunk and scaled to clear the 360px layout. */
+    #party-bar {
+      left: calc(10px + env(safe-area-inset-left));
+      bottom: auto; top: calc(96px + env(safe-area-inset-top));
+      gap: 6px; transform: scale(.82); transform-origin: top left;
+    }
+    .party-slot { width: 38px; height: 38px; }
+    .party-slot .slot-icon { font-size: 18px; }
+    /* Ball counter tucks under the score panel (top-right). */
+    #ball-counter {
+      top: calc(70px + env(safe-area-inset-top));
+      right: calc(12px + env(safe-area-inset-right));
+      padding: 4px 11px 4px 7px;
+    }
+    #ball-counter #ball-count { font-size: 14px; }
+    /* Pokédex button below the ball counter. */
+    #pokedex-btn {
+      top: calc(108px + env(safe-area-inset-top));
+      right: calc(12px + env(safe-area-inset-right));
+      width: 42px; height: 42px; font-size: 19px;
+    }
+    #catch-prompt {
+      bottom: auto; top: calc(150px + env(safe-area-inset-top));
+      font-size: 13px; padding: 7px 16px;
+    }
+    #catch-result { font-size: clamp(22px, 7vw, 36px); white-space: normal; width: 90vw; }
+    /* Throw button sits in the right action column, below tgt/boost/dodge
+       (which are at 235px) and above the attack grid (top edge ~140px). */
+    #throw-btn {
+      right: calc(18px + env(safe-area-inset-right));
+      bottom: calc(160px + env(safe-area-inset-bottom));
+      width: 60px; height: 60px; font-size: 22px;
+    }
+    #pokedex-grid { grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); }
   }
 </style>
 </head>
@@ -493,6 +727,12 @@
     <div id="enemies-left">&nbsp;</div>
   </div>
 
+  <div id="ball-counter" title="Poké Balls">
+    <span class="ball-glyph"></span><span id="ball-count">10</span>
+  </div>
+
+  <div id="pokedex-btn" title="Pokédex">📕</div>
+
   <div id="target-panel">
     <div id="target-name">WILD ENEMY</div>
     <div class="bar"><div class="fill" id="target-hp-fill"></div><span class="bar-label" id="target-hp-label"></span></div>
@@ -504,6 +744,17 @@
   <div id="callout"></div>
   <div id="crosshair"></div>
   <div id="dialogue"></div>
+  <div id="catch-result"></div>
+  <div id="catch-prompt"><span class="cp-icon">⚲</span> Throw Poké Ball <span class="cp-key">F</span></div>
+
+  <div id="party-bar">
+    <div class="party-slot active"><span class="slot-icon">🔥</span><div class="slot-hp" style="--hp:100%"></div></div>
+    <div class="party-slot empty"><span class="slot-icon">＋</span><div class="slot-hp"></div></div>
+    <div class="party-slot empty"><span class="slot-icon">＋</span><div class="slot-hp"></div></div>
+    <div class="party-slot empty"><span class="slot-icon">＋</span><div class="slot-hp"></div></div>
+    <div class="party-slot empty"><span class="slot-icon">＋</span><div class="slot-hp"></div></div>
+    <div class="party-slot empty"><span class="slot-icon">＋</span><div class="slot-hp"></div></div>
+  </div>
 
   <div id="attack-bar">
     <div class="move ready" id="move-1"><span class="key">1</span><div class="icon">⚔️</div><div class="mname">STRIKE</div><div class="cd-shade"></div><div class="cd-num"></div></div>
@@ -521,6 +772,7 @@
     <div id="tgt-btn">🎯<small>TARGET</small></div>
     <div id="boost-btn">🔥<small>BOOST</small></div>
     <div id="dodge-btn">💨<small>DODGE</small></div>
+    <div id="throw-btn">🔴<small>THROW</small></div>
   </div>
 
   <div id="controls-hint">
@@ -559,6 +811,14 @@
 <div id="rotate-hint">
   <div class="rot-icon">📱</div>
   <div class="rot-text">↻ Rotate your device for the best experience</div>
+</div>
+
+<div id="encounter-flash"></div>
+
+<div id="pokedex-panel">
+  <h2>POKÉDEX</h2>
+  <div id="pokedex-grid"></div>
+  <button id="pokedex-close">CLOSE</button>
 </div>
 
 <div class="overlay" id="gameover-overlay">
