@@ -1123,6 +1123,7 @@ const player = {
 };
 scene.add(player.group);
 player.mode = "fly"; // the companion flies alongside Ash
+player.pendingMove = -1; // a melee move queued until the companion is in range
 
 // where the player is aiming (mouse / joystick steer this)
 const aim = { yaw: 0, pitch: 0.05 };
@@ -2233,14 +2234,17 @@ document.getElementById("start-btn").addEventListener("click", () => {
 // ----------------------------------------------------------------------------
 // Trainer commands & catching
 // ----------------------------------------------------------------------------
+const MELEE_MOVES = new Set([0, 1, 4]);        // STRIKE, BITE, SPIN are melee
+const MELEE_RANGE = [4.6, 3.8, 0, 0, 7, 0];    // per-move reach
 function command(i) {
   if (!state.running || state.over) return;
   if (!target || target.dead) target = pickTarget();
   if (!target) { callout("No wild Pokémon nearby!"); return; }
   if (MOVES[i].timer > 0) return;
-  player.commandT = 1.4;                 // companion flies in and presses the attack
+  player.commandT = 1.6;                 // companion flies in to press the attack
   showDialogue(commandLine(currentChar.moves[i]));
-  useMove(i);
+  if (MELEE_MOVES.has(i)) player.pendingMove = i;  // fire when in range (no whiff)
+  else useMove(i);                                 // ranged: launch immediately
 }
 
 function attemptCatch() {
@@ -2378,7 +2382,9 @@ function updatePlayer(dt) {
   if (engaged) {
     const toT = target.pos.clone().sub(ash.pos); toT.y = 0;
     if (toT.lengthSq() < 1e-4) toT.set(0, 0, 1); else toT.normalize();
-    goal.copy(target.pos).addScaledVector(toT, -6).add(new THREE.Vector3(0, 3.4, 0));
+    const melee = player.pendingMove >= 0;
+    goal.copy(target.pos).addScaledVector(toT, melee ? -2.5 : -6)
+      .add(new THREE.Vector3(0, melee ? 1.6 : 3.4, 0));
   } else {
     goal.set(
       ash.pos.x - Math.sin(ash.yaw) * 2.6 + Math.cos(ash.yaw) * 2.2,
@@ -2406,6 +2412,19 @@ function updatePlayer(dt) {
   aim.yaw = faceYaw; aim.pitch = facePitch;
   player.yaw = lerpAngle(player.yaw, faceYaw, 1 - Math.pow(0.05, dt));
   player.pitch = lerp(player.pitch, facePitch, 1 - Math.pow(0.06, dt));
+
+  // release a queued melee strike once Charizard has closed the distance
+  if (player.pendingMove >= 0) {
+    if (engaged) {
+      const mr = MELEE_RANGE[player.pendingMove] || 5;
+      if (target.pos.distanceTo(player.pos) < mr + (target.radius || 1) + 0.5) {
+        const mv = player.pendingMove; player.pendingMove = -1;
+        useMove(mv);
+        state.shake = Math.max(state.shake, 0.18); // dive-bomb impact
+      }
+    }
+    if (player.commandT <= 0) player.pendingMove = -1; // gave up — out of reach
+  }
 
   const fwd = playerForward();
 
