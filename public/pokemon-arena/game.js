@@ -1272,7 +1272,7 @@ function updateSlashArcs(dt) {
   }
 }
 
-function meleeStrike({ range, dot, dmg, knock = 0, stun = 0 }) {
+function meleeStrike({ range, dot, dmg, knock = 0, stun = 0, lift = 0, kind = "recoil" }) {
   const fwd = playerForward();
   let hit = false;
   for (const e of enemies) {
@@ -1280,8 +1280,8 @@ function meleeStrike({ range, dot, dmg, knock = 0, stun = 0 }) {
     const to = e.pos.clone().add(new THREE.Vector3(0, e.flying ? 0 : 0.8, 0)).sub(player.pos);
     const d = to.length();
     if (d < range + e.radius && to.normalize().dot(fwd) > dot) {
-      damageEnemy(e, dmg);
-      if (knock) e.knock.add(to.clone().setY(0.15).multiplyScalar(knock));
+      const dir = to.clone().setY(0); if (dir.lengthSq() < 1e-4) dir.set(0, 0, 1); dir.normalize();
+      damageEnemy(e, dmg, { react: { launch: knock, lift, kind, dir } });
       if (stun) e.slow = Math.max(e.slow, stun);
       burst(e.pos.clone().add(new THREE.Vector3(0, 1, 0)),
         { count: 12, color: 0xffcc66, speed: 7, size: 0.5, life: 0.4 });
@@ -1555,10 +1555,12 @@ function useMove(i) {
     const hit = meleeStrike({
       range: 4.6, dot: 0.35,
       dmg: (finisher ? 26 : 16) * player.dmgMul,
-      knock: finisher ? 14 : 5, stun: finisher ? 1.0 : 0,
+      knock: finisher ? 16 : 6, stun: finisher ? 1.0 : 0,
+      lift: finisher ? 7 : 0, kind: finisher ? "launch" : "recoil",
     });
     if (hit) {
       state.shake = Math.max(state.shake, 0.2);
+      hitStop(finisher ? 0.05 : 0.5, finisher ? 6 : 2); // every swipe bites
       if (finisher) {
         state.hitStopHold = 0.09;
         state.timeScale = 0.05;
@@ -1574,7 +1576,7 @@ function useMove(i) {
     if (meleeStrike({
       range: 3.8, dot: 0.45,
       dmg: 34 * (countering ? 1.75 : 1) * player.dmgMul,
-      knock: 4, stun: 1.2,
+      knock: 5, stun: 1.2, kind: "flinch",
     })) {
       state.hitStopHold = 0.09;
       state.timeScale = 0.05;
@@ -1601,8 +1603,8 @@ function useMove(i) {
       if (e.dead) continue;
       const to = e.pos.clone().sub(player.pos);
       if (to.length() < 7 + e.radius) {
-        damageEnemy(e, 26 * player.dmgMul);
-        e.knock.add(to.setY(0.2).normalize().multiplyScalar(11));
+        const dir = to.clone().setY(0); if (dir.lengthSq() < 1e-4) dir.set(0, 0, 1); dir.normalize();
+        damageEnemy(e, 26 * player.dmgMul, { react: { launch: 13, lift: 6, kind: "launch", dir } });
         hit = true;
       }
     }
@@ -1803,10 +1805,10 @@ function explodeProjectile(p, hitPos) {
       if (e.dead) continue;
       const d = e.pos.distanceTo(hitPos);
       if (d < p.aoe) {
+        const falloff = 1 - d / p.aoe;
         const dmg = p.damage * (1 - d / p.aoe * 0.6);
-        damageEnemy(e, dmg);
-        const push = e.pos.clone().sub(hitPos).setY(0).normalize().multiplyScalar(7 * (1 - d / p.aoe));
-        e.knock.add(push);
+        const dir = e.pos.clone().sub(hitPos).setY(0); if (dir.lengthSq() < 1e-4) dir.set(0, 0, 1); dir.normalize();
+        damageEnemy(e, dmg, { react: { launch: 12 * falloff, lift: 7 * falloff, kind: "launch", dir } });
       }
     }
   } else {
@@ -2043,7 +2045,23 @@ function applyStatus(e, dealt) {
   }
 }
 
-function damageEnemy(e, amount, { noStatus = false } = {}) {
+// Cinematic defender reaction — knockback, launch-into-air tumble, or recoil.
+function reactHit(e, { launch = 3, lift = 0, kind = "recoil", spin = 0, dir = null } = {}) {
+  if (e.dead) return;
+  const heavy = e.boss ? 0.4 : 1; // bosses shrug off most of it
+  let d = dir;
+  if (!d) { d = e.pos.clone().sub(player.pos); d.y = 0; if (d.lengthSq() < 1e-4) d.set(0, 0, 1); d.normalize(); }
+  if (launch) e.knock.add(d.clone().multiplyScalar(launch * heavy));
+  if (lift > 0 && !e.flying) {
+    e.vy = lift * heavy;
+    e.airT = Math.max(e.airT || 0, 0.25 + lift * 0.05);
+    e.reactSpin = spin || 7;
+  }
+  e.staggerT = 0.22;
+  e.reactKind = kind;
+}
+
+function damageEnemy(e, amount, { noStatus = false, react } = {}) {
   if (e.dead) return;
   const crit = Math.random() < 0.16;
   if (crit) amount *= 1.6;
@@ -2081,6 +2099,8 @@ function damageEnemy(e, amount, { noStatus = false } = {}) {
       callout(CHEERS[Math.floor(Math.random() * CHEERS.length)], 2200);
     }
     if (target === e) target = pickTarget();
+  } else {
+    reactHit(e, react || {}); // every surviving hit gets a cinematic reaction
   }
 }
 
@@ -2136,6 +2156,28 @@ function updateEnemies(dt) {
           m.mat.emissiveIntensity = m.baseIntensity;
         }
       }
+    }
+
+    // ---- launched-into-the-air reaction: tumble through the sky, then crash ----
+    if ((e.airT || 0) > 0) {
+      e.airT -= dt;
+      e.vy -= 32 * dt;
+      e.pos.y += e.vy * dt;
+      e.pos.addScaledVector(e.knock, dt);
+      e.knock.multiplyScalar(Math.max(0, 1 - 2.2 * dt));
+      e.group.rotation.x += (e.reactSpin || 7) * dt;
+      e.group.rotation.z += (e.reactSpin || 7) * 0.5 * dt;
+      const gy = terrainHeight(e.pos.x, e.pos.z);
+      if (e.pos.y <= gy || e.airT <= 0) {
+        e.pos.y = gy; e.airT = 0; e.vy = 0;
+        e.group.rotation.x = 0; e.group.rotation.z = 0;
+        burst(e.pos.clone(), { count: 16, color: 0xccb88a, speed: 6.5, size: 0.65, life: 0.55, up: 2 });
+        addShockwave(e.pos, 4, 0xddc8a0);
+        state.shake = Math.max(state.shake, 0.3);
+        AudioSys.hit?.();
+      }
+      if (e.hpBar) e.hpBar.lookAt(camera.position);
+      continue; // juggled — no AI while airborne
     }
 
     // status effects — BURN DoT (orange flicker) and SOAK timer
@@ -2844,6 +2886,7 @@ function updatePlayer(dt) {
       const along = to.dot(bFwd);
       if (along > 0 && along < 70 && to.addScaledVector(bFwd, -along).length() < 2.4) {
         damageEnemyTick(e, 120 * player.dmgMul * dt);
+        if (!e.dead) { e.knock.addScaledVector(bFwd, 22 * dt); e.staggerT = Math.max(e.staggerT, 0.12); } // beam shoves it back
       }
     }
     if (Math.random() < dt * 30) {
@@ -2896,6 +2939,7 @@ function updatePlayer(dt) {
       const d = to.length();
       if (d < 26 && to.normalize().dot(fwd) > 0.78) {
         damageEnemyTick(e, 42 * player.dmgMul * dt);
+        if (!e.dead) { e.knock.addScaledVector(fwd, 9 * dt); e.staggerT = Math.max(e.staggerT, 0.1); } // breath nudges it back
       }
     }
   }
