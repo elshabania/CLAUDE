@@ -35,6 +35,12 @@ import { SPARKMOUSE } from "./wild_sparkmouse.js";
 import { EMBERPUP } from "./wild_emberpup.js";
 import { MISTFIN } from "./wild_mistfin.js";
 import { PEBBLADE } from "./wild_pebblade.js";
+import { SHADOWPAW } from "./wild_shadowpaw.js";
+import { TERRADON } from "./wild_terradon.js";
+import { FROSTBUN } from "./wild_frostbun.js";
+import { GALEFEATHER } from "./wild_galefeather.js";
+import { MAGMITE } from "./wild_magmite.js";
+import { BLOOMKIT } from "./wild_bloomkit.js";
 
 // ----------------------------------------------------------------------------
 // Playable Pokémon roster — same rig contract, different element & moves
@@ -1143,6 +1149,8 @@ scene.add(ash.group);
 // ---- Adventure subsystems: collection, capture VFX, camera, overworld ----
 const WILD = {
   leafcub: LEAFCUB, sparkmouse: SPARKMOUSE, emberpup: EMBERPUP, mistfin: MISTFIN, pebblade: PEBBLADE,
+  shadowpaw: SHADOWPAW, terradon: TERRADON, frostbun: FROSTBUN, galefeather: GALEFEATHER,
+  magmite: MAGMITE, bloomkit: BLOOMKIT,
   rockor: { ...SPECIES.rockor, catchRate: 0.8 },
   vinex: { ...SPECIES.vinex, catchRate: 0.9 },
   aquish: { ...SPECIES.aquish, catchRate: 0.95 },
