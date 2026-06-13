@@ -9,6 +9,8 @@ const nextConfig = {
     return [
       { source: "/abu-dhabi-streets", destination: "/abu-dhabi-streets/index.html" },
       { source: "/abu-dhabi-streets/", destination: "/abu-dhabi-streets/index.html" },
+      { source: "/pokemon-arena", destination: "/pokemon-arena/index.html" },
+      { source: "/pokemon-arena/", destination: "/pokemon-arena/index.html" },
     ];
   },
 };
