@@ -1123,6 +1123,7 @@ const player = {
   clawWindow: -1,
   spinT: 0,
   beamT: 0,
+  beamCharge: 0,    // Hyper Beam wind-up before the blast fires
   invuln: 0,
   dodgeCd: 0,
   flapPhase: 0,
@@ -1597,33 +1598,52 @@ function useMove(i) {
     AudioSys.flamethrower();
     player.flameActive = 1.6;
   } else if (i === 3) {
+    // FLAME BURST — rear up and LOB a flaming meteor that arcs down and erupts
     AudioSys.fire();
+    player.jawOpen = 0.7; player.fireFlash = 0.45;
+    const aimAt = (target && !target.dead)
+      ? target.pos.clone().add(new THREE.Vector3(0, 0.8, 0))
+      : mouth.clone().addScaledVector(fwd, 22);
+    // launch up-and-over so gravity drops it onto the foe; homes in to land true
+    const launch = aimAt.clone().add(new THREE.Vector3(0, 5.5, 0)).sub(mouth).normalize();
     spawnProjectile({
-      pos: mouth, dir: fwd, speed: 28, size: 0.5, color: currentChar.color,
-      damage: 60 * player.dmgMul, friendly: true, trail: currentChar.glow,
-      gravity: 4, aoe: 7,
+      pos: mouth, dir: launch, speed: 24, size: 0.95, color: 0xff5a14,
+      damage: 72 * player.dmgMul, friendly: true, trail: 0xffb347,
+      gravity: 17, aoe: 9, homing: 1.4, targetRef: target && !target.dead ? target : null,
     });
+    player.attackCamT = 1.2;
   } else if (i === 4) {
-    // SPIN SLAM — whirl with a 360° shockwave
+    // TAIL SLAM — dash in and whirl, smashing the foe with the blazing tail
     AudioSys.noise({ dur: 0.5, freq: 900, gain: 0.4, sweep: 0.3 });
-    player.spinT = 0.55;
-    addShockwave(player.pos, 6.5, currentChar.glow);
+    player.spinT = 0.6;
+    player.vel.addScaledVector(fwd, 7);
+    addShockwave(player.pos, 7.5, 0xffaa44);
+    // a ring of fire swept out by the tail
+    for (let k = 0; k < 22; k++) {
+      const ang = (k / 22) * TAU;
+      spawnParticle({
+        pos: player.pos.clone().add(new THREE.Vector3(Math.cos(ang) * 3.2, rand(0, 1.2), Math.sin(ang) * 3.2)),
+        color: k % 2 ? 0xff7a22 : 0xffc24a, size: rand(0.4, 0.8), endSize: 0.05, life: rand(0.35, 0.6),
+        vel: new THREE.Vector3(Math.cos(ang) * 5, rand(1, 2.5), Math.sin(ang) * 5),
+      });
+    }
     let hit = false;
     for (const e of enemies) {
       if (e.dead) continue;
       const to = e.pos.clone().sub(player.pos);
-      if (to.length() < 7 + e.radius) {
+      if (to.length() < 8 + e.radius) {
         const dir = to.clone().setY(0); if (dir.lengthSq() < 1e-4) dir.set(0, 0, 1); dir.normalize();
-        damageEnemy(e, 26 * player.dmgMul, { react: { launch: 13, lift: 6, kind: "launch", dir } });
+        damageEnemy(e, 34 * player.dmgMul, { react: { launch: 18, lift: 9, kind: "launch", dir } });
+        if (!e.dead) e.burnT = Math.max(e.burnT, 2);
         hit = true;
       }
     }
-    if (hit) { state.shake = Math.max(state.shake, 0.35); hitStop(0.25, 4); }
+    if (hit) { state.shake = Math.max(state.shake, 0.45); hitStop(0.25, 5); }
   } else if (i === 5) {
-    // HYPER BEAM — braced, sustained element beam
-    AudioSys.noise({ dur: 0.8, freq: 2600, gain: 0.5, sweep: 0.1 });
+    // HYPER BEAM — rear back and CHARGE, then unleash a massive sustained blast
     AudioSys.tone({ freq: 1200, dur: 0.7, type: "sawtooth", gain: 0.12, slide: 0.3 });
-    player.beamT = 0.75;
+    player.beamCharge = 0.5;       // wind-up: gather light at the mouth
+    player.attackCamT = 2.0;       // hold the camera through the whole blast
     callout(`<b>${currentChar.moves[5]}</b>!!`);
   } else if (i === 6) {
     // SEISMIC SLAM — grab the wild Pokémon, soar up, and dive-bomb it down
@@ -1819,6 +1839,7 @@ function explodeProjectile(p, hitPos) {
         const dmg = p.damage * (1 - d / p.aoe * 0.6);
         const dir = e.pos.clone().sub(hitPos).setY(0); if (dir.lengthSq() < 1e-4) dir.set(0, 0, 1); dir.normalize();
         damageEnemy(e, dmg, { react: { launch: 12 * falloff, lift: 7 * falloff, kind: "launch", dir } });
+        if (!e.dead) e.burnT = Math.max(e.burnT, 2.6); // the blast leaves them ablaze
       }
     }
   } else {
@@ -2965,7 +2986,25 @@ function updatePlayer(dt) {
     }
   }
 
-  // HYPER BEAM — braced stance, sustained line damage
+  // HYPER BEAM charge: gather light at the mouth, then unleash the blast
+  if (player.beamCharge > 0) {
+    player.beamCharge -= dt;
+    const cm = mouthPos();
+    ud.mouthGlow.intensity = 30 * (1 - player.beamCharge / 0.5);
+    player.jawOpen = lerp(player.jawOpen, 0.78, 1 - Math.pow(0.002, dt));
+    if (Math.random() < dt * 90) {
+      const off = new THREE.Vector3(rand(-3.4, 3.4), rand(-2, 3.4), rand(-3.4, 3.4));
+      spawnParticle({ pos: cm.clone().add(off), color: currentChar.glow, size: rand(0.2, 0.55), endSize: 0.7, life: 0.22, vel: off.multiplyScalar(-4.5) });
+    }
+    if (player.beamCharge <= 0) {
+      player.beamT = 0.9;
+      state.shake = Math.max(state.shake, 0.4);
+      flashScreen();
+      AudioSys.noise({ dur: 0.9, freq: 2600, gain: 0.5, sweep: 0.1 });
+    }
+  }
+
+  // HYPER BEAM — braced stance, massive sustained line blast
   if (player.beamT > 0) {
     player.beamT -= dt;
     const bMouth = mouthPos();
@@ -2974,20 +3013,26 @@ function updatePlayer(dt) {
     beamFx.mesh.material.color.set(currentChar.glow);
     beamFx.mesh.position.copy(bMouth);
     beamFx.mesh.quaternion.setFromUnitVectors(AXIS_Z, bFwd);
-    const bw = 1 + Math.sin(state.time * 45) * 0.2;
+    const bw = 2.0 + Math.sin(state.time * 45) * 0.35;   // thick, pulsing column
     beamFx.mesh.scale.set(bw, bw, 70);
     beamFx.light.color.set(currentChar.glow);
-    beamFx.light.intensity = 14;
+    beamFx.light.intensity = 20;
     beamFx.light.position.copy(bMouth).addScaledVector(bFwd, 5);
-    ud.mouthGlow.intensity = 20;
-    state.shake = Math.max(state.shake, 0.12);
+    ud.mouthGlow.intensity = 26;
+    state.shake = Math.max(state.shake, 0.18);
     for (const e of enemies) {
       if (e.dead) continue;
       const to = e.pos.clone().add(new THREE.Vector3(0, e.flying ? 0 : 0.8, 0)).sub(bMouth);
       const along = to.dot(bFwd);
-      if (along > 0 && along < 70 && to.addScaledVector(bFwd, -along).length() < 2.4) {
-        damageEnemyTick(e, 120 * player.dmgMul * dt);
-        if (!e.dead) { e.knock.addScaledVector(bFwd, 22 * dt); e.staggerT = Math.max(e.staggerT, 0.12); } // beam shoves it back
+      if (along > 0 && along < 70 && to.addScaledVector(bFwd, -along).length() < 3.0) {
+        damageEnemyTick(e, 150 * player.dmgMul * dt);
+        if (!e.dead) { e.knock.addScaledVector(bFwd, 30 * dt); e.staggerT = Math.max(e.staggerT, 0.12); } // beam shoves it back
+        // continuous eruption where the beam slams into the foe
+        if (Math.random() < dt * 50) {
+          spawnParticle({ pos: e.pos.clone().add(new THREE.Vector3(rand(-0.8, 0.8), rand(0.2, 1.6), rand(-0.8, 0.8))),
+            color: currentChar.glow, size: rand(0.4, 1.0), endSize: 0.1, life: rand(0.25, 0.5),
+            vel: bFwd.clone().multiplyScalar(-rand(2, 6)).add(new THREE.Vector3(rand(-2, 2), rand(1, 3), rand(-2, 2))) });
+        }
       }
     }
     if (Math.random() < dt * 30) {
