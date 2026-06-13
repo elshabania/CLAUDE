@@ -79,6 +79,43 @@ const BOSS = {
   leadGain: 0.045,
 };
 
+// Overworld: bright, breezy exploration. C major, ~118 BPM, gentle groove.
+// Soft kick on beats 1 & 3, light shaker on offbeats. I–V–vi–IV (C–G–Am–F).
+const OVERWORLD = {
+  bpm: 118,
+  //        1 . . . 2 . . . 3 . . . 4 . . .
+  kick:    [1,0,0,0, 0,0,0,0, 1,0,0,0, 0,0,0,0],   // soft on 1 & 3
+  shaker:  [0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0],   // light, on offbeats
+  // C — G — Am — F : warm walking bass (8th notes), one chord per bar.
+  bass: [
+    ['C2','E2','G2','E2', 'C2','E2','G2','B2'],   // C
+    ['G1','B1','D2','B1', 'G1','B1','D2','F2'],   // G
+    ['A1','C2','E2','C2', 'A1','C2','E2','G2'],   // Am
+    ['F1','A1','C2','A1', 'F1','A1','C2','E2'],   // F (walk up to C)
+  ],
+  // Airy pad: chord tones, lowpassed two-saw, very quiet.
+  pad: [
+    ['C3','E3','G3'],   // C
+    ['B2','D3','G3'],   // G
+    ['A2','C3','E3'],   // Am
+    ['A2','C3','F3'],   // F
+  ],
+  padCutoff: 1300,
+  // Cheerful C-major pentatonic (C D E G A) lead — relaxed wandering, lots of rests.
+  leadA: ['G4', _ ,'A4','C5',  _ , _ ,'A4','G4',  _ ,'E4', _ ,'G4', 'A4', _ , _ , _ ],
+  leadB: ['C5', _ , _ ,'A4', 'G4', _ ,'E4', _ ,  'D4', _ ,'E4','G4',  _ , _ ,'C4', _ ],
+  leadDurSteps: 2.2,
+  leadGain: 0.04,
+};
+
+// Catch stinger: [note, startSec, durSec] — quick rising C-major arpeggio, ~1.2s.
+const CATCH = [
+  ['C5', 0.00, 0.12], ['E5', 0.12, 0.12], ['G5', 0.24, 0.12], ['C6', 0.36, 0.45],
+  ['G5', 0.80, 0.12], ['C6', 0.92, 0.40],
+];
+const CATCH_PAD = ['C3', 'E3', 'G3', 'C4'];
+const CATCH_LEN = 1.4;
+
 // Victory fanfare: [note, startSec, durSec] — Picardy lift into A major, ~3s.
 const FANFARE = [
   ['E5', 0.00, 0.16], ['E5', 0.20, 0.16], ['E5', 0.40, 0.16], ['E5', 0.60, 0.50],
@@ -126,8 +163,10 @@ export function createMusicSystem(ctx, masterGain) {
   let step = 0;
   let nextNoteTime = ctx.currentTime;
   let victoryUntil = 0;
+  let catchUntil = 0;
 
-  const stepSec = () => 60 / (mode === 'boss' ? BOSS.bpm : BATTLE.bpm) / 4;
+  const bpmFor = (m) => (m === 'boss' ? BOSS.bpm : m === 'overworld' ? OVERWORLD.bpm : BATTLE.bpm);
+  const stepSec = () => 60 / bpmFor(mode) / 4;
 
   // ---- voice builders (every source gets an envelope and a stop()) --------
 
@@ -166,6 +205,27 @@ export function createMusicSystem(ctx, masterGain) {
 
   const snare = (t) => noiseHit(t, 'bandpass', 1800, 0.9, 0.07, 0.13);
   const hat = (t, accent) => noiseHit(t, 'highpass', 7500, 0.7, accent ? 0.022 : 0.014, 0.04);
+  // Light, airy shaker: short highpassed noise, softer than the hat.
+  const shaker = (t) => noiseHit(t, 'highpass', 9000, 0.5, 0.012, 0.05);
+
+  // Cheerful flute-like lead: sine with slight vibrato, gentle envelope.
+  function fluteNote(hz, t, dur, peak) {
+    const o = ctx.createOscillator();
+    o.type = 'sine';
+    o.frequency.value = hz;
+    // slight vibrato (~5.5 Hz, a few cents)
+    const vib = ctx.createOscillator();
+    vib.type = 'sine';
+    vib.frequency.value = 5.5;
+    const vibGain = ctx.createGain();
+    vibGain.gain.value = hz * 0.006;   // ~10 cents depth
+    vib.connect(vibGain).connect(o.frequency);
+    const g = env(t, peak, dur, 0.03);   // soft attack
+    o.connect(g).connect(musicBus);
+    g.connect(delay);
+    o.start(t); vib.start(t);
+    o.stop(t + dur + 0.05); vib.stop(t + dur + 0.05);
+  }
 
   function bassNote(hz, t, dur) {
     const o = ctx.createOscillator();
@@ -224,7 +284,30 @@ export function createMusicSystem(ctx, masterGain) {
 
   // ---- sequencer -----------------------------------------------------------
 
+  function scheduleOverworldStep(stepIdx, t) {
+    const P = OVERWORLD;
+    const bar = (stepIdx / STEPS_PER_BAR) | 0;
+    const s = stepIdx % STEPS_PER_BAR;
+    const sec = stepSec();
+
+    if (P.kick[s]) kick(t, 0.08);                 // soft kick
+    if (P.shaker[s]) shaker(t);
+
+    if (s % 2 === 0) {
+      const bn = P.bass[bar % 4][s / 2];
+      if (bn) bassNote(noteHz(bn), t, sec * 1.6);
+    }
+
+    // Airy pad: sustain the chord across each bar, very quiet, on the downbeat.
+    if (s === 0) chordStab(P.pad[bar % 4], t, P.padCutoff, sec * STEPS_PER_BAR * 1.05, 0.022);
+
+    const phrase = ((bar / 4) | 0) % 2 ? P.leadB : P.leadA;
+    const ln = phrase[s];
+    if (ln) fluteNote(noteHz(ln), t, sec * P.leadDurSteps, P.leadGain);
+  }
+
   function scheduleStep(stepIdx, t) {
+    if (mode === 'overworld') { scheduleOverworldStep(stepIdx, t); return; }
     const P = mode === 'boss' ? BOSS : BATTLE;
     const bar = (stepIdx / STEPS_PER_BAR) | 0;
     const s = stepIdx % STEPS_PER_BAR;
@@ -255,12 +338,19 @@ export function createMusicSystem(ctx, masterGain) {
     }
   }
 
+  function scheduleCatch(t0) {
+    chordStab(CATCH_PAD, t0, 2200, CATCH_LEN, 0.04);
+    for (const [n, at, dur] of CATCH) {
+      fluteNote(noteHz(n), t0 + at, dur, 0.05);
+    }
+  }
+
   // ---- public API ----------------------------------------------------------
 
   function setMode(m) {
     if (m === mode) return;
     const now = ctx.currentTime;
-    if (m === 'victory') prevMode = mode === 'off' ? 'battle' : mode;
+    if (m === 'victory' || m === 'catch') prevMode = mode === 'off' ? 'battle' : mode;
     mode = m;
 
     if (m === 'off') {
@@ -274,6 +364,9 @@ export function createMusicSystem(ctx, masterGain) {
     if (m === 'victory') {
       scheduleFanfare(now + 0.2);
       victoryUntil = now + 0.2 + FANFARE_LEN + 0.15;
+    } else if (m === 'catch') {
+      scheduleCatch(now + 0.2);
+      catchUntil = now + 0.2 + CATCH_LEN + 0.15;
     } else {
       step = 0;
       nextNoteTime = now + 0.3;
@@ -285,6 +378,10 @@ export function createMusicSystem(ctx, masterGain) {
 
     if (mode === 'victory') {
       if (now >= victoryUntil) setMode(prevMode);
+      return;
+    }
+    if (mode === 'catch') {
+      if (now >= catchUntil) setMode(prevMode);
       return;
     }
     if (mode === 'off') {
