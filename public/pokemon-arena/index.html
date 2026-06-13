@@ -237,6 +237,11 @@
   #btn-boost  { right: calc(88px + var(--sar)); bottom: calc(120px + var(--sab)); width: 58px; height: 58px; }
   #btn-dodge  { right: calc(16px + var(--sar)); bottom: calc(96px + var(--sab)); width: 58px; height: 58px; }
   #btn-target { right: calc(90px + var(--sar)); bottom: calc(196px + var(--sab)); width: 48px; height: 48px; }
+  #btn-catch  { right: calc(150px + var(--sar)); bottom: calc(150px + var(--sab)); width: 56px; height: 56px;
+    border-color: var(--gold); background: rgba(60,46,12,.72); }
+  #btn-swap   { right: calc(152px + var(--sar)); bottom: calc(86px + var(--sab)); width: 48px; height: 48px; }
+  #btn-mega   { right: calc(146px + var(--sar)); bottom: calc(214px + var(--sab)); width: 46px; height: 46px;
+    border-color: var(--ember); }
   #mobile-moves { position: absolute; right: calc(8px + var(--sar)); bottom: calc(10px + var(--sab));
     display: grid; grid-template-columns: repeat(3, 56px); gap: 7px; pointer-events: auto; }
   .mmove { width: 56px; height: 44px; border-radius: 10px; font-size: 9px; font-weight: 800;
@@ -328,6 +333,9 @@
     <div class="tbtn" id="btn-boost"><span class="k">»</span><span class="l">BOOST</span></div>
     <div class="tbtn" id="btn-dodge"><span class="k">↷</span><span class="l">DODGE</span></div>
     <div class="tbtn" id="btn-target"><span class="k">◎</span><span class="l">LOCK</span></div>
+    <div class="tbtn" id="btn-catch"><span class="k">⊙</span><span class="l">CATCH</span></div>
+    <div class="tbtn" id="btn-swap"><span class="k">⇄</span><span class="l">SWAP</span></div>
+    <div class="tbtn" id="btn-mega"><span class="k">★</span><span class="l">MEGA</span></div>
     <div id="mobile-moves">
       <button class="mmove" data-move="1">STRIKE<div class="move-cd"></div></button>
       <button class="mmove" data-move="2">BITE<div class="move-cd"></div></button>

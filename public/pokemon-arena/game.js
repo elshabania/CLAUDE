@@ -36,8 +36,16 @@ const STARTERS = {
   blastoise: { factory: createBlastoise, name: 'BLASTOISE', element: 'water' },
   voltaron:  { factory: createVoltaron,  name: 'VOLTARON',  element: 'electric' },
 };
+// Starters can also appear as rare wild encounters you can catch (so you collect them all).
+const STARTER_WILD = {
+  charizard: { id: 'charizard', name: 'CHARIZARD', element: 'fire', flying: true, hp: 96, speed: 7.0, meleeRange: 3.6, dmgMelee: 13, dmgRanged: 11, projectileColor: 0xff6b2e, projectileSpeed: 28, starter: true },
+  venusaur:  { id: 'venusaur',  name: 'VENUSAUR',  element: 'grass', flying: false, hp: 110, speed: 5.4, meleeRange: 3.4, dmgMelee: 12, dmgRanged: 10, projectileColor: 0x57d957, projectileSpeed: 24, starter: true },
+  blastoise: { id: 'blastoise', name: 'BLASTOISE', element: 'water', flying: false, hp: 104, speed: 5.8, meleeRange: 3.4, dmgMelee: 12, dmgRanged: 12, projectileColor: 0x3fa8ff, projectileSpeed: 28, starter: true },
+  voltaron:  { id: 'voltaron',  name: 'VOLTARON',  element: 'electric', flying: false, hp: 92, speed: 7.6, meleeRange: 3.2, dmgMelee: 13, dmgRanged: 11, projectileColor: 0xffe14d, projectileSpeed: 32, starter: true },
+};
 const SPECIES_BY_ID = {};
 for (const s of ENEMY_SPECIES) SPECIES_BY_ID[s.id] = s;
+for (const k in STARTER_WILD) SPECIES_BY_ID[k] = STARTER_WILD[k];
 
 // Build any roster member's model + meta from a roster entry.
 function buildPokemon(entry) {
@@ -275,7 +283,7 @@ class Game {
   makeRosterEntry(kind, id, element) {
     const lvl = 1;
     const hpMax = this.hpForLevel(lvl, kind, id);
-    return { kind, id, element, level: lvl, xp: 0, xpNext: 24, hpMax, hp: hpMax, megaReady: false, mega: 0 };
+    return { kind, id, element, level: lvl, xp: 0, xpNext: 55, hpMax, hp: hpMax, megaReady: false, mega: 0, _megaCharge: 0 };
   }
   hpForLevel(lvl, kind, id) {
     let base = 120;
@@ -284,11 +292,19 @@ class Game {
   }
 
   restart() {
-    // Clear wilds/vfx
+    // Cancel any pending encounter / firework timers so they don't fire into the new game.
+    if (this._encounterTimer) { clearTimeout(this._encounterTimer); this._encounterTimer = null; }
+    (this._fwTimers || []).forEach(clearTimeout); this._fwTimers = [];
+    this._roundStarting = false;
+    this.queuedCommand = null;
+    // Clear wilds/projectiles/vfx
     for (const w of this.wilds) this.scene.remove(w.group);
     this.wilds.length = 0;
-    for (const p of this.projectiles) this.scene.remove(p.mesh); this.projectiles.length = 0;
-    for (const v of this.vfx) this.scene.remove(v.obj); this.vfx.length = 0;
+    for (const p of this.projectiles) this.scene.remove(p.mesh);
+    this.projectiles.length = 0;
+    for (const v of this.vfx) this.scene.remove(v.obj);
+    this.vfx.length = 0;
+    if (this._beamMesh) { this.scene.remove(this._beamMesh); this._beamMesh = null; this._beamCore = null; }
     $('end-screen').classList.add('hidden');
     this.startGame();
   }
@@ -296,11 +312,22 @@ class Game {
   // --------------------------------------------------------------------------
   // ROUNDS & WILD SPAWNING
   beginRound(round) {
+    if (this._encounterTimer) { clearTimeout(this._encounterTimer); this._encounterTimer = null; }
+    if (this._roundStarting) return; // guard against double-advance
+    this._roundStarting = true;
     this.state.round = round;
     $('round-value').textContent = round;
     const isBoss = round % 4 === 0;
-    // pick a wild species for this encounter; cycle through species, rarer starters later
-    const species = ENEMY_SPECIES[(round - 1) % ENEMY_SPECIES.length];
+    // pick a wild species for this encounter; cycle through the 4 wild species,
+    // with a chance from round 3+ for a rare wild STARTER you can add to your team.
+    let species = ENEMY_SPECIES[(round - 1) % ENEMY_SPECIES.length];
+    if (!isBoss && round >= 3) {
+      const uncaught = Object.values(STARTER_WILD).filter((s) => !this.state.caught[s.id]);
+      if (uncaught.length && Math.random() < 0.3) {
+        species = uncaught[(Math.random() * uncaught.length) | 0];
+        this.showAnnouncer('A RARE CHAMPION APPEARS! ' + species.name + ' enters the arena!');
+      }
+    }
     this.pendingSpecies = species; this.pendingBoss = isBoss;
     // Spawn the challenger
     const wild = this.spawnWild(species, isBoss);
@@ -311,16 +338,48 @@ class Game {
     this.showAnnouncer(getRoundIntro(round, species, isBoss).announcer);
     this.cinematics.playChallengerIntro(wild.group, this.partner ? this.partner.group : this.ash, () => {
       this.state.phase = 'play';
+      this._roundStarting = false;
       this.queueDialogue(getRoundIntro(round, species, isBoss));
       this.lockNearest();
+      if (round === 1) this.runTutorial();
     });
   }
 
+  runTutorial() {
+    if (this._tutorialDone) return;
+    this._tutorialDone = true;
+    const touch = this.quality.isMobile;
+    const steps = touch ? [
+      ['YOU ARE ASH — drag the left stick to move', 3200],
+      ['Tap LOCK ◎ to target the wild Pokémon', 3200],
+      ['Tap a MOVE to COMMAND your partner to attack!', 3600],
+      ['Weaken it, then tap CATCH ⊙ to add it to your team', 4000],
+    ] : [
+      ['YOU ARE ASH — move with W A S D', 3000],
+      ['Press TAB to LOCK onto the wild Pokémon', 3000],
+      ['Press 1–6 to COMMAND your partner to attack!', 3400],
+      ['Weaken it, then press C to CATCH and collect it', 3800],
+      ['R swaps partner · SPACE flies · Q/E dodge · F mega', 3600],
+    ];
+    let i = 0;
+    const show = () => {
+      if (i >= steps.length || this.state.phase !== 'play') { $('center-msg').style.opacity = '0'; return; }
+      const [txt, ms] = steps[i++];
+      const el = $('center-msg');
+      el.textContent = txt;
+      el.style.fontSize = 'clamp(16px,2.6vw,26px)';
+      el.style.letterSpacing = '2px';
+      el.style.opacity = '1';
+      this._tutTimer = setTimeout(() => { el.style.opacity = '0'; setTimeout(show, 350); }, ms);
+    };
+    show();
+  }
+
   spawnWild(species, isBoss) {
-    const g = createEnemy(species.id);
-    const scale = isBoss ? 2.2 : 1;
-    g.scale.setScalar(scale * 0.45 + 0.55); // bosses 1.45x-ish vs base
-    if (isBoss) g.scale.setScalar(1.45);
+    const g = species.starter ? STARTERS[species.id].factory() : createEnemy(species.id);
+    g.userData.species = species;
+    const bossScale = isBoss ? 1.45 : 1;
+    g.scale.setScalar(bossScale);
     const ang = rand(0, TAU);
     const r = this.arenaR * 0.55;
     const x = Math.cos(ang) * r, z = Math.sin(ang) * r;
@@ -331,7 +390,8 @@ class Game {
     const hpMax = Math.round(species.hp * (1 + 0.22 * (this.state.round - 1)) * (isBoss ? 2.2 : 1));
     const wild = {
       group: g, ud: g.userData, species, isBoss, flying, baseY, scale: isBoss ? 1.45 : 1,
-      hp: hpMax, hpMax, ai: 'idle', aiT: rand(0.3, 1.2), facing: 0,
+      hp: hpMax, hpMax, dmgScale: (1 + 0.07 * (this.state.round - 1)) * (isBoss ? 1.25 : 1),
+      ai: 'idle', aiT: rand(0.3, 1.2), facing: 0,
       anim: { t: 0, speed: 0, attacking: false, flying },
       statuses: {}, marker: null, windup: 0, recovery: 0, stagger: 0, flash: 0,
       level: this.state.round,
@@ -388,7 +448,7 @@ class Game {
       this.cam.yaw -= (e.clientX - px) * 0.005;
       this.cam.pitch = clamp(this.cam.pitch - (e.clientY - py) * 0.004, -0.2, 1.1);
       px = e.clientX; py = e.clientY;
-      this.userOrbit = 1.5;
+      this.userOrbit = 3.5;
     });
     dom.addEventListener('wheel', (e) => {
       e.preventDefault();
@@ -426,6 +486,9 @@ class Game {
     hold('btn-boost', () => { this.boostHeld = true; }, () => { this.boostHeld = false; });
     hold('btn-dodge', () => this.orderDodge(1));
     hold('btn-target', () => this.cycleLock(1));
+    hold('btn-catch', () => this.throwBall());
+    hold('btn-swap', () => this.swapPartner());
+    hold('btn-mega', () => this.activateMega());
     document.querySelectorAll('.mmove').forEach((b) => {
       b.addEventListener('touchstart', (e) => { e.preventDefault(); this.ensureAudio(); this.command(parseInt(b.dataset.move, 10)); }, { passive: false });
     });
@@ -464,8 +527,12 @@ class Game {
   command(slot) {
     if (this.state.phase !== 'play' || !this.partner) return;
     const move = MOVES[slot - 1];
-    if (this.cooldowns[slot] > 0) { if (this.sfx) this.sfx.uiMove(); return; }
-    if (this.partner.cmd !== 'idle') return; // busy
+    if (this.cooldowns[slot] > 0) { this.flashMoveSlot(slot); if (this.sfx) this.sfx.uiMove(); return; }
+    if (this.partner.cmd !== 'idle') {
+      // Buffer the input so it fires the instant the partner is free — keeps commands responsive.
+      this.queuedCommand = slot; this.flashMoveSlot(slot); if (this.sfx) this.sfx.uiMove();
+      return;
+    }
     if (!this.locked) this.lockNearest();
     const target = this.locked;
     if (!target) { this.flashMoveSlot(slot); return; }
@@ -479,9 +546,16 @@ class Game {
     if (this.sfx) this.sfx.swing();
   }
 
+  consumeQueuedCommand() {
+    if (this.queuedCommand && this.partner && this.partner.cmd === 'idle') {
+      const slot = this.queuedCommand; this.queuedCommand = null;
+      if (this.cooldowns[slot] <= 0) this.command(slot);
+    }
+  }
+
   orderDodge(dir) {
     if (!this.partner || this.partner.cmd === 'dodge' || this.partner.cmd === 'attack') return;
-    this.partner.cmd = 'dodge'; this.partner.cmdT = 0; this.partner.dodgeDir = dir; this.partner.iframe = 0.3;
+    this.partner.cmd = 'dodge'; this.partner.cmdT = 0; this.partner.dodgeDir = dir; this.partner.iframe = 0.45;
     if (this.sfx) this.sfx.dodge();
   }
 
@@ -496,7 +570,7 @@ class Game {
   activateMega() {
     const e = this.state.roster[this.state.activeIdx];
     if (!e || e.level < 5 || !e.megaReady || e.mega > 0) return;
-    e.mega = 10; e.megaReady = false;
+    e.mega = 10; e.megaReady = false; e._megaCharge = 0;
     if (this.sfx) this.sfx.megaSurge();
     this.showCallout('MEGA EVOLUTION!', 0xffd24d);
     this.spawnRing(this.partner.group.position, 0xffd24d, 6);
@@ -532,8 +606,9 @@ class Game {
     this.scene.add(ball);
     const to = w.group.position.clone(); to.y += (w.ud.height || 2.5) * 0.5 * (w.scale || 1);
     this.projectiles.push({ mesh: ball, kind: 'ball', from: from.clone(), to, t: 0, dur: 0.55, target: w, arc: 4 });
-    // catch cam
-    this.catchCam = 1.4;
+    // catch cam — frame the ball in flight
+    this.catchCam = 2.2;
+    this.catchBallMesh = ball;
   }
 
   makeBall() {
@@ -551,13 +626,15 @@ class Game {
 
   resolveCatch(w, ball) {
     w.catching = true; // freeze its AI while the ball does its thing
+    this.catchBallMesh = ball;
+    this.hitStop = 0.12; // brief slow-mo punch as it connects
     // catch chance based on HP ratio + status
     const ratio = w.hp / w.hpMax;
-    let chance = 0.12 + (1 - ratio) * 0.7;
-    if (w.statuses.burn || w.statuses.soak || w.statuses.paralyze || w.statuses.leech) chance += 0.12;
+    let chance = 0.1 + (1 - ratio) * 0.62;
+    if (w.statuses.burn || w.statuses.soak || w.statuses.paralyze || w.statuses.leech) chance += 0.14;
+    if (w.hp <= 0) chance = Math.max(chance, 0.82); // KO'd is likely but never guaranteed
     if (w.isBoss) chance *= 0.6;
-    if (w.hp <= 0) chance = 1;
-    chance = clamp(chance, 0.05, 0.97);
+    chance = clamp(chance, 0.05, 0.92);
     const success = Math.random() < chance;
     // Wobble animation: keep ball, suck wild in
     w.group.visible = false;
@@ -566,7 +643,8 @@ class Game {
   }
 
   completeCatch(w, ball, success) {
-    this.scene.remove(ball);
+    this.disposeObj(ball);
+    if (this.catchBallMesh === ball) this.catchBallMesh = null;
     if (success) {
       // remove wild, add to roster (if not already a usable partner)
       this.removeWild(w);
@@ -576,9 +654,10 @@ class Game {
       this.spawnFireworks(3);
       if (!this.state.caught[w.species.id]) {
         this.state.caught[w.species.id] = true;
-        this.state.roster.push(this.makeRosterEntry('wild', w.species.id, w.species.element));
+        const kind = w.species.starter ? 'starter' : 'wild';
+        this.state.roster.push(this.makeRosterEntry(kind, w.species.id, w.species.element));
       }
-      this.gainXP(40);
+      this.gainXP(30);
       this.state.score += 250;
       this.updateScore();
       this.refreshRoster();
@@ -622,8 +701,13 @@ class Game {
 
   applyStatus(w, st) {
     if (!st) return;
+    const fresh = !w.statuses[st];
     w.statuses[st] = st === 'burn' ? 5 : st === 'leech' ? 5 : 4;
-    const labels = { burn: 'BURN', soak: 'SOAK', paralyze: 'PARALYZE', leech: 'LEECH' };
+    if (fresh) {
+      const labels = { burn: 'BURN!', soak: 'SOAKED!', paralyze: 'PARALYZED!', leech: 'LEECH SEED!' };
+      const colors = { burn: 0xff7733, soak: 0x3fa8ff, paralyze: 0xffe14d, leech: 0x57d957 };
+      this.showCallout(labels[st], colors[st]);
+    }
     this.updateEnemyStatus(w);
   }
 
@@ -631,7 +715,7 @@ class Game {
     w.ai = 'down'; w.aiT = 0;
     this.showCallout(getKOLine(w.species), 0xffffff);
     if (this.sfx) { this.sfx.hit(w.species.element, 1); this.sfx.cheer(0.8); }
-    this.gainXP(w.isBoss ? 60 : 32);
+    this.gainXP(w.isBoss ? 42 : 20);
     this.state.score += w.isBoss ? 400 : 150;
     this.updateScore();
     this.spawnRing(w.group.position, 0xffffff, 3);
@@ -660,7 +744,11 @@ class Game {
       this.win();
       return;
     }
-    setTimeout(() => { if (this.state.phase === 'play' || this.state.phase === 'dialogue') this.beginRound(next); }, 1400);
+    if (this._encounterTimer) clearTimeout(this._encounterTimer);
+    this._encounterTimer = setTimeout(() => {
+      this._encounterTimer = null;
+      if (this.state.phase === 'play' || this.state.phase === 'dialogue') this.beginRound(next);
+    }, 1600);
   }
 
   // --------------------------------------------------------------------------
@@ -768,7 +856,7 @@ class Game {
       if (this.userOrbit > 0) this.userOrbit -= dt;
       if (this.catchCam > 0) this.catchCam -= dt;
       const e = this.state.roster[this.state.activeIdx];
-      if (e && e.mega > 0) { e.mega -= dt; if (e.mega <= 0) this.showCallout('MEGA ENDED', 0xffaa55); this.updateMegaUI(); }
+      if (e && e.mega > 0) { e.mega -= dt; if (e.mega <= 0) { e._megaCharge = 0; this.showCallout('MEGA ENDED', 0xffaa55); } this.updateMegaUI(); }
 
       this.look.composer.render();
     };
@@ -867,7 +955,7 @@ class Game {
     } else if (p.cmd === 'return') {
       const d = this.tmp.v3.copy(home).sub(pos); const dist = d.length();
       if (dist > 0.4) { d.normalize(); const sp = Math.min(dist * 4, 18); pos.x += d.x * sp * dt; pos.z += d.z * sp * dt; pos.y = damp(pos.y, home.y, 8, dt); moveSpeed = sp; }
-      else { p.cmd = 'idle'; p.cmdT = 0; }
+      else { p.cmd = 'idle'; p.cmdT = 0; this.consumeQueuedCommand(); }
       if (target) p.facing = Math.atan2(target.group.position.x - pos.x, target.group.position.z - pos.z);
     } else {
       // idle: follow home, face target
@@ -929,7 +1017,7 @@ class Game {
           p.actionPhase = 1;
           // counter: bonus if target in windup/recovery
           let dmg = m.dmg;
-          if (target && (target.ai === 'windup' || target.ai === 'recovery')) { dmg *= 1.75; this.showCallout('COUNTER!', 0xffd24d); if (this.sfx) this.sfx.counter(); }
+          if (target && target.ai === 'recovery') { dmg *= 1.75; this.showCallout('COUNTER!', 0xffd24d); if (this.sfx) this.sfx.counter(); }
           if (target && this.inRange(p, target, m.range)) this.damageWild(target, dmg, { heavy: true, status: true });
           this.spawnRing(origin, ELEM[el].color, 1.6);
         }
@@ -1058,7 +1146,7 @@ class Game {
         }
         case 'ranged': {
           if (w.aiT <= 0) {
-            this.fireProjectile(this.tmp.v2.copy(pos).setY(pos.y + 1.5), ptarget, w.species.projectileColor, w.species.element === 'storm' ? 'electric' : w.species.element, w.species.dmgRanged, false, w);
+            this.fireProjectile(this.tmp.v2.copy(pos).setY(pos.y + 1.5), ptarget, w.species.projectileColor, w.species.element === 'storm' ? 'electric' : w.species.element, w.species.dmgRanged * (w.dmgScale || 1), false, w);
             w.ai = 'idle'; w.aiT = rand(0.8, 1.6);
             if (this.sfx) this.sfx.burst(w.species.element === 'storm' ? 'electric' : w.species.element);
           }
@@ -1088,7 +1176,7 @@ class Game {
     if (!p) return;
     const reach = w.species.meleeRange + 1.5;
     if (p.group.position.distanceTo(w.group.position) <= reach) {
-      this.damagePartner(w.species.dmgMelee, w);
+      this.damagePartner(w.species.dmgMelee * (w.dmgScale || 1), w);
       this.slashArc(this.tmp.v1.copy(w.group.position).setY(w.group.position.y + 1.2), w.facing, 0xff5555);
     }
   }
@@ -1164,6 +1252,10 @@ class Game {
     if (target && (this.attackZoom > 0 || this.catchCam > 0)) {
       f.lerp(this.tmp.v2.copy(target.group.position).setY(target.group.position.y + 1.0), 0.3);
     }
+    // During a catch, ride the ball for a dramatic tracking shot.
+    if (this.catchCam > 0 && this.catchBallMesh && this.catchBallMesh.parent) {
+      f.lerp(this.tmp.v2.copy(this.catchBallMesh.position).add(this.tmp.v3.set(0, 0.5, 0)), 0.55);
+    }
     this.cam.focus.x = damp(this.cam.focus.x, f.x, 6, dt);
     this.cam.focus.y = damp(this.cam.focus.y, f.y, 6, dt);
     this.cam.focus.z = damp(this.cam.focus.z, f.z, 6, dt);
@@ -1175,9 +1267,10 @@ class Game {
         const d = this.tmp.v2.copy(target.group.position).sub(this.ash.position);
         desiredYaw = Math.atan2(-d.x, -d.z);
       }
-      // shortest angle damp
+      // shortest angle damp — gentle so it eases behind the action without yanking
       let dy = ((desiredYaw - this.cam.yaw + Math.PI) % TAU) - Math.PI;
-      this.cam.yaw += dy * Math.min(1, dt * 1.6);
+      const aimSpeed = (this.attackZoom > 0 || this.catchCam > 0) ? 2.2 : 0.9;
+      this.cam.yaw += dy * Math.min(1, dt * aimSpeed);
     }
 
     // distance: zoom in on attack / catch
@@ -1318,6 +1411,12 @@ class Game {
     this._beamMesh.userData.hideAt = performance.now() + 80;
   }
 
+  disposeObj(obj) {
+    this.scene.remove(obj);
+    obj.traverse ? obj.traverse((o) => { if (o.isMesh) { o.geometry && o.geometry.dispose(); o.material && o.material.dispose && o.material.dispose(); } })
+      : (obj.geometry && obj.geometry.dispose(), obj.material && obj.material.dispose && obj.material.dispose());
+  }
+
   updateVfx(dt) {
     // beam auto-hide
     if (this._beamMesh && this._beamMesh.visible && performance.now() > (this._beamMesh.userData.hideAt || 0)) this._beamMesh.visible = false;
@@ -1348,16 +1447,17 @@ class Game {
         continue;
       } else if (v.kind === 'firework') {
         v.parts.forEach((pt) => { pt.position.addScaledVector(pt.userData.vel, dt); pt.userData.vel.y -= dt * 4; pt.material.opacity = (1 - a); });
-        if (a >= 1) { this.scene.remove(v.obj); this.vfx.splice(i, 1); }
+        if (a >= 1) { this.disposeObj(v.obj); this.vfx.splice(i, 1); }
         continue;
       }
-      if (a >= 1) { this.scene.remove(v.obj); v.obj.geometry && v.obj.geometry.dispose && v.obj.geometry.dispose(); this.vfx.splice(i, 1); }
+      if (a >= 1) { this.disposeObj(v.obj); this.vfx.splice(i, 1); }
     }
   }
 
   spawnFireworks(n) {
+    this._fwTimers = this._fwTimers || [];
     for (let k = 0; k < n; k++) {
-      setTimeout(() => {
+      const id = setTimeout(() => {
         if (this.sfx) this.sfx.fireworks();
         const center = new THREE.Vector3(rand(-20, 20), rand(14, 26), rand(-20, 20));
         const grp = new THREE.Group(); grp.position.copy(center);
@@ -1371,24 +1471,38 @@ class Game {
         this.scene.add(grp);
         this.vfx.push({ kind: 'firework', obj: grp, parts, t: 0, dur: 1.4 });
       }, k * 350);
+      this._fwTimers.push(id);
     }
   }
 
   // ==========================================================================
   // HUD
   floatDamage(group, dmg, mult, crit, colorOverride) {
+    const v = this.tmp.v1.copy(group.position); v.y += (group.userData.height || 2.5) * (group.scale.y || 1);
+    v.project(this.camera);
+    if (v.z > 1) return; // behind camera
+    const left = (v.x * 0.5 + 0.5) * window.innerWidth;
+    const top = (-v.y * 0.5 + 0.5) * window.innerHeight;
+    const now = performance.now();
+    const key = group.uuid;
+    this._dmgAgg = this._dmgAgg || {};
+    const a = this._dmgAgg[key];
+    // Aggregate rapid multi-tick hits (beam/breath/spin) into one rising number.
+    if (a && a.el.isConnected && now - a.t < 260 && !crit) {
+      a.sum += dmg; a.t = now; a.crit = a.crit || crit;
+      a.el.textContent = (a.crit ? '✦' : '') + a.sum;
+      a.el.style.left = left + 'px'; a.el.style.top = top + 'px';
+      return;
+    }
     const layer = $('damage-layer');
     const el = document.createElement('div');
     el.className = 'dmg-num';
     el.textContent = (crit ? '✦' : '') + dmg;
-    const size = crit ? 34 : mult >= 1.5 ? 30 : 22;
-    el.style.fontSize = size + 'px';
+    el.style.fontSize = (crit ? 34 : mult >= 1.5 ? 30 : 22) + 'px';
     el.style.color = colorOverride ? '#ff7733' : crit ? '#ffd24d' : mult >= 1.5 ? '#ffec8a' : mult < 1 ? '#9ab0c8' : '#ffffff';
-    const v = this.tmp.v1.copy(group.position); v.y += (group.userData.height || 2.5) * (group.scale.y || 1);
-    v.project(this.camera);
-    el.style.left = (v.x * 0.5 + 0.5) * window.innerWidth + 'px';
-    el.style.top = (-v.y * 0.5 + 0.5) * window.innerHeight + 'px';
+    el.style.left = left + 'px'; el.style.top = top + 'px';
     layer.appendChild(el);
+    this._dmgAgg[key] = { el, sum: dmg, t: now, crit };
     setTimeout(() => el.remove(), 1000);
   }
 
