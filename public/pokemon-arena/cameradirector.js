@@ -93,6 +93,23 @@ export function createCameraDirector(camera) {
     return 52;
   }
 
+  // Watch the staged duel from behind Ash — over Charizard's shoulder toward
+  // the foe (the classic trainer's-eye battle view). Zooms in when a blow lands.
+  function poseDuel(ctx) {
+    const dir = ctx.duelDir || _tmp2.set(0, 0, 1);
+    const home = ctx.duelCharHome || ctx.partnerPos || ctx.ashPos; // Charizard's station
+    const zoom = ctx.attackZoom ? 1 : 0;
+    // stable look point out in the gap so both fighters stay framed as they
+    // lunge and retreat (don't chase live positions — keeps the shot steady)
+    _desiredLook.copy(home).addScaledVector(dir, 4.2);
+    _desiredLook.y += 0.5;
+    // camera over Charizard's shoulder: behind & above its station, toward the foe
+    _desiredPos.copy(home).addScaledVector(dir, -(4.6 - zoom * 1.4));
+    _desiredPos.y += 3.0 - zoom * 0.3;
+    clampToTerrain(_desiredPos, ctx.terrainHeight, 1.0);
+    return 52 - zoom * 6;
+  }
+
   // Punch-in on the Pokémon when an attack lands.
   function poseAttack(ctx) {
     const a = ctx.partnerPos || ctx.ashPos;
@@ -200,6 +217,7 @@ export function createCameraDirector(camera) {
 
   function computeDesired(ctx, dt) {
     switch (mode) {
+      case "duel":    return poseDuel(ctx);
       case "command": return poseCommand(ctx);
       case "attack":  return poseAttack(ctx);
       case "slam":    return poseSlam(ctx);

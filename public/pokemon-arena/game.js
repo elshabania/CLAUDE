@@ -1095,6 +1095,7 @@ const state = {
   hitStopHold: 0,
   fightFreeze: 0,   // brief trainer hold during an encounter intro
   fight: false,     // true while a wild Pokémon is in battle
+  duel: null,       // staged battle arena: { dir, center, charHome }
 };
 
 // YOU — Charizard. Starts grounded; the FLY button takes off.
@@ -1568,20 +1569,29 @@ function useMove(i) {
       }
     }
   } else if (i === 1) {
-    // BITE — the counter tool: huge damage on an enemy mid-windup/recovery
+    // BITE — gape wide, lunge in, and CHOMP down on the foe. Huge counter
+    // damage if it's mid-windup/recovery; the bite hurls it back to its station.
     AudioSys.bite();
-    player.biteT = 0.32;
-    player.vel.addScaledVector(fwd, 5);
+    player.biteT = 0.42;
+    player.vel.addScaledVector(fwd, 9);
     const countering = target && !target.dead && (target.windup > 0 || target.recover > 0);
     if (meleeStrike({
-      range: 3.8, dot: 0.45,
-      dmg: 34 * (countering ? 1.75 : 1) * player.dmgMul,
-      knock: 5, stun: 1.2, kind: "flinch",
+      range: 4.4, dot: 0.4,
+      dmg: 40 * (countering ? 1.8 : 1) * player.dmgMul,
+      knock: 12, stun: 1.3, lift: countering ? 3 : 0, kind: "flinch",
     })) {
-      state.hitStopHold = 0.09;
+      state.hitStopHold = 0.1;
       state.timeScale = 0.05;
+      state.shake = Math.max(state.shake, 0.34);
       AudioSys.hit();
-      if (countering) callout("⚡ <b>COUNTER</b>!");
+      // chomp VFX on the foe — teeth flash, spark ring, crunch
+      if (target && !target.dead) {
+        const bp = target.pos.clone().add(new THREE.Vector3(0, 0.8, 0));
+        burst(bp, { count: 18, color: 0xffffff, speed: 9, size: 0.5, life: 0.4 });
+        burst(bp, { count: 10, color: currentChar.glow, speed: 5, size: 0.7, life: 0.5 });
+        addShockwave(bp, 2.4, 0xffffff);
+      }
+      if (countering) callout("⚡ <b>COUNTER CHOMP</b>!"); else callout("<b>CHOMP</b>!");
     }
   } else if (i === 2) {
     AudioSys.flamethrower();
@@ -1910,13 +1920,25 @@ function spawnEnemy(boss = false) {
     : WILD_KEYS[Math.floor(Math.random() * WILD_KEYS.length)];
   const spec = WILD[key];
 
-  // wild Pokémon emerge from the grass around Ash
-  const a = ash.yaw + rand(-2.4, 2.4);
-  const dist = spec.flying ? rand(12, 18) : rand(8, 14);
-  const x = clamp(ash.pos.x + Math.sin(a) * dist, -226, 226);
-  const z = clamp(ash.pos.z + Math.cos(a) * dist, -226, 226);
+  // ---- DUEL STAGING ------------------------------------------------------
+  // On the first foe of an encounter, lay out a 1v1 battle arena in front of
+  // Ash: Charizard stations near him, the wild Pokémon faces off across a gap.
+  if (!state.fight || !state.duel) {
+    const fdir = new THREE.Vector3(Math.sin(ash.yaw), 0, Math.cos(ash.yaw));
+    const center = ash.pos.clone().addScaledVector(fdir, 8.5);
+    const charHome = ash.pos.clone().addScaledVector(fdir, 4.4);
+    charHome.y = terrainHeight(charHome.x, charHome.z) + 3.6;
+    state.duel = { dir: fdir, center, charHome };
+  }
+  const duel = state.duel;
+  // the wild Pokémon takes a battle station on the far side, facing Charizard
+  const slot = enemies.filter((e) => !e.dead).length;
+  const perp = new THREE.Vector3(duel.dir.z, 0, -duel.dir.x);
+  const lateral = slot === 0 ? 0 : (slot % 2 ? 1 : -1) * Math.ceil(slot / 2) * 3.4;
+  const x = clamp(ash.pos.x + duel.dir.x * 12 + perp.x * lateral, -226, 226);
+  const z = clamp(ash.pos.z + duel.dir.z * 12 + perp.z * lateral, -226, 226);
   const group = spec.build();
-  const y = spec.flying ? terrainHeight(x, z) + rand(6, 12) : terrainHeight(x, z);
+  const y = spec.flying ? terrainHeight(x, z) + 4.4 : terrainHeight(x, z);
   group.position.set(x, y, z);
   if (boss) group.scale.setScalar(2.2);
   scene.add(group);
@@ -1937,6 +1959,9 @@ function spawnEnemy(boss = false) {
     windup: 0,
     recover: 0,
     staggerT: 0,
+    duelHome: new THREE.Vector3(x, y, z),  // battle station to hold/return to
+    lungeT: 0, didHit: false,              // dash-in-to-attack then retreat
+    homeFaceAway: lateral,                 // (slot offset, for staggered lines)
     strafeDir: Math.random() < 0.5 ? 1 : -1,
     orbitA: rand(0, TAU),
     orbitDir: Math.random() < 0.5 ? 1 : -1,
@@ -2183,11 +2208,20 @@ function updateEnemies(dt) {
     // status effects — BURN DoT (orange flicker) and SOAK timer
     if (e.burnT > 0) {
       e.burnT = Math.max(0, e.burnT - dt);
-      damageEnemyTick(e, 4 * dt);
+      damageEnemyTick(e, 7 * dt);          // a real burn — sustained DoT
       if (e.dead) continue;
-      if (Math.random() < dt * 7) {
-        e.flash = Math.max(e.flash, 0.07);
+      if (Math.random() < dt * 8) {
+        e.flash = Math.max(e.flash, 0.08);
         e.flashColor = 0xff7722;
+      }
+      // flames crawl over its body the whole time it burns
+      if (Math.random() < dt * 26) {
+        spawnParticle({
+          pos: e.pos.clone().add(new THREE.Vector3(rand(-0.5, 0.5), (rand(0.1, 1.5)) * (e.boss ? 2 : 1), rand(-0.5, 0.5))),
+          color: Math.random() < 0.5 ? 0xff8a30 : 0xffc24a,
+          size: rand(0.25, 0.6), endSize: 0.04, life: rand(0.35, 0.7),
+          vel: new THREE.Vector3(rand(-0.4, 0.4), rand(1.4, 2.8), rand(-0.4, 0.4)),
+        });
       }
       statusWord(e, "BURN", "#ff8830");
       if (e.burnT <= 0) e.flashColor = 0xffffff;
@@ -2205,8 +2239,29 @@ function updateEnemies(dt) {
 
     const slowMul = e.slow > 0 ? 0.3 : 1;
     e.slow = Math.max(0, e.slow - dt);
+    const duelOn = state.fight && state.duel && e.duelHome;
 
-    if (e.flying) {
+    if (duelOn) {
+      // ---- DUEL: hold the battle station; break ranks only to lunge a hit ---
+      if (e.lungeT > 0) {
+        const want = player.pos.clone().addScaledVector(flatDir, -(e.meleeRange * 0.55));
+        want.y = e.flying ? player.pos.y : terrainHeight(want.x, want.z);
+        e.pos.lerp(want, 1 - Math.pow(0.012, dt));
+      } else {
+        const h = e.duelHome;
+        e.pos.x = lerp(e.pos.x, h.x, 1 - Math.pow(0.05, dt));
+        e.pos.z = lerp(e.pos.z, h.z, 1 - Math.pow(0.05, dt));
+        e.pos.y = e.flying
+          ? lerp(e.pos.y, h.y + Math.sin(state.time * 1.4 + e.bobPhase) * 0.5, 1 - Math.pow(0.05, dt))
+          : terrainHeight(e.pos.x, e.pos.z);
+      }
+      const dwings = e.group.userData.flapWings;
+      if (dwings) for (const w of dwings) w.rotation.z = w.userData.sign * Math.sin(state.time * 11 + e.bobPhase) * 0.4;
+      if (!e.flying) {
+        e.bobPhase += dt * 7;
+        e.group.position.y = e.pos.y + Math.abs(Math.sin(e.bobPhase)) * 0.1 - (e.windup > 0 ? 0.18 : 0);
+      }
+    } else if (e.flying) {
       // tight orbit around you, pressing in for swoop attacks
       e.orbitA += dt * 0.7 * e.orbitDir;
       const orbR = e.windup > 0 ? 2.5 : 8;
@@ -2249,7 +2304,39 @@ function updateEnemies(dt) {
     // attacks — melee lunge with a telegraphed windup, then a punishable recovery
     e.attackTimer -= dt;
     e.recover = Math.max(0, e.recover - dt);
-    if (e.windup > 0) {
+    if (duelOn) {
+      // station-and-strike: telegraph → spring in → hit → retreat to station
+      if (e.windup > 0) {
+        e.windup -= dt;
+        if (e.windup <= 0) { e.lungeT = 0.5; e.didHit = false; }
+      } else if (e.lungeT > 0) {
+        e.lungeT -= dt;
+        if (!e.didHit && dist3 < e.meleeRange + 1.4) {
+          e.didHit = true;
+          damagePlayer(e.damage);
+          burst(player.pos.clone(), { count: 12, color: 0xffffff, speed: 6, size: 0.6, life: 0.4 });
+          state.shake = Math.max(state.shake, e.boss ? 0.5 : 0.32);
+          AudioSys.hit?.();
+        }
+        if (e.lungeT <= 0) e.recover = 0.5; // punish window as it retreats
+      } else if (e.attackTimer <= 0 && e.recover <= 0) {
+        if (e.spec.projectile && Math.random() < 0.4) {
+          const pr = e.spec.projectile;
+          const from = e.pos.clone().add(new THREE.Vector3(0, e.flying ? 0 : 1.2, 0));
+          spawnProjectile({
+            pos: from, dir: player.pos.clone().sub(from).normalize(),
+            speed: pr.speed * (e.boss ? 0.85 : 1), size: pr.size * (e.boss ? 1.8 : 1),
+            color: pr.color, damage: e.damage * 0.8, friendly: false, trail: pr.color, homing: 1.1,
+          });
+          AudioSys.tone({ freq: e.boss ? 120 : 300, dur: 0.12, type: e.boss ? "sawtooth" : "sine", gain: 0.14, slide: 1.5 });
+          e.attackTimer = e.spec.attackCd * rand(1.4, 2.0);
+        } else {
+          e.windup = 0.55; // rear back — your cue to counter-bite
+          e.attackTimer = e.spec.attackCd * rand(1.1, 1.7);
+          AudioSys.tone({ freq: 180, dur: 0.32, type: "sawtooth", gain: 0.15, slide: 2.2 });
+        }
+      }
+    } else if (e.windup > 0) {
       e.windup -= dt;
       if (e.windup <= 0) {
         if (dist3 < e.meleeRange + 2.4) {
@@ -2386,6 +2473,7 @@ function updateWaves(dt) {
   if (wasInCombat) {                 // the encounter just ended (caught or defeated)
     wasInCombat = false;
     state.fight = false;
+    state.duel = null;
     AudioSys.music?.setMode("overworld");
     collection.addBalls(2); updateBallCount();
     callout("Found 2 Poké Balls in the grass!");
@@ -2648,14 +2736,23 @@ function updatePlayer(dt) {
   player.commandT = Math.max(0, player.commandT - dt);
   const engaged = player.commandT > 0 && target && !target.dead;
 
-  // desired hover spot: near the target when engaged, else at Ash's shoulder
+  const inDuel = state.fight && state.duel && target && !target.dead;
+  // desired hover spot: dash in for a melee strike, else hold the battle
+  // station during a duel, else hover at Ash's shoulder while exploring.
   const goal = new THREE.Vector3();
-  if (engaged) {
+  if (engaged && player.pendingMove >= 0) {
+    // melee: lunge to just within reach of the foe for the chomp/slash
+    const toT = target.pos.clone().sub(player.pos); toT.y = 0;
+    if (toT.lengthSq() < 1e-4) toT.set(0, 0, 1); else toT.normalize();
+    const reach = (MELEE_RANGE[player.pendingMove] || 3) - 0.6;
+    goal.copy(target.pos).addScaledVector(toT, -reach)
+      .add(new THREE.Vector3(0, 0.6, 0));
+  } else if (inDuel) {
+    goal.copy(state.duel.charHome);          // hold station, facing the foe
+  } else if (engaged) {
     const toT = target.pos.clone().sub(ash.pos); toT.y = 0;
     if (toT.lengthSq() < 1e-4) toT.set(0, 0, 1); else toT.normalize();
-    const melee = player.pendingMove >= 0;
-    goal.copy(target.pos).addScaledVector(toT, melee ? -2.5 : -6)
-      .add(new THREE.Vector3(0, melee ? 1.6 : 3.4, 0));
+    goal.copy(target.pos).addScaledVector(toT, -6).add(new THREE.Vector3(0, 3.4, 0));
   } else {
     goal.set(
       ash.pos.x - Math.sin(ash.yaw) * 2.6 + Math.cos(ash.yaw) * 2.2,
@@ -2671,9 +2768,9 @@ function updatePlayer(dt) {
   if (gdist > 0.001) player.vel.lerp(toGoal.multiplyScalar(player.speed / gdist), 1 - Math.pow(0.015, dt));
   player.pos.addScaledVector(player.vel, dt);
 
-  // facing: toward the target when engaged, else along travel / Ash heading
+  // facing: toward the target when engaged/dueling, else along travel / Ash heading
   let faceYaw, facePitch = 0;
-  if (engaged) {
+  if ((engaged || inDuel) && target && !target.dead) {
     const f = target.pos.clone().add(new THREE.Vector3(0, 0.6, 0)).sub(player.pos);
     faceYaw = Math.atan2(f.x, f.z);
     facePitch = clamp(Math.atan2(f.y, Math.hypot(f.x, f.z)), -0.6, 0.6);
@@ -2814,8 +2911,8 @@ function updatePlayer(dt) {
   player.fireFlash = Math.max(0, player.fireFlash - dt);
   player.biteT = Math.max(0, player.biteT - dt);
   player.lungeT = Math.max(0, player.lungeT - dt);
-  const jawTarget = player.biteT > 0 ? 0.72
-    : player.flameActive > 0 ? 0.5 : player.fireFlash > 0 ? 0.3 : 0;
+  const jawTarget = player.biteT > 0 ? 0.98
+    : player.flameActive > 0 ? 0.6 : player.fireFlash > 0 ? 0.3 : 0;
   player.jawOpen = lerp(player.jawOpen, jawTarget, 1 - Math.pow(player.biteT > 0 ? 1e-7 : 0.001, dt));
   ud.jaw.rotation.x = player.jawOpen;
   ud.jaw.position.y = -0.2 - player.jawOpen * 0.08;
@@ -2941,9 +3038,22 @@ function updatePlayer(dt) {
       if (e.dead) continue;
       const to = e.pos.clone().sub(mouth);
       const d = to.length();
-      if (d < 26 && to.normalize().dot(fwd) > 0.78) {
+      if (d < 30 && to.normalize().dot(fwd) > 0.74) {
         damageEnemyTick(e, 42 * player.dmgMul * dt);
-        if (!e.dead) { e.knock.addScaledVector(fwd, 9 * dt); e.staggerT = Math.max(e.staggerT, 0.1); } // breath nudges it back
+        if (!e.dead) {
+          e.knock.addScaledVector(fwd, 9 * dt);
+          e.staggerT = Math.max(e.staggerT, 0.1);
+          e.burnT = Math.max(e.burnT, 3.2);   // set the foe ALIGHT — lingering burn
+          // flames lick across its body as it ignites
+          if (Math.random() < dt * 34) {
+            spawnParticle({
+              pos: e.pos.clone().add(new THREE.Vector3(rand(-0.6, 0.6), rand(0.2, 1.6) * (e.boss ? 2 : 1), rand(-0.6, 0.6))),
+              color: Math.random() < 0.5 ? 0xff7a22 : 0xffc24a,
+              size: rand(0.3, 0.7), endSize: 0.05, life: rand(0.4, 0.8),
+              vel: new THREE.Vector3(rand(-0.6, 0.6), rand(1.6, 3), rand(-0.6, 0.6)),
+            });
+          }
+        }
       }
     }
   }
@@ -2982,10 +3092,12 @@ function updateFireSpins(dt) {
 // YOU — Ash, walking the overworld (camera-relative movement)
 function updateAshNpc(dt) {
   const g = ash.group;
-  // hold the trainer still during the encounter intro cinematic
-  if (state.fightFreeze > 0) { state.fightFreeze -= dt; ash.speed = lerp(ash.speed, 0, 1 - Math.pow(0.001, dt)); }
+  // hold the trainer still during the encounter intro AND the whole fight —
+  // Ash steps back and watches the staged duel rather than wading into it.
+  if (state.fightFreeze > 0) state.fightFreeze -= dt;
+  if (state.fightFreeze > 0 || state.fight) ash.speed = lerp(ash.speed, 0, 1 - Math.pow(0.001, dt));
   let mx = 0, mz = 0;
-  if (state.fightFreeze <= 0) {
+  if (state.fightFreeze <= 0 && !state.fight) {
     if (keys["KeyW"]) mz += 1;
     if (keys["KeyS"]) mz -= 1;
     if (keys["KeyA"]) mx -= 1;
@@ -3010,6 +3122,10 @@ function updateAshNpc(dt) {
     orbit.yaw = lerpAngle(orbit.yaw, ash.yaw, 1 - Math.pow(0.22, dt));
   } else {
     ash.speed = lerp(ash.speed, 0, 1 - Math.pow(0.0001, dt));
+  }
+  // during a fight, turn to watch the staged duel
+  if (state.fight && state.duel) {
+    ash.yaw = lerpAngle(ash.yaw, Math.atan2(state.duel.dir.x, state.duel.dir.z), 1 - Math.pow(0.02, dt));
   }
   ash.pos.y = terrainHeight(ash.pos.x, ash.pos.z);
   g.position.copy(ash.pos);
@@ -3045,9 +3161,8 @@ function updateCamera(dt) {
   let mode = "explore";
   if (player.slam) mode = "slam";                 // follow the soar + dive-bomb
   else if (throwActive) mode = "capture";
-  else if (player.attackCamT > 0 && target && !target.dead) mode = "attack"; // zoom on the clash
+  else if (state.fight && state.duel && target && !target.dead) mode = "duel"; // staged battle view from Ash
   else if (player.commandT > 0 && target && !target.dead) mode = "command";
-  else if (state.fight && target && !target.dead) mode = "command"; // hold a battle framing during a fight
   cameraDir.setMode(mode);
   if (state.shake > 0.01) { cameraDir.shake(state.shake); state.shake = 0; }
   if (state.fovKick > 0.01) { cameraDir.kickFov(state.fovKick); state.fovKick = 0; }
@@ -3059,6 +3174,9 @@ function updateCamera(dt) {
     terrainHeight,
     yaw: orbit.yaw,
     pitch: orbit.pitch,
+    duelDir: state.duel ? state.duel.dir : null,
+    duelCharHome: state.duel ? state.duel.charHome : null,
+    attackZoom: player.attackCamT > 0,
   });
   sun.position.set(ash.pos.x + 55, ash.pos.y + 80, ash.pos.z + 35);
   sun.target.position.copy(ash.pos);
