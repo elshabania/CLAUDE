@@ -10,7 +10,7 @@ const PARTY_CAP = 6;
 // the ball's power and any status bonus. Clamped to keep it never-certain.
 export function catchChance({ hpFrac, ballPower = 1, statusBonus = 1, baseRate = 0.45 }) {
   const frac = clamp(hpFrac, 0, 1);
-  const raw = baseRate * ballPower * statusBonus * (1.6 - frac);
+  const raw = baseRate * ballPower * statusBonus * (1.25 - frac);
   return clamp(raw, 0.04, 0.97);
 }
 

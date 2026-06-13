@@ -2176,13 +2176,15 @@ function updateWaves(dt) {
   } else if (enemies.length === 0) {
     if (state.waveCooldown <= 0) {
       state.waveCooldown = 4;
-      announce("ROUND WON!");
-      showDialogue(victoryLine(state.wave, state.lastFoe || "the wild"));
-      launchFireworks(new THREE.Vector3(0, 0, 0));
+      announce("Area clear — explore for more!");
+      const refill = state.wave % 4 === 0 ? 5 : 3;
+      collection.addBalls(refill); updateBallCount();
+      callout(`Found ${refill} Poké Balls!`);
       AudioSys.sfx?.cheer();
+      // play the fanfare, then auto-return to the calm overworld theme
+      AudioSys.music?.setMode("overworld");
       AudioSys.music?.setMode("victory");
-      player.hp = Math.min(player.maxHp, player.hp + player.maxHp * 0.2);
-      AudioSys.levelUp();
+      player.hp = Math.min(player.maxHp, player.hp + player.maxHp * 0.25);
     } else {
       state.waveCooldown -= dt;
       if (state.waveCooldown <= 0) startWave();
@@ -2250,8 +2252,9 @@ function attemptCatch() {
   if (collection.ballCount <= 0) { callout("Out of Poké Balls!"); return; }
   const wild = target;
   const hpFrac = clamp(wild.hp / wild.maxHp, 0, 1);
-  const statusBonus = (wild.soaked > 0 || wild.burnT > 0 || wild.slow > 0) ? 1.3 : 1;
-  const res = collection.rollCatch({ hpFrac, ballPower: 1, statusBonus, baseRate: (wild.catchRate ?? 0.9) * 0.5 });
+  if (hpFrac >= 0.5) { callout("Weaken it first — get it below half HP!"); return; }
+  const statusBonus = (wild.soaked > 0 || wild.burnT > 0 || wild.slow > 0) ? 1.6 : 1;
+  const res = collection.rollCatch({ hpFrac, ballPower: 1, statusBonus, baseRate: (wild.catchRate ?? 0.9) * 0.32 });
   if (res.noBalls) { callout("Out of Poké Balls!"); return; }
   throwActive = true;
   ash.throwT = 0.4;
@@ -2277,8 +2280,14 @@ function attemptCatch() {
         AudioSys.sfx?.catchSuccess();
         AudioSys.music?.setMode("catch");
         showCatchResult(`Gotcha! ${wild.spec.name} was caught!`, true);
-        showDialogue(catchSuccessLine(wild.spec.name));
         state.score += 200;
+        // climactic catch moment: slow-mo, gold flash, shake, fireworks, Ash cheers
+        state.timeScale = 0.1; state.hitStopHold = 0.3;
+        state.shake = Math.max(state.shake, 0.4);
+        flashScreen();
+        launchFireworks(wild.pos.clone());
+        ash.cheer = 1.8;
+        updateBallCount();
       } else {
         AudioSys.sfx?.catchFail();
         showCatchResult(`Oh no! ${wild.spec.name} broke free!`, false);
@@ -2322,6 +2331,12 @@ function showCatchResult(text, ok) {
   el.classList.add("show");
   clearTimeout(catchResultTimer);
   catchResultTimer = setTimeout(() => el.classList.remove("show"), 2400);
+}
+function flashScreen() {
+  const ef = document.getElementById("encounter-flash");
+  if (!ef) return;
+  ef.classList.add("show");
+  setTimeout(() => ef.classList.remove("show"), 110);
 }
 function renderDex() {
   const grid = document.getElementById("pokedex-grid");
@@ -2788,7 +2803,7 @@ function updateHud() {
   const cp = document.getElementById("catch-prompt");
   if (cp) {
     const can = target && !target.dead && target.catchable && collection.ballCount > 0
-      && clamp(target.hp / target.maxHp, 0, 1) < 0.6 && ash.pos.distanceTo(target.pos) < 24;
+      && clamp(target.hp / target.maxHp, 0, 1) < 0.5 && ash.pos.distanceTo(target.pos) < 30;
     cp.classList.toggle("show", !!can && !throwActive);
   }
 
