@@ -2608,6 +2608,8 @@ function attemptCatch() {
         launchFireworks(wild.pos.clone());
         ash.cheer = 1.8;
         updateBallCount();
+        // let the trainer know the catch is now usable
+        setTimeout(() => { if (state.running) callout(`Tap <b>${wild.spec.name}</b> in your party (bottom-left) to send it out!`, 4000); }, 2000);
       } else {
         AudioSys.sfx?.catchFail();
         showCatchResult(`Oh no! ${wild.spec.name} broke free!`, false);
