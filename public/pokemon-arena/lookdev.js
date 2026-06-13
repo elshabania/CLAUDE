@@ -268,9 +268,9 @@ export function initLookdev({ renderer, scene, camera, width, height, quality })
   if (useBloom) {
     bloomPass = new UnrealBloomPass(
       new THREE.Vector2(width, height),
-      0.85, // strength
-      0.55, // radius
-      0.8   // threshold
+      1.0,  // strength — let flame/beams/emissives bleed light
+      0.6,  // radius
+      0.55  // threshold — lower so golden-hour mid-tones & glows cross into bloom
     );
     composer.addPass(bloomPass);
   }
@@ -292,10 +292,13 @@ export function initLookdev({ renderer, scene, camera, width, height, quality })
   // ---- Per-frame update ----------------------------------------------------
   // dt: seconds since last frame. t: absolute seconds. playerPos: THREE.Vector3.
   const _tmpTarget = new THREE.Vector3();
+  let flash = 0; // transient exposure punch for impacts (decays)
+  function addFlash(amount) { flash = Math.min(0.4, flash + amount); }
   function update(dt, t, playerPos) {
     // Slow sinusoidal exposure breathing: ~7s period, ~0.04 amplitude around 1.
     const breathe = 1.0 + Math.sin(t * (Math.PI * 2 / 7.0)) * 0.04;
-    gradePass.uniforms.uExposure.value = breathe;
+    if (flash > 0) flash = Math.max(0, flash - dt * 4);
+    gradePass.uniforms.uExposure.value = breathe + flash;
     gradePass.uniforms.uTime.value = t;
 
     if (playerPos) {
@@ -312,5 +315,8 @@ export function initLookdev({ renderer, scene, camera, width, height, quality })
     }
   }
 
-  return { composer, bloomPass, gradePass, sun, sunTarget, setSize, update };
+  return { composer, bloomPass, gradePass, sun, sunTarget, setSize, update, addFlash,
+    setReducedMotion(on) {
+      if (on) { gradePass.uniforms.uAberration.value = 0; gradePass.uniforms.uGrain.value = 0; }
+    } };
 }

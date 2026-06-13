@@ -145,6 +145,10 @@ class Game {
       camera: this.camera, letterboxTop: $('letterbox-top'), letterboxBottom: $('letterbox-bottom'),
     });
 
+    // Respect the OS "reduce motion" preference: damp shake and disable grain/aberration.
+    try { this.reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) { this.reducedMotion = false; }
+    if (this.reducedMotion && this.look.setReducedMotion) this.look.setReducedMotion(true);
+
     // Camera rig
     this.cam = { yaw: 0, pitch: 0.34, dist: 15, distTarget: 15, focus: new THREE.Vector3(), shake: new THREE.Vector3() };
 
@@ -215,12 +219,36 @@ class Game {
   ensureAudio() {
     if (this.audioCtx) { if (this.audioCtx.state === 'suspended') this.audioCtx.resume(); return; }
     const AC = window.AudioContext || window.webkitAudioContext;
-    this.audioCtx = new AC();
-    this.masterGain = this.audioCtx.createGain();
+    const ctx = this.audioCtx = new AC();
+    // Master chain: [music+sfx] -> masterGain -> (dry + reverb send) -> tanh limiter -> out
+    this.masterGain = ctx.createGain();
     this.masterGain.gain.value = 0.9;
-    this.masterGain.connect(this.audioCtx.destination);
-    this.music = createMusic(this.audioCtx, this.masterGain);
-    this.sfx = createSfx(this.audioCtx, this.masterGain);
+
+    // Brick-wall-ish limiter so stacked SFX/leads never clip.
+    const limiter = ctx.createWaveShaper();
+    const curve = new Float32Array(1024);
+    for (let i = 0; i < 1024; i++) { const x = (i / 1023) * 2 - 1; curve[i] = Math.tanh(x * 1.6); }
+    limiter.curve = curve; limiter.oversample = '2x';
+    const preLimit = ctx.createGain(); preLimit.gain.value = 0.7;
+    preLimit.connect(limiter); limiter.connect(ctx.destination);
+
+    // Convolution reverb (short hall) on a low-level send for space.
+    try {
+      const conv = ctx.createConvolver();
+      const len = Math.floor(ctx.sampleRate * 1.4);
+      const imp = ctx.createBuffer(2, len, ctx.sampleRate);
+      for (let ch = 0; ch < 2; ch++) {
+        const d = imp.getChannelData(ch);
+        for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 2.4);
+      }
+      conv.buffer = imp;
+      const wet = ctx.createGain(); wet.gain.value = 0.16;
+      this.masterGain.connect(wet); wet.connect(conv); conv.connect(preLimit);
+    } catch (e) { /* convolver unavailable — dry path still works */ }
+
+    this.masterGain.connect(preLimit); // dry
+    this.music = createMusic(ctx, this.masterGain);
+    this.sfx = createSfx(ctx, this.masterGain);
     this.music.setMode('title');
   }
 
@@ -378,7 +406,7 @@ class Game {
   spawnWild(species, isBoss) {
     const g = species.starter ? STARTERS[species.id].factory() : createEnemy(species.id);
     g.userData.species = species;
-    const bossScale = isBoss ? 1.45 : 1;
+    const bossScale = (isBoss ? 1.45 : 1) * (isBoss ? 1 : rand(0.92, 1.08)); // per-spawn size variety
     g.scale.setScalar(bossScale);
     const ang = rand(0, TAU);
     const r = this.arenaR * 0.55;
@@ -389,7 +417,7 @@ class Game {
     this.scene.add(g);
     const hpMax = Math.round(species.hp * (1 + 0.22 * (this.state.round - 1)) * (isBoss ? 2.2 : 1));
     const wild = {
-      group: g, ud: g.userData, species, isBoss, flying, baseY, scale: isBoss ? 1.45 : 1,
+      group: g, ud: g.userData, species, isBoss, flying, baseY, scale: bossScale,
       hp: hpMax, hpMax, dmgScale: (1 + 0.07 * (this.state.round - 1)) * (isBoss ? 1.25 : 1),
       ai: 'idle', aiT: rand(0.3, 1.2), facing: 0,
       anim: { t: 0, speed: 0, attacking: false, flying },
@@ -651,6 +679,7 @@ class Game {
       if (this.sfx) this.sfx.catchSuccess();
       this.showCallout('GOTCHA! ' + w.species.name + ' CAUGHT!', 0xffd24d);
       this.flashScreen(0.5);
+      if (this.look && this.look.addFlash) this.look.addFlash(0.34);
       this.spawnFireworks(3);
       if (!this.state.caught[w.species.id]) {
         this.state.caught[w.species.id] = true;
@@ -694,9 +723,38 @@ class Game {
     // mega meter gain
     if (!e.megaReady && e.level >= 5) { e.mega <= 0 && (e._megaCharge = (e._megaCharge || 0) + dmg); if (e._megaCharge > 220) { e.megaReady = true; this.showCallout('MEGA READY — PRESS F', 0xffd24d); } }
     this.updateEnemyPanel(w);
-    this.camShake = Math.max(this.camShake, opts.heavy ? 0.5 : 0.22);
-    if (opts.heavy) this.hitStop = 0.09;
+    // Impact juice — gated so multi-tick beams/breath don't strobe the whole stack.
+    const impactPos = this.tmp.v2.copy(w.group.position).setY(w.group.position.y + (w.ud.height || 2.5) * 0.5 * (w.scale || 1));
+    if (!opts.tick) {
+      this.impactBurst(impactPos, ELEM[this.partner.element].color, opts.heavy);
+      if (this.look && this.look.addFlash) this.look.addFlash(opts.heavy ? 0.2 : 0.08);
+      this.addCamKick(impactPos, opts.heavy ? 0.9 : 0.35);
+      this.camShake = Math.max(this.camShake, opts.heavy ? 0.55 : 0.28);
+      if (opts.heavy) this.hitStop = Math.max(this.hitStop, 0.09);
+    } else {
+      this.camShake = Math.max(this.camShake, 0.12);
+      if (Math.random() < 0.3) this.impactBurst(impactPos, ELEM[this.partner.element].color, false, true);
+    }
     if (w.hp <= 0) this.onWildDown(w);
+  }
+
+  // White core flash + element sparks at a contact point.
+  impactBurst(pos, color, heavy, small) {
+    const flash = new THREE.Mesh(
+      new THREE.SphereGeometry(heavy ? 1.1 : 0.7, 10, 8),
+      new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.95, blending: THREE.AdditiveBlending }));
+    flash.position.copy(pos);
+    this.scene.add(flash);
+    this.vfx.push({ kind: 'fade', obj: flash, t: 0, dur: heavy ? 0.18 : 0.12, scale: heavy ? 3.2 : 2.0 });
+    const n = small ? 3 : heavy ? 12 : 7;
+    for (let i = 0; i < n; i++) {
+      const sp = new THREE.Mesh(new THREE.SphereGeometry(rand(0.1, 0.24), 6, 5),
+        new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 1, blending: THREE.AdditiveBlending }));
+      sp.position.copy(pos);
+      this.scene.add(sp);
+      const v = new THREE.Vector3(rand(-1, 1), rand(0.2, 1.2), rand(-1, 1)).normalize().multiplyScalar(rand(5, heavy ? 14 : 9));
+      this.vfx.push({ kind: 'move-fade', obj: sp, t: 0, dur: rand(0.25, 0.5), vel: v });
+    }
   }
 
   applyStatus(w, st) {
@@ -715,6 +773,8 @@ class Game {
     w.ai = 'down'; w.aiT = 0;
     this.showCallout(getKOLine(w.species), 0xffffff);
     if (this.sfx) { this.sfx.hit(w.species.element, 1); this.sfx.cheer(0.8); }
+    this.hitStop = Math.max(this.hitStop, 0.13); this.camShake = Math.max(this.camShake, 0.55);
+    if (this.look && this.look.addFlash) this.look.addFlash(0.28);
     this.gainXP(w.isBoss ? 42 : 20);
     this.state.score += w.isBoss ? 400 : 150;
     this.updateScore();
@@ -969,6 +1029,53 @@ class Game {
     p.group.rotation.y = damp(p.group.rotation.y, p.facing, 12, dt);
     p.anim.flying = p.fly;
     this.animateRig(p.group, dt, t, moveSpeed, p.fly, p.anim, attacking);
+    this.posePartner(p, target, dt, t, attacking);
+  }
+
+  // Hero expressiveness: head/neck look-at, per-move arm posing, squash & lean.
+  posePartner(p, target, dt, t, attacking) {
+    const ud = p.ud, g = p.group;
+    // --- Head look-at the locked target (clamped, damped) ---
+    if (ud.head && target) {
+      const d = this.tmp.v3.copy(target.group.position).sub(g.position);
+      const desiredYaw = Math.atan2(d.x, d.z) - g.rotation.y;
+      const wrap = ((desiredYaw + Math.PI) % TAU + TAU) % TAU - Math.PI;
+      const pitch = clamp(-Math.atan2(d.y - 1.2, Math.hypot(d.x, d.z)), -0.45, 0.45);
+      ud.head.rotation.y = damp(ud.head.rotation.y, clamp(wrap, -0.6, 0.6), 9, dt);
+      ud.head.rotation.x = damp(ud.head.rotation.x, pitch, 9, dt);
+    } else if (ud.head) {
+      ud.head.rotation.y = damp(ud.head.rotation.y, 0, 6, dt);
+      ud.head.rotation.x = damp(ud.head.rotation.x, 0, 6, dt);
+    }
+    // --- Per-move arm posing (overrides generic swing during attacks) ---
+    const arms = ud.arms || [];
+    const at = p.actionT || 0;
+    let leanTarget = 0;
+    if (p.cmd === 'attack' && p.move) {
+      const k = p.move.kind;
+      if (k === 'strike' || k === 'bite') {
+        // anticipation (back) → strike (forward snap) → settle, per current strike phase
+        const ph = (at % 0.28) / 0.28;
+        const swingPose = ph < 0.35 ? lerp(-1.1, -1.4, ph / 0.35) : lerp(1.0, 0.2, (ph - 0.35) / 0.65);
+        if (arms[0] && arms[0].pivot) arms[0].pivot.rotation.x = damp(arms[0].pivot.rotation.x, swingPose, 18, dt);
+        if (arms[1] && arms[1].pivot) arms[1].pivot.rotation.x = damp(arms[1].pivot.rotation.x, -swingPose * 0.4, 14, dt);
+        leanTarget = 0.18;
+      } else if (k === 'breath' || k === 'beam') {
+        // splay arms back, chest/head pitch forward into the stream
+        for (const a of arms) if (a.pivot) a.pivot.rotation.x = damp(a.pivot.rotation.x, -0.9, 10, dt);
+        leanTarget = 0.12;
+        if (ud.head) ud.head.rotation.x = damp(ud.head.rotation.x, 0.12, 8, dt);
+      }
+    }
+    // --- Impact squash & forward lunge lean (decaying) ---
+    if (p.hitPunch > 0) p.hitPunch = Math.max(0, p.hitPunch - dt * 7);
+    if (p.lunge > 0) p.lunge = Math.max(0, p.lunge - dt * 5);
+    const punch = p.hitPunch || 0;
+    g.scale.set(1 + punch * 0.08, 1 - punch * 0.12, 1 + punch * 0.08);
+    g.rotation.x = damp(g.rotation.x, leanTarget + (p.lunge || 0) * 0.4, 12, dt);
+    // Idle weight-shift sway so the hero never stands dead-still.
+    const idle = (p.cmd === 'idle' || p.cmd === 'return');
+    g.rotation.z = damp(g.rotation.z, idle && !attacking ? Math.sin(t * 0.8) * 0.025 : 0, 4, dt);
   }
 
   startMoveAction(p, target) {
@@ -982,9 +1089,19 @@ class Game {
     else if (m.kind === 'bite') { if (this.sfx) this.sfx.bite(); }
     else if (m.kind === 'burst') { if (this.sfx) this.sfx.burst(el); }
     else if (m.kind === 'strike') { if (this.sfx) this.sfx.swing(); }
-    // punch-in camera
-    this.cam.distTarget = clamp(this.cam.dist - 4, 7, 34);
-    this.attackZoom = 0.55;
+    // Cinematic framing: weight the punch-in by move, and pick a shot preset for variety.
+    const heavy = m.kind === 'beam' || m.kind === 'burst';
+    this.attackZoom = heavy ? 0.95 : 0.6;
+    this.shotPunch = heavy ? 6.5 : m.kind === 'spin' ? 2.5 : 4.0;
+    this.cam.distTarget = clamp(this.cam.dist - this.shotPunch, 7, 34);
+    const presets = [
+      { pitch: 0.12, lateral: 0, roll: 0 },          // low hero-up
+      { pitch: this.cam.pitch, lateral: 2.2, roll: 0.05 },  // over-the-shoulder + slight Dutch
+      { pitch: 0.5, lateral: -1.5, roll: -0.04 },    // high 3/4
+      { pitch: 0.28, lateral: 1.8, roll: 0.06 },     // dynamic Dutch
+    ];
+    const s = presets[(Math.random() * presets.length) | 0];
+    this.shotPitch = s.pitch; this.shotLateral = s.lateral; this.shotRoll = this.reducedMotion ? 0 : s.roll;
   }
 
   runMoveAction(p, target, dt) {
@@ -1002,6 +1119,7 @@ class Game {
             p.strikeStep++;
             const finisher = i === 2;
             this.slashArc(origin, p.facing, ELEM[el].color);
+            p.hitPunch = finisher ? 1.0 : 0.6; p.lunge = finisher ? 0.6 : 0.35;
             if (target && this.inRange(p, target, m.range)) {
               this.damageWild(target, finisher ? 26 : 16, { heavy: finisher, status: finisher });
               if (finisher) { target.stagger = 0.5; this.knockback(target, p, 2.2); }
@@ -1019,6 +1137,7 @@ class Game {
           let dmg = m.dmg;
           if (target && target.ai === 'recovery') { dmg *= 1.75; this.showCallout('COUNTER!', 0xffd24d); if (this.sfx) this.sfx.counter(); }
           if (target && this.inRange(p, target, m.range)) this.damageWild(target, dmg, { heavy: true, status: true });
+          p.hitPunch = 0.9; p.lunge = 0.7;
           this.spawnRing(origin, ELEM[el].color, 1.6);
         }
         if (p.actionT > 0.5) this.endMove(p);
@@ -1028,7 +1147,7 @@ class Game {
         // continuous stream for 1.1s, tick damage
         this.streamVfx(origin, tp, ELEM[el].color, dt);
         if (!p._tick) p._tick = 0; p._tick += dt;
-        if (p._tick > 0.16) { p._tick = 0; if (target && origin.distanceTo(tp) < m.range) this.damageWild(target, m.dmg, { silentType: false, status: true, scale: 1 }); }
+        if (p._tick > 0.16) { p._tick = 0; if (target && origin.distanceTo(tp) < m.range) this.damageWild(target, m.dmg, { silentType: false, status: true, tick: true }); }
         if (p.actionT > 1.1) { p._tick = 0; if (p.beamStop) { p.beamStop(); p.beamStop = null; } this.endMove(p); }
         break;
       }
@@ -1047,7 +1166,7 @@ class Game {
         if (p._tick > 0.2) {
           p._tick = 0;
           this.spawnRing(p.group.position, ELEM[el].color, m.range * 0.6);
-          for (const w of this.wilds) { if (w.hp > 0 && p.group.position.distanceTo(w.group.position) < m.range) this.damageWild(w, m.dmg / 2, { silentType: true }); }
+          for (const w of this.wilds) { if (w.hp > 0 && p.group.position.distanceTo(w.group.position) < m.range) this.damageWild(w, m.dmg / 2, { silentType: true, tick: true }); }
           if (this.sfx) this.sfx.swing();
         }
         if (p.actionT > 0.9) { p._tick = 0; this.endMove(p); }
@@ -1066,7 +1185,7 @@ class Game {
             const dist = d.length(); if (dist > m.range) continue;
             const ang = Math.atan2(d.x, d.z);
             let da = Math.abs(((ang - p.facing + Math.PI) % TAU) - Math.PI);
-            if (da < 0.25) this.damageWild(w, m.dmg / 6, { heavy: true, status: true });
+            if (da < 0.25) this.damageWild(w, m.dmg / 6, { status: true, tick: true });
           }
         }
         this.camShake = Math.max(this.camShake, 0.25);
@@ -1221,9 +1340,9 @@ class Game {
         arms[i].pivot.rotation.x = a;
       }
     }
-    // idle bob
-    const bob = Math.sin(anim.t * 2.2) * 0.04 + (flying ? Math.sin(t * 2) * 0.25 : 0);
-    if (ud.baseY != null) group.position.y += 0; // handled by controller
+    // Subtle locomotion bob applied to the body via a per-frame additive on y.
+    // The controller sets the resting y first, so we add on top here.
+    group.position.y += Math.sin(anim.t * 6) * Math.min(speed * 0.01, 0.06);
     // jaw
     if (ud.jaw) ud.jaw.rotation.x = damp(ud.jaw.rotation.x, attacking ? 0.5 : (0.05 + Math.abs(Math.sin(anim.t)) * 0.05), 10, dt);
     if (ud.mouthGlow) ud.mouthGlow.visible = attacking;
@@ -1273,29 +1392,47 @@ class Game {
       this.cam.yaw += dy * Math.min(1, dt * aimSpeed);
     }
 
-    // distance: zoom in on attack / catch
+    // distance: zoom in on attack / catch (per-move weighting set in startMoveAction)
     let dTarget = this.cam.distTarget;
-    if (this.attackZoom > 0) { this.attackZoom -= dt; dTarget = clamp(dTarget - 3.5, 7, 34); }
+    if (this.attackZoom > 0) { this.attackZoom -= dt; dTarget = clamp(dTarget - (this.shotPunch || 3.5), 7, 34); }
     if (this.catchCam > 0) dTarget = clamp(dTarget - 2, 7, 34);
     this.cam.dist = damp(this.cam.dist, dTarget, 5, dt);
-    // restore distTarget after attack zoom
     if (this.attackZoom <= 0) this.cam.distTarget = damp(this.cam.distTarget, 15, 1.5, dt);
 
-    const pitch = this.catchCam > 0 ? this.cam.pitch * 0.45 : this.cam.pitch;
+    // Shot variety: while a commanded attack plays, ease toward a chosen framing preset.
+    const shot = this.attackZoom > 0 ? (this.shotPitch != null ? this.shotPitch : this.cam.pitch) : this.cam.pitch;
+    const basePitch = this.catchCam > 0 ? this.cam.pitch * 0.45 : shot;
+    this._pitchNow = damp(this._pitchNow != null ? this._pitchNow : this.cam.pitch, basePitch, 5, dt);
+    const pitch = this._pitchNow;
     const cp = Math.cos(pitch), sp = Math.sin(pitch);
-    const ox = Math.sin(this.cam.yaw) * cp * this.cam.dist;
-    const oz = Math.cos(this.cam.yaw) * cp * this.cam.dist;
+    const lateral = this.attackZoom > 0 ? (this.shotLateral || 0) : 0;
+    this._latNow = damp(this._latNow || 0, lateral, 5, dt);
+    const ox = Math.sin(this.cam.yaw) * cp * this.cam.dist + Math.cos(this.cam.yaw) * this._latNow;
+    const oz = Math.cos(this.cam.yaw) * cp * this.cam.dist - Math.sin(this.cam.yaw) * this._latNow;
     const oy = sp * this.cam.dist + 2;
     const camPos = this.tmp.v2.set(this.cam.focus.x + ox, this.cam.focus.y + oy, this.cam.focus.z + oz);
 
-    // shake
-    if (this.camShake > 0) {
-      this.camShake -= dt * 1.5;
-      const s = this.camShake * 0.5;
-      camPos.x += rand(-s, s); camPos.y += rand(-s, s); camPos.z += rand(-s, s);
+    // Directional impact kick (decays).
+    if (this.camKick) {
+      camPos.add(this.camKick);
+      this.camKick.multiplyScalar(Math.max(0, 1 - dt * 9));
+      if (this.camKick.lengthSq() < 1e-4) this.camKick = null;
     }
     this.camera.position.copy(camPos);
     this.camera.lookAt(this.cam.focus);
+
+    // Rotational "trauma" shake — reads as cinematic impact, not a vibrating prop.
+    if (this.camShake > 0) {
+      this.camShake = Math.max(0, this.camShake - dt * 1.8);
+      const tr = this.camShake * this.camShake * (this.reducedMotion ? 0.3 : 1);
+      const tt = performance.now() * 0.001;
+      const dutch = this.attackZoom > 0 ? (this.shotRoll || 0) : 0;
+      this.camera.rotation.z += dutch + Math.sin(tt * 37) * tr * 0.07;
+      this.camera.rotation.x += Math.sin(tt * 41 + 1.3) * tr * 0.05;
+      this.camera.rotation.y += Math.sin(tt * 33 + 2.1) * tr * 0.05;
+    } else if (this.attackZoom > 0 && this.shotRoll) {
+      this.camera.rotation.z += this.shotRoll;
+    }
 
     // FOV stretch on boost/beam
     let fov = 60;
@@ -1303,6 +1440,13 @@ class Game {
     if (this.partner && this.partner.move && this.partner.move.kind === 'beam') fov = 64;
     this.camera.fov = damp(this.camera.fov, fov, 4, dt);
     this.camera.updateProjectionMatrix();
+  }
+
+  // Set a directional camera kick away from an impact point (cheap, decaying).
+  addCamKick(fromPos, mag) {
+    if (this.reducedMotion) return;
+    const d = this.tmp.v3.copy(this.camera.position).sub(fromPos).setY(0.2).normalize().multiplyScalar(mag);
+    this.camKick = (this.camKick || new THREE.Vector3()).add(d);
   }
 
   // ==========================================================================
@@ -1341,6 +1485,16 @@ class Game {
       pr.life -= dt;
       pr.mesh.position.addScaledVector(pr.vel, dt);
       pr.mesh.rotation.x += dt * 6;
+      // Glowing trail — a fading puff dropped behind the orb.
+      pr._trailT = (pr._trailT || 0) + dt;
+      if (pr._trailT > 0.025) {
+        pr._trailT = 0;
+        const puff = new THREE.Mesh(new THREE.SphereGeometry(0.34, 6, 5),
+          new THREE.MeshBasicMaterial({ color: pr.color, transparent: true, opacity: 0.6, blending: THREE.AdditiveBlending }));
+        puff.position.copy(pr.mesh.position);
+        this.scene.add(puff);
+        this.vfx.push({ kind: 'fade', obj: puff, t: 0, dur: 0.3, scale: 0.1 });
+      }
       let hit = false;
       if (pr.fromPartner) {
         for (const w of this.wilds) {
@@ -1497,7 +1651,9 @@ class Game {
     const layer = $('damage-layer');
     const el = document.createElement('div');
     el.className = 'dmg-num';
-    el.textContent = (crit ? '✦' : '') + dmg;
+    // Glyphs (not just color) encode crit/effectiveness for colorblind readability.
+    const eff = mult >= 1.5 ? ' ▲' : mult < 1 ? ' ▽' : '';
+    el.textContent = (crit ? '✦' : '') + dmg + eff;
     el.style.fontSize = (crit ? 34 : mult >= 1.5 ? 30 : 22) + 'px';
     el.style.color = colorOverride ? '#ff7733' : crit ? '#ffd24d' : mult >= 1.5 ? '#ffec8a' : mult < 1 ? '#9ab0c8' : '#ffffff';
     el.style.left = left + 'px'; el.style.top = top + 'px';
