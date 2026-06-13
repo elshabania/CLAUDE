@@ -1758,13 +1758,13 @@ function spawnEnemy(boss = false) {
     : WILD_KEYS[Math.floor(Math.random() * WILD_KEYS.length)];
   const spec = WILD[key];
 
-  // duelists step in close — this is a brawl, not a shooting gallery
-  const a = player.yaw + rand(-0.9, 0.9); // roughly in front of you
-  const dist = spec.flying ? rand(16, 22) : rand(13, 17);
-  const x = clamp(player.pos.x + Math.sin(a) * dist, -150, 150);
-  const z = clamp(player.pos.z + Math.cos(a) * dist, -150, 150);
+  // wild Pokémon emerge from the grass around Ash
+  const a = ash.yaw + rand(-2.4, 2.4);
+  const dist = spec.flying ? rand(12, 18) : rand(8, 14);
+  const x = clamp(ash.pos.x + Math.sin(a) * dist, -226, 226);
+  const z = clamp(ash.pos.z + Math.cos(a) * dist, -226, 226);
   const group = spec.build();
-  const y = spec.flying ? player.pos.y + rand(1, 5) : terrainHeight(x, z);
+  const y = spec.flying ? terrainHeight(x, z) + rand(6, 12) : terrainHeight(x, z);
   group.position.set(x, y, z);
   if (boss) group.scale.setScalar(2.2);
   scene.add(group);
@@ -1838,15 +1838,15 @@ function spawnEnemy(boss = false) {
     addShockwave(e.pos, 8, 0xffffff);
     AudioSys.sfx?.roar();
   }
-  // tournament presentation: banner, announcer script, intro cinematic
+  // adventure encounter presentation: "A wild X appeared!"
   state.lastFoe = spec.name;
-  const script = getRoundScript(state.wave, spec.name, boss);
-  showBanner(script.title);
-  showDialogue(`${script.intro} ${script.taunt}`);
-  const ms = milestoneLine(state.wave);
-  if (ms) announce(ms, 3200);
+  announce(`A wild ${spec.name} appeared!`, 2200);
+  showDialogue(encounterLine(spec.name, e.element));
+  AudioSys.sfx?.encounter();
+  if (!boss) AudioSys.sfx?.wildCry(e.element);
+  flashScreen();
   AudioSys.music?.setMode(boss ? "boss" : "battle");
-  cine.start(e.pos.clone(), 1.8);
+  cine.start(e.pos.clone(), 1.5);
   return e;
 }
 
@@ -2166,31 +2166,38 @@ function startWave() {
   AudioSys.waveStart();
 }
 
-function updateWaves(dt) {
-  if (state.spawnQueue > 0) {
-    state.spawnTimer -= dt;
-    if (state.spawnTimer <= 0) {
-      state.spawnQueue--;
-      spawnEnemy(state.bossQueued); // boss rounds get the boss as the duelist
-      state.bossQueued = false;
-    }
-  } else if (enemies.length === 0) {
-    if (state.waveCooldown <= 0) {
-      state.waveCooldown = 4;
-      announce("Area clear — explore for more!");
-      const refill = state.wave % 4 === 0 ? 5 : 3;
-      collection.addBalls(refill); updateBallCount();
-      callout(`Found ${refill} Poké Balls!`);
-      AudioSys.sfx?.cheer();
-      // play the fanfare, then auto-return to the calm overworld theme
-      AudioSys.music?.setMode("overworld");
-      AudioSys.music?.setMode("victory");
-      player.hp = Math.min(player.maxHp, player.hp + player.maxHp * 0.25);
-    } else {
-      state.waveCooldown -= dt;
-      if (state.waveCooldown <= 0) startWave();
-    }
+let encounterCdT = 2;
+let wasInCombat = false;
+function grassZoneAt(p) {
+  const zones = overworldData.tallGrassZones || [];
+  for (const z of zones) {
+    const dx = p.x - z.x, dz = p.z - z.z;
+    if (dx * dx + dz * dz < z.r * z.r) return z;
   }
+  return null;
+}
+// Encounters trigger by EXPLORING into tall grass — not on a timer
+function updateWaves(dt) {
+  const aliveWild = enemies.some(e => !e.dead);
+  if (aliveWild) {
+    if (!wasInCombat) { wasInCombat = true; AudioSys.music?.setMode("battle"); }
+    return;
+  }
+  if (wasInCombat) {                 // the encounter just ended (caught or defeated)
+    wasInCombat = false;
+    AudioSys.music?.setMode("overworld");
+    collection.addBalls(2); updateBallCount();
+    callout("Found 2 Poké Balls in the grass!");
+    player.hp = Math.min(player.maxHp, player.hp + player.maxHp * 0.25);
+    encounterCdT = rand(1.6, 3.2);
+    return;
+  }
+  encounterCdT -= dt;
+  if (encounterCdT > 0) return;
+  if (!grassZoneAt(ash.pos)) return; // wild Pokémon only appear in tall grass
+  encounterCdT = rand(2.2, 4.5);
+  state.wave++;
+  spawnEnemy(state.wave % 6 === 0);
 }
 
 // ----------------------------------------------------------------------------
