@@ -405,6 +405,24 @@
     opacity: 1; transform: translateX(-50%) translateY(0);
     animation: catchPulse 1.1s ease-in-out infinite;
   }
+  #talk-prompt {
+    position: absolute; bottom: 230px; left: 50%;
+    transform: translateX(-50%) translateY(8px);
+    font-family: "Bungee", cursive; font-size: 16px; color: #fff;
+    background: linear-gradient(135deg, rgba(8,18,34,.85), rgba(16,30,55,.8));
+    border: 1.5px solid rgba(120,190,255,.6); border-radius: 999px;
+    padding: 9px 22px; backdrop-filter: blur(6px);
+    text-shadow: 0 1px 3px #000; white-space: nowrap;
+    box-shadow: 0 4px 18px rgba(0,0,0,.55);
+    opacity: 0; pointer-events: none; cursor: pointer; z-index: 13;
+    transition: opacity .2s ease, transform .2s ease;
+  }
+  #talk-prompt.show { opacity: 1; transform: translateX(-50%) translateY(0); pointer-events: auto; }
+  #talk-prompt .tk-key {
+    font-size: 12px; font-weight: 700; color: #bfe0ff; margin-left: 8px;
+    background: rgba(80,150,255,.22); border: 1px solid rgba(120,180,255,.5);
+    border-radius: 6px; padding: 1px 8px; font-family: "Rajdhani", sans-serif;
+  }
   @keyframes catchPulse {
     0%, 100% { box-shadow: 0 4px 18px rgba(0,0,0,.55), 0 0 0 rgba(255,60,60,0); }
     50% { box-shadow: 0 4px 18px rgba(0,0,0,.55), 0 0 24px rgba(255,60,60,.7); }
@@ -756,6 +774,7 @@
   <div id="dialogue"></div>
   <div id="catch-result"></div>
   <div id="catch-prompt"><span class="cp-icon">⚲</span> It's weak! Throw a Poké Ball <span class="cp-key">F</span></div>
+  <div id="talk-prompt"></div>
 
   <div id="party-bar">
     <div class="party-slot active"><span class="slot-icon">🔥</span><div class="slot-hp" style="--hp:100%"></div></div>

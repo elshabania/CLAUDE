@@ -30,6 +30,7 @@ import { createCollection } from "./capture.js";
 import { buildPokeball, createCaptureFx } from "./pokeball.js";
 import { createCameraDirector } from "./cameradirector.js";
 import { initOverworld } from "./overworld.js";
+import { buildTown } from "./town.js";
 import { LEAFCUB } from "./wild_leafcub.js";
 import { SPARKMOUSE } from "./wild_sparkmouse.js";
 import { EMBERPUP } from "./wild_emberpup.js";
@@ -1163,6 +1164,13 @@ const collection = createCollection(WILD_KEYS);
 const captureFx = createCaptureFx(scene);
 const cameraDir = createCameraDirector(camera);
 const overworldData = initOverworld(scene, terrainHeight, IS_TOUCH);
+// Cinderhollow town: walkable NPCs + a gym leader, placed on the world ring.
+const TOWN_ANG = 110 * Math.PI / 180, TOWN_R = 86;
+const town = buildTown(scene, terrainHeight,
+  new THREE.Vector3(Math.cos(TOWN_ANG) * TOWN_R, 0, Math.sin(TOWN_ANG) * TOWN_R));
+let nearNpc = null;        // NPC currently in talk range
+let gymBattle = null;      // active gym-leader battle context
+let badges = 0;
 const orbit = { yaw: 0, pitch: 0.42 };   // camera orbit (mouse / auto-follow)
 let throwActive = false;                  // a Poke Ball is mid-flight / capturing
 const CHEERS = [
@@ -1366,7 +1374,7 @@ document.addEventListener("keydown", (e) => {
     if (e.code === "Digit7") command(6);
     if (e.code === "KeyF" || e.code === "Space") { e.preventDefault(); attemptCatch(); }
     if (e.code === "KeyQ") dodge(-1);
-    if (e.code === "KeyE") dodge(1);
+    if (e.code === "KeyE") { if (nearNpc && !state.fight) interactNpc(); else dodge(1); }
   }
 });
 document.addEventListener("keyup", (e) => { keys[e.code] = false; });
@@ -1930,10 +1938,10 @@ function updateProjectiles(dt) {
 // ----------------------------------------------------------------------------
 // Enemies — grounded gunners and aerial chasers
 // ----------------------------------------------------------------------------
-function spawnEnemy(boss = false) {
-  const key = boss
+function spawnEnemy(boss = false, opts = {}) {
+  const key = opts.key || (boss
     ? ["rockor", "vinex", "aquish", "pebblade"][Math.floor(Math.random() * 4)]
-    : WILD_KEYS[Math.floor(Math.random() * WILD_KEYS.length)];
+    : WILD_KEYS[Math.floor(Math.random() * WILD_KEYS.length)]);
   const spec = WILD[key];
 
   // ---- DUEL STAGING ------------------------------------------------------
@@ -1959,10 +1967,13 @@ function spawnEnemy(boss = false) {
   if (boss) group.scale.setScalar(2.2);
   scene.add(group);
 
-  const mul = (1 + (state.wave - 1) * 0.35) * (boss ? 3.5 : 2.2);
+  const mul = opts.trainer
+    ? 2.4 + (opts.level || 8) * 0.35
+    : (1 + (state.wave - 1) * 0.35) * (boss ? 3.5 : 2.2);
   const e = {
     spec, group, boss, key,
-    catchable: !boss, catchRate: spec.catchRate ?? 0.9,
+    trainer: null,
+    catchable: !boss && !opts.trainer, catchRate: spec.catchRate ?? 0.9,
     flying: spec.flying,
     pos: group.position,
     hp: spec.hp * mul, maxHp: spec.hp * mul,
@@ -2033,18 +2044,24 @@ function spawnEnemy(boss = false) {
   }
   // adventure encounter presentation: "A wild X appeared!"
   state.lastFoe = spec.name;
-  announce(`A wild ${spec.name} appeared!`, 2200);
-  showDialogue(encounterLine(spec.name, e.element));
-  AudioSys.sfx?.encounter();
-  if (!boss) AudioSys.sfx?.wildCry(e.element);
+  if (opts.trainer) {
+    announce(`${spec.name} stands ready!`, 2000);
+    AudioSys.sfx?.encounter();
+    AudioSys.music?.setMode("boss");
+  } else {
+    announce(`A wild ${spec.name} appeared!`, 2200);
+    showDialogue(encounterLine(spec.name, e.element));
+    AudioSys.sfx?.encounter();
+    if (!boss) AudioSys.sfx?.wildCry(e.element);
+    AudioSys.music?.setMode(boss ? "boss" : "battle");
+  }
   flashScreen();
-  AudioSys.music?.setMode(boss ? "boss" : "battle");
   cine.start(e.pos.clone(), 1.5);
   // enter FIGHT MODE: hold the trainer, lock the camera on the foe, target it
   state.fight = true;
   state.fightFreeze = 1.2;
   target = e;
-  showBanner(boss ? `⚔ BOSS BATTLE — ${spec.name}` : `⚔ FIGHT! — ${spec.name}`, 2000);
+  if (!opts.trainer) showBanner(boss ? `⚔ BOSS BATTLE — ${spec.name}` : `⚔ FIGHT! — ${spec.name}`, 2000);
   return e;
 }
 
@@ -2491,9 +2508,19 @@ function updateWaves(dt) {
     state.fight = false;
     state.duel = null;
     AudioSys.music?.setMode("overworld");
-    collection.addBalls(2); updateBallCount();
-    callout("Found 2 Poké Balls in the grass!");
-    player.hp = Math.min(player.maxHp, player.hp + player.maxHp * 0.25);
+    if (gymBattle) {                 // beat the gym leader → earn the badge
+      gymBattle.defeated = true;
+      badges++;
+      showBanner(`★ EMBER BADGE earned!  (badges: ${badges})`, 3800);
+      showDialogue(gymBattle.winLines[0], 5200);
+      launchFireworks(town.gymPos.clone());
+      player.hp = player.maxHp;
+      gymBattle = null;
+    } else {
+      collection.addBalls(2); updateBallCount();
+      callout("Found 2 Poké Balls in the grass!");
+      player.hp = Math.min(player.maxHp, player.hp + player.maxHp * 0.25);
+    }
     encounterCdT = rand(1.6, 3.2);
     return;
   }
@@ -2503,6 +2530,65 @@ function updateWaves(dt) {
   encounterCdT = rand(2.2, 4.5);
   state.wave++;
   spawnEnemy(state.wave % 6 === 0);
+}
+
+// ----------------------------------------------------------------------------
+// Cinderhollow — NPC proximity, talk prompt, gym battles
+// ----------------------------------------------------------------------------
+const talkPromptEl = document.getElementById("talk-prompt");
+function updateTown(dt) {
+  town.update(dt, state.time, ash.pos);
+  if (state.fight || state.over || throwActive) {
+    if (nearNpc) { nearNpc = null; talkPromptEl && talkPromptEl.classList.remove("show"); }
+    return;
+  }
+  let best = null, bestD = 3.6 * 3.6;
+  for (const n of town.npcs) {
+    const dx = n.pos.x - ash.pos.x, dz = n.pos.z - ash.pos.z;
+    const d = dx * dx + dz * dz;
+    if (d < bestD) { bestD = d; best = n; }
+  }
+  nearNpc = best;
+  if (!talkPromptEl) return;
+  if (best) {
+    const verb = best.kind === "gym" ? (best.defeated ? "Talk to" : "⚔ Challenge")
+      : best.kind === "nurse" ? "✚ Heal at" : "Talk to";
+    talkPromptEl.innerHTML = `${verb} <b>${best.name}</b><span class="tk-key">E</span>`;
+    talkPromptEl.classList.add("show");
+    talkPromptEl.onpointerdown = (e) => { e.preventDefault(); interactNpc(); };
+  } else {
+    talkPromptEl.classList.remove("show");
+    talkPromptEl.onpointerdown = null;
+  }
+}
+
+function interactNpc() {
+  const n = nearNpc;
+  if (!n || state.fight) return;
+  if (n.kind === "nurse") {
+    for (const m of collection.party) m.hp = m.maxHp;
+    player.hp = player.maxHp;
+    showDialogue(n.lines[n.said % n.lines.length], 3500); n.said++;
+    flashScreen();
+    callout("✚ Your team was healed!", 2200);
+    AudioSys.sfx?.levelUp?.();
+    refreshParty();
+  } else if (n.kind === "gym") {
+    if (n.defeated) { showDialogue("Good to see you again. The road past the gate leads onward!", 3500); return; }
+    showDialogue(n.lines[0], 3000);
+    const dx = n.pos.x - ash.pos.x, dz = n.pos.z - ash.pos.z;
+    ash.yaw = Math.atan2(dx, dz);   // face the leader so the duel stages toward the gym
+    startGymBattle(n);
+  } else {
+    showDialogue(n.lines[n.said % n.lines.length], 3800); n.said++;
+  }
+}
+
+function startGymBattle(leader) {
+  gymBattle = leader;
+  showBanner(`⚔ GYM BATTLE — ${leader.name}`, 2800);
+  const e = spawnEnemy(false, { key: leader.team, trainer: true, level: leader.level || 8 });
+  if (e) e.trainer = leader;
 }
 
 // ----------------------------------------------------------------------------
@@ -2541,6 +2627,8 @@ document.getElementById("start-btn").addEventListener("click", () => {
   if (!IS_TOUCH) renderer.domElement.requestPointerLock();
   startWave();
   callout("Explore! Find wild Pokémon · command CHARIZARD with 1–6 · press F to throw a Poké Ball", 5500);
+  // point the player toward the new town + gym
+  setTimeout(() => { if (state.running && !state.fight) showDialogue("Seek out Cinderhollow town — talk to its people, heal your team, and challenge the Gym for the Ember Badge!", 6000); }, 11000);
   // adventure opening narration
   if (ADVENTURE_OPENING && ADVENTURE_OPENING.length) {
     ADVENTURE_OPENING.forEach((line, i) => setTimeout(() => { if (state.running) showDialogue(line); }, 800 + i * 4200));
@@ -3326,6 +3414,7 @@ function tick() {
     updateAshNpc(sdt);
     captureFx.update(sdt);
     overworldData.update(sdt, state.time, ash.pos);
+    updateTown(sdt);
     updateHud();
     AudioSys.music?.update();
     if (cine.active) cine.update(dt);
