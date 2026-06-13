@@ -1,0 +1,248 @@
+import * as THREE from "three";
+
+// Camera director for the Pokemon arena. Self-contained, allocation-free per frame.
+// All scratch vectors are preallocated; no DOM, no top-level await.
+export function createCameraDirector(camera) {
+  // --- tunables -----------------------------------------------------------
+  const TRANSITION = 3.5;        // higher = snappier mode blends
+  const FOV_LERP = 4.0;          // fov easing rate
+  const SHAKE_DECAY = 6.0;       // screen shake falloff
+  const KICK_DECAY = 5.0;        // fov kick falloff
+  const CHEST = 1.2;             // Ash chest height above feet
+
+  // --- persistent state ---------------------------------------------------
+  let mode = "explore";
+  let curFov = 58;
+  let shakeAmt = 0;
+  let fovKick = 0;
+  let orbitTime = 0;             // drives slow auto-orbits (capture/victory/title)
+  let initialized = false;
+
+  // Smoothed (actual) camera target & position used for lerping.
+  const camPos = new THREE.Vector3();
+  const camLook = new THREE.Vector3();
+
+  // --- scratch (reused every frame, never reallocated) --------------------
+  const _desiredPos = new THREE.Vector3();
+  const _desiredLook = new THREE.Vector3();
+  const _tmp = new THREE.Vector3();
+  const _tmp2 = new THREE.Vector3();
+  const _mid = new THREE.Vector3();
+  const _offset = new THREE.Vector3();
+  const _shakeOff = new THREE.Vector3();
+  const _up = new THREE.Vector3(0, 1, 0);
+  const _zero = new THREE.Vector3();
+
+  function clampToTerrain(pos, terrainHeight, margin) {
+    if (typeof terrainHeight === "function") {
+      const ground = terrainHeight(pos.x, pos.z) + margin;
+      if (pos.y < ground) pos.y = ground;
+    }
+    return pos;
+  }
+
+  // ---- per-mode desired pose computation --------------------------------
+  // Each fills _desiredPos / _desiredLook and returns the desired fov.
+
+  function poseExplore(ctx) {
+    const yaw = ctx.yaw || 0;
+    const pitch = ctx.pitch || 0;
+    const speed = Math.max(0, ctx.speed || 0);
+    const speedN = Math.min(1, speed / 8);
+
+    // distance breathes: in ~5.5 when still, out ~9 when fast.
+    const dist = 5.5 + speedN * 3.5;
+
+    // orbit offset behind Ash at yaw/pitch.
+    const cp = Math.cos(pitch);
+    _offset.set(
+      Math.sin(yaw) * cp,
+      Math.sin(pitch),
+      Math.cos(yaw) * cp
+    ).multiplyScalar(dist);
+
+    _desiredLook.copy(ctx.ashPos);
+    _desiredLook.y += CHEST;
+
+    _desiredPos.copy(_desiredLook).add(_offset);
+    clampToTerrain(_desiredPos, ctx.terrainHeight, 0.6);
+
+    return 58 + speedN * 6; // breathing fov
+  }
+
+  function poseCommand(ctx) {
+    const target = ctx.targetPos || ctx.ashPos;
+    _mid.copy(ctx.ashPos).add(target).multiplyScalar(0.5);
+    _mid.y += CHEST;
+
+    const sep = ctx.ashPos.distanceTo(target);
+    const yaw = ctx.yaw || 0;
+    const dist = 6.5 + sep * 0.9;     // pull back with separation
+
+    const pitch = 0.32;               // slightly higher angle
+    const cp = Math.cos(pitch);
+    _offset.set(
+      Math.sin(yaw) * cp,
+      Math.sin(pitch),
+      Math.cos(yaw) * cp
+    ).multiplyScalar(dist);
+
+    _desiredLook.copy(_mid);
+    _desiredPos.copy(_mid).add(_offset);
+    clampToTerrain(_desiredPos, ctx.terrainHeight, 0.8);
+
+    return 52;
+  }
+
+  function poseCapture(ctx, dt) {
+    const target = ctx.targetPos || ctx.ashPos;
+    orbitTime += dt * 0.5;            // slow orbit
+    const radius = 4.5;
+    const pitch = 0.14;               // low angle
+    const cp = Math.cos(pitch);
+
+    _offset.set(
+      Math.sin(orbitTime) * cp,
+      Math.sin(pitch),
+      Math.cos(orbitTime) * cp
+    ).multiplyScalar(radius);
+
+    _desiredLook.copy(target);
+    _desiredLook.y += 0.8;
+    _desiredPos.copy(target).add(_offset);
+    _desiredPos.y += 0.4;
+    clampToTerrain(_desiredPos, ctx.terrainHeight, 0.5);
+
+    return 40;
+  }
+
+  function poseVictory(ctx, dt) {
+    orbitTime += dt * 0.35;           // slow rising orbit
+    const center = _tmp2.copy(ctx.ashPos);
+    if (ctx.partnerPos) center.add(ctx.partnerPos).multiplyScalar(0.5);
+    const radius = 6.0;
+    const rise = 1.5 + Math.sin(orbitTime * 0.5) * 0.5 + orbitTime * 0.0; // gentle rise via pitch
+
+    const pitch = 0.45;
+    const cp = Math.cos(pitch);
+    _offset.set(
+      Math.sin(orbitTime) * cp,
+      Math.sin(pitch),
+      Math.cos(orbitTime) * cp
+    ).multiplyScalar(radius);
+
+    _desiredLook.copy(center);
+    _desiredLook.y += 1.4;
+    _desiredPos.copy(center).add(_offset);
+    _desiredPos.y += rise;
+    clampToTerrain(_desiredPos, ctx.terrainHeight, 0.8);
+
+    return 50;
+  }
+
+  function poseTitle(ctx, dt) {
+    orbitTime += dt * 0.15;           // very slow auto-orbit
+    const center = ctx.ashPos || _zero;
+    const radius = 8.0;
+    const pitch = 0.3;
+    const cp = Math.cos(pitch);
+    _offset.set(
+      Math.sin(orbitTime) * cp,
+      Math.sin(pitch),
+      Math.cos(orbitTime) * cp
+    ).multiplyScalar(radius);
+
+    _desiredLook.copy(center);
+    _desiredLook.y += 1.2;
+    _desiredPos.copy(center).add(_offset);
+    clampToTerrain(_desiredPos, ctx.terrainHeight, 0.8);
+
+    return 54;
+  }
+
+  function computeDesired(ctx, dt) {
+    switch (mode) {
+      case "command": return poseCommand(ctx);
+      case "capture": return poseCapture(ctx, dt);
+      case "victory": return poseVictory(ctx, dt);
+      case "title":   return poseTitle(ctx, dt);
+      case "explore":
+      default:        return poseExplore(ctx);
+    }
+  }
+
+  // ---- public API --------------------------------------------------------
+  function setMode(newMode, opts) {
+    if (newMode === mode) return;
+    mode = newMode;
+    // reset orbit phase for orbiting modes so they start cleanly
+    if (newMode === "capture" || newMode === "victory" || newMode === "title") {
+      if (!opts || opts.resetOrbit !== false) orbitTime = 0;
+    }
+  }
+
+  function shake(amount) {
+    shakeAmt = Math.max(shakeAmt, amount || 0);
+  }
+
+  function kickFov(amount) {
+    fovKick += amount || 0;
+  }
+
+  function update(dt, ctx) {
+    if (!ctx || !ctx.ashPos) return;
+    const step = Math.min(Math.max(dt || 0, 0), 0.1); // clamp dt for stability
+
+    const desiredFov = computeDesired(ctx, step);
+
+    // First frame: snap to avoid an opening swoop from origin.
+    if (!initialized) {
+      camPos.copy(_desiredPos);
+      camLook.copy(_desiredLook);
+      curFov = desiredFov;
+      initialized = true;
+    }
+
+    // Smooth blend (frame-rate independent lerp).
+    const t = 1 - Math.exp(-TRANSITION * step);
+    camPos.lerp(_desiredPos, t);
+    camLook.lerp(_desiredLook, t);
+
+    // FOV easing + decaying kick.
+    const ft = 1 - Math.exp(-FOV_LERP * step);
+    curFov += (desiredFov - curFov) * ft;
+    fovKick *= Math.exp(-KICK_DECAY * step);
+
+    // Screen shake: decaying random offset applied to position only.
+    shakeAmt *= Math.exp(-SHAKE_DECAY * step);
+    if (shakeAmt > 1e-4) {
+      _shakeOff.set(
+        (Math.random() * 2 - 1),
+        (Math.random() * 2 - 1),
+        (Math.random() * 2 - 1)
+      ).multiplyScalar(shakeAmt);
+    } else {
+      _shakeOff.set(0, 0, 0);
+    }
+
+    // Apply to camera.
+    _tmp.copy(camPos).add(_shakeOff);
+    camera.position.copy(_tmp);
+    camera.up.copy(_up);
+    camera.lookAt(camLook);
+
+    const finalFov = curFov + fovKick;
+    if (Math.abs(camera.fov - finalFov) > 1e-3) {
+      camera.fov = finalFov;
+      camera.updateProjectionMatrix();
+    }
+  }
+
+  return {
+    setMode,
+    update,
+    shake,
+    kickFov,
+    get mode() { return mode; }
+  };
+}
