@@ -1170,6 +1170,10 @@ const TOWN_ANG = 110 * Math.PI / 180, TOWN_R = 86;
 const town = buildTown(scene, terrainHeight,
   new THREE.Vector3(Math.cos(TOWN_ANG) * TOWN_R, 0, Math.sin(TOWN_ANG) * TOWN_R));
 let nearNpc = null;        // NPC currently in talk range
+let nearDoor = null;       // enterable building door in range
+let nearExit = false;      // standing at an interior exit
+let indoors = null;        // { door, it } while inside a building
+const interiors = {};      // lazily-built interior rooms by kind
 let gymBattle = null;      // active gym-leader battle context
 let badges = 0;
 const orbit = { yaw: 0, pitch: 0.42 };   // camera orbit (mouse / auto-follow)
@@ -1336,6 +1340,7 @@ const nowSec = () => performance.now() / 1000;
 function toggleFlight() {
   if (!state.running || state.over) return;
   if (state.fight) { callout("Can't take off mid-battle!"); return; }
+  if (indoors) { callout("Head outside to take off!"); return; }
   state.flying = !state.flying;
   const flyBtn = document.getElementById("fly-btn");
   if (state.flying) {
@@ -1374,7 +1379,7 @@ document.addEventListener("keydown", (e) => {
     if (e.code === "Digit7") command(6);
     if (e.code === "KeyF" || e.code === "Space") { e.preventDefault(); attemptCatch(); }
     if (e.code === "KeyQ") dodge(-1);
-    if (e.code === "KeyE") { if (nearNpc && !state.fight) interactNpc(); else dodge(1); }
+    if (e.code === "KeyE") { if ((nearNpc || nearDoor || nearExit) && !state.fight) interact(); else dodge(1); }
     if (e.code === "KeyG") toggleFlight();   // hop on / off Charizard
   }
 });
@@ -2529,7 +2534,7 @@ function updateWaves(dt) {
   }
   encounterCdT -= dt;
   if (encounterCdT > 0) return;
-  if (state.flying) return;           // no wild encounters while soaring overhead
+  if (state.flying || indoors) return; // no wild encounters while flying or indoors
   if (!grassZoneAt(ash.pos)) return; // wild Pokémon only appear in tall grass
   encounterCdT = rand(2.2, 4.5);
   state.wave++;
@@ -2543,45 +2548,114 @@ const talkPromptEl = document.getElementById("talk-prompt");
 const cityPointerEl = document.getElementById("city-pointer");
 const cityArrowEl = cityPointerEl && cityPointerEl.querySelector(".cp-arrow");
 const cityDistEl = cityPointerEl && cityPointerEl.querySelector(".cp-dist");
+function showPrompt(html) {
+  if (!talkPromptEl) return;
+  talkPromptEl.innerHTML = `${html}<span class="tk-key">E</span>`;
+  talkPromptEl.classList.add("show");
+  talkPromptEl.onpointerdown = (e) => { e.preventDefault(); interact(); };
+}
+function hidePrompt() { if (talkPromptEl) { talkPromptEl.classList.remove("show"); talkPromptEl.onpointerdown = null; } }
 function updateCityPointer() {
   if (!cityPointerEl) return;
-  // hide once you're standing in town; otherwise point the way there
   const dx = town.center.x - ash.pos.x, dz = town.center.z - ash.pos.z;
   const dist = Math.hypot(dx, dz);
-  if (state.fight || dist < 18) { cityPointerEl.classList.remove("show"); return; }
+  if (state.fight || indoors || dist < 24) { cityPointerEl.classList.remove("show"); return; }
   cityPointerEl.classList.add("show");
-  // angle of the town relative to where the camera is looking (orbit.yaw)
-  const worldAng = Math.atan2(dx, dz);
-  const rel = worldAng - orbit.yaw;       // 0 = dead ahead
+  const rel = Math.atan2(dx, dz) - orbit.yaw;       // 0 = dead ahead
   if (cityArrowEl) cityArrowEl.style.transform = `rotate(${rel}rad)`;
   if (cityDistEl) cityDistEl.textContent = `${Math.round(dist)}m`;
 }
 function updateTown(dt) {
   town.update(dt, state.time, ash.pos);
   updateCityPointer();
-  if (state.fight || state.over || throwActive || state.flying) {
-    if (nearNpc) { nearNpc = null; talkPromptEl && talkPromptEl.classList.remove("show"); }
+  nearNpc = null; nearDoor = null; nearExit = false;
+  if (state.fight || state.over || throwActive || state.flying) { hidePrompt(); return; }
+  // inside a building: only the exit prompt matters
+  if (indoors) {
+    if (ash.pos.distanceTo(indoors.it.exit) < 2.6) { nearExit = true; showPrompt(`🚪 Leave <b>${indoors.door.name}</b>`); }
+    else hidePrompt();
     return;
   }
+  // nearest NPC takes priority over doors
   let best = null, bestD = 3.6 * 3.6;
   for (const n of town.npcs) {
-    const dx = n.pos.x - ash.pos.x, dz = n.pos.z - ash.pos.z;
-    const d = dx * dx + dz * dz;
+    const dx = n.pos.x - ash.pos.x, dz = n.pos.z - ash.pos.z; const d = dx * dx + dz * dz;
     if (d < bestD) { bestD = d; best = n; }
   }
-  nearNpc = best;
-  if (!talkPromptEl) return;
   if (best) {
+    nearNpc = best;
     const verb = (best.kind === "gym" || best.kind === "trainer")
       ? (best.defeated ? "Talk to" : "⚔ Challenge")
       : best.kind === "nurse" ? "✚ Heal at" : "Talk to";
-    talkPromptEl.innerHTML = `${verb} <b>${best.name}</b><span class="tk-key">E</span>`;
-    talkPromptEl.classList.add("show");
-    talkPromptEl.onpointerdown = (e) => { e.preventDefault(); interactNpc(); };
-  } else {
-    talkPromptEl.classList.remove("show");
-    talkPromptEl.onpointerdown = null;
+    showPrompt(`${verb} <b>${best.name}</b>`);
+    return;
   }
+  // else nearest enterable door
+  let bd = null, bdD = 3.8 * 3.8;
+  for (const dr of town.doors) {
+    const dx = dr.pos.x - ash.pos.x, dz = dr.pos.z - ash.pos.z; const d = dx * dx + dz * dz;
+    if (d < bdD) { bdD = d; bd = dr; }
+  }
+  if (bd) { nearDoor = bd; showPrompt(`🚪 Enter <b>${bd.name}</b>`); return; }
+  hidePrompt();
+}
+
+// unified interact: leave building / enter building / talk to NPC
+function interact() {
+  if (state.fight) return;
+  if (indoors) { if (nearExit) leaveBuilding(); return; }
+  if (nearDoor) { enterBuilding(nearDoor); return; }
+  if (nearNpc) interactNpc();
+}
+
+// ---- interiors (lazily built, far from the city, reused per kind) ----------
+function buildInterior(kind, lx, lz) {
+  const fy = terrainHeight(lx, lz);
+  const g = new THREE.Group(); scene.add(g);
+  const big = kind === "castle";
+  const W = big ? 30 : 16, D = big ? 24 : 16, H = big ? 9 : 5;
+  const floorMat = new THREE.MeshStandardMaterial({ color: big ? 0x6b5a44 : 0x8a6a48, roughness: 0.95 });
+  const wallMat = new THREE.MeshStandardMaterial({ color: big ? 0x7a7066 : 0xcdbb98, roughness: 0.95 });
+  const add = (geo, m, x, y, z) => { const me = new THREE.Mesh(geo, m); me.position.set(lx + x, fy + y, lz + z); me.castShadow = true; me.receiveShadow = true; g.add(me); return me; };
+  add(new THREE.BoxGeometry(W, 0.4, D), floorMat, 0, 0.2, 0);
+  add(new THREE.BoxGeometry(W, 0.4, D), wallMat, 0, H, 0);             // ceiling
+  add(new THREE.BoxGeometry(W, H, 0.6), wallMat, 0, H / 2, -D / 2);    // back
+  add(new THREE.BoxGeometry(0.6, H, D), wallMat, -W / 2, H / 2, 0);    // left
+  add(new THREE.BoxGeometry(0.6, H, D), wallMat, W / 2, H / 2, 0);     // right
+  add(new THREE.BoxGeometry(W / 2 - 1.5, H, 0.6), wallMat, -(W / 4 + 0.75), H / 2, D / 2); // front (door gap)
+  add(new THREE.BoxGeometry(W / 2 - 1.5, H, 0.6), wallMat, (W / 4 + 0.75), H / 2, D / 2);
+  const lamp = new THREE.PointLight(big ? 0xffd9a0 : 0xffe2b0, big ? 1.7 : 1.3, big ? 44 : 24, 2);
+  lamp.position.set(lx, fy + H - 0.6, lz); g.add(lamp);
+  if (big) {
+    add(new THREE.BoxGeometry(2.6, 3.2, 1.5), new THREE.MeshStandardMaterial({ color: 0x8a2f2a, roughness: 0.7 }), 0, 1.8, -D / 2 + 2.2);
+    for (const sx of [-1, 1]) for (const sz of [-1, 1])
+      add(new THREE.CylinderGeometry(0.7, 0.8, H, 12), wallMat, sx * (W / 2 - 3), H / 2, sz * (D / 2 - 3));
+  } else {
+    add(new THREE.BoxGeometry(2.4, 0.8, 3.6), new THREE.MeshStandardMaterial({ color: 0x6a4a8a, roughness: 0.8 }), -W / 2 + 2, 0.6, -D / 2 + 2.5);
+    add(new THREE.BoxGeometry(2, 1, 1.2), new THREE.MeshStandardMaterial({ color: 0x6a4a2a, roughness: 0.85 }), W / 2 - 2.5, 0.6, 1);
+  }
+  return { group: g, floorY: fy, spawn: new THREE.Vector3(lx, fy, lz + D / 2 - 2.2), exit: new THREE.Vector3(lx, fy, lz + D / 2 - 0.6) };
+}
+function enterBuilding(door) {
+  if (state.fight || indoors) return;
+  // interiors live in a quiet far corner, inside the world bounds
+  if (!interiors[door.kind]) interiors[door.kind] = buildInterior(door.kind, door.kind === "castle" ? 160 : 205, -198);
+  const it = interiors[door.kind];
+  indoors = { door, it };
+  if (state.flying) toggleFlight();
+  ash.pos.copy(it.spawn); ash.yaw = Math.PI; orbit.yaw = Math.PI; ash.speed = 0;
+  flashScreen();
+  showBanner(`Entered ${door.name}`, 2200);
+}
+function leaveBuilding() {
+  if (!indoors) return;
+  const d = indoors.door;
+  ash.pos.set(d.pos.x, terrainHeight(d.pos.x, d.pos.z), d.pos.z);
+  ash.yaw = Math.atan2(town.center.x - d.pos.x, town.center.z - d.pos.z);
+  orbit.yaw = ash.yaw; ash.speed = 0;
+  indoors = null;
+  flashScreen();
+  showBanner("Back outside", 1500);
 }
 
 function interactNpc() {
@@ -3359,7 +3433,7 @@ function updateAshNpc(dt) {
   if (state.fight && state.duel) {
     ash.yaw = lerpAngle(ash.yaw, Math.atan2(state.duel.dir.x, state.duel.dir.z), 1 - Math.pow(0.02, dt));
   }
-  ash.pos.y = terrainHeight(ash.pos.x, ash.pos.z);
+  ash.pos.y = indoors ? indoors.it.floorY : terrainHeight(ash.pos.x, ash.pos.z);
   g.position.copy(ash.pos);
   g.rotation.y = ash.yaw;
 
