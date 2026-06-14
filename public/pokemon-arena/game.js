@@ -1343,7 +1343,7 @@ function toggleFlight() {
       { count: 22, color: 0xcfc2a8, speed: 7, size: 0.9, life: 0.6 });
     AudioSys.flap();
     state.shake = Math.max(state.shake, 0.2);
-    callout(`🐉 Hop on — ${currentChar.name} soars! (move to fly)`, 3000);
+    callout(`🐉 Take to the skies! Steer to turn · up = climb · down = dive · BOOST for speed`, 3600);
     AudioSys.sfx?.roar?.();
     flyBtn && flyBtn.classList.add("active");
   } else {
@@ -1389,20 +1389,33 @@ document.addEventListener("mousemove", (e) => {
   orbit.pitch = clamp(orbit.pitch - e.movementY * 0.0018, -0.05, 1.1);
 });
 
-// Arrow D-pad drives movement (replaces the old joystick).
-const dpad = { up: 0, down: 0, left: 0, right: 0 };
+// Virtual joystick drives movement (and steers Charizard in flight).
+const joy = { x: 0, y: 0, mag: 0, id: null };
 if (IS_TOUCH) {
   document.getElementById("touch-ui").style.display = "block";
-  document.querySelectorAll("#dpad .dbtn").forEach((btn) => {
-    const dir = btn.dataset.dir;
-    btn.style.touchAction = "none";
-    const press = (e) => { e.preventDefault(); dpad[dir] = 1; try { btn.setPointerCapture(e.pointerId); } catch (_) {} };
-    const release = () => { dpad[dir] = 0; };
-    btn.addEventListener("pointerdown", press);
-    btn.addEventListener("pointerup", release);
-    btn.addEventListener("pointercancel", release);
-    btn.addEventListener("pointerleave", release);
+  const joyBase = document.getElementById("joy-base");
+  const joyKnob = document.getElementById("joy-knob");
+  const setJoy = (t) => {
+    const r = joyBase.getBoundingClientRect();
+    let dx = (t.clientX - (r.left + r.width / 2)) / 48;
+    let dy = (t.clientY - (r.top + r.height / 2)) / 48;
+    const mag = Math.hypot(dx, dy);
+    if (mag > 1) { dx /= mag; dy /= mag; }
+    joy.x = dx; joy.y = dy; joy.mag = Math.min(mag, 1);
+    joyKnob.style.transform = `translate(calc(-50% + ${dx * 48}px), calc(-50% + ${dy * 48}px))`;
+  };
+  const resetJoy = () => { joy.x = joy.y = joy.mag = 0; joy.id = null; joyKnob.style.transform = "translate(-50%,-50%)"; };
+  const joyZone = document.getElementById("joy-zone");
+  joyZone.style.touchAction = "none";
+  joyZone.addEventListener("pointerdown", (e) => {
+    e.preventDefault(); joy.id = e.pointerId;
+    try { joyZone.setPointerCapture(e.pointerId); } catch (_) {}
+    setJoy(e);
   });
+  joyZone.addEventListener("pointermove", (e) => { if (e.pointerId === joy.id) { e.preventDefault(); setJoy(e); } });
+  const endPtr = (e) => { if (e.pointerId === joy.id) resetJoy(); };
+  joyZone.addEventListener("pointerup", endPtr);
+  joyZone.addEventListener("pointercancel", endPtr);
 
   const boostBtn = document.getElementById("boost-btn");
   boostBtn.addEventListener("pointerdown", (e) => { e.preventDefault(); touchBoost.on = true; });
@@ -2859,11 +2872,16 @@ function updatePlayer(dt) {
   player.attackCamT = Math.max(0, player.attackCamT - dt);
   // Seismic Slam fully scripts the companion's motion — skip normal AI.
   if (player.slam) { updateSlam(dt); return; }
-  const grounded = false, landing = false, boost = false;
+  const grounded = false, landing = false;
   player.commandT = Math.max(0, player.commandT - dt);
   const engaged = player.commandT > 0 && target && !target.dead;
-
   const inDuel = state.fight && state.duel && target && !target.dead;
+  const flightMode = state.flying && !state.fight;
+  const boost = flightMode && (keys["ShiftLeft"] || keys["ShiftRight"] || (touchBoost && touchBoost.on));
+
+  if (flightMode) {
+    flightMove(dt);   // you fly Charizard in full 3D — handled here
+  } else {
   // desired hover spot: dash in for a melee strike, else hold the battle
   // station during a duel, else hover at Ash's shoulder while exploring.
   const goal = new THREE.Vector3();
@@ -2880,12 +2898,6 @@ function updatePlayer(dt) {
     const toT = target.pos.clone().sub(ash.pos); toT.y = 0;
     if (toT.lengthSq() < 1e-4) toT.set(0, 0, 1); else toT.normalize();
     goal.copy(target.pos).addScaledVector(toT, -6).add(new THREE.Vector3(0, 3.4, 0));
-  } else if (state.flying) {
-    // YOU are riding Charizard: steer toward the move input at cruise altitude
-    const m = readMoveDir();
-    const cruise = terrainHeight(player.pos.x, player.pos.z) + 16;
-    if (m.mag > 0.1) goal.set(player.pos.x + m.wx * 24, cruise, player.pos.z + m.wz * 24);
-    else goal.set(player.pos.x, cruise, player.pos.z);
   } else {
     goal.set(
       ash.pos.x - Math.sin(ash.yaw) * 2.6 + Math.cos(ash.yaw) * 2.2,
@@ -2926,6 +2938,7 @@ function updatePlayer(dt) {
     }
     if (player.commandT <= 0) player.pendingMove = -1; // gave up — out of reach
   }
+  } // end non-flight movement
 
   const fwd = playerForward();
 
@@ -3246,17 +3259,14 @@ function updateFireSpins(dt) {
 // ----------------------------------------------------------------------------
 // Ash cheering
 // ----------------------------------------------------------------------------
-// Camera-relative move input from WASD, arrow keys, and the touch D-pad.
+// Camera-relative move input from WASD, arrow keys, and the joystick (walking).
 function readMoveDir() {
   let mx = 0, mz = 0;
   if (keys["KeyW"] || keys["ArrowUp"]) mz += 1;
   if (keys["KeyS"] || keys["ArrowDown"]) mz -= 1;
   if (keys["KeyA"] || keys["ArrowLeft"]) mx -= 1;
   if (keys["KeyD"] || keys["ArrowRight"]) mx += 1;
-  if (dpad.up) mz += 1;
-  if (dpad.down) mz -= 1;
-  if (dpad.left) mx -= 1;
-  if (dpad.right) mx += 1;
+  if (joy.mag > 0.12) { mx += joy.x; mz += -joy.y; }   // push up = forward
   const mag = Math.hypot(mx, mz);
   if (mag < 0.01) return { wx: 0, wz: 0, mag: 0, sprint: false };
   mx /= mag; mz /= mag;
@@ -3268,17 +3278,64 @@ function readMoveDir() {
   };
 }
 
+// Flight steering: turn (left/right) + pitch (climb/dive) + boost.
+function readFlightInput() {
+  let turn = 0, pitch = 0;
+  if (keys["KeyD"] || keys["ArrowRight"]) turn += 1;
+  if (keys["KeyA"] || keys["ArrowLeft"]) turn -= 1;
+  if (keys["KeyW"] || keys["ArrowUp"]) pitch += 1;     // nose up / climb
+  if (keys["KeyS"] || keys["ArrowDown"]) pitch -= 1;   // dive
+  if (joy.mag > 0.12) { turn += joy.x; pitch += -joy.y; } // up = climb
+  return {
+    turn: clamp(turn, -1, 1),
+    pitch: clamp(pitch, -1, 1),
+    boost: keys["ShiftLeft"] || keys["ShiftRight"] || (touchBoost && touchBoost.on),
+  };
+}
+
+// True 3D flight: thrust forward along heading, steer yaw + pitch, bank in turns.
+const _flyFwd = new THREE.Vector3();
+function flightMove(dt) {
+  const inp = readFlightInput();
+  player.yaw += inp.turn * 1.7 * dt;                    // turn
+  if (Math.abs(inp.pitch) > 0.05) {
+    player.pitch = clamp(player.pitch + inp.pitch * 1.4 * dt, -0.75, 0.75);
+  } else {
+    player.pitch = lerp(player.pitch, 0, 1 - Math.pow(0.25, dt)); // ease to level
+  }
+  player.roll = lerp(player.roll, -inp.turn * 0.55, 1 - Math.pow(0.02, dt)); // bank
+  player.speed = inp.boost ? 44 : 24;
+  const cp = Math.cos(player.pitch);
+  _flyFwd.set(Math.sin(player.yaw) * cp, Math.sin(player.pitch), Math.cos(player.yaw) * cp);
+  player.vel.copy(_flyFwd).multiplyScalar(player.speed);
+  player.pos.addScaledVector(player.vel, dt);
+  const minY = terrainHeight(player.pos.x, player.pos.z) + 4.5;
+  if (player.pos.y < minY) { player.pos.y = minY; if (player.pitch < 0) player.pitch = lerp(player.pitch, 0.05, 0.3); }
+  if (player.pos.y > 130) player.pos.y = 130;
+  const r = Math.hypot(player.pos.x, player.pos.z);
+  if (r > 244) { player.pos.x *= 244 / r; player.pos.z *= 244 / r; }
+  aim.yaw = player.yaw; aim.pitch = player.pitch;
+}
+
 // YOU — Ash, walking the overworld (or riding Charizard in flight)
 function updateAshNpc(dt) {
   const g = ash.group;
-  // riding Charizard: sit on its back; the mount is steered in updatePlayer
+  // riding Charizard: SIT astride its back; the mount is steered in updatePlayer
   if (state.flying && !state.fight) {
     ash.speed = 0;
     ash.pos.set(player.pos.x, player.pos.y, player.pos.z);
     ash.yaw = player.yaw;
-    const bx = Math.sin(player.yaw), bz = Math.cos(player.yaw);
-    g.position.set(player.pos.x - bx * 0.15, player.pos.y + 1.2, player.pos.z - bz * 0.15);
-    g.rotation.y = player.yaw;
+    const cp = Math.cos(player.pitch);
+    const fx = Math.sin(player.yaw) * cp, fz = Math.cos(player.yaw) * cp, fy = Math.sin(player.pitch);
+    // seat on the upper back / neck base, tilting with the dragon
+    g.position.set(player.pos.x + fx * 0.3, player.pos.y + 1.12 + fy * 0.3, player.pos.z + fz * 0.3);
+    g.rotation.set(-player.pitch * 0.5, player.yaw, player.roll * 0.4);
+    // sitting pose: thighs swung forward astride the back, hands gripping forward
+    const legs = g.userData.legs || [];
+    for (let k = 0; k < legs.length; k++) legs[k].rotation.x = 1.4;
+    const arms = g.userData.arms || [];
+    for (let k = 0; k < arms.length; k++) arms[k].rotation.x = 0.8;
+    ash.walkPhase = 0; ash.cheer = 0; ash.throwT = 0;
     orbit.yaw = lerpAngle(orbit.yaw, player.yaw, 1 - Math.pow(0.1, dt));
     return;
   }
@@ -3355,6 +3412,7 @@ function updateCamera(dt) {
     attackZoom: player.attackCamT > 0,
     flyerPos: player.pos,
     flyerYaw: player.yaw,
+    flyerPitch: player.pitch,
   });
   sun.position.set(ash.pos.x + 55, ash.pos.y + 80, ash.pos.z + 35);
   sun.target.position.copy(ash.pos);

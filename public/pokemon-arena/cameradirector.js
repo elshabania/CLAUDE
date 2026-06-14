@@ -114,15 +114,17 @@ export function createCameraDirector(camera) {
     return 54 - zoom * 5;
   }
 
-  // Riding Charizard: chase cam behind & above the dragon, looking ahead.
+  // Riding Charizard: 3D chase cam behind the dragon along its flight path,
+  // following pitch so climbs and dives read in full 3D.
   function poseFlight(ctx) {
     const p = ctx.flyerPos || ctx.ashPos;
-    const yaw = ctx.flyerYaw || 0;
-    const sx = Math.sin(yaw), cz = Math.cos(yaw);
-    _desiredLook.copy(p); _desiredLook.x += sx * 4; _desiredLook.z += cz * 4; _desiredLook.y += 1.0;
-    _desiredPos.set(p.x - sx * 9.5, p.y + 4.6, p.z - cz * 9.5);
+    const yaw = ctx.flyerYaw || 0, pitch = ctx.flyerPitch || 0;
+    const cp = Math.cos(pitch);
+    const fx = Math.sin(yaw) * cp, fy = Math.sin(pitch), fz = Math.cos(yaw) * cp;
+    _desiredLook.set(p.x + fx * 5, p.y + fy * 3 + 1.0, p.z + fz * 5);
+    _desiredPos.set(p.x - fx * 9.5, p.y - fy * 4.5 + 4.0, p.z - fz * 9.5);
     clampToTerrain(_desiredPos, ctx.terrainHeight, 1.5);
-    return 62;
+    return 64;
   }
 
   // Punch-in on the Pokémon when an attack lands.

@@ -699,17 +699,12 @@
       box-shadow: 0 0 20px rgba(90,160,255,.6);
     }
     #fly-btn.active { background: radial-gradient(circle at 35% 30%, rgba(255,200,90,.95), rgba(190,90,20,.95)); }
-    /* arrow D-pad, bottom-left within the safe area */
-    #dpad {
-      left: calc(10px + env(safe-area-inset-left));
-      bottom: calc(14px + env(safe-area-inset-bottom));
-      width: 150px; height: 150px;
+    /* joystick, bottom-left within the safe area */
+    #joy-zone {
+      left: calc(8px + env(safe-area-inset-left));
+      bottom: calc(14px + env(safe-area-inset-bottom)); width: 150px; height: 150px;
     }
-    #dpad .dbtn { width: 50px; height: 50px; font-size: 23px; }
-    #dpad .dbtn[data-dir="up"]    { left: 50px; top: 0; }
-    #dpad .dbtn[data-dir="left"]  { left: 0;  top: 50px; }
-    #dpad .dbtn[data-dir="right"] { left: 100px; top: 50px; }
-    #dpad .dbtn[data-dir="down"]  { left: 50px; top: 100px; }
+    #joy-base { left: 14px; bottom: 14px; background: rgba(10,14,30,.55); }
     #tgt-btn {
       right: calc(18px + env(safe-area-inset-right));
       bottom: calc(235px + env(safe-area-inset-bottom));
@@ -840,12 +835,7 @@
   <div id="fly-btn">🕊<small>FLY</small></div>
 
   <div id="touch-ui">
-    <div id="dpad">
-      <div class="dbtn" data-dir="up">▲</div>
-      <div class="dbtn" data-dir="left">◀</div>
-      <div class="dbtn" data-dir="right">▶</div>
-      <div class="dbtn" data-dir="down">▼</div>
-    </div>
+    <div id="joy-zone"><div id="joy-base"><div id="joy-knob"></div></div></div>
     <div id="tgt-btn">🎯<small>TARGET</small></div>
     <div id="boost-btn">🔥<small>BOOST</small></div>
     <div id="dodge-btn">💨<small>DODGE</small></div>
