@@ -405,6 +405,24 @@
     opacity: 1; transform: translateX(-50%) translateY(0);
     animation: catchPulse 1.1s ease-in-out infinite;
   }
+  #talk-prompt {
+    position: absolute; bottom: 230px; left: 50%;
+    transform: translateX(-50%) translateY(8px);
+    font-family: "Bungee", cursive; font-size: 16px; color: #fff;
+    background: linear-gradient(135deg, rgba(8,18,34,.85), rgba(16,30,55,.8));
+    border: 1.5px solid rgba(120,190,255,.6); border-radius: 999px;
+    padding: 9px 22px; backdrop-filter: blur(6px);
+    text-shadow: 0 1px 3px #000; white-space: nowrap;
+    box-shadow: 0 4px 18px rgba(0,0,0,.55);
+    opacity: 0; pointer-events: none; cursor: pointer; z-index: 13;
+    transition: opacity .2s ease, transform .2s ease;
+  }
+  #talk-prompt.show { opacity: 1; transform: translateX(-50%) translateY(0); pointer-events: auto; }
+  #talk-prompt .tk-key {
+    font-size: 12px; font-weight: 700; color: #bfe0ff; margin-left: 8px;
+    background: rgba(80,150,255,.22); border: 1px solid rgba(120,180,255,.5);
+    border-radius: 6px; padding: 1px 8px; font-family: "Rajdhani", sans-serif;
+  }
   @keyframes catchPulse {
     0%, 100% { box-shadow: 0 4px 18px rgba(0,0,0,.55), 0 0 0 rgba(255,60,60,0); }
     50% { box-shadow: 0 4px 18px rgba(0,0,0,.55), 0 0 24px rgba(255,60,60,.7); }
@@ -544,6 +562,39 @@
     background: radial-gradient(circle at 35% 30%, rgba(255,210,120,.95), rgba(255,130,30,.85));
     box-shadow: 0 2px 14px rgba(255,140,30,.6); border: 2px solid rgba(255,255,255,.4);
   }
+  /* ---- arrow D-pad (replaces the joystick) ---- */
+  #dpad {
+    position: absolute; left: 22px; bottom: 22px; width: 168px; height: 168px;
+    pointer-events: none;
+  }
+  #dpad .dbtn {
+    position: absolute; width: 56px; height: 56px; border-radius: 14px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 26px; color: #fff; pointer-events: auto; user-select: none;
+    background: rgba(10,14,30,.5); border: 2px solid rgba(255,255,255,.28);
+    backdrop-filter: blur(4px); box-shadow: 0 2px 10px rgba(0,0,0,.5);
+    text-shadow: 0 1px 2px #000; touch-action: none;
+  }
+  #dpad .dbtn:active { background: rgba(255,170,50,.45); border-color: rgba(255,200,90,.8); }
+  #dpad .dbtn[data-dir="up"]    { left: 56px; top: 0; }
+  #dpad .dbtn[data-dir="left"]  { left: 0;  top: 56px; }
+  #dpad .dbtn[data-dir="right"] { left: 112px; top: 56px; }
+  #dpad .dbtn[data-dir="down"]  { left: 56px; top: 112px; }
+
+  /* ---- on-screen pointer toward the city ---- */
+  #city-pointer {
+    position: absolute; top: 70px; left: 50%; transform: translateX(-50%);
+    display: none; align-items: center; gap: 7px; z-index: 12;
+    font-family: "Bungee", cursive; font-size: 14px; color: #cfe7ff;
+    background: linear-gradient(135deg, rgba(8,18,34,.82), rgba(16,30,55,.78));
+    border: 1.5px solid rgba(120,190,255,.55); border-radius: 999px;
+    padding: 6px 16px; backdrop-filter: blur(6px); text-shadow: 0 1px 3px #000;
+    box-shadow: 0 4px 16px rgba(0,0,0,.5); pointer-events: none; white-space: nowrap;
+  }
+  #city-pointer.show { display: flex; }
+  #city-pointer .cp-arrow { display: inline-block; font-size: 18px; color: #73d0ff; transition: transform .12s linear; }
+  #city-pointer .cp-dist { color: #9fc4ff; font-family: "Rajdhani", sans-serif; font-weight: 700; }
+
   #tgt-btn {
     position: absolute; right: 18px; bottom: 235px; width: 64px; height: 64px;
     border-radius: 50%; pointer-events: auto; display: flex; flex-direction: column;
@@ -639,17 +690,21 @@
     .move .icon { font-size: 17px; }
     .move .mname { font-size: 7.5px; letter-spacing: 0; }
     .move .key { display: none; }
+    /* FLY: prominent, just above the D-pad on the left so it's easy to find */
     #fly-btn {
-      right: calc(18px + env(safe-area-inset-right));
-      bottom: calc(315px + env(safe-area-inset-bottom));
-      width: 64px; height: 64px; font-size: 20px;
-      background: radial-gradient(circle at 35% 30%, rgba(90,150,255,.55), rgba(20,40,90,.88));
+      left: calc(96px + env(safe-area-inset-left)); right: auto;
+      bottom: calc(178px + env(safe-area-inset-bottom));
+      width: 66px; height: 66px; font-size: 21px;
+      background: radial-gradient(circle at 35% 30%, rgba(120,185,255,.9), rgba(30,60,130,.95));
+      box-shadow: 0 0 20px rgba(90,160,255,.6);
     }
+    #fly-btn.active { background: radial-gradient(circle at 35% 30%, rgba(255,200,90,.95), rgba(190,90,20,.95)); }
+    /* joystick, bottom-left within the safe area */
     #joy-zone {
       left: calc(8px + env(safe-area-inset-left));
-      bottom: calc(14px + env(safe-area-inset-bottom)); width: 148px;
+      bottom: calc(14px + env(safe-area-inset-bottom)); width: 150px; height: 150px;
     }
-    #joy-base { left: 14px; background: rgba(10,14,30,.55); }
+    #joy-base { left: 14px; bottom: 14px; background: rgba(10,14,30,.55); }
     #tgt-btn {
       right: calc(18px + env(safe-area-inset-right));
       bottom: calc(235px + env(safe-area-inset-bottom));
@@ -756,6 +811,7 @@
   <div id="dialogue"></div>
   <div id="catch-result"></div>
   <div id="catch-prompt"><span class="cp-icon">⚲</span> It's weak! Throw a Poké Ball <span class="cp-key">F</span></div>
+  <div id="talk-prompt"></div>
 
   <div id="party-bar">
     <div class="party-slot active"><span class="slot-icon">🔥</span><div class="slot-hp" style="--hp:100%"></div></div>
@@ -785,6 +841,8 @@
     <div id="dodge-btn">💨<small>DODGE</small></div>
     <div id="throw-btn">🔴<small>THROW</small></div>
   </div>
+
+  <div id="city-pointer"><span class="cp-arrow">▲</span><span class="cp-label">CINDERHOLLOW</span><span class="cp-dist"></span></div>
 
   <div id="controls-hint">
     <b>Mouse</b> steer flight &nbsp;·&nbsp; <b>Shift</b> boost &nbsp;·&nbsp; <b>S</b> brake<br/>

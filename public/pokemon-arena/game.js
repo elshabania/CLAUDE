@@ -30,6 +30,7 @@ import { createCollection } from "./capture.js";
 import { buildPokeball, createCaptureFx } from "./pokeball.js";
 import { createCameraDirector } from "./cameradirector.js";
 import { initOverworld } from "./overworld.js";
+import { buildTown } from "./town.js";
 import { LEAFCUB } from "./wild_leafcub.js";
 import { SPARKMOUSE } from "./wild_sparkmouse.js";
 import { EMBERPUP } from "./wild_emberpup.js";
@@ -103,7 +104,7 @@ function lerpAngle(a, b, t) {
 }
 
 // Touch devices get the virtual joystick UI and lighter render settings
-const IS_TOUCH = ("ontouchstart" in window) || matchMedia("(pointer: coarse)").matches;
+const IS_TOUCH = ("ontouchstart" in window) || (navigator.maxTouchPoints > 0) || matchMedia("(pointer: coarse)").matches;
 
 // ----------------------------------------------------------------------------
 // Renderer / scene / camera / post-processing
@@ -1095,6 +1096,8 @@ const state = {
   hitStopHold: 0,
   fightFreeze: 0,   // brief trainer hold during an encounter intro
   fight: false,     // true while a wild Pokémon is in battle
+  duel: null,       // staged battle arena: { dir, center, charHome }
+  flying: false,    // true while you're riding Charizard over the overworld
 };
 
 // YOU — Charizard. Starts grounded; the FLY button takes off.
@@ -1122,6 +1125,7 @@ const player = {
   clawWindow: -1,
   spinT: 0,
   beamT: 0,
+  beamCharge: 0,    // Hyper Beam wind-up before the blast fires
   invuln: 0,
   dodgeCd: 0,
   flapPhase: 0,
@@ -1161,6 +1165,17 @@ const collection = createCollection(WILD_KEYS);
 const captureFx = createCaptureFx(scene);
 const cameraDir = createCameraDirector(camera);
 const overworldData = initOverworld(scene, terrainHeight, IS_TOUCH);
+// Cinderhollow town: walkable NPCs + a gym leader, placed on the world ring.
+const TOWN_ANG = 110 * Math.PI / 180, TOWN_R = 86;
+const town = buildTown(scene, terrainHeight,
+  new THREE.Vector3(Math.cos(TOWN_ANG) * TOWN_R, 0, Math.sin(TOWN_ANG) * TOWN_R));
+let nearNpc = null;        // NPC currently in talk range
+let nearDoor = null;       // enterable building door in range
+let nearExit = false;      // standing at an interior exit
+let indoors = null;        // { door, it } while inside a building
+const interiors = {};      // lazily-built interior rooms by kind
+let gymBattle = null;      // active gym-leader battle context
+let badges = 0;
 const orbit = { yaw: 0, pitch: 0.42 };   // camera orbit (mouse / auto-follow)
 let throwActive = false;                  // a Poke Ball is mid-flight / capturing
 const CHEERS = [
@@ -1321,24 +1336,24 @@ const touchBoost = { on: false };
 const input = { lastSteer: -10 };
 const nowSec = () => performance.now() / 1000;
 
-// FLY / LAND toggle — the takeoff button
+// FLY toggle — hop on Charizard and soar over the overworld (and the towns).
 function toggleFlight() {
   if (!state.running || state.over) return;
-  if (player.mode === "ground") {
-    player.mode = "fly";
-    player.vel.y += 7.5;
-    aim.pitch = Math.max(aim.pitch, 0.3);
-    burst(player.pos.clone().add(new THREE.Vector3(0, -1.2, 0)),
-      { count: 20, color: 0xcfc2a8, speed: 7, size: 0.9, life: 0.6 });
+  if (state.fight) { callout("Can't take off mid-battle!"); return; }
+  if (indoors) { callout("Head outside to take off!"); return; }
+  state.flying = !state.flying;
+  const flyBtn = document.getElementById("fly-btn");
+  if (state.flying) {
+    burst(ash.pos.clone().add(new THREE.Vector3(0, 0.5, 0)),
+      { count: 22, color: 0xcfc2a8, speed: 7, size: 0.9, life: 0.6 });
     AudioSys.flap();
     state.shake = Math.max(state.shake, 0.2);
-    callout(`🐉 ${currentChar.name} takes flight!`);
-    AudioSys.sfx?.roar();
-  } else if (player.mode === "fly") {
-    player.mode = "landing";
-    callout("Coming in to land…");
+    callout(`🐉 Take to the skies! Steer to turn · up = climb · down = dive · BOOST for speed`, 3600);
+    AudioSys.sfx?.roar?.();
+    flyBtn && flyBtn.classList.add("active");
   } else {
-    player.mode = "fly"; // cancel the landing
+    callout("Coming in to land…");
+    flyBtn && flyBtn.classList.remove("active");
   }
 }
 document.getElementById("fly-btn").addEventListener("pointerdown", (e) => {
@@ -1364,7 +1379,8 @@ document.addEventListener("keydown", (e) => {
     if (e.code === "Digit7") command(6);
     if (e.code === "KeyF" || e.code === "Space") { e.preventDefault(); attemptCatch(); }
     if (e.code === "KeyQ") dodge(-1);
-    if (e.code === "KeyE") dodge(1);
+    if (e.code === "KeyE") { if ((nearNpc || nearDoor || nearExit) && !state.fight) interact(); else dodge(1); }
+    if (e.code === "KeyG") toggleFlight();   // hop on / off Charizard
   }
 });
 document.addEventListener("keyup", (e) => { keys[e.code] = false; });
@@ -1378,12 +1394,12 @@ document.addEventListener("mousemove", (e) => {
   orbit.pitch = clamp(orbit.pitch - e.movementY * 0.0018, -0.05, 1.1);
 });
 
+// Virtual joystick drives movement (and steers Charizard in flight).
 const joy = { x: 0, y: 0, mag: 0, id: null };
 if (IS_TOUCH) {
   document.getElementById("touch-ui").style.display = "block";
   const joyBase = document.getElementById("joy-base");
   const joyKnob = document.getElementById("joy-knob");
-
   const setJoy = (t) => {
     const r = joyBase.getBoundingClientRect();
     let dx = (t.clientX - (r.left + r.width / 2)) / 48;
@@ -1393,34 +1409,18 @@ if (IS_TOUCH) {
     joy.x = dx; joy.y = dy; joy.mag = Math.min(mag, 1);
     joyKnob.style.transform = `translate(calc(-50% + ${dx * 48}px), calc(-50% + ${dy * 48}px))`;
   };
-  const resetJoy = () => {
-    joy.x = joy.y = joy.mag = 0;
-    joy.id = null;
-    joyKnob.style.transform = "translate(-50%,-50%)";
-  };
-
-  document.getElementById("joy-zone").addEventListener("touchstart", (e) => {
-    e.preventDefault();
-    const t = e.changedTouches[0];
-    joy.id = t.identifier;
-    setJoy(t);
-  }, { passive: false });
-
-  document.addEventListener("touchmove", (e) => {
-    let handled = false;
-    for (const t of e.changedTouches) {
-      if (t.identifier === joy.id) { setJoy(t); handled = true; }
-    }
-    if (handled) e.preventDefault();
-  }, { passive: false });
-
-  const endTouch = (e) => {
-    for (const t of e.changedTouches) {
-      if (t.identifier === joy.id) resetJoy();
-    }
-  };
-  document.addEventListener("touchend", endTouch);
-  document.addEventListener("touchcancel", endTouch);
+  const resetJoy = () => { joy.x = joy.y = joy.mag = 0; joy.id = null; joyKnob.style.transform = "translate(-50%,-50%)"; };
+  const joyZone = document.getElementById("joy-zone");
+  joyZone.style.touchAction = "none";
+  joyZone.addEventListener("pointerdown", (e) => {
+    e.preventDefault(); joy.id = e.pointerId;
+    try { joyZone.setPointerCapture(e.pointerId); } catch (_) {}
+    setJoy(e);
+  });
+  joyZone.addEventListener("pointermove", (e) => { if (e.pointerId === joy.id) { e.preventDefault(); setJoy(e); } });
+  const endPtr = (e) => { if (e.pointerId === joy.id) resetJoy(); };
+  joyZone.addEventListener("pointerup", endPtr);
+  joyZone.addEventListener("pointercancel", endPtr);
 
   const boostBtn = document.getElementById("boost-btn");
   boostBtn.addEventListener("pointerdown", (e) => { e.preventDefault(); touchBoost.on = true; });
@@ -1568,52 +1568,80 @@ function useMove(i) {
       }
     }
   } else if (i === 1) {
-    // BITE — the counter tool: huge damage on an enemy mid-windup/recovery
+    // BITE — gape wide, lunge in, and CHOMP down on the foe. Huge counter
+    // damage if it's mid-windup/recovery; the bite hurls it back to its station.
     AudioSys.bite();
-    player.biteT = 0.32;
-    player.vel.addScaledVector(fwd, 5);
+    player.biteT = 0.42;
+    player.vel.addScaledVector(fwd, 9);
     const countering = target && !target.dead && (target.windup > 0 || target.recover > 0);
     if (meleeStrike({
-      range: 3.8, dot: 0.45,
-      dmg: 34 * (countering ? 1.75 : 1) * player.dmgMul,
-      knock: 5, stun: 1.2, kind: "flinch",
+      range: 4.4, dot: 0.4,
+      dmg: 40 * (countering ? 1.8 : 1) * player.dmgMul,
+      knock: 12, stun: 1.3, lift: countering ? 3 : 0, kind: "flinch",
     })) {
-      state.hitStopHold = 0.09;
+      state.hitStopHold = 0.1;
       state.timeScale = 0.05;
+      state.shake = Math.max(state.shake, 0.34);
       AudioSys.hit();
-      if (countering) callout("⚡ <b>COUNTER</b>!");
+      // chomp VFX on the foe — teeth flash, spark ring, crunch
+      if (target && !target.dead) {
+        const bp = target.pos.clone().add(new THREE.Vector3(0, 0.8, 0));
+        burst(bp, { count: 18, color: 0xffffff, speed: 9, size: 0.5, life: 0.4 });
+        burst(bp, { count: 10, color: currentChar.glow, speed: 5, size: 0.7, life: 0.5 });
+        addShockwave(bp, 2.4, 0xffffff);
+      }
+      if (countering) callout("⚡ <b>COUNTER CHOMP</b>!"); else callout("<b>CHOMP</b>!");
     }
   } else if (i === 2) {
     AudioSys.flamethrower();
     player.flameActive = 1.6;
   } else if (i === 3) {
+    // FLAME BURST — rear up and LOB a flaming meteor that arcs down and erupts
     AudioSys.fire();
+    player.jawOpen = 0.7; player.fireFlash = 0.45;
+    const aimAt = (target && !target.dead)
+      ? target.pos.clone().add(new THREE.Vector3(0, 0.8, 0))
+      : mouth.clone().addScaledVector(fwd, 22);
+    // launch up-and-over so gravity drops it onto the foe; homes in to land true
+    const launch = aimAt.clone().add(new THREE.Vector3(0, 5.5, 0)).sub(mouth).normalize();
     spawnProjectile({
-      pos: mouth, dir: fwd, speed: 28, size: 0.5, color: currentChar.color,
-      damage: 60 * player.dmgMul, friendly: true, trail: currentChar.glow,
-      gravity: 4, aoe: 7,
+      pos: mouth, dir: launch, speed: 24, size: 0.95, color: 0xff5a14,
+      damage: 72 * player.dmgMul, friendly: true, trail: 0xffb347,
+      gravity: 17, aoe: 9, homing: 1.4, targetRef: target && !target.dead ? target : null,
     });
+    player.attackCamT = 1.2;
   } else if (i === 4) {
-    // SPIN SLAM — whirl with a 360° shockwave
+    // TAIL SLAM — dash in and whirl, smashing the foe with the blazing tail
     AudioSys.noise({ dur: 0.5, freq: 900, gain: 0.4, sweep: 0.3 });
-    player.spinT = 0.55;
-    addShockwave(player.pos, 6.5, currentChar.glow);
+    player.spinT = 0.6;
+    player.vel.addScaledVector(fwd, 7);
+    addShockwave(player.pos, 7.5, 0xffaa44);
+    // a ring of fire swept out by the tail
+    for (let k = 0; k < 22; k++) {
+      const ang = (k / 22) * TAU;
+      spawnParticle({
+        pos: player.pos.clone().add(new THREE.Vector3(Math.cos(ang) * 3.2, rand(0, 1.2), Math.sin(ang) * 3.2)),
+        color: k % 2 ? 0xff7a22 : 0xffc24a, size: rand(0.4, 0.8), endSize: 0.05, life: rand(0.35, 0.6),
+        vel: new THREE.Vector3(Math.cos(ang) * 5, rand(1, 2.5), Math.sin(ang) * 5),
+      });
+    }
     let hit = false;
     for (const e of enemies) {
       if (e.dead) continue;
       const to = e.pos.clone().sub(player.pos);
-      if (to.length() < 7 + e.radius) {
+      if (to.length() < 8 + e.radius) {
         const dir = to.clone().setY(0); if (dir.lengthSq() < 1e-4) dir.set(0, 0, 1); dir.normalize();
-        damageEnemy(e, 26 * player.dmgMul, { react: { launch: 13, lift: 6, kind: "launch", dir } });
+        damageEnemy(e, 34 * player.dmgMul, { react: { launch: 18, lift: 9, kind: "launch", dir } });
+        if (!e.dead) e.burnT = Math.max(e.burnT, 2);
         hit = true;
       }
     }
-    if (hit) { state.shake = Math.max(state.shake, 0.35); hitStop(0.25, 4); }
+    if (hit) { state.shake = Math.max(state.shake, 0.45); hitStop(0.25, 5); }
   } else if (i === 5) {
-    // HYPER BEAM — braced, sustained element beam
-    AudioSys.noise({ dur: 0.8, freq: 2600, gain: 0.5, sweep: 0.1 });
+    // HYPER BEAM — rear back and CHARGE, then unleash a massive sustained blast
     AudioSys.tone({ freq: 1200, dur: 0.7, type: "sawtooth", gain: 0.12, slide: 0.3 });
-    player.beamT = 0.75;
+    player.beamCharge = 0.5;       // wind-up: gather light at the mouth
+    player.attackCamT = 2.0;       // hold the camera through the whole blast
     callout(`<b>${currentChar.moves[5]}</b>!!`);
   } else if (i === 6) {
     // SEISMIC SLAM — grab the wild Pokémon, soar up, and dive-bomb it down
@@ -1809,6 +1837,7 @@ function explodeProjectile(p, hitPos) {
         const dmg = p.damage * (1 - d / p.aoe * 0.6);
         const dir = e.pos.clone().sub(hitPos).setY(0); if (dir.lengthSq() < 1e-4) dir.set(0, 0, 1); dir.normalize();
         damageEnemy(e, dmg, { react: { launch: 12 * falloff, lift: 7 * falloff, kind: "launch", dir } });
+        if (!e.dead) e.burnT = Math.max(e.burnT, 2.6); // the blast leaves them ablaze
       }
     }
   } else {
@@ -1904,27 +1933,42 @@ function updateProjectiles(dt) {
 // ----------------------------------------------------------------------------
 // Enemies — grounded gunners and aerial chasers
 // ----------------------------------------------------------------------------
-function spawnEnemy(boss = false) {
-  const key = boss
+function spawnEnemy(boss = false, opts = {}) {
+  const key = opts.key || (boss
     ? ["rockor", "vinex", "aquish", "pebblade"][Math.floor(Math.random() * 4)]
-    : WILD_KEYS[Math.floor(Math.random() * WILD_KEYS.length)];
+    : WILD_KEYS[Math.floor(Math.random() * WILD_KEYS.length)]);
   const spec = WILD[key];
 
-  // wild Pokémon emerge from the grass around Ash
-  const a = ash.yaw + rand(-2.4, 2.4);
-  const dist = spec.flying ? rand(12, 18) : rand(8, 14);
-  const x = clamp(ash.pos.x + Math.sin(a) * dist, -226, 226);
-  const z = clamp(ash.pos.z + Math.cos(a) * dist, -226, 226);
+  // ---- DUEL STAGING ------------------------------------------------------
+  // On the first foe of an encounter, lay out a 1v1 battle arena in front of
+  // Ash: Charizard stations near him, the wild Pokémon faces off across a gap.
+  if (!state.fight || !state.duel) {
+    const fdir = new THREE.Vector3(Math.sin(ash.yaw), 0, Math.cos(ash.yaw));
+    const center = ash.pos.clone().addScaledVector(fdir, 8.5);
+    const charHome = ash.pos.clone().addScaledVector(fdir, 4.4);
+    charHome.y = terrainHeight(charHome.x, charHome.z) + 3.6;
+    state.duel = { dir: fdir, center, charHome };
+  }
+  const duel = state.duel;
+  // the wild Pokémon takes a battle station on the far side, facing Charizard
+  const slot = enemies.filter((e) => !e.dead).length;
+  const perp = new THREE.Vector3(duel.dir.z, 0, -duel.dir.x);
+  const lateral = slot === 0 ? 0 : (slot % 2 ? 1 : -1) * Math.ceil(slot / 2) * 3.4;
+  const x = clamp(ash.pos.x + duel.dir.x * 12 + perp.x * lateral, -226, 226);
+  const z = clamp(ash.pos.z + duel.dir.z * 12 + perp.z * lateral, -226, 226);
   const group = spec.build();
-  const y = spec.flying ? terrainHeight(x, z) + rand(6, 12) : terrainHeight(x, z);
+  const y = spec.flying ? terrainHeight(x, z) + 4.4 : terrainHeight(x, z);
   group.position.set(x, y, z);
   if (boss) group.scale.setScalar(2.2);
   scene.add(group);
 
-  const mul = (1 + (state.wave - 1) * 0.35) * (boss ? 3.5 : 2.2);
+  const mul = opts.trainer
+    ? 2.4 + (opts.level || 8) * 0.35
+    : (1 + (state.wave - 1) * 0.35) * (boss ? 3.5 : 2.2);
   const e = {
     spec, group, boss, key,
-    catchable: !boss, catchRate: spec.catchRate ?? 0.9,
+    trainer: null,
+    catchable: !boss && !opts.trainer, catchRate: spec.catchRate ?? 0.9,
     flying: spec.flying,
     pos: group.position,
     hp: spec.hp * mul, maxHp: spec.hp * mul,
@@ -1937,6 +1981,9 @@ function spawnEnemy(boss = false) {
     windup: 0,
     recover: 0,
     staggerT: 0,
+    duelHome: new THREE.Vector3(x, y, z),  // battle station to hold/return to
+    lungeT: 0, didHit: false,              // dash-in-to-attack then retreat
+    homeFaceAway: lateral,                 // (slot offset, for staggered lines)
     strafeDir: Math.random() < 0.5 ? 1 : -1,
     orbitA: rand(0, TAU),
     orbitDir: Math.random() < 0.5 ? 1 : -1,
@@ -1992,18 +2039,24 @@ function spawnEnemy(boss = false) {
   }
   // adventure encounter presentation: "A wild X appeared!"
   state.lastFoe = spec.name;
-  announce(`A wild ${spec.name} appeared!`, 2200);
-  showDialogue(encounterLine(spec.name, e.element));
-  AudioSys.sfx?.encounter();
-  if (!boss) AudioSys.sfx?.wildCry(e.element);
+  if (opts.trainer) {
+    announce(`${spec.name} stands ready!`, 2000);
+    AudioSys.sfx?.encounter();
+    AudioSys.music?.setMode("boss");
+  } else {
+    announce(`A wild ${spec.name} appeared!`, 2200);
+    showDialogue(encounterLine(spec.name, e.element));
+    AudioSys.sfx?.encounter();
+    if (!boss) AudioSys.sfx?.wildCry(e.element);
+    AudioSys.music?.setMode(boss ? "boss" : "battle");
+  }
   flashScreen();
-  AudioSys.music?.setMode(boss ? "boss" : "battle");
   cine.start(e.pos.clone(), 1.5);
   // enter FIGHT MODE: hold the trainer, lock the camera on the foe, target it
   state.fight = true;
   state.fightFreeze = 1.2;
   target = e;
-  showBanner(boss ? `⚔ BOSS BATTLE — ${spec.name}` : `⚔ FIGHT! — ${spec.name}`, 2000);
+  if (!opts.trainer) showBanner(boss ? `⚔ BOSS BATTLE — ${spec.name}` : `⚔ FIGHT! — ${spec.name}`, 2000);
   return e;
 }
 
@@ -2183,11 +2236,20 @@ function updateEnemies(dt) {
     // status effects — BURN DoT (orange flicker) and SOAK timer
     if (e.burnT > 0) {
       e.burnT = Math.max(0, e.burnT - dt);
-      damageEnemyTick(e, 4 * dt);
+      damageEnemyTick(e, 7 * dt);          // a real burn — sustained DoT
       if (e.dead) continue;
-      if (Math.random() < dt * 7) {
-        e.flash = Math.max(e.flash, 0.07);
+      if (Math.random() < dt * 8) {
+        e.flash = Math.max(e.flash, 0.08);
         e.flashColor = 0xff7722;
+      }
+      // flames crawl over its body the whole time it burns
+      if (Math.random() < dt * 26) {
+        spawnParticle({
+          pos: e.pos.clone().add(new THREE.Vector3(rand(-0.5, 0.5), (rand(0.1, 1.5)) * (e.boss ? 2 : 1), rand(-0.5, 0.5))),
+          color: Math.random() < 0.5 ? 0xff8a30 : 0xffc24a,
+          size: rand(0.25, 0.6), endSize: 0.04, life: rand(0.35, 0.7),
+          vel: new THREE.Vector3(rand(-0.4, 0.4), rand(1.4, 2.8), rand(-0.4, 0.4)),
+        });
       }
       statusWord(e, "BURN", "#ff8830");
       if (e.burnT <= 0) e.flashColor = 0xffffff;
@@ -2205,8 +2267,29 @@ function updateEnemies(dt) {
 
     const slowMul = e.slow > 0 ? 0.3 : 1;
     e.slow = Math.max(0, e.slow - dt);
+    const duelOn = state.fight && state.duel && e.duelHome;
 
-    if (e.flying) {
+    if (duelOn) {
+      // ---- DUEL: hold the battle station; break ranks only to lunge a hit ---
+      if (e.lungeT > 0) {
+        const want = player.pos.clone().addScaledVector(flatDir, -(e.meleeRange * 0.55));
+        want.y = e.flying ? player.pos.y : terrainHeight(want.x, want.z);
+        e.pos.lerp(want, 1 - Math.pow(0.012, dt));
+      } else {
+        const h = e.duelHome;
+        e.pos.x = lerp(e.pos.x, h.x, 1 - Math.pow(0.05, dt));
+        e.pos.z = lerp(e.pos.z, h.z, 1 - Math.pow(0.05, dt));
+        e.pos.y = e.flying
+          ? lerp(e.pos.y, h.y + Math.sin(state.time * 1.4 + e.bobPhase) * 0.5, 1 - Math.pow(0.05, dt))
+          : terrainHeight(e.pos.x, e.pos.z);
+      }
+      const dwings = e.group.userData.flapWings;
+      if (dwings) for (const w of dwings) w.rotation.z = w.userData.sign * Math.sin(state.time * 11 + e.bobPhase) * 0.4;
+      if (!e.flying) {
+        e.bobPhase += dt * 7;
+        e.group.position.y = e.pos.y + Math.abs(Math.sin(e.bobPhase)) * 0.1 - (e.windup > 0 ? 0.18 : 0);
+      }
+    } else if (e.flying) {
       // tight orbit around you, pressing in for swoop attacks
       e.orbitA += dt * 0.7 * e.orbitDir;
       const orbR = e.windup > 0 ? 2.5 : 8;
@@ -2249,7 +2332,39 @@ function updateEnemies(dt) {
     // attacks — melee lunge with a telegraphed windup, then a punishable recovery
     e.attackTimer -= dt;
     e.recover = Math.max(0, e.recover - dt);
-    if (e.windup > 0) {
+    if (duelOn) {
+      // station-and-strike: telegraph → spring in → hit → retreat to station
+      if (e.windup > 0) {
+        e.windup -= dt;
+        if (e.windup <= 0) { e.lungeT = 0.5; e.didHit = false; }
+      } else if (e.lungeT > 0) {
+        e.lungeT -= dt;
+        if (!e.didHit && dist3 < e.meleeRange + 1.4) {
+          e.didHit = true;
+          damagePlayer(e.damage);
+          burst(player.pos.clone(), { count: 12, color: 0xffffff, speed: 6, size: 0.6, life: 0.4 });
+          state.shake = Math.max(state.shake, e.boss ? 0.5 : 0.32);
+          AudioSys.hit?.();
+        }
+        if (e.lungeT <= 0) e.recover = 0.5; // punish window as it retreats
+      } else if (e.attackTimer <= 0 && e.recover <= 0) {
+        if (e.spec.projectile && Math.random() < 0.4) {
+          const pr = e.spec.projectile;
+          const from = e.pos.clone().add(new THREE.Vector3(0, e.flying ? 0 : 1.2, 0));
+          spawnProjectile({
+            pos: from, dir: player.pos.clone().sub(from).normalize(),
+            speed: pr.speed * (e.boss ? 0.85 : 1), size: pr.size * (e.boss ? 1.8 : 1),
+            color: pr.color, damage: e.damage * 0.8, friendly: false, trail: pr.color, homing: 1.1,
+          });
+          AudioSys.tone({ freq: e.boss ? 120 : 300, dur: 0.12, type: e.boss ? "sawtooth" : "sine", gain: 0.14, slide: 1.5 });
+          e.attackTimer = e.spec.attackCd * rand(1.4, 2.0);
+        } else {
+          e.windup = 0.55; // rear back — your cue to counter-bite
+          e.attackTimer = e.spec.attackCd * rand(1.1, 1.7);
+          AudioSys.tone({ freq: 180, dur: 0.32, type: "sawtooth", gain: 0.15, slide: 2.2 });
+        }
+      }
+    } else if (e.windup > 0) {
       e.windup -= dt;
       if (e.windup <= 0) {
         if (dist3 < e.meleeRange + 2.4) {
@@ -2384,21 +2499,204 @@ function updateWaves(dt) {
     return;
   }
   if (wasInCombat) {                 // the encounter just ended (caught or defeated)
+    // a trainer/gym battle with more team members? send out their next Pokémon
+    if (gymBattle && gymBattle.idx + 1 < gymBattle.team.length && player.hp > 0) {
+      gymBattle.idx++;
+      announce(`${gymBattle.npc.name} sends out Pokémon ${gymBattle.idx + 1}/${gymBattle.team.length}!`, 2000);
+      player.hp = Math.min(player.maxHp, player.hp + player.maxHp * 0.12); // small breather
+      sendOutTrainerMon();
+      return;                        // stay in combat for the next mon
+    }
     wasInCombat = false;
     state.fight = false;
+    state.duel = null;
     AudioSys.music?.setMode("overworld");
-    collection.addBalls(2); updateBallCount();
-    callout("Found 2 Poké Balls in the grass!");
-    player.hp = Math.min(player.maxHp, player.hp + player.maxHp * 0.25);
+    if (gymBattle) {                 // whole team defeated
+      gymBattle.npc.defeated = true;
+      if (gymBattle.npc.kind === "gym") {
+        badges++;
+        showBanner(`★ ${gymBattle.npc.badge || "Gym"} Badge earned!  (badges: ${badges})`, 3800);
+        launchFireworks(town.gymPos.clone());
+      } else {
+        state.score += 300;
+        showBanner(`✔ Defeated ${gymBattle.npc.name}!`, 3000);
+      }
+      showDialogue(gymBattle.npc.winLines[0], 5200);
+      player.hp = player.maxHp;
+      gymBattle = null;
+    } else {
+      collection.addBalls(2); updateBallCount();
+      callout("Found 2 Poké Balls in the grass!");
+      player.hp = Math.min(player.maxHp, player.hp + player.maxHp * 0.25);
+    }
     encounterCdT = rand(1.6, 3.2);
     return;
   }
   encounterCdT -= dt;
   if (encounterCdT > 0) return;
+  if (state.flying || indoors) return; // no wild encounters while flying or indoors
   if (!grassZoneAt(ash.pos)) return; // wild Pokémon only appear in tall grass
   encounterCdT = rand(2.2, 4.5);
   state.wave++;
   spawnEnemy(state.wave % 6 === 0);
+}
+
+// ----------------------------------------------------------------------------
+// Cinderhollow — NPC proximity, talk prompt, gym battles
+// ----------------------------------------------------------------------------
+const talkPromptEl = document.getElementById("talk-prompt");
+const cityPointerEl = document.getElementById("city-pointer");
+const cityArrowEl = cityPointerEl && cityPointerEl.querySelector(".cp-arrow");
+const cityDistEl = cityPointerEl && cityPointerEl.querySelector(".cp-dist");
+function showPrompt(html) {
+  if (!talkPromptEl) return;
+  talkPromptEl.innerHTML = `${html}<span class="tk-key">E</span>`;
+  talkPromptEl.classList.add("show");
+  talkPromptEl.onpointerdown = (e) => { e.preventDefault(); interact(); };
+}
+function hidePrompt() { if (talkPromptEl) { talkPromptEl.classList.remove("show"); talkPromptEl.onpointerdown = null; } }
+function updateCityPointer() {
+  if (!cityPointerEl) return;
+  const dx = town.center.x - ash.pos.x, dz = town.center.z - ash.pos.z;
+  const dist = Math.hypot(dx, dz);
+  if (state.fight || indoors || dist < 24) { cityPointerEl.classList.remove("show"); return; }
+  cityPointerEl.classList.add("show");
+  const rel = Math.atan2(dx, dz) - orbit.yaw;       // 0 = dead ahead
+  if (cityArrowEl) cityArrowEl.style.transform = `rotate(${rel}rad)`;
+  if (cityDistEl) cityDistEl.textContent = `${Math.round(dist)}m`;
+}
+function updateTown(dt) {
+  town.update(dt, state.time, ash.pos);
+  updateCityPointer();
+  nearNpc = null; nearDoor = null; nearExit = false;
+  if (state.fight || state.over || throwActive || state.flying) { hidePrompt(); return; }
+  // inside a building: only the exit prompt matters
+  if (indoors) {
+    if (ash.pos.distanceTo(indoors.it.exit) < 2.6) { nearExit = true; showPrompt(`🚪 Leave <b>${indoors.door.name}</b>`); }
+    else hidePrompt();
+    return;
+  }
+  // nearest NPC takes priority over doors
+  let best = null, bestD = 3.6 * 3.6;
+  for (const n of town.npcs) {
+    const dx = n.pos.x - ash.pos.x, dz = n.pos.z - ash.pos.z; const d = dx * dx + dz * dz;
+    if (d < bestD) { bestD = d; best = n; }
+  }
+  if (best) {
+    nearNpc = best;
+    const verb = (best.kind === "gym" || best.kind === "trainer")
+      ? (best.defeated ? "Talk to" : "⚔ Challenge")
+      : best.kind === "nurse" ? "✚ Heal at" : "Talk to";
+    showPrompt(`${verb} <b>${best.name}</b>`);
+    return;
+  }
+  // else nearest enterable door
+  let bd = null, bdD = 3.8 * 3.8;
+  for (const dr of town.doors) {
+    const dx = dr.pos.x - ash.pos.x, dz = dr.pos.z - ash.pos.z; const d = dx * dx + dz * dz;
+    if (d < bdD) { bdD = d; bd = dr; }
+  }
+  if (bd) { nearDoor = bd; showPrompt(`🚪 Enter <b>${bd.name}</b>`); return; }
+  hidePrompt();
+}
+
+// unified interact: leave building / enter building / talk to NPC
+function interact() {
+  if (state.fight) return;
+  if (indoors) { if (nearExit) leaveBuilding(); return; }
+  if (nearDoor) { enterBuilding(nearDoor); return; }
+  if (nearNpc) interactNpc();
+}
+
+// ---- interiors (lazily built, far from the city, reused per kind) ----------
+function buildInterior(kind, lx, lz) {
+  const fy = terrainHeight(lx, lz);
+  const g = new THREE.Group(); scene.add(g);
+  const big = kind === "castle";
+  const W = big ? 30 : 16, D = big ? 24 : 16, H = big ? 9 : 5;
+  const floorMat = new THREE.MeshStandardMaterial({ color: big ? 0x6b5a44 : 0x8a6a48, roughness: 0.95 });
+  const wallMat = new THREE.MeshStandardMaterial({ color: big ? 0x7a7066 : 0xcdbb98, roughness: 0.95 });
+  const add = (geo, m, x, y, z) => { const me = new THREE.Mesh(geo, m); me.position.set(lx + x, fy + y, lz + z); me.castShadow = true; me.receiveShadow = true; g.add(me); return me; };
+  add(new THREE.BoxGeometry(W, 0.4, D), floorMat, 0, 0.2, 0);
+  add(new THREE.BoxGeometry(W, 0.4, D), wallMat, 0, H, 0);             // ceiling
+  add(new THREE.BoxGeometry(W, H, 0.6), wallMat, 0, H / 2, -D / 2);    // back
+  add(new THREE.BoxGeometry(0.6, H, D), wallMat, -W / 2, H / 2, 0);    // left
+  add(new THREE.BoxGeometry(0.6, H, D), wallMat, W / 2, H / 2, 0);     // right
+  add(new THREE.BoxGeometry(W / 2 - 1.5, H, 0.6), wallMat, -(W / 4 + 0.75), H / 2, D / 2); // front (door gap)
+  add(new THREE.BoxGeometry(W / 2 - 1.5, H, 0.6), wallMat, (W / 4 + 0.75), H / 2, D / 2);
+  const lamp = new THREE.PointLight(big ? 0xffd9a0 : 0xffe2b0, big ? 1.7 : 1.3, big ? 44 : 24, 2);
+  lamp.position.set(lx, fy + H - 0.6, lz); g.add(lamp);
+  if (big) {
+    add(new THREE.BoxGeometry(2.6, 3.2, 1.5), new THREE.MeshStandardMaterial({ color: 0x8a2f2a, roughness: 0.7 }), 0, 1.8, -D / 2 + 2.2);
+    for (const sx of [-1, 1]) for (const sz of [-1, 1])
+      add(new THREE.CylinderGeometry(0.7, 0.8, H, 12), wallMat, sx * (W / 2 - 3), H / 2, sz * (D / 2 - 3));
+  } else {
+    add(new THREE.BoxGeometry(2.4, 0.8, 3.6), new THREE.MeshStandardMaterial({ color: 0x6a4a8a, roughness: 0.8 }), -W / 2 + 2, 0.6, -D / 2 + 2.5);
+    add(new THREE.BoxGeometry(2, 1, 1.2), new THREE.MeshStandardMaterial({ color: 0x6a4a2a, roughness: 0.85 }), W / 2 - 2.5, 0.6, 1);
+  }
+  return { group: g, floorY: fy, spawn: new THREE.Vector3(lx, fy, lz + D / 2 - 2.2), exit: new THREE.Vector3(lx, fy, lz + D / 2 - 0.6) };
+}
+function enterBuilding(door) {
+  if (state.fight || indoors) return;
+  // interiors live in a quiet far corner, inside the world bounds
+  if (!interiors[door.kind]) interiors[door.kind] = buildInterior(door.kind, door.kind === "castle" ? 160 : 205, -198);
+  const it = interiors[door.kind];
+  indoors = { door, it };
+  if (state.flying) toggleFlight();
+  ash.pos.copy(it.spawn); ash.yaw = Math.PI; orbit.yaw = Math.PI; ash.speed = 0;
+  flashScreen();
+  showBanner(`Entered ${door.name}`, 2200);
+}
+function leaveBuilding() {
+  if (!indoors) return;
+  const d = indoors.door;
+  ash.pos.set(d.pos.x, terrainHeight(d.pos.x, d.pos.z), d.pos.z);
+  ash.yaw = Math.atan2(town.center.x - d.pos.x, town.center.z - d.pos.z);
+  orbit.yaw = ash.yaw; ash.speed = 0;
+  indoors = null;
+  flashScreen();
+  showBanner("Back outside", 1500);
+}
+
+function interactNpc() {
+  const n = nearNpc;
+  if (!n || state.fight) return;
+  if (n.kind === "nurse") {
+    for (const m of collection.party) m.hp = m.maxHp;
+    player.hp = player.maxHp;
+    showDialogue(n.lines[n.said % n.lines.length], 3500); n.said++;
+    flashScreen();
+    callout("✚ Your team was healed!", 2200);
+    AudioSys.sfx?.levelUp?.();
+    refreshParty();
+  } else if (n.kind === "gym" || n.kind === "trainer") {
+    if (n.defeated) {
+      showDialogue(n.kind === "gym"
+        ? "Good to see you again. The road past the gate leads onward!"
+        : "Great battle earlier — rest up, champion!", 3500);
+      return;
+    }
+    showDialogue(n.lines[0], 3000);
+    const dx = n.pos.x - ash.pos.x, dz = n.pos.z - ash.pos.z;
+    ash.yaw = Math.atan2(dx, dz);   // face the trainer so the duel stages toward them
+    startTrainerBattle(n);
+  } else {
+    showDialogue(n.lines[n.said % n.lines.length], 3800); n.said++;
+  }
+}
+
+function startTrainerBattle(npc) {
+  const team = npc.team.map((t) => (typeof t === "string" ? { key: t, level: npc.level || 8 } : t));
+  gymBattle = { npc, team, idx: 0 };
+  showBanner(`${npc.kind === "gym" ? "⚔ GYM BATTLE" : "⚔ TRAINER BATTLE"} — ${npc.name}`, 2800);
+  sendOutTrainerMon();
+}
+
+function sendOutTrainerMon() {
+  if (!gymBattle) return;
+  const mon = gymBattle.team[gymBattle.idx];
+  const e = spawnEnemy(false, { key: mon.key, trainer: true, level: mon.level || 8 });
+  if (e) e.trainer = gymBattle.npc;
 }
 
 // ----------------------------------------------------------------------------
@@ -2430,13 +2728,15 @@ document.getElementById("start-btn").addEventListener("click", () => {
   player.vel.set(0, 0, 0);
   player.commandT = 0;
   orbit.yaw = 0; orbit.pitch = 0.42;
-  document.getElementById("fly-btn")?.style.setProperty("display", "none");
+  document.getElementById("fly-btn")?.style.setProperty("display", "flex");
   refreshParty();
   cameraDir.setMode("explore");
   AudioSys.music?.setMode("overworld");
   if (!IS_TOUCH) renderer.domElement.requestPointerLock();
   startWave();
   callout("Explore! Find wild Pokémon · command CHARIZARD with 1–6 · press F to throw a Poké Ball", 5500);
+  // point the player toward the new town + gym
+  setTimeout(() => { if (state.running && !state.fight) showDialogue("Seek out Cinderhollow town — talk to its people, heal your team, and challenge the Gym for the Ember Badge!", 6000); }, 11000);
   // adventure opening narration
   if (ADVENTURE_OPENING && ADVENTURE_OPENING.length) {
     ADVENTURE_OPENING.forEach((line, i) => setTimeout(() => { if (state.running) showDialogue(line); }, 800 + i * 4200));
@@ -2504,6 +2804,8 @@ function attemptCatch() {
         launchFireworks(wild.pos.clone());
         ash.cheer = 1.8;
         updateBallCount();
+        // let the trainer know the catch is now usable
+        setTimeout(() => { if (state.running) callout(`Tap <b>${wild.spec.name}</b> in your party (bottom-left) to send it out!`, 4000); }, 2000);
       } else {
         AudioSys.sfx?.catchFail();
         showCatchResult(`Oh no! ${wild.spec.name} broke free!`, false);
@@ -2644,18 +2946,32 @@ function updatePlayer(dt) {
   player.attackCamT = Math.max(0, player.attackCamT - dt);
   // Seismic Slam fully scripts the companion's motion — skip normal AI.
   if (player.slam) { updateSlam(dt); return; }
-  const grounded = false, landing = false, boost = false;
+  const grounded = false, landing = false;
   player.commandT = Math.max(0, player.commandT - dt);
   const engaged = player.commandT > 0 && target && !target.dead;
+  const inDuel = state.fight && state.duel && target && !target.dead;
+  const flightMode = state.flying && !state.fight;
+  const boost = flightMode && (keys["ShiftLeft"] || keys["ShiftRight"] || (touchBoost && touchBoost.on));
 
-  // desired hover spot: near the target when engaged, else at Ash's shoulder
+  if (flightMode) {
+    flightMove(dt);   // you fly Charizard in full 3D — handled here
+  } else {
+  // desired hover spot: dash in for a melee strike, else hold the battle
+  // station during a duel, else hover at Ash's shoulder while exploring.
   const goal = new THREE.Vector3();
-  if (engaged) {
+  if (engaged && player.pendingMove >= 0) {
+    // melee: lunge to just within reach of the foe for the chomp/slash
+    const toT = target.pos.clone().sub(player.pos); toT.y = 0;
+    if (toT.lengthSq() < 1e-4) toT.set(0, 0, 1); else toT.normalize();
+    const reach = (MELEE_RANGE[player.pendingMove] || 3) - 0.6;
+    goal.copy(target.pos).addScaledVector(toT, -reach)
+      .add(new THREE.Vector3(0, 0.6, 0));
+  } else if (inDuel) {
+    goal.copy(state.duel.charHome);          // hold station, facing the foe
+  } else if (engaged) {
     const toT = target.pos.clone().sub(ash.pos); toT.y = 0;
     if (toT.lengthSq() < 1e-4) toT.set(0, 0, 1); else toT.normalize();
-    const melee = player.pendingMove >= 0;
-    goal.copy(target.pos).addScaledVector(toT, melee ? -2.5 : -6)
-      .add(new THREE.Vector3(0, melee ? 1.6 : 3.4, 0));
+    goal.copy(target.pos).addScaledVector(toT, -6).add(new THREE.Vector3(0, 3.4, 0));
   } else {
     goal.set(
       ash.pos.x - Math.sin(ash.yaw) * 2.6 + Math.cos(ash.yaw) * 2.2,
@@ -2667,13 +2983,13 @@ function updatePlayer(dt) {
 
   const toGoal = goal.clone().sub(player.pos);
   const gdist = toGoal.length();
-  player.speed = clamp(gdist * 3.4, 0, engaged ? 30 : 18);
+  player.speed = clamp(gdist * 3.4, 0, engaged ? 30 : (state.flying ? 38 : 18));
   if (gdist > 0.001) player.vel.lerp(toGoal.multiplyScalar(player.speed / gdist), 1 - Math.pow(0.015, dt));
   player.pos.addScaledVector(player.vel, dt);
 
-  // facing: toward the target when engaged, else along travel / Ash heading
+  // facing: toward the target when engaged/dueling, else along travel / Ash heading
   let faceYaw, facePitch = 0;
-  if (engaged) {
+  if ((engaged || inDuel) && target && !target.dead) {
     const f = target.pos.clone().add(new THREE.Vector3(0, 0.6, 0)).sub(player.pos);
     faceYaw = Math.atan2(f.x, f.z);
     facePitch = clamp(Math.atan2(f.y, Math.hypot(f.x, f.z)), -0.6, 0.6);
@@ -2696,6 +3012,7 @@ function updatePlayer(dt) {
     }
     if (player.commandT <= 0) player.pendingMove = -1; // gave up — out of reach
   }
+  } // end non-flight movement
 
   const fwd = playerForward();
 
@@ -2765,7 +3082,9 @@ function updatePlayer(dt) {
   const ud = g.userData;
   const hover = player.speed < 9;
   const flapRate = grounded ? 1.4 : boost ? 2.2 : hover ? 7.5 : 3.4;
-  const flapAmp = grounded ? 0.05 : boost ? 0.12 : hover ? 0.55 : 0.28;
+  // keep the beat shallow enough that the wings never swing edge-on to the
+  // chase cam (which made the broad membrane vanish and read as thin spears)
+  const flapAmp = grounded ? 0.05 : boost ? 0.12 : hover ? 0.22 : 0.16;
   const prevPhase = player.flapPhase;
   player.flapPhase += dt * flapRate;
   // wing-beat whoosh at the bottom of each stroke
@@ -2774,8 +3093,10 @@ function updatePlayer(dt) {
     AudioSys.flap();
   }
   for (const w of ud.wings) {
-    // folded against the back on the ground, spread in flight
-    const lift = grounded ? -0.95 : boost ? -0.25 : 0.15;
+    // folded against the back on the ground, spread with a strong upward
+    // dihedral in flight so the broad membrane faces the chase cam (Charizard
+    // holds its wings up like sails — flat wings vanish edge-on from behind)
+    const lift = grounded ? -0.95 : boost ? 0.45 : 0.78;
     w.rotation.z = w.userData.sign * (lift + Math.sin(player.flapPhase) * flapAmp);
     w.rotation.x = grounded ? 0 : Math.sin(player.flapPhase - 0.6) * 0.1 * flapAmp * 3;
   }
@@ -2810,8 +3131,8 @@ function updatePlayer(dt) {
   player.fireFlash = Math.max(0, player.fireFlash - dt);
   player.biteT = Math.max(0, player.biteT - dt);
   player.lungeT = Math.max(0, player.lungeT - dt);
-  const jawTarget = player.biteT > 0 ? 0.72
-    : player.flameActive > 0 ? 0.5 : player.fireFlash > 0 ? 0.3 : 0;
+  const jawTarget = player.biteT > 0 ? 0.98
+    : player.flameActive > 0 ? 0.6 : player.fireFlash > 0 ? 0.3 : 0;
   player.jawOpen = lerp(player.jawOpen, jawTarget, 1 - Math.pow(player.biteT > 0 ? 1e-7 : 0.001, dt));
   ud.jaw.rotation.x = player.jawOpen;
   ud.jaw.position.y = -0.2 - player.jawOpen * 0.08;
@@ -2864,7 +3185,25 @@ function updatePlayer(dt) {
     }
   }
 
-  // HYPER BEAM — braced stance, sustained line damage
+  // HYPER BEAM charge: gather light at the mouth, then unleash the blast
+  if (player.beamCharge > 0) {
+    player.beamCharge -= dt;
+    const cm = mouthPos();
+    ud.mouthGlow.intensity = 30 * (1 - player.beamCharge / 0.5);
+    player.jawOpen = lerp(player.jawOpen, 0.78, 1 - Math.pow(0.002, dt));
+    if (Math.random() < dt * 90) {
+      const off = new THREE.Vector3(rand(-3.4, 3.4), rand(-2, 3.4), rand(-3.4, 3.4));
+      spawnParticle({ pos: cm.clone().add(off), color: currentChar.glow, size: rand(0.2, 0.55), endSize: 0.7, life: 0.22, vel: off.multiplyScalar(-4.5) });
+    }
+    if (player.beamCharge <= 0) {
+      player.beamT = 0.9;
+      state.shake = Math.max(state.shake, 0.4);
+      flashScreen();
+      AudioSys.noise({ dur: 0.9, freq: 2600, gain: 0.5, sweep: 0.1 });
+    }
+  }
+
+  // HYPER BEAM — braced stance, massive sustained line blast
   if (player.beamT > 0) {
     player.beamT -= dt;
     const bMouth = mouthPos();
@@ -2873,20 +3212,26 @@ function updatePlayer(dt) {
     beamFx.mesh.material.color.set(currentChar.glow);
     beamFx.mesh.position.copy(bMouth);
     beamFx.mesh.quaternion.setFromUnitVectors(AXIS_Z, bFwd);
-    const bw = 1 + Math.sin(state.time * 45) * 0.2;
+    const bw = 2.0 + Math.sin(state.time * 45) * 0.35;   // thick, pulsing column
     beamFx.mesh.scale.set(bw, bw, 70);
     beamFx.light.color.set(currentChar.glow);
-    beamFx.light.intensity = 14;
+    beamFx.light.intensity = 20;
     beamFx.light.position.copy(bMouth).addScaledVector(bFwd, 5);
-    ud.mouthGlow.intensity = 20;
-    state.shake = Math.max(state.shake, 0.12);
+    ud.mouthGlow.intensity = 26;
+    state.shake = Math.max(state.shake, 0.18);
     for (const e of enemies) {
       if (e.dead) continue;
       const to = e.pos.clone().add(new THREE.Vector3(0, e.flying ? 0 : 0.8, 0)).sub(bMouth);
       const along = to.dot(bFwd);
-      if (along > 0 && along < 70 && to.addScaledVector(bFwd, -along).length() < 2.4) {
-        damageEnemyTick(e, 120 * player.dmgMul * dt);
-        if (!e.dead) { e.knock.addScaledVector(bFwd, 22 * dt); e.staggerT = Math.max(e.staggerT, 0.12); } // beam shoves it back
+      if (along > 0 && along < 70 && to.addScaledVector(bFwd, -along).length() < 3.0) {
+        damageEnemyTick(e, 150 * player.dmgMul * dt);
+        if (!e.dead) { e.knock.addScaledVector(bFwd, 30 * dt); e.staggerT = Math.max(e.staggerT, 0.12); } // beam shoves it back
+        // continuous eruption where the beam slams into the foe
+        if (Math.random() < dt * 50) {
+          spawnParticle({ pos: e.pos.clone().add(new THREE.Vector3(rand(-0.8, 0.8), rand(0.2, 1.6), rand(-0.8, 0.8))),
+            color: currentChar.glow, size: rand(0.4, 1.0), endSize: 0.1, life: rand(0.25, 0.5),
+            vel: bFwd.clone().multiplyScalar(-rand(2, 6)).add(new THREE.Vector3(rand(-2, 2), rand(1, 3), rand(-2, 2))) });
+        }
       }
     }
     if (Math.random() < dt * 30) {
@@ -2937,9 +3282,22 @@ function updatePlayer(dt) {
       if (e.dead) continue;
       const to = e.pos.clone().sub(mouth);
       const d = to.length();
-      if (d < 26 && to.normalize().dot(fwd) > 0.78) {
+      if (d < 30 && to.normalize().dot(fwd) > 0.74) {
         damageEnemyTick(e, 42 * player.dmgMul * dt);
-        if (!e.dead) { e.knock.addScaledVector(fwd, 9 * dt); e.staggerT = Math.max(e.staggerT, 0.1); } // breath nudges it back
+        if (!e.dead) {
+          e.knock.addScaledVector(fwd, 9 * dt);
+          e.staggerT = Math.max(e.staggerT, 0.1);
+          e.burnT = Math.max(e.burnT, 3.2);   // set the foe ALIGHT — lingering burn
+          // flames lick across its body as it ignites
+          if (Math.random() < dt * 34) {
+            spawnParticle({
+              pos: e.pos.clone().add(new THREE.Vector3(rand(-0.6, 0.6), rand(0.2, 1.6) * (e.boss ? 2 : 1), rand(-0.6, 0.6))),
+              color: Math.random() < 0.5 ? 0xff7a22 : 0xffc24a,
+              size: rand(0.3, 0.7), endSize: 0.05, life: rand(0.4, 0.8),
+              vel: new THREE.Vector3(rand(-0.6, 0.6), rand(1.6, 3), rand(-0.6, 0.6)),
+            });
+          }
+        }
       }
     }
   }
@@ -2975,39 +3333,107 @@ function updateFireSpins(dt) {
 // ----------------------------------------------------------------------------
 // Ash cheering
 // ----------------------------------------------------------------------------
-// YOU — Ash, walking the overworld (camera-relative movement)
+// Camera-relative move input from WASD, arrow keys, and the joystick (walking).
+function readMoveDir() {
+  let mx = 0, mz = 0;
+  if (keys["KeyW"] || keys["ArrowUp"]) mz += 1;
+  if (keys["KeyS"] || keys["ArrowDown"]) mz -= 1;
+  if (keys["KeyA"] || keys["ArrowLeft"]) mx -= 1;
+  if (keys["KeyD"] || keys["ArrowRight"]) mx += 1;
+  if (joy.mag > 0.12) { mx += joy.x; mz += -joy.y; }   // push up = forward
+  const mag = Math.hypot(mx, mz);
+  if (mag < 0.01) return { wx: 0, wz: 0, mag: 0, sprint: false };
+  mx /= mag; mz /= mag;
+  const camF = orbit.yaw;
+  return {
+    wx: Math.sin(camF) * mz + Math.cos(camF) * mx,
+    wz: Math.cos(camF) * mz - Math.sin(camF) * mx,
+    mag: 1, sprint: keys["ShiftLeft"] || keys["ShiftRight"],
+  };
+}
+
+// Flight steering: turn (left/right) + pitch (climb/dive) + boost.
+function readFlightInput() {
+  let turn = 0, pitch = 0;
+  if (keys["KeyD"] || keys["ArrowRight"]) turn += 1;
+  if (keys["KeyA"] || keys["ArrowLeft"]) turn -= 1;
+  if (keys["KeyW"] || keys["ArrowUp"]) pitch += 1;     // nose up / climb
+  if (keys["KeyS"] || keys["ArrowDown"]) pitch -= 1;   // dive
+  if (joy.mag > 0.12) { turn += joy.x; pitch += -joy.y; } // up = climb
+  return {
+    turn: clamp(turn, -1, 1),
+    pitch: clamp(pitch, -1, 1),
+    boost: keys["ShiftLeft"] || keys["ShiftRight"] || (touchBoost && touchBoost.on),
+  };
+}
+
+// True 3D flight: thrust forward along heading, steer yaw + pitch, bank in turns.
+const _flyFwd = new THREE.Vector3();
+function flightMove(dt) {
+  const inp = readFlightInput();
+  player.yaw += inp.turn * 1.7 * dt;                    // turn
+  if (Math.abs(inp.pitch) > 0.05) {
+    player.pitch = clamp(player.pitch + inp.pitch * 1.4 * dt, -0.75, 0.75);
+  } else {
+    player.pitch = lerp(player.pitch, 0, 1 - Math.pow(0.25, dt)); // ease to level
+  }
+  player.roll = lerp(player.roll, -inp.turn * 0.55, 1 - Math.pow(0.02, dt)); // bank
+  player.speed = inp.boost ? 44 : 24;
+  const cp = Math.cos(player.pitch);
+  _flyFwd.set(Math.sin(player.yaw) * cp, Math.sin(player.pitch), Math.cos(player.yaw) * cp);
+  player.vel.copy(_flyFwd).multiplyScalar(player.speed);
+  player.pos.addScaledVector(player.vel, dt);
+  const minY = terrainHeight(player.pos.x, player.pos.z) + 4.5;
+  if (player.pos.y < minY) { player.pos.y = minY; if (player.pitch < 0) player.pitch = lerp(player.pitch, 0.05, 0.3); }
+  if (player.pos.y > 130) player.pos.y = 130;
+  const r = Math.hypot(player.pos.x, player.pos.z);
+  if (r > 244) { player.pos.x *= 244 / r; player.pos.z *= 244 / r; }
+  aim.yaw = player.yaw; aim.pitch = player.pitch;
+}
+
+// YOU — Ash, walking the overworld (or riding Charizard in flight)
 function updateAshNpc(dt) {
   const g = ash.group;
-  // hold the trainer still during the encounter intro cinematic
-  if (state.fightFreeze > 0) { state.fightFreeze -= dt; ash.speed = lerp(ash.speed, 0, 1 - Math.pow(0.001, dt)); }
-  let mx = 0, mz = 0;
-  if (state.fightFreeze <= 0) {
-    if (keys["KeyW"]) mz += 1;
-    if (keys["KeyS"]) mz -= 1;
-    if (keys["KeyA"]) mx -= 1;
-    if (keys["KeyD"]) mx += 1;
-    if (joy.mag > 0.12) { mx += joy.x; mz += -joy.y; }
+  // riding Charizard: SIT astride its back; the mount is steered in updatePlayer
+  if (state.flying && !state.fight) {
+    ash.speed = 0;
+    ash.pos.set(player.pos.x, player.pos.y, player.pos.z);
+    ash.yaw = player.yaw;
+    const cp = Math.cos(player.pitch);
+    const fx = Math.sin(player.yaw) * cp, fz = Math.cos(player.yaw) * cp, fy = Math.sin(player.pitch);
+    // seat on the upper back / neck base, tilting with the dragon
+    g.position.set(player.pos.x + fx * 0.3, player.pos.y + 1.12 + fy * 0.3, player.pos.z + fz * 0.3);
+    g.rotation.set(-player.pitch * 0.5, player.yaw, player.roll * 0.4);
+    // sitting pose: thighs swung forward astride the back, hands gripping forward
+    const legs = g.userData.legs || [];
+    for (let k = 0; k < legs.length; k++) legs[k].rotation.x = 1.4;
+    const arms = g.userData.arms || [];
+    for (let k = 0; k < arms.length; k++) arms[k].rotation.x = 0.8;
+    ash.walkPhase = 0; ash.cheer = 0; ash.throwT = 0;
+    orbit.yaw = lerpAngle(orbit.yaw, player.yaw, 1 - Math.pow(0.1, dt));
+    return;
   }
-  const moving = (mx * mx + mz * mz) > 0.02;
-  if (moving) {
-    const len = Math.hypot(mx, mz); mx /= len; mz /= len;
-    const camF = orbit.yaw; // forward = away from the camera
-    const wx = Math.sin(camF) * mz + Math.cos(camF) * mx;
-    const wz = Math.cos(camF) * mz - Math.sin(camF) * mx;
-    const sprint = keys["ShiftLeft"] || keys["ShiftRight"];
-    const targetSpd = sprint ? 15 : 9;            // snappier exploration pace
+  // hold the trainer still during the encounter intro AND the whole fight —
+  // Ash steps back and watches the staged duel rather than wading into it.
+  if (state.fightFreeze > 0) state.fightFreeze -= dt;
+  if (state.fightFreeze > 0 || state.fight) ash.speed = lerp(ash.speed, 0, 1 - Math.pow(0.001, dt));
+  const md = (state.fightFreeze <= 0 && !state.fight) ? readMoveDir() : { wx: 0, wz: 0, mag: 0, sprint: false };
+  if (md.mag > 0.01) {
+    const targetSpd = md.sprint ? 15 : 9;            // snappier exploration pace
     ash.speed = lerp(ash.speed, targetSpd, 1 - Math.pow(0.0003, dt)); // smooth accel
-    ash.pos.x = clamp(ash.pos.x + wx * ash.speed * dt, -228, 228);
-    ash.pos.z = clamp(ash.pos.z + wz * ash.speed * dt, -228, 228);
-    ash.yaw = lerpAngle(ash.yaw, Math.atan2(wx, wz), 1 - Math.pow(0.0005, dt));
+    ash.pos.x = clamp(ash.pos.x + md.wx * ash.speed * dt, -228, 228);
+    ash.pos.z = clamp(ash.pos.z + md.wz * ash.speed * dt, -228, 228);
+    ash.yaw = lerpAngle(ash.yaw, Math.atan2(md.wx, md.wz), 1 - Math.pow(0.0005, dt));
     ash.walkPhase += dt * ash.speed * 1.7;
-    // follow-cam: trail the camera behind the direction of travel so
-    // exploration steering stays intuitive (gentle, mouse can still nudge)
     orbit.yaw = lerpAngle(orbit.yaw, ash.yaw, 1 - Math.pow(0.22, dt));
   } else {
     ash.speed = lerp(ash.speed, 0, 1 - Math.pow(0.0001, dt));
   }
-  ash.pos.y = terrainHeight(ash.pos.x, ash.pos.z);
+  // during a fight, turn to watch the staged duel
+  if (state.fight && state.duel) {
+    ash.yaw = lerpAngle(ash.yaw, Math.atan2(state.duel.dir.x, state.duel.dir.z), 1 - Math.pow(0.02, dt));
+  }
+  ash.pos.y = indoors ? indoors.it.floorY : terrainHeight(ash.pos.x, ash.pos.z);
   g.position.copy(ash.pos);
   g.rotation.y = ash.yaw;
 
@@ -3041,9 +3467,9 @@ function updateCamera(dt) {
   let mode = "explore";
   if (player.slam) mode = "slam";                 // follow the soar + dive-bomb
   else if (throwActive) mode = "capture";
-  else if (player.attackCamT > 0 && target && !target.dead) mode = "attack"; // zoom on the clash
+  else if (state.fight && state.duel && target && !target.dead) mode = "duel"; // staged battle view from Ash
+  else if (state.flying) mode = "flight";         // riding Charizard over the world
   else if (player.commandT > 0 && target && !target.dead) mode = "command";
-  else if (state.fight && target && !target.dead) mode = "command"; // hold a battle framing during a fight
   cameraDir.setMode(mode);
   if (state.shake > 0.01) { cameraDir.shake(state.shake); state.shake = 0; }
   if (state.fovKick > 0.01) { cameraDir.kickFov(state.fovKick); state.fovKick = 0; }
@@ -3055,6 +3481,12 @@ function updateCamera(dt) {
     terrainHeight,
     yaw: orbit.yaw,
     pitch: orbit.pitch,
+    duelDir: state.duel ? state.duel.dir : null,
+    duelCharHome: state.duel ? state.duel.charHome : null,
+    attackZoom: player.attackCamT > 0,
+    flyerPos: player.pos,
+    flyerYaw: player.yaw,
+    flyerPitch: player.pitch,
   });
   sun.position.set(ash.pos.x + 55, ash.pos.y + 80, ash.pos.z + 35);
   sun.target.position.copy(ash.pos);
@@ -3160,6 +3592,7 @@ function tick() {
     updateAshNpc(sdt);
     captureFx.update(sdt);
     overworldData.update(sdt, state.time, ash.pos);
+    updateTown(sdt);
     updateHud();
     AudioSys.music?.update();
     if (cine.active) cine.update(dt);

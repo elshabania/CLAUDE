@@ -112,14 +112,14 @@ function makeSkinTextures() {
   // Bright saturated show-orange (~0xff7a1c) with flatter, graphic shading so
   // the cel ramp does the heavy lifting; subtle scales for texture only.
   const map = canvasTexture(make({
-    base: "#ff7a1c",
-    blobLight: "rgba(255,180,90,0.08)", blobDark: "rgba(210,90,20,0.07)",
-    scaleHi: "rgba(255,196,120,0.22)", scaleMid: "rgba(255,128,30,0.10)",
-    scaleLo: "rgba(190,80,16,0.20)",
-    edge: "rgba(150,62,10,0.28)", rim: "rgba(255,222,170,0.20)",
+    base: "#ff8a26",
+    blobLight: "rgba(255,190,104,0.08)", blobDark: "rgba(214,100,28,0.05)",
+    scaleHi: "rgba(255,202,130,0.22)", scaleMid: "rgba(255,138,40,0.10)",
+    scaleLo: "rgba(206,96,24,0.16)",
+    edge: "rgba(168,74,16,0.24)", rim: "rgba(255,226,180,0.20)",
   }, [
-    [0.0, "rgba(200,90,18,0.14)"], [0.5, "rgba(255,128,30,0.02)"],
-    [1.0, "rgba(255,170,80,0.10)"],
+    [0.0, "rgba(214,104,26,0.08)"], [0.5, "rgba(255,140,40,0.02)"],
+    [1.0, "rgba(255,182,96,0.12)"],
   ]), true);
   // Matching grayscale bump (high contrast so the crescents really read)
   const bump = canvasTexture(make({
@@ -209,13 +209,13 @@ function makeWingTexture() {
   const rng = makeRng(9001);
   const SIZE = 1024, S = 2;
   const [c, ctx] = makeCanvas(SIZE);
-  // Bright show teal (~0x2fae8e)
-  ctx.fillStyle = "#2fae8e";
+  // Bright blue-teal show membrane (~0x39c8c4) — Charizard's iconic wing color
+  ctx.fillStyle = "#39c8c4";
   ctx.fillRect(0, 0, SIZE, SIZE);
   for (let i = 0; i < 140 * S * S; i++) {
     const x = rng() * SIZE, y = rng() * SIZE, r = (14 + rng() * 60) * S;
     const g = ctx.createRadialGradient(x, y, 0, x, y, r);
-    g.addColorStop(0, rng() < 0.5 ? "rgba(120,224,196,0.10)" : "rgba(24,120,98,0.12)");
+    g.addColorStop(0, rng() < 0.5 ? "rgba(150,238,228,0.10)" : "rgba(36,150,140,0.10)");
     g.addColorStop(1, "rgba(0,0,0,0)");
     ctx.fillStyle = g;
     ctx.fillRect(x - r, y - r, r * 2, r * 2);
@@ -223,9 +223,9 @@ function makeWingTexture() {
   // translucent backlight: warm glow pooling at the root, darkening outward
   const rootY = SIZE / 2;
   const back = ctx.createRadialGradient(0, rootY, 40 * S, 0, rootY, SIZE * 1.15);
-  back.addColorStop(0, "rgba(255,158,84,0.20)");
-  back.addColorStop(0.45, "rgba(214,120,60,0.06)");
-  back.addColorStop(1, "rgba(8,38,42,0.30)");
+  back.addColorStop(0, "rgba(255,170,96,0.16)");
+  back.addColorStop(0.45, "rgba(120,224,214,0.05)");
+  back.addColorStop(1, "rgba(22,96,98,0.18)");
   ctx.fillStyle = back;
   ctx.fillRect(0, 0, SIZE, SIZE);
   // Fibrous streaks fanning from the root point
@@ -531,10 +531,12 @@ export function buildCharizard() {
   skinTex.rough.repeat.set(2.2, 2.2);
   // Bright cel-shaded show orange. Flat-ish (high roughness, no env) so the
   // toon ramp reads as crisp light/shadow cels rather than a glossy reptile.
+  // NOTE: the canvas map already bakes the show-orange; tint stays white so the
+  // map isn't multiplied by its own hue (which squares to a muddy red).
   const skinMat = celShade(new THREE.MeshStandardMaterial({
     map: skinTex.map, bumpMap: skinTex.bump, bumpScale: 0.03,
     roughnessMap: skinTex.rough, roughness: 1.0,
-    color: 0xff7a1c, metalness: 0.0, envMapIntensity: 0.12,
+    color: 0xffffff, metalness: 0.0, envMapIntensity: 0.12,
   }), 4);
   // darker burnt-orange multiplier on the same maps: dorsal spikes, scars
   const dorsalMat = celShade(new THREE.MeshStandardMaterial({
@@ -549,12 +551,15 @@ export function buildCharizard() {
   const bellyMat = celShade(new THREE.MeshStandardMaterial({
     map: bellyTex.map, bumpMap: bellyTex.bump, bumpScale: 0.03,
     roughnessMap: bellyTex.rough, roughness: 1.0,
-    color: 0xffe1a0, metalness: 0.0, envMapIntensity: 0.12,
+    color: 0xffffff, metalness: 0.0, envMapIntensity: 0.12,
+    // keeps the cream reading warm on the shadowed underside instead of picking
+    // up the scene's greenish hemisphere bounce
+    emissive: 0x4a3a1e, emissiveIntensity: 0.22,
   }), 4);
   const membraneMat = celShade(new THREE.MeshStandardMaterial({
-    map: makeWingTexture(), color: 0x2fae8e, roughness: 0.9, metalness: 0.0,
+    map: makeWingTexture(), color: 0xffffff, roughness: 0.9, metalness: 0.0,
     side: THREE.DoubleSide, envMapIntensity: 0.12,
-    emissive: 0x115c4a, emissiveIntensity: 0.10, // gentle teal glow in shadow
+    emissive: 0x1f8c86, emissiveIntensity: 0.20, // keeps the teal vivid in shadow
   }), 3);
   const hornMat = celShade(new THREE.MeshStandardMaterial({
     color: 0xf5e8c8, roughness: 0.55, metalness: 0.0, envMapIntensity: 0.15,
@@ -636,55 +641,59 @@ export function buildCharizard() {
   head.position.set(0, 0.95, 1.3);
   root.add(head);
 
-  // rounder, friendlier cartoon cranium
-  const skull = sph(skinMat, 0.33, 1.02, 1.0, 1.05);
-  skull.position.set(0, 0.07, 0.0);
+  // Lean, streamlined cranium (smaller and longer than a round chibi head).
+  const skull = sph(skinMat, 0.275, 0.95, 0.94, 1.14);
+  skull.position.set(0, 0.055, 0.0);
   head.add(skull);
-  addOutline(skull, 0.045);
+  addOutline(skull, 0.04);
 
-  // shorter, blunter snout (cartoon Charizard has a stubby muzzle)
-  const muzzle = sph(skinMat, 0.255, 0.86, 0.70, 1.35);
-  muzzle.position.set(0, -0.04, 0.30);
+  // Tapered dragon snout: a slim ellipsoid narrowing to the nose, plus a small
+  // rounded tip so it reads as a tapered muzzle, not a fat blob.
+  const muzzle = sph(skinMat, 0.205, 0.80, 0.68, 1.42);
+  muzzle.position.set(0, -0.02, 0.30);
   head.add(muzzle);
-  addOutline(muzzle, 0.035);
+  addOutline(muzzle, 0.03);
+  const snoutTip = sph(skinMat, 0.115, 0.78, 0.66, 0.95);
+  snoutTip.position.set(0, -0.012, 0.5);
+  head.add(snoutTip);
 
-  // dark mouth interior (visible when the jaw opens)
-  const palate = sph(mouthMat, 0.225, 0.78, 0.60, 1.3);
-  palate.position.set(0, -0.06, 0.30);
+  // dark mouth interior (mostly enclosed at rest; revealed when the jaw opens)
+  const palate = sph(mouthMat, 0.165, 0.74, 0.46, 1.3);
+  palate.position.set(0, -0.04, 0.31);
   palate.userData.noShadow = true;
   head.add(palate);
 
-  // Brow ridges (slanted toward the nose for a fierce expression)
+  // Subtle brow ridge over each eye (a defined ridge, not a heavy hood).
   for (const s of [1, -1]) {
-    const brow = sph(skinMat, 0.10, 1.5, 0.42, 1.05);
-    brow.position.set(s * 0.17, 0.225, 0.235);
-    brow.rotation.z = -s * 0.38;
+    const brow = sph(skinMat, 0.058, 1.7, 0.34, 0.9);
+    brow.position.set(s * 0.15, 0.225, 0.26);
+    brow.rotation.z = s * 0.24;    // inner-low -> determined, not sad
     brow.rotation.x = -0.12;
     head.add(brow);
   }
 
-  // Big expressive cartoon eyes: bold black outline ring + white sclera +
-  // large blue-green iris + a big white catchlight. Unlit so they read flat.
+  // Small, angular blue-green eyes set high on the head — sleek and fierce like
+  // the official art, not big round chibi orbs. Bold ink ring + sclera + iris.
   const eyeRingMat = new THREE.MeshBasicMaterial({ color: 0x140a04 });
   for (const s of [1, -1]) {
     const eye = new THREE.Group();
-    eye.position.set(s * 0.205, 0.155, 0.225);
-    eye.rotation.y = s * 0.85;     // local +z points outward/forward
-    eye.rotation.x = -0.06;
-    // bold black ink ring framing the eye
-    const ring = sph(eyeRingMat, 0.105, 1, 1.05, 0.5);
-    ring.position.z = -0.005;
+    eye.position.set(s * 0.158, 0.2, 0.275);
+    eye.rotation.y = s * 0.6;      // local +z points outward/forward
+    eye.rotation.x = -0.04;
+    eye.rotation.z = s * 0.36;     // slant the almond for an intense gaze
+    eye.scale.set(1.0, 0.5, 1);    // narrow almond
+    const ring = sph(eyeRingMat, 0.06, 1, 1.08, 0.5);
+    ring.position.z = -0.004;
     ring.userData.noShadow = true;
-    const sclera = sph(scleraMat, 0.092, 1, 1.02, 0.7);
-    sclera.position.z = 0.012;
+    const sclera = sph(scleraMat, 0.05, 1, 1.04, 0.7);
+    sclera.position.z = 0.01;
     sclera.userData.noShadow = true;
-    const iris = sph(irisMat, 0.072, 1, 0.78, 1);
+    const iris = sph(irisMat, 0.042, 1, 0.9, 1);
     iris.rotation.x = Math.PI / 2; // +y pole (texture center) faces forward
-    iris.position.z = 0.052;
+    iris.position.z = 0.028;
     iris.userData.noShadow = true;
-    // big white catchlight (the signature cartoon eye sparkle)
-    const glint = sph(glintMat, 0.028, 1, 1, 0.5);
-    glint.position.set(s * 0.026, 0.034, 0.098);
+    const glint = sph(glintMat, 0.013, 1, 1, 0.5);
+    glint.position.set(s * 0.014, 0.018, 0.05);
     glint.userData.noShadow = true;
     eye.add(ring, sclera, iris, glint);
     head.add(eye);
@@ -692,15 +701,17 @@ export function buildCharizard() {
 
   // Nostrils: small dark pits near the snout tip
   for (const s of [1, -1]) {
-    const n = sph(nostrilMat, 0.022, 1, 0.8, 1.2);
-    n.position.set(s * 0.07, 0.07, 0.66);
+    const n = sph(nostrilMat, 0.015, 1, 0.8, 1.2);
+    n.position.set(s * 0.045, 0.03, 0.56);
     n.userData.noShadow = true;
     head.add(n);
   }
 
-  // Two straight back-swept cream horns (the show's clean tapered spikes)
+  // Two straight back-swept horns. In the official art these are the same
+  // body-orange as the head (NOT cream), so they use skinMat; the ink outline
+  // keeps them reading against the cranium.
   for (const s of [1, -1]) {
-    const horn = spike(hornMat,
+    const horn = spike(skinMat,
       new THREE.Vector3(s * 0.135, 0.28, -0.04),
       new THREE.Vector3(s * 0.16, 0.30, -1.0), 0.058, 0.46);
     addOutline(horn, 0.02);
@@ -709,46 +720,33 @@ export function buildCharizard() {
 
   // (No battle scars — the anime Charizard has clean, smooth skin.)
 
-  // Upper teeth: cones hanging from the muzzle rim (seen when jaw opens)
-  const toothRows = [
-    [0.26, 0.140, 0.058], [0.37, 0.128, 0.054], [0.47, 0.112, 0.052],
-    [0.56, 0.090, 0.066], // front fangs slightly longer
-  ];
-  for (const [z, x, len] of toothRows) {
-    for (const s of [1, -1]) {
-      const tooth = spike(clawMat,
-        new THREE.Vector3(s * x, -0.115, z),
-        new THREE.Vector3(0, -1, 0.12), 0.016, len);
-      tooth.userData.noShadow = true;
-      head.add(tooth);
-    }
+  // A single pronounced fang at each mouth corner resting over the lower lip —
+  // clean, like the official art (not a full sawtooth row).
+  for (const s of [1, -1]) {
+    const fang = spike(clawMat,
+      new THREE.Vector3(s * 0.092, -0.1, 0.42),
+      new THREE.Vector3(s * 0.05, -1, 0.06), 0.017, 0.07);
+    fang.userData.noShadow = true;
+    head.add(fang);
   }
 
   // ---- Jaw (closed local position.y MUST be -0.2; rotation.x 0..0.6 opens) --
   const jaw = new THREE.Group();
   jaw.position.set(0, -0.2, 0.10);    // pivot at the hinge, y = -0.2 exactly
   head.add(jaw);
-  const mandible = sph(skinMat, 0.205, 0.78, 0.46, 1.5);
-  mandible.position.set(0, 0.035, 0.26);
+  const mandible = sph(skinMat, 0.18, 0.74, 0.44, 1.62);
+  mandible.position.set(0, 0.082, 0.28);   // slim + raised so rest mouth sits closed
   jaw.add(mandible);
-  addOutline(mandible, 0.035);   // outline follows the jaw as it opens
-  const chinPlate = sph(bellyMat, 0.17, 0.72, 0.40, 1.42);
-  chinPlate.position.set(0, 0.000, 0.27);
+  addOutline(mandible, 0.03);   // outline follows the jaw as it opens
+  const chinPlate = sph(bellyMat, 0.15, 0.7, 0.38, 1.5);
+  chinPlate.position.set(0, 0.05, 0.29);
   jaw.add(chinPlate);
-  const tongue = sph(tongueMat, 0.13, 0.64, 0.30, 1.4);
-  tongue.position.set(0, 0.085, 0.26);
+  const tongue = sph(tongueMat, 0.11, 0.62, 0.28, 1.45);
+  tongue.position.set(0, 0.115, 0.27);
   tongue.userData.noShadow = true;
   jaw.add(tongue);
-  // Small lower teeth pointing up
-  for (const [z, x] of [[0.34, 0.095], [0.45, 0.082]]) {
-    for (const s of [1, -1]) {
-      const t = spike(clawMat,
-        new THREE.Vector3(s * x, 0.095, z),
-        new THREE.Vector3(0, 1, 0.1), 0.013, 0.042);
-      t.userData.noShadow = true;
-      jaw.add(t);
-    }
-  }
+  // (Lower teeth omitted — only the two upper corner fangs show at rest, which
+  // keeps the closed mouth clean like the official art.)
 
   // ---- Mouth anchor + glow light (fire breath origin) ------------------------
   const mouthAnchor = new THREE.Object3D();
@@ -780,29 +778,12 @@ export function buildCharizard() {
     seg.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), tan);
     tailGroup.add(seg);
     if (i === TAIL_N - 1) tailTip.copy(p).addScaledVector(tan, -r * 0.4);
-    // dorsal ridge continues onto the tail
-    if (i >= 1 && i % 2 === 1 && t < 0.85) {
-      tailGroup.add(spike(dorsalMat,
-        p.clone().add(new THREE.Vector3(0, r * 0.85, 0)),
-        new THREE.Vector3(0, 1, -0.55), 0.038, 0.11 * (1 - t * 0.6) + 0.03));
-    }
+    // (Official Charizard's tail is smooth — no dorsal ridge spikes.)
   }
 
-  // ---- Dorsal ridge spikes along neck + spine --------------------------------
-  const spineSpots = [
-    [0, 0.58, 0.55], [0, 0.62, 0.25], [0, 0.60, -0.05],
-    [0, 0.54, -0.35], [0, 0.45, -0.65],
-  ];
-  for (const [x, y, z] of spineSpots) {
-    root.add(spike(dorsalMat, new THREE.Vector3(x, y, z),
-      new THREE.Vector3(0, 1, -0.5), 0.045, 0.14));
-  }
-  // a couple on the neck following the curve
-  for (const t of [0.35, 0.65]) {
-    const p = neckCurve.getPoint(t);
-    root.add(spike(dorsalMat, p.clone().add(new THREE.Vector3(0, 0.24, -0.06)),
-      new THREE.Vector3(0, 1, -0.6), 0.038, 0.11));
-  }
+  // ---- Smooth back -----------------------------------------------------------
+  // Official Charizard has NO dorsal spine ridge — the neck, back and tail are
+  // smooth, so the generic-dragon spike rows have been removed entirely.
 
   // ---- Tail flame -------------------------------------------------------------
   const flame = new THREE.Group();
@@ -953,8 +934,8 @@ function membraneFromPoints(builderFn, sign, mat) {
 
 function buildWing(sign, skinMat, clawMat, membraneMat) {
   const wing = new THREE.Group();
-  const INNER = 1.25;   // inner panel span
-  const OUTER = 1.75;   // outer panel span
+  const INNER = 1.55;   // inner panel span (Charizard's wings are large)
+  const OUTER = 2.15;   // outer panel span
 
   // ---- Inner membrane: shoulder out to the mid joint
   const inner = membraneFromPoints((s, g) => {

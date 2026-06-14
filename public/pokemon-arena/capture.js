@@ -41,6 +41,14 @@ export function createCollection(allSpeciesKeys = []) {
 
   const controller = {
     state,
+    // Expose the live state fields the game reads directly (party bar, ball
+    // count, active member, dex). Without these, `collection.party` etc. were
+    // undefined and switching/catching silently broke.
+    get party() { return state.party; },
+    get box() { return state.box; },
+    get activeIndex() { return state.activeIndex; },
+    get dex() { return state.dex; },
+    get ballCount() { return state.ballCount; },
 
     // Attempt a capture. Consumes one ball. Returns capture result + wobble count.
     rollCatch({ hpFrac, ballPower = 1, statusBonus = 1, baseRate = 0.45 }) {

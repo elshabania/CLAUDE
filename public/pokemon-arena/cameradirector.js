@@ -93,6 +93,40 @@ export function createCameraDirector(camera) {
     return 52;
   }
 
+  // Watch the staged duel from behind Ash — over Charizard's shoulder toward
+  // the foe (the classic trainer's-eye battle view). Zooms in when a blow lands.
+  function poseDuel(ctx) {
+    const dir = ctx.duelDir || _tmp2.set(0, 0, 1);
+    const home = ctx.duelCharHome || ctx.partnerPos || ctx.ashPos; // Charizard's station
+    const zoom = ctx.attackZoom ? 1 : 0;
+    const px = dir.z, pz = -dir.x;          // perpendicular (side) axis
+    // look out into the gap/foe so the clash is centered and the attacks are
+    // clearly visible (don't chase live positions — keeps the shot steady)
+    _desiredLook.copy(home).addScaledVector(dir, 5.6);
+    _desiredLook.y += 1.3;
+    // elevated 3/4 angle: high and offset to the side behind Charizard's station
+    // so its wings sit low in the frame instead of covering the battlefield.
+    _desiredPos.copy(home).addScaledVector(dir, -(4.4 - zoom * 1.0));
+    _desiredPos.x += px * 3.8;
+    _desiredPos.z += pz * 3.8;
+    _desiredPos.y += 5.8 - zoom * 0.6;
+    clampToTerrain(_desiredPos, ctx.terrainHeight, 1.2);
+    return 54 - zoom * 5;
+  }
+
+  // Riding Charizard: 3D chase cam behind the dragon along its flight path,
+  // following pitch so climbs and dives read in full 3D.
+  function poseFlight(ctx) {
+    const p = ctx.flyerPos || ctx.ashPos;
+    const yaw = ctx.flyerYaw || 0, pitch = ctx.flyerPitch || 0;
+    const cp = Math.cos(pitch);
+    const fx = Math.sin(yaw) * cp, fy = Math.sin(pitch), fz = Math.cos(yaw) * cp;
+    _desiredLook.set(p.x + fx * 5, p.y + fy * 3 + 1.0, p.z + fz * 5);
+    _desiredPos.set(p.x - fx * 9.5, p.y - fy * 4.5 + 4.0, p.z - fz * 9.5);
+    clampToTerrain(_desiredPos, ctx.terrainHeight, 1.5);
+    return 64;
+  }
+
   // Punch-in on the Pokémon when an attack lands.
   function poseAttack(ctx) {
     const a = ctx.partnerPos || ctx.ashPos;
@@ -200,6 +234,8 @@ export function createCameraDirector(camera) {
 
   function computeDesired(ctx, dt) {
     switch (mode) {
+      case "flight":  return poseFlight(ctx);
+      case "duel":    return poseDuel(ctx);
       case "command": return poseCommand(ctx);
       case "attack":  return poseAttack(ctx);
       case "slam":    return poseSlam(ctx);
