@@ -207,7 +207,12 @@ export function buildTown(scene, ground, center) {
 
   placeNpc({
     name: "LEADER MAGMARA", kind: "gym",
-    team: "magmite", level: 8,
+    team: [
+      { key: "magmite", level: 9 },
+      { key: "emberpup", level: 10 },
+      { key: "terradon", level: 12 },
+    ],
+    badge: "Ember",
     lines: [
       "So you've come for the Ember Badge? Then show me a fire that won't go out!",
     ],
@@ -215,6 +220,39 @@ export function buildTown(scene, ground, center) {
       "Hah! Your bond burns brighter than mine. The Ember Badge is yours — wear it proud.",
     ],
   }, gymX, gymZ + 5.5, { shirt: 0xb5321c, pants: 0x2a1a14, hat: 0xff8a33 }, Math.PI);
+
+  // wandering challengers around the plaza — each with a small strong team
+  placeNpc({
+    name: "ROCKHOUND BRYNN", kind: "trainer",
+    team: [
+      { key: "pebblade", level: 7 },
+      { key: "terradon", level: 8 },
+    ],
+    lines: ["You there! My rock-hard team will crush you flat!"],
+    winLines: ["Argh — solid moves. You've earned this one."],
+  }, cx + 9, cz + 3, { shirt: 0x7a6a4a, pants: 0x3a2a1a, hat: 0x8a5a30 });
+
+  placeNpc({
+    name: "RANGER KOA", kind: "trainer",
+    team: [
+      { key: "leafcub", level: 7 },
+      { key: "galefeather", level: 8 },
+      { key: "mistfin", level: 9 },
+    ],
+    lines: ["The wilds taught me everything. Let's see what YOU'VE learned!"],
+    winLines: ["Whew! A worthy battle — the forest smiles on you."],
+  }, cx + 4, cz + 12, { shirt: 0x2f7d4f, pants: 0x244a2a, hat: 0x355e35 });
+
+  placeNpc({
+    name: "ACE DUELIST RIO", kind: "trainer",
+    team: [
+      { key: "sparkmouse", level: 8 },
+      { key: "shadowpaw", level: 9 },
+      { key: "frostbun", level: 10 },
+    ],
+    lines: ["They call me the Ace of Cinderhollow. Care to find out why?"],
+    winLines: ["Incredible! You and your team move as one. Respect."],
+  }, cx - 10, cz + 6, { shirt: 0x33408a, pants: 0x1a2040, hat: 0x5566cc });
 
   // per-frame: bob NPCs, turn them to face a nearby target
   function update(dt, time, targetPos) {

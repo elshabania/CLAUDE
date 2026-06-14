@@ -2481,16 +2481,29 @@ function updateWaves(dt) {
     return;
   }
   if (wasInCombat) {                 // the encounter just ended (caught or defeated)
+    // a trainer/gym battle with more team members? send out their next Pokémon
+    if (gymBattle && gymBattle.idx + 1 < gymBattle.team.length && player.hp > 0) {
+      gymBattle.idx++;
+      announce(`${gymBattle.npc.name} sends out Pokémon ${gymBattle.idx + 1}/${gymBattle.team.length}!`, 2000);
+      player.hp = Math.min(player.maxHp, player.hp + player.maxHp * 0.12); // small breather
+      sendOutTrainerMon();
+      return;                        // stay in combat for the next mon
+    }
     wasInCombat = false;
     state.fight = false;
     state.duel = null;
     AudioSys.music?.setMode("overworld");
-    if (gymBattle) {                 // beat the gym leader → earn the badge
-      gymBattle.defeated = true;
-      badges++;
-      showBanner(`★ EMBER BADGE earned!  (badges: ${badges})`, 3800);
-      showDialogue(gymBattle.winLines[0], 5200);
-      launchFireworks(town.gymPos.clone());
+    if (gymBattle) {                 // whole team defeated
+      gymBattle.npc.defeated = true;
+      if (gymBattle.npc.kind === "gym") {
+        badges++;
+        showBanner(`★ ${gymBattle.npc.badge || "Gym"} Badge earned!  (badges: ${badges})`, 3800);
+        launchFireworks(town.gymPos.clone());
+      } else {
+        state.score += 300;
+        showBanner(`✔ Defeated ${gymBattle.npc.name}!`, 3000);
+      }
+      showDialogue(gymBattle.npc.winLines[0], 5200);
       player.hp = player.maxHp;
       gymBattle = null;
     } else {
@@ -2546,7 +2559,8 @@ function updateTown(dt) {
   nearNpc = best;
   if (!talkPromptEl) return;
   if (best) {
-    const verb = best.kind === "gym" ? (best.defeated ? "Talk to" : "⚔ Challenge")
+    const verb = (best.kind === "gym" || best.kind === "trainer")
+      ? (best.defeated ? "Talk to" : "⚔ Challenge")
       : best.kind === "nurse" ? "✚ Heal at" : "Talk to";
     talkPromptEl.innerHTML = `${verb} <b>${best.name}</b><span class="tk-key">E</span>`;
     talkPromptEl.classList.add("show");
@@ -2568,22 +2582,34 @@ function interactNpc() {
     callout("✚ Your team was healed!", 2200);
     AudioSys.sfx?.levelUp?.();
     refreshParty();
-  } else if (n.kind === "gym") {
-    if (n.defeated) { showDialogue("Good to see you again. The road past the gate leads onward!", 3500); return; }
+  } else if (n.kind === "gym" || n.kind === "trainer") {
+    if (n.defeated) {
+      showDialogue(n.kind === "gym"
+        ? "Good to see you again. The road past the gate leads onward!"
+        : "Great battle earlier — rest up, champion!", 3500);
+      return;
+    }
     showDialogue(n.lines[0], 3000);
     const dx = n.pos.x - ash.pos.x, dz = n.pos.z - ash.pos.z;
-    ash.yaw = Math.atan2(dx, dz);   // face the leader so the duel stages toward the gym
-    startGymBattle(n);
+    ash.yaw = Math.atan2(dx, dz);   // face the trainer so the duel stages toward them
+    startTrainerBattle(n);
   } else {
     showDialogue(n.lines[n.said % n.lines.length], 3800); n.said++;
   }
 }
 
-function startGymBattle(leader) {
-  gymBattle = leader;
-  showBanner(`⚔ GYM BATTLE — ${leader.name}`, 2800);
-  const e = spawnEnemy(false, { key: leader.team, trainer: true, level: leader.level || 8 });
-  if (e) e.trainer = leader;
+function startTrainerBattle(npc) {
+  const team = npc.team.map((t) => (typeof t === "string" ? { key: t, level: npc.level || 8 } : t));
+  gymBattle = { npc, team, idx: 0 };
+  showBanner(`${npc.kind === "gym" ? "⚔ GYM BATTLE" : "⚔ TRAINER BATTLE"} — ${npc.name}`, 2800);
+  sendOutTrainerMon();
+}
+
+function sendOutTrainerMon() {
+  if (!gymBattle) return;
+  const mon = gymBattle.team[gymBattle.idx];
+  const e = spawnEnemy(false, { key: mon.key, trainer: true, level: mon.level || 8 });
+  if (e) e.trainer = gymBattle.npc;
 }
 
 // ----------------------------------------------------------------------------
