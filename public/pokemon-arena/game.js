@@ -1097,6 +1097,7 @@ const state = {
   fightFreeze: 0,   // brief trainer hold during an encounter intro
   fight: false,     // true while a wild Pokémon is in battle
   duel: null,       // staged battle arena: { dir, center, charHome }
+  flying: false,    // true while you're riding Charizard over the overworld
 };
 
 // YOU — Charizard. Starts grounded; the FLY button takes off.
@@ -1331,24 +1332,23 @@ const touchBoost = { on: false };
 const input = { lastSteer: -10 };
 const nowSec = () => performance.now() / 1000;
 
-// FLY / LAND toggle — the takeoff button
+// FLY toggle — hop on Charizard and soar over the overworld (and the towns).
 function toggleFlight() {
   if (!state.running || state.over) return;
-  if (player.mode === "ground") {
-    player.mode = "fly";
-    player.vel.y += 7.5;
-    aim.pitch = Math.max(aim.pitch, 0.3);
-    burst(player.pos.clone().add(new THREE.Vector3(0, -1.2, 0)),
-      { count: 20, color: 0xcfc2a8, speed: 7, size: 0.9, life: 0.6 });
+  if (state.fight) { callout("Can't take off mid-battle!"); return; }
+  state.flying = !state.flying;
+  const flyBtn = document.getElementById("fly-btn");
+  if (state.flying) {
+    burst(ash.pos.clone().add(new THREE.Vector3(0, 0.5, 0)),
+      { count: 22, color: 0xcfc2a8, speed: 7, size: 0.9, life: 0.6 });
     AudioSys.flap();
     state.shake = Math.max(state.shake, 0.2);
-    callout(`🐉 ${currentChar.name} takes flight!`);
-    AudioSys.sfx?.roar();
-  } else if (player.mode === "fly") {
-    player.mode = "landing";
-    callout("Coming in to land…");
+    callout(`🐉 Hop on — ${currentChar.name} soars! (move to fly)`, 3000);
+    AudioSys.sfx?.roar?.();
+    flyBtn && flyBtn.classList.add("active");
   } else {
-    player.mode = "fly"; // cancel the landing
+    callout("Coming in to land…");
+    flyBtn && flyBtn.classList.remove("active");
   }
 }
 document.getElementById("fly-btn").addEventListener("pointerdown", (e) => {
@@ -1375,6 +1375,7 @@ document.addEventListener("keydown", (e) => {
     if (e.code === "KeyF" || e.code === "Space") { e.preventDefault(); attemptCatch(); }
     if (e.code === "KeyQ") dodge(-1);
     if (e.code === "KeyE") { if (nearNpc && !state.fight) interactNpc(); else dodge(1); }
+    if (e.code === "KeyG") toggleFlight();   // hop on / off Charizard
   }
 });
 document.addEventListener("keyup", (e) => { keys[e.code] = false; });
@@ -1388,44 +1389,20 @@ document.addEventListener("mousemove", (e) => {
   orbit.pitch = clamp(orbit.pitch - e.movementY * 0.0018, -0.05, 1.1);
 });
 
-const joy = { x: 0, y: 0, mag: 0, id: null };
+// Arrow D-pad drives movement (replaces the old joystick).
+const dpad = { up: 0, down: 0, left: 0, right: 0 };
 if (IS_TOUCH) {
   document.getElementById("touch-ui").style.display = "block";
-  const joyBase = document.getElementById("joy-base");
-  const joyKnob = document.getElementById("joy-knob");
-
-  const setJoy = (t) => {
-    const r = joyBase.getBoundingClientRect();
-    let dx = (t.clientX - (r.left + r.width / 2)) / 48;
-    let dy = (t.clientY - (r.top + r.height / 2)) / 48;
-    const mag = Math.hypot(dx, dy);
-    if (mag > 1) { dx /= mag; dy /= mag; }
-    joy.x = dx; joy.y = dy; joy.mag = Math.min(mag, 1);
-    joyKnob.style.transform = `translate(calc(-50% + ${dx * 48}px), calc(-50% + ${dy * 48}px))`;
-  };
-  const resetJoy = () => {
-    joy.x = joy.y = joy.mag = 0;
-    joy.id = null;
-    joyKnob.style.transform = "translate(-50%,-50%)";
-  };
-
-  // Pointer events drive the stick — works for touch, mouse and pen alike, and
-  // pointer capture keeps the drag tracking even when the finger slides off the
-  // pad. (Previously touch-only, which is why it could feel dead on some setups.)
-  const joyZone = document.getElementById("joy-zone");
-  joyZone.style.touchAction = "none";
-  joyZone.addEventListener("pointerdown", (e) => {
-    e.preventDefault();
-    joy.id = e.pointerId;
-    try { joyZone.setPointerCapture(e.pointerId); } catch (_) {}
-    setJoy(e);
+  document.querySelectorAll("#dpad .dbtn").forEach((btn) => {
+    const dir = btn.dataset.dir;
+    btn.style.touchAction = "none";
+    const press = (e) => { e.preventDefault(); dpad[dir] = 1; try { btn.setPointerCapture(e.pointerId); } catch (_) {} };
+    const release = () => { dpad[dir] = 0; };
+    btn.addEventListener("pointerdown", press);
+    btn.addEventListener("pointerup", release);
+    btn.addEventListener("pointercancel", release);
+    btn.addEventListener("pointerleave", release);
   });
-  joyZone.addEventListener("pointermove", (e) => {
-    if (e.pointerId === joy.id) { e.preventDefault(); setJoy(e); }
-  });
-  const endPtr = (e) => { if (e.pointerId === joy.id) resetJoy(); };
-  joyZone.addEventListener("pointerup", endPtr);
-  joyZone.addEventListener("pointercancel", endPtr);
 
   const boostBtn = document.getElementById("boost-btn");
   boostBtn.addEventListener("pointerdown", (e) => { e.preventDefault(); touchBoost.on = true; });
@@ -2526,6 +2503,7 @@ function updateWaves(dt) {
   }
   encounterCdT -= dt;
   if (encounterCdT > 0) return;
+  if (state.flying) return;           // no wild encounters while soaring overhead
   if (!grassZoneAt(ash.pos)) return; // wild Pokémon only appear in tall grass
   encounterCdT = rand(2.2, 4.5);
   state.wave++;
@@ -2536,9 +2514,26 @@ function updateWaves(dt) {
 // Cinderhollow — NPC proximity, talk prompt, gym battles
 // ----------------------------------------------------------------------------
 const talkPromptEl = document.getElementById("talk-prompt");
+const cityPointerEl = document.getElementById("city-pointer");
+const cityArrowEl = cityPointerEl && cityPointerEl.querySelector(".cp-arrow");
+const cityDistEl = cityPointerEl && cityPointerEl.querySelector(".cp-dist");
+function updateCityPointer() {
+  if (!cityPointerEl) return;
+  // hide once you're standing in town; otherwise point the way there
+  const dx = town.center.x - ash.pos.x, dz = town.center.z - ash.pos.z;
+  const dist = Math.hypot(dx, dz);
+  if (state.fight || dist < 18) { cityPointerEl.classList.remove("show"); return; }
+  cityPointerEl.classList.add("show");
+  // angle of the town relative to where the camera is looking (orbit.yaw)
+  const worldAng = Math.atan2(dx, dz);
+  const rel = worldAng - orbit.yaw;       // 0 = dead ahead
+  if (cityArrowEl) cityArrowEl.style.transform = `rotate(${rel}rad)`;
+  if (cityDistEl) cityDistEl.textContent = `${Math.round(dist)}m`;
+}
 function updateTown(dt) {
   town.update(dt, state.time, ash.pos);
-  if (state.fight || state.over || throwActive) {
+  updateCityPointer();
+  if (state.fight || state.over || throwActive || state.flying) {
     if (nearNpc) { nearNpc = null; talkPromptEl && talkPromptEl.classList.remove("show"); }
     return;
   }
@@ -2620,7 +2615,7 @@ document.getElementById("start-btn").addEventListener("click", () => {
   player.vel.set(0, 0, 0);
   player.commandT = 0;
   orbit.yaw = 0; orbit.pitch = 0.42;
-  document.getElementById("fly-btn")?.style.setProperty("display", "none");
+  document.getElementById("fly-btn")?.style.setProperty("display", "flex");
   refreshParty();
   cameraDir.setMode("explore");
   AudioSys.music?.setMode("overworld");
@@ -2859,6 +2854,12 @@ function updatePlayer(dt) {
     const toT = target.pos.clone().sub(ash.pos); toT.y = 0;
     if (toT.lengthSq() < 1e-4) toT.set(0, 0, 1); else toT.normalize();
     goal.copy(target.pos).addScaledVector(toT, -6).add(new THREE.Vector3(0, 3.4, 0));
+  } else if (state.flying) {
+    // YOU are riding Charizard: steer toward the move input at cruise altitude
+    const m = readMoveDir();
+    const cruise = terrainHeight(player.pos.x, player.pos.z) + 16;
+    if (m.mag > 0.1) goal.set(player.pos.x + m.wx * 24, cruise, player.pos.z + m.wz * 24);
+    else goal.set(player.pos.x, cruise, player.pos.z);
   } else {
     goal.set(
       ash.pos.x - Math.sin(ash.yaw) * 2.6 + Math.cos(ash.yaw) * 2.2,
@@ -2870,7 +2871,7 @@ function updatePlayer(dt) {
 
   const toGoal = goal.clone().sub(player.pos);
   const gdist = toGoal.length();
-  player.speed = clamp(gdist * 3.4, 0, engaged ? 30 : 18);
+  player.speed = clamp(gdist * 3.4, 0, engaged ? 30 : (state.flying ? 38 : 18));
   if (gdist > 0.001) player.vel.lerp(toGoal.multiplyScalar(player.speed / gdist), 1 - Math.pow(0.015, dt));
   player.pos.addScaledVector(player.vel, dt);
 
@@ -3219,37 +3220,54 @@ function updateFireSpins(dt) {
 // ----------------------------------------------------------------------------
 // Ash cheering
 // ----------------------------------------------------------------------------
-// YOU — Ash, walking the overworld (camera-relative movement)
+// Camera-relative move input from WASD, arrow keys, and the touch D-pad.
+function readMoveDir() {
+  let mx = 0, mz = 0;
+  if (keys["KeyW"] || keys["ArrowUp"]) mz += 1;
+  if (keys["KeyS"] || keys["ArrowDown"]) mz -= 1;
+  if (keys["KeyA"] || keys["ArrowLeft"]) mx -= 1;
+  if (keys["KeyD"] || keys["ArrowRight"]) mx += 1;
+  if (dpad.up) mz += 1;
+  if (dpad.down) mz -= 1;
+  if (dpad.left) mx -= 1;
+  if (dpad.right) mx += 1;
+  const mag = Math.hypot(mx, mz);
+  if (mag < 0.01) return { wx: 0, wz: 0, mag: 0, sprint: false };
+  mx /= mag; mz /= mag;
+  const camF = orbit.yaw;
+  return {
+    wx: Math.sin(camF) * mz + Math.cos(camF) * mx,
+    wz: Math.cos(camF) * mz - Math.sin(camF) * mx,
+    mag: 1, sprint: keys["ShiftLeft"] || keys["ShiftRight"],
+  };
+}
+
+// YOU — Ash, walking the overworld (or riding Charizard in flight)
 function updateAshNpc(dt) {
   const g = ash.group;
+  // riding Charizard: sit on its back; the mount is steered in updatePlayer
+  if (state.flying && !state.fight) {
+    ash.speed = 0;
+    ash.pos.set(player.pos.x, player.pos.y, player.pos.z);
+    ash.yaw = player.yaw;
+    const bx = Math.sin(player.yaw), bz = Math.cos(player.yaw);
+    g.position.set(player.pos.x - bx * 0.15, player.pos.y + 1.2, player.pos.z - bz * 0.15);
+    g.rotation.y = player.yaw;
+    orbit.yaw = lerpAngle(orbit.yaw, player.yaw, 1 - Math.pow(0.1, dt));
+    return;
+  }
   // hold the trainer still during the encounter intro AND the whole fight —
   // Ash steps back and watches the staged duel rather than wading into it.
   if (state.fightFreeze > 0) state.fightFreeze -= dt;
   if (state.fightFreeze > 0 || state.fight) ash.speed = lerp(ash.speed, 0, 1 - Math.pow(0.001, dt));
-  let mx = 0, mz = 0;
-  if (state.fightFreeze <= 0 && !state.fight) {
-    if (keys["KeyW"]) mz += 1;
-    if (keys["KeyS"]) mz -= 1;
-    if (keys["KeyA"]) mx -= 1;
-    if (keys["KeyD"]) mx += 1;
-    // reversed vertical: push UP on the stick = walk BACK, DOWN = forward
-    if (joy.mag > 0.12) { mx += joy.x; mz += joy.y; }
-  }
-  const moving = (mx * mx + mz * mz) > 0.02;
-  if (moving) {
-    const len = Math.hypot(mx, mz); mx /= len; mz /= len;
-    const camF = orbit.yaw; // forward = away from the camera
-    const wx = Math.sin(camF) * mz + Math.cos(camF) * mx;
-    const wz = Math.cos(camF) * mz - Math.sin(camF) * mx;
-    const sprint = keys["ShiftLeft"] || keys["ShiftRight"];
-    const targetSpd = sprint ? 15 : 9;            // snappier exploration pace
+  const md = (state.fightFreeze <= 0 && !state.fight) ? readMoveDir() : { wx: 0, wz: 0, mag: 0, sprint: false };
+  if (md.mag > 0.01) {
+    const targetSpd = md.sprint ? 15 : 9;            // snappier exploration pace
     ash.speed = lerp(ash.speed, targetSpd, 1 - Math.pow(0.0003, dt)); // smooth accel
-    ash.pos.x = clamp(ash.pos.x + wx * ash.speed * dt, -228, 228);
-    ash.pos.z = clamp(ash.pos.z + wz * ash.speed * dt, -228, 228);
-    ash.yaw = lerpAngle(ash.yaw, Math.atan2(wx, wz), 1 - Math.pow(0.0005, dt));
+    ash.pos.x = clamp(ash.pos.x + md.wx * ash.speed * dt, -228, 228);
+    ash.pos.z = clamp(ash.pos.z + md.wz * ash.speed * dt, -228, 228);
+    ash.yaw = lerpAngle(ash.yaw, Math.atan2(md.wx, md.wz), 1 - Math.pow(0.0005, dt));
     ash.walkPhase += dt * ash.speed * 1.7;
-    // follow-cam: trail the camera behind the direction of travel so
-    // exploration steering stays intuitive (gentle, mouse can still nudge)
     orbit.yaw = lerpAngle(orbit.yaw, ash.yaw, 1 - Math.pow(0.22, dt));
   } else {
     ash.speed = lerp(ash.speed, 0, 1 - Math.pow(0.0001, dt));
@@ -3293,6 +3311,7 @@ function updateCamera(dt) {
   if (player.slam) mode = "slam";                 // follow the soar + dive-bomb
   else if (throwActive) mode = "capture";
   else if (state.fight && state.duel && target && !target.dead) mode = "duel"; // staged battle view from Ash
+  else if (state.flying) mode = "flight";         // riding Charizard over the world
   else if (player.commandT > 0 && target && !target.dead) mode = "command";
   cameraDir.setMode(mode);
   if (state.shake > 0.01) { cameraDir.shake(state.shake); state.shake = 0; }
@@ -3308,6 +3327,8 @@ function updateCamera(dt) {
     duelDir: state.duel ? state.duel.dir : null,
     duelCharHome: state.duel ? state.duel.charHome : null,
     attackZoom: player.attackCamT > 0,
+    flyerPos: player.pos,
+    flyerYaw: player.yaw,
   });
   sun.position.set(ash.pos.x + 55, ash.pos.y + 80, ash.pos.z + 35);
   sun.target.position.copy(ash.pos);

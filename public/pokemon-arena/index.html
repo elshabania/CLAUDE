@@ -562,6 +562,39 @@
     background: radial-gradient(circle at 35% 30%, rgba(255,210,120,.95), rgba(255,130,30,.85));
     box-shadow: 0 2px 14px rgba(255,140,30,.6); border: 2px solid rgba(255,255,255,.4);
   }
+  /* ---- arrow D-pad (replaces the joystick) ---- */
+  #dpad {
+    position: absolute; left: 22px; bottom: 22px; width: 168px; height: 168px;
+    pointer-events: none;
+  }
+  #dpad .dbtn {
+    position: absolute; width: 56px; height: 56px; border-radius: 14px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 26px; color: #fff; pointer-events: auto; user-select: none;
+    background: rgba(10,14,30,.5); border: 2px solid rgba(255,255,255,.28);
+    backdrop-filter: blur(4px); box-shadow: 0 2px 10px rgba(0,0,0,.5);
+    text-shadow: 0 1px 2px #000; touch-action: none;
+  }
+  #dpad .dbtn:active { background: rgba(255,170,50,.45); border-color: rgba(255,200,90,.8); }
+  #dpad .dbtn[data-dir="up"]    { left: 56px; top: 0; }
+  #dpad .dbtn[data-dir="left"]  { left: 0;  top: 56px; }
+  #dpad .dbtn[data-dir="right"] { left: 112px; top: 56px; }
+  #dpad .dbtn[data-dir="down"]  { left: 56px; top: 112px; }
+
+  /* ---- on-screen pointer toward the city ---- */
+  #city-pointer {
+    position: absolute; top: 70px; left: 50%; transform: translateX(-50%);
+    display: none; align-items: center; gap: 7px; z-index: 12;
+    font-family: "Bungee", cursive; font-size: 14px; color: #cfe7ff;
+    background: linear-gradient(135deg, rgba(8,18,34,.82), rgba(16,30,55,.78));
+    border: 1.5px solid rgba(120,190,255,.55); border-radius: 999px;
+    padding: 6px 16px; backdrop-filter: blur(6px); text-shadow: 0 1px 3px #000;
+    box-shadow: 0 4px 16px rgba(0,0,0,.5); pointer-events: none; white-space: nowrap;
+  }
+  #city-pointer.show { display: flex; }
+  #city-pointer .cp-arrow { display: inline-block; font-size: 18px; color: #73d0ff; transition: transform .12s linear; }
+  #city-pointer .cp-dist { color: #9fc4ff; font-family: "Rajdhani", sans-serif; font-weight: 700; }
+
   #tgt-btn {
     position: absolute; right: 18px; bottom: 235px; width: 64px; height: 64px;
     border-radius: 50%; pointer-events: auto; display: flex; flex-direction: column;
@@ -798,12 +831,19 @@
   <div id="fly-btn">🕊<small>FLY</small></div>
 
   <div id="touch-ui">
-    <div id="joy-zone"><div id="joy-base"><div id="joy-knob"></div></div></div>
+    <div id="dpad">
+      <div class="dbtn" data-dir="up">▲</div>
+      <div class="dbtn" data-dir="left">◀</div>
+      <div class="dbtn" data-dir="right">▶</div>
+      <div class="dbtn" data-dir="down">▼</div>
+    </div>
     <div id="tgt-btn">🎯<small>TARGET</small></div>
     <div id="boost-btn">🔥<small>BOOST</small></div>
     <div id="dodge-btn">💨<small>DODGE</small></div>
     <div id="throw-btn">🔴<small>THROW</small></div>
   </div>
+
+  <div id="city-pointer"><span class="cp-arrow">▲</span><span class="cp-label">CINDERHOLLOW</span><span class="cp-dist"></span></div>
 
   <div id="controls-hint">
     <b>Mouse</b> steer flight &nbsp;·&nbsp; <b>Shift</b> boost &nbsp;·&nbsp; <b>S</b> brake<br/>

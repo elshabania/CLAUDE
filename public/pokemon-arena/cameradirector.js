@@ -114,6 +114,17 @@ export function createCameraDirector(camera) {
     return 54 - zoom * 5;
   }
 
+  // Riding Charizard: chase cam behind & above the dragon, looking ahead.
+  function poseFlight(ctx) {
+    const p = ctx.flyerPos || ctx.ashPos;
+    const yaw = ctx.flyerYaw || 0;
+    const sx = Math.sin(yaw), cz = Math.cos(yaw);
+    _desiredLook.copy(p); _desiredLook.x += sx * 4; _desiredLook.z += cz * 4; _desiredLook.y += 1.0;
+    _desiredPos.set(p.x - sx * 9.5, p.y + 4.6, p.z - cz * 9.5);
+    clampToTerrain(_desiredPos, ctx.terrainHeight, 1.5);
+    return 62;
+  }
+
   // Punch-in on the Pokémon when an attack lands.
   function poseAttack(ctx) {
     const a = ctx.partnerPos || ctx.ashPos;
@@ -221,6 +232,7 @@ export function createCameraDirector(camera) {
 
   function computeDesired(ctx, dt) {
     switch (mode) {
+      case "flight":  return poseFlight(ctx);
       case "duel":    return poseDuel(ctx);
       case "command": return poseCommand(ctx);
       case "attack":  return poseAttack(ctx);
