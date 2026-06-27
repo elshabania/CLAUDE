@@ -397,9 +397,34 @@ def _find(base: Path, needles, suffix=None):
     return None
 
 
+def ensure_data_folder() -> None:
+    """In a packaged build, create an empty ``data/`` folder next to the
+    executable with a short note, so the user has an obvious place to drop their
+    STEAM files for automatic loading."""
+    import sys
+
+    if not getattr(sys, "frozen", False):
+        return
+    try:
+        d = Path(sys.executable).resolve().parent / "data"
+        d.mkdir(exist_ok=True)
+        note = d / "PUT_YOUR_STEAM_FILES_HERE.txt"
+        if not note.exists():
+            note.write_text(
+                "Put your three STEAM files in this folder, then restart the app:\n"
+                "  - the network shapefile (v322_AD_20250606_v19.shp + .dbf/.shx/.prj),\n"
+                "    or a network links CSV\n"
+                "  - STEAM_landuse_2040.csv\n"
+                "  - STEAM_matrix_long.csv  (long OD: origin,destination,trips)\n\n"
+                "The app loads them automatically on launch.\n")
+    except OSError:
+        pass
+
+
 def serve(host="127.0.0.1", port=8732, open_browser=True, state=None):
     """Start the local server and (optionally) open the browser."""
     import uvicorn
+    ensure_data_folder()
     app = create_app(state)
     if open_browser:
         import threading
