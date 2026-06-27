@@ -1,0 +1,20 @@
+# STEAM 2040 Studio — backend engine + desktop shell
+numpy>=1.26
+scipy>=1.11
+fastapi>=0.110
+uvicorn[standard]>=0.27
+websockets>=12
+pydantic>=2
+
+# Native JIT (optional but recommended; pure-NumPy fallback if absent)
+numba>=0.59
+llvmlite>=0.42
+
+# Desktop window (optional; falls back to system browser)
+pywebview>=4.4
+
+# Shapefile reading (pure-python; CSV path works without it)
+pyshp>=2.3
+
+# Packaging
+pyinstaller>=6.3

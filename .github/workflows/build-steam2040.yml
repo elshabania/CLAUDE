@@ -1,0 +1,104 @@
+name: Build STEAM 2040 Studio
+
+# Cross-platform single-file executables so users get a Windows .exe (and
+# macOS / Linux binaries) with no local Python (spec section 6).
+
+on:
+  push:
+    branches: ["**"]
+    paths: ["steam2040/**", ".github/workflows/build-steam2040.yml"]
+  workflow_dispatch:
+
+defaults:
+  run:
+    working-directory: steam2040
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install numpy scipy fastapi "uvicorn[standard]" websockets pydantic pytest
+      - name: Run tests
+        run: python -m pytest tests/ -q
+
+  build:
+    needs: test
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            artifact: STEAM-2040-Studio-windows
+          - os: macos-latest
+            artifact: STEAM-2040-Studio-macos
+          - os: ubuntu-latest
+            artifact: STEAM-2040-Studio-linux
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install requirements
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: Build single-file executable
+        run: pyinstaller packaging/steam2040.spec
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: steam2040/dist/*
+
+  # Publish the built binaries to a rolling GitHub Release so they can be
+  # downloaded directly (no GitHub login, no nested zip) and just opened.
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    defaults:
+      run:
+        working-directory: .
+    steps:
+      - name: Download all build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+      - name: Stage assets with OS-specific names
+        run: |
+          mkdir -p out
+          cp artifacts/STEAM-2040-Studio-windows/STEAM-2040-Studio.exe out/STEAM-2040-Studio-windows.exe
+          cp artifacts/STEAM-2040-Studio-macos/STEAM-2040-Studio   out/STEAM-2040-Studio-macos
+          cp artifacts/STEAM-2040-Studio-linux/STEAM-2040-Studio   out/STEAM-2040-Studio-linux
+          ls -lh out
+      - name: Publish rolling release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: steam2040-latest
+          name: STEAM 2040 Studio (latest build)
+          prerelease: true
+          body: |
+            Standalone **STEAM 2040 Studio** executables, built from the latest
+            commit on `claude/new-session-ckhspy`. Nothing to install — download
+            and open.
+
+            | Laptop | Download |
+            |--------|----------|
+            | **Windows** | `STEAM-2040-Studio-windows.exe` |
+            | macOS | `STEAM-2040-Studio-macos` |
+            | Linux | `STEAM-2040-Studio-linux` |
+
+            First launch compiles the Numba kernels once (a brief splash);
+            afterwards startup is instant. Windows may show a SmartScreen
+            "unknown publisher" prompt — click *More info → Run anyway* (the
+            binary is unsigned). Everything runs offline.
+          files: out/*

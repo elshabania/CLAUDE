@@ -1,0 +1,180 @@
+/* STEAM 2040 Studio theme (spec section 4) */
+:root {
+  --bg: #0c1320;
+  --panel: #0d1424;
+  --border: #243044;
+  --text: #cdd6e4;
+  --muted: #7c8aa3;
+  --accent: #c8a24a;
+  --accent-soft: #c8a24a33;
+  --link-unloaded: #3a4a63;
+  --cyan: #34d3d3;
+  --good: #36c46b;
+  --bad: #e0524a;
+  --shadow: 0 8px 30px rgba(0,0,0,.45);
+  --radius: 10px;
+  color-scheme: dark;
+}
+[data-theme="light"] {
+  --bg: #eef1f6; --panel: #ffffff; --border: #d2d9e6; --text: #1d2733;
+  --muted: #5d6a7e; --accent: #9c7b1e;
+  --link-unloaded: #b3bdcf; --shadow: 0 8px 24px rgba(40,60,90,.18);
+  color-scheme: light;
+}
+[data-theme="contrast"] {
+  --bg: #000000; --panel: #0a0a0a; --border: #ffffff; --text: #ffffff;
+  --muted: #cccccc; --accent: #ffd400; --link-unloaded: #777777;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; overflow: hidden; }
+body {
+  font: 13px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  background: var(--bg); color: var(--text);
+  -webkit-font-smoothing: antialiased;
+}
+
+#app {
+  display: grid;
+  grid-template-columns: 56px 1fr;
+  grid-template-rows: 1fr auto;
+  grid-template-areas: "rail stage" "rail copilot";
+  height: 100vh;
+}
+
+/* ---- left rail ---- */
+#rail {
+  grid-area: rail; background: var(--panel); border-right: 1px solid var(--border);
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  padding: 10px 0;
+}
+.brand {
+  font-weight: 800; color: var(--accent); font-size: 18px; line-height: 1;
+  text-align: center; margin-bottom: 12px; letter-spacing: -1px;
+}
+.brand span { display: block; font-size: 8px; color: var(--muted); letter-spacing: 1px; }
+.rail-btn {
+  width: 40px; height: 40px; border: 1px solid transparent; border-radius: 9px;
+  background: transparent; color: var(--muted); font-size: 18px; cursor: pointer;
+  transition: .15s;
+}
+.rail-btn:hover { color: var(--text); background: var(--accent-soft); }
+.rail-btn.active { color: var(--accent); border-color: var(--border); background: var(--accent-soft); }
+.rail-spacer { flex: 1; }
+
+/* ---- stage / map ---- */
+#stage { grid-area: stage; position: relative; overflow: hidden; }
+#map { position: absolute; inset: 0; width: 100%; height: 100%; display: block;
+  cursor: grab; }
+#map:active { cursor: grabbing; }
+
+/* ---- panels ---- */
+.panel {
+  position: absolute; top: 14px; right: 14px; width: 320px; max-height: calc(100% - 28px);
+  background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius);
+  box-shadow: var(--shadow); display: flex; flex-direction: column; overflow: hidden;
+}
+.panel-head {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 10px 14px; border-bottom: 1px solid var(--border); font-weight: 600;
+}
+.panel-head button { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 16px; }
+.panel-body { padding: 12px 14px; overflow-y: auto; }
+.panel.collapsed .panel-body { display: none; }
+
+.section { border-bottom: 1px solid var(--border); padding: 10px 0; }
+.section:last-child { border-bottom: none; }
+.section h4 { margin: 0 0 8px; font-size: 11px; text-transform: uppercase;
+  letter-spacing: .5px; color: var(--muted); }
+.row { display: flex; align-items: center; gap: 8px; margin: 6px 0; }
+.row label { flex: 1; color: var(--muted); }
+.row input[type="number"], .row input[type="text"], .row select {
+  width: 92px; background: var(--bg); color: var(--text);
+  border: 1px solid var(--border); border-radius: 6px; padding: 4px 6px;
+}
+.row.full input, .row.full select { width: 100%; }
+button.action {
+  width: 100%; padding: 9px; margin-top: 8px; border-radius: 8px; cursor: pointer;
+  background: var(--accent); color: #1a1407; border: none; font-weight: 700;
+}
+button.action.secondary { background: transparent; color: var(--text); border: 1px solid var(--border); }
+button.action:hover { filter: brightness(1.08); }
+.seg { display: flex; gap: 4px; flex-wrap: wrap; }
+.seg button {
+  flex: 1; padding: 6px 4px; border: 1px solid var(--border); background: var(--bg);
+  color: var(--muted); border-radius: 6px; cursor: pointer; font-size: 12px;
+}
+.seg button.on { background: var(--accent-soft); color: var(--accent); border-color: var(--accent); }
+
+/* ---- KPI strip ---- */
+.kpi-strip {
+  position: absolute; top: 14px; left: 14px; display: flex; gap: 0;
+  background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius);
+  box-shadow: var(--shadow); overflow: hidden;
+}
+.kpi { padding: 8px 14px; border-right: 1px solid var(--border); min-width: 86px; }
+.kpi:last-child { border-right: none; }
+.kpi .v { font-size: 17px; font-weight: 700; }
+.kpi .k { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .4px; }
+
+/* ---- legend / scalebar / status ---- */
+.legend {
+  position: absolute; bottom: 16px; left: 14px; background: var(--panel);
+  border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; font-size: 11px;
+  box-shadow: var(--shadow); max-width: 220px;
+}
+.legend .bar { height: 8px; border-radius: 4px; margin: 4px 0; }
+.legend .ticks { display: flex; justify-content: space-between; color: var(--muted); }
+.scalebar { position: absolute; bottom: 16px; left: 250px; color: var(--muted); font-size: 11px; }
+.scalebar .line { height: 3px; background: var(--text); margin-bottom: 2px; }
+.status {
+  position: absolute; bottom: 16px; right: 14px; color: var(--muted); font-size: 11px;
+  background: var(--panel); border: 1px solid var(--border); padding: 4px 10px; border-radius: 6px;
+}
+.minimap {
+  position: absolute; bottom: 44px; right: 14px; width: 150px; height: 110px;
+  border: 1px solid var(--border); border-radius: 6px; background: var(--panel);
+  box-shadow: var(--shadow);
+}
+.spark {
+  position: absolute; top: 70px; left: 14px; width: 220px; height: 70px;
+  background: var(--panel); border: 1px solid var(--border); border-radius: 8px;
+}
+
+/* ---- copilot ---- */
+#copilot { grid-area: copilot; background: var(--panel); border-top: 1px solid var(--border); }
+.copilot-log { max-height: 130px; overflow-y: auto; padding: 6px 16px; font-size: 12.5px; }
+.copilot-log .msg { margin: 4px 0; }
+.copilot-log .me { color: var(--accent); }
+.copilot-log .ai { color: var(--text); }
+.copilot-log .cmd { color: var(--muted); font-family: ui-monospace, monospace; font-size: 11px; }
+.copilot-bar { display: flex; align-items: center; gap: 8px; padding: 8px 14px; border-top: 1px solid var(--border); }
+.copilot-ico { color: var(--accent); }
+.copilot-bar input { flex: 1; background: var(--bg); border: 1px solid var(--border);
+  border-radius: 8px; color: var(--text); padding: 9px 12px; font-size: 13px; }
+.copilot-bar button { background: var(--accent); color: #1a1407; border: none; border-radius: 8px;
+  padding: 9px 18px; font-weight: 700; cursor: pointer; }
+
+/* ---- overlays / toasts ---- */
+.overlay { position: fixed; inset: 0; background: rgba(0,0,0,.55); display: flex;
+  align-items: center; justify-content: center; z-index: 50; }
+.overlay-card { background: var(--panel); border: 1px solid var(--border); border-radius: 14px;
+  padding: 24px 28px; max-width: 520px; box-shadow: var(--shadow); }
+.overlay-card h2 { margin-top: 0; color: var(--accent); }
+.overlay-card ul { padding-left: 18px; color: var(--muted); }
+.overlay-card button { margin-top: 14px; background: var(--accent); color: #1a1407;
+  border: none; border-radius: 8px; padding: 8px 18px; font-weight: 700; cursor: pointer; }
+.toasts { position: fixed; bottom: 90px; left: 50%; transform: translateX(-50%); z-index: 60;
+  display: flex; flex-direction: column; gap: 8px; align-items: center; }
+.toast { background: var(--panel); border: 1px solid var(--border); border-left: 3px solid var(--accent);
+  border-radius: 8px; padding: 10px 16px; box-shadow: var(--shadow); animation: pop .2s ease; }
+.toast.err { border-left-color: var(--bad); }
+@keyframes pop { from { transform: translateY(8px); opacity: 0; } }
+.hidden { display: none !important; }
+
+/* responsive: dock panel as bottom sheet on narrow windows */
+@media (max-width: 760px) {
+  .panel { left: 8px; right: 8px; top: auto; bottom: 8px; width: auto; max-height: 45%; }
+  .minimap, .spark { display: none; }
+}

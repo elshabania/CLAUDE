@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+  <title>STEAM 2040 Studio</title>
+  <link rel="stylesheet" href="/static/css/theme.css" />
+</head>
+<body>
+  <div id="app">
+    <!-- left rail: workspace switch -->
+    <nav id="rail">
+      <div class="brand" title="STEAM 2040 Studio">S<span>2040</span></div>
+      <button class="rail-btn active" data-ws="network" title="Network">▦</button>
+      <button class="rail-btn" data-ws="aggregation" title="Aggregation">◌</button>
+      <button class="rail-btn" data-ws="assignment" title="Assignment">⇄</button>
+      <div class="rail-spacer"></div>
+      <button id="themeBtn" class="rail-btn" title="Cycle theme">◐</button>
+      <button id="helpBtn" class="rail-btn" title="Help / About">?</button>
+    </nav>
+
+    <!-- map + overlays -->
+    <main id="stage">
+      <canvas id="map"></canvas>
+
+      <!-- KPI strip -->
+      <div id="kpis" class="kpi-strip hidden"></div>
+
+      <!-- legend -->
+      <div id="legend" class="legend"></div>
+
+      <!-- scale bar + status -->
+      <div id="scalebar" class="scalebar"></div>
+      <div id="status" class="status">no network loaded</div>
+
+      <!-- minimap -->
+      <canvas id="minimap" class="minimap"></canvas>
+
+      <!-- right control panel (accordion) -->
+      <aside id="panel" class="panel">
+        <header class="panel-head">
+          <span id="wsTitle">Network</span>
+          <button id="panelToggle" title="Collapse">⌄</button>
+        </header>
+        <div id="panelBody" class="panel-body"></div>
+      </aside>
+
+      <!-- convergence sparkline -->
+      <canvas id="spark" class="spark hidden"></canvas>
+    </main>
+
+    <!-- bottom copilot command bar (always visible) -->
+    <footer id="copilot">
+      <div id="copilotLog" class="copilot-log"></div>
+      <form id="copilotForm" class="copilot-bar">
+        <span class="copilot-ico">✦</span>
+        <input id="copilotInput" type="text" autocomplete="off"
+          placeholder="Ask: &quot;run an AM peak equilibrium assignment on the loaded matrix&quot; …" />
+        <button type="submit">Send</button>
+      </form>
+    </footer>
+  </div>
+
+  <!-- help overlay -->
+  <div id="help" class="overlay hidden">
+    <div class="overlay-card">
+      <h2>STEAM 2040 Studio</h2>
+      <p>Native traffic-modelling studio. One window, three workspaces, one
+         AI copilot. The backend (NumPy/SciPy/Numba) does the maths; this view
+         only draws.</p>
+      <h3>Try the copilot</h3>
+      <ul>
+        <li>load the demo network</li>
+        <li>run an AM peak equilibrium assignment on the loaded matrix</li>
+        <li>build demand from land use with 2.5 trips per resident then run free-flow</li>
+        <li>aggregate to 1500 zones, don't cross collectors, max 6 km</li>
+        <li>show me the worst ten corridors and recommend fixes</li>
+        <li>what's the network VHT now?</li>
+      </ul>
+      <button id="helpClose">Close</button>
+    </div>
+  </div>
+
+  <div id="toasts" class="toasts"></div>
+
+  <script src="/static/js/charts.js"></script>
+  <script src="/static/js/map.js"></script>
+  <script src="/static/js/copilot.js"></script>
+  <script src="/static/js/app.js"></script>
+</body>
+</html>

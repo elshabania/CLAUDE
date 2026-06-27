@@ -7,3 +7,12 @@ out
 .DS_Store
 .turbo
 tsconfig.tsbuildinfo
+
+# Python / STEAM 2040 Studio
+.venv
+__pycache__/
+*.pyc
+build/
+dist/
+.pytest_cache/
+steam2040/.cache/
