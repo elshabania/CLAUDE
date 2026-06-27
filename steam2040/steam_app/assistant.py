@@ -1,18 +1,19 @@
 """The in-app AI assistant.
 
-The assistant turns natural language into capability calls.  It has two
+The assistant turns natural language into capability calls.  It has three
 interchangeable backends over the *same* capability registry:
 
-* :class:`ClaudeBackend` — uses the Anthropic SDK's tool-use loop with
-  ``claude-opus-4-8``.  The model decides which capabilities to call and with
-  what arguments; we execute them against the shared :class:`AppState` and feed
-  the results back until it produces a final answer.
-* :class:`OfflineBackend` — a deterministic keyword/intent parser over the same
-  registry, so the assistant still works on an air-gapped machine with no API
-  key (the spec requires the app run fully offline).
+* :class:`OllamaBackend` — a genuine **offline LLM agent**.  It runs an agentic
+  tool-calling loop against a local `Ollama <https://ollama.com>`_ model (e.g.
+  Qwen2.5 / Llama 3.x), so it reasons and chooses tools like a real agent while
+  staying fully on-device.
+* :class:`ClaudeBackend` — the Anthropic SDK tool-use loop with
+  ``claude-opus-4-8`` (cloud; used when an API key is present).
+* :class:`OfflineBackend` — a deterministic keyword/intent parser, the
+  always-available fallback when neither an LLM is reachable.
 
-Both return an :class:`AssistantReply` (text + the list of actions taken), so
-the GUI renders them identically.
+All three return an :class:`AssistantReply` (text + the list of actions taken),
+so every front-end renders them identically.
 """
 
 from __future__ import annotations
@@ -265,11 +266,110 @@ class OfflineBackend:
 
 
 # ---------------------------------------------------------------------------
+# Ollama backend — local offline LLM agent
+# ---------------------------------------------------------------------------
+
+OLLAMA_HOST = os.environ.get("OLLAMA_HOST", "http://localhost:11434")
+# Models known to support tool calling, in preference order.
+_PREFERRED_OLLAMA = ("qwen2.5", "llama3.1", "llama3.2", "mistral", "firefunction",
+                     "command-r", "hermes")
+
+
+def ollama_available(host: str = OLLAMA_HOST, timeout: float = 0.6) -> list[str]:
+    """Return the locally installed Ollama model names, or [] if unreachable."""
+    import json
+    import urllib.request
+    try:
+        with urllib.request.urlopen(f"{host}/api/tags", timeout=timeout) as r:
+            data = json.load(r)
+        return [m["name"] for m in data.get("models", [])]
+    except Exception:
+        return []
+
+
+def _pick_ollama_model(models: list[str]) -> str | None:
+    if not models:
+        return None
+    for pref in _PREFERRED_OLLAMA:
+        for m in models:
+            if m.lower().startswith(pref):
+                return m
+    return models[0]
+
+
+class OllamaBackend:
+    """Agentic tool-calling loop against a local Ollama model."""
+
+    name = "ollama"
+
+    def __init__(self, state: AppState, registry: CapabilityRegistry,
+                 host: str = OLLAMA_HOST, model: str | None = None,
+                 max_steps: int = 10):
+        self.state = state
+        self.registry = registry
+        self.host = host
+        self.max_steps = max_steps
+        self.model = (model or os.environ.get("STEAM_OLLAMA_MODEL")
+                      or _pick_ollama_model(ollama_available(host)))
+        if not self.model:
+            raise RuntimeError("No Ollama model available")
+        self._tools = [{"type": "function",
+                        "function": {"name": c["name"],
+                                     "description": c["description"],
+                                     "parameters": c["input_schema"]}}
+                       for c in self.registry.tools()]
+        self._messages = [{"role": "system", "content": SYSTEM_PROMPT}]
+
+    def _post(self, payload: dict) -> dict:
+        import json
+        import urllib.request
+        req = urllib.request.Request(
+            f"{self.host}/api/chat",
+            data=json.dumps(payload).encode(),
+            headers={"Content-Type": "application/json"})
+        with urllib.request.urlopen(req, timeout=120) as r:
+            return json.load(r)
+
+    def respond(self, user_text: str) -> AssistantReply:
+        self._messages.append({"role": "user", "content": user_text})
+        actions: list[Action] = []
+        final = ""
+        for _ in range(self.max_steps):
+            resp = self._post({"model": self.model, "messages": self._messages,
+                               "tools": self._tools, "stream": False})
+            msg = resp.get("message", {})
+            self._messages.append(msg)
+            calls = msg.get("tool_calls") or []
+            if not calls:
+                final = msg.get("content", "")
+                break
+            for call in calls:
+                fn = call.get("function", {})
+                name = fn.get("name", "")
+                args = fn.get("arguments", {})
+                if isinstance(args, str):
+                    import json
+                    try:
+                        args = json.loads(args)
+                    except ValueError:
+                        args = {}
+                result = self.registry.invoke(self.state, name, args)
+                actions.append(Action(name, args, result))
+                self._messages.append({"role": "tool", "content": result,
+                                       "tool_name": name})
+        return AssistantReply(final.strip(), actions, self.name)
+
+
+# ---------------------------------------------------------------------------
 # Facade
 # ---------------------------------------------------------------------------
 
 class Assistant:
-    """Picks a backend automatically and exposes one ``chat`` method."""
+    """Picks a backend automatically and exposes one ``chat`` method.
+
+    Preference (``prefer="auto"``): a local Ollama LLM if one is running, then
+    cloud Claude if an API key is set, then the deterministic offline parser.
+    """
 
     def __init__(self, state: AppState, registry: CapabilityRegistry | None = None,
                  prefer: str = "auto", api_key: str | None = None):
@@ -278,14 +378,19 @@ class Assistant:
         self.backend = self._make_backend(prefer, api_key)
 
     def _make_backend(self, prefer: str, api_key: str | None):
-        want_claude = prefer in ("auto", "claude")
-        have_key = bool(api_key or os.environ.get("ANTHROPIC_API_KEY"))
-        if want_claude and have_key:
+        if prefer in ("auto", "ollama"):
             try:
-                return ClaudeBackend(self.state, self.registry, api_key=api_key)
+                return OllamaBackend(self.state, self.registry)
             except Exception:
-                if prefer == "claude":
+                if prefer == "ollama":
                     raise
+        if prefer in ("auto", "claude"):
+            if api_key or os.environ.get("ANTHROPIC_API_KEY"):
+                try:
+                    return ClaudeBackend(self.state, self.registry, api_key=api_key)
+                except Exception:
+                    if prefer == "claude":
+                        raise
         return OfflineBackend(self.state, self.registry)
 
     @property

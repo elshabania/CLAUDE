@@ -7,15 +7,18 @@ dependencies = [
     "numpy>=1.26",
     "scipy>=1.11",
     "pyshp>=2.3",
-    "PySide6>=6.6",
     "numba>=0.59",
+    "fastapi>=0.110",
+    "uvicorn>=0.27",
+    "PySide6>=6.6",
 ]
 
 [project.optional-dependencies]
 ai = ["anthropic>=0.40"]
-dev = ["pytest>=8.0", "pyinstaller>=6.0"]
+dev = ["pytest>=8.0", "pyinstaller>=6.0", "httpx>=0.26"]
 
 [project.scripts]
+steam-web = "steam_web:main"
 steam-studio = "steam_app.gui:run"
 
 [tool.pytest.ini_options]
@@ -28,4 +31,4 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
 packages = ["steam_core", "steam_assignment", "steam_viewer", "steam_app",
-            "steam_app.gui", "tools"]
+            "steam_app.gui", "steam_app.web", "tools"]

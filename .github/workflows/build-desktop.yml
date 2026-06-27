@@ -69,8 +69,8 @@ jobs:
           QT_QPA_PLATFORM: offscreen
         run: pytest -q
 
-      - name: Build executable
-        run: pyinstaller --noconfirm --clean packaging/steam_studio.spec
+      - name: Build executable (web app)
+        run: pyinstaller --noconfirm --clean packaging/steam_web.spec
 
       - name: Rename for release
         shell: bash
