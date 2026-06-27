@@ -13,6 +13,9 @@ on:
     tags:
       - "steam-v*"
 
+permissions:
+  contents: write          # needed to publish the Release on a steam-v* tag
+
 defaults:
   run:
     working-directory: steam2040
