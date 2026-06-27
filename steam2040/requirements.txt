@@ -1,0 +1,11 @@
+# STEAM 2040 Studio runtime dependencies.
+numpy>=1.26
+scipy>=1.11
+pyshp>=2.3            # shapefile reader (imported as `shapefile`)
+PySide6>=6.6         # Qt GUI
+numba>=0.59          # optional acceleration; pure-Python fallback if absent
+
+# Optional extras (install manually if you want them):
+#   anthropic>=0.40    # Claude (cloud) assistant backend; offline bot works without it
+#   pytest>=8.0        # test suite
+#   pyinstaller>=6.0   # build a standalone executable
