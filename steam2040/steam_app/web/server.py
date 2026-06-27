@@ -318,17 +318,52 @@ def create_app(state: AppState | None = None) -> FastAPI:
     return app
 
 
-def _autoload(state: AppState) -> None:
-    """Load network/zones/matrix from STEAM_DATA_DIR or a bundled data dir."""
-    candidates = []
+def data_dir_candidates() -> list[Path]:
+    """Folders to search for STEAM data, in priority order.
+
+    Lets the app load automatically with no configuration: drop the network +
+    land-use + OD files into a ``data/`` folder next to the executable (or set
+    ``STEAM_DATA_DIR``) and every launch finds them. Also picks up data baked
+    into a PyInstaller bundle, and the dev ``realdata/`` folder.
+    """
+    import sys
+
+    cands: list[Path] = []
     env = os.environ.get("STEAM_DATA_DIR")
     if env:
-        candidates.append(Path(env))
-    candidates.append(Path(__file__).resolve().parents[2] / "realdata")
-    candidates.append(Path(__file__).resolve().parents[2] / "bundled_data")
+        cands.append(Path(env))
 
-    for base in candidates:
-        if not base.exists():
+    # Next to the executable (frozen build) or the launch directory.
+    exe_dir = (Path(sys.executable).resolve().parent
+               if getattr(sys, "frozen", False) else Path.cwd())
+    for name in ("data", "STEAM_data", "steam_data", "realdata"):
+        cands.append(exe_dir / name)
+        cands.append(Path.cwd() / name)
+
+    # Data baked into a PyInstaller bundle.
+    if getattr(sys, "_MEIPASS", None):
+        cands.append(Path(sys._MEIPASS) / "bundled_data")
+
+    # Development checkout.
+    root = Path(__file__).resolve().parents[2]
+    cands.append(root / "realdata")
+    cands.append(root / "bundled_data")
+
+    seen, out = set(), []
+    for c in cands:
+        if c not in seen:
+            seen.add(c)
+            out.append(c)
+    return out
+
+
+def _autoload(state: AppState) -> str | None:
+    """Auto-load network/zones/matrix from the first folder that has them."""
+    for base in data_dir_candidates():
+        try:
+            if not base.exists():
+                continue
+        except OSError:
             continue
         net = _find(base, (".shp",)) or _find(base, ("network_links.csv", "_links.csv"))
         zones = _find(base, ("landuse", "land_use"), suffix=".csv")
@@ -341,9 +376,13 @@ def _autoload(state: AppState) -> None:
                     state.load_zones(zones)
                 if matrix:
                     state.load_matrix(matrix)
-            except Exception:
-                pass
-            return
+                print(f"[STEAM] loaded data from {base}")
+                return str(base)
+            except Exception as exc:
+                print(f"[STEAM] failed to load data from {base}: {exc}")
+    print("[STEAM] no data folder found — put your files in a 'data' folder "
+          "next to the app, or set STEAM_DATA_DIR.")
+    return None
 
 
 def _find(base: Path, needles, suffix=None):

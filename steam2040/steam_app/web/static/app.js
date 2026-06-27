@@ -33,7 +33,7 @@ async function init() {
   wire();
   window.addEventListener("resize", () => { map.resize(); sizeOverlay(); });
   if (st.network > 0) await loadNetwork();
-  else $("status").textContent = "No network found. Set STEAM_DATA_DIR or use /api/load.";
+  else $("status").textContent = "No data found — put your network, land-use and OD files in a 'data' folder next to the app, then restart.";
 }
 
 function updateStatus(st) {
