@@ -23,19 +23,30 @@
   #brand{display:flex;align-items:baseline;gap:8px;font-weight:800;letter-spacing:.02em;font-size:15px}
   #brand .v{color:var(--gold)}
   #brand small{color:var(--dim);font-weight:500;font-size:10.5px;letter-spacing:0}
-  #tabs{display:flex;gap:6px;margin-left:6px}
-  .tab{padding:7px 15px;border-radius:9px;border:1px solid var(--line);background:#0e1626;
-    color:var(--dim);font-size:12.5px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:7px}
-  .tab .ic{font-size:13px}
-  .tab.on{color:#0b1018;background:var(--gold);border-color:var(--gold)}
-  .tab:not(.on):hover{color:var(--txt);border-color:#33486e}
+  #modechip{margin-left:8px;padding:4px 10px;border-radius:999px;border:1px solid var(--line);
+    background:#0e1626;color:var(--cyan);font-size:11px;font-weight:600;display:flex;align-items:center;gap:6px}
+  #modechip .ic{font-size:12px}
   #barRight{margin-left:auto;display:flex;align-items:center;gap:10px}
   #copBtn{padding:7px 13px;border-radius:9px;border:1px solid #2b6;background:#10301f;
     color:#9defc0;font-size:12.5px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:7px}
   #copBtn .pulse{width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:0 0 8px var(--green)}
 
-  /* ---- stage ---- */
+  /* ---- left icon rail ---- */
   #main{flex:1;display:flex;min-height:0}
+  #rail{flex:none;width:66px;background:linear-gradient(#0c1422,#0a0f1a);border-right:1px solid var(--line);
+    display:flex;flex-direction:column;align-items:center;padding:8px 0;gap:4px;z-index:15}
+  .rgrp{font-size:8.5px;letter-spacing:.08em;color:#4a5a78;text-transform:uppercase;margin:8px 0 2px;font-weight:700}
+  .ritem{width:54px;padding:7px 0 5px;border-radius:11px;border:1px solid transparent;background:none;
+    color:var(--dim);cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;
+    font-size:9.5px;font-weight:600;line-height:1}
+  .ritem .ic{font-size:18px;line-height:1}
+  .ritem:hover{background:#101a2c;color:var(--txt)}
+  .ritem.on{background:#13233c;border-color:#2d4a74;color:var(--gold)}
+  .ritem.cop{color:#9defc0}
+  .ritem.cop.on{background:#10301f;border-color:#2b6}
+  .rspring{flex:1}
+
+  /* ---- stage ---- */
   #stage{flex:1;position:relative;min-width:0;background:var(--bg)}
   .frameWrap{position:absolute;inset:0;display:none}
   .frameWrap.on{display:block}
@@ -119,17 +130,26 @@
 <body class="dock-closed">
 
 <div id="bar">
-  <div id="brand">STEAM <span class="v">2040</span> Studio <small>unified network + assignment + copilot</small></div>
-  <div id="tabs">
-    <button class="tab on" data-app="viewer"><span class="ic">🗺️</span><span class="lbl">Network Viewer</span></button>
-    <button class="tab" data-app="assign"><span class="ic">🚦</span><span class="lbl">Assignment</span></button>
-  </div>
+  <div id="brand">STEAM <span class="v">2040</span> Studio <small>unified network · assignment · copilot</small></div>
+  <div id="modechip"><span class="ic">🗺️</span><span id="modename">Network</span></div>
   <div id="barRight">
     <button id="copBtn"><span class="pulse"></span>Copilot</button>
   </div>
 </div>
 
 <div id="main">
+  <nav id="rail" aria-label="Tools">
+    <div class="rgrp">View</div>
+    <button class="ritem" data-tool="net"><span class="ic">🗺️</span>Network</button>
+    <button class="ritem" data-tool="zones"><span class="ic">⬡</span>Zones</button>
+    <div class="rgrp">Model</div>
+    <button class="ritem" data-tool="assign"><span class="ic">🚦</span>Assign</button>
+    <button class="ritem" data-tool="rec"><span class="ic">✨</span>Solve</button>
+    <button class="ritem" data-tool="scn"><span class="ic">🛠️</span>Scenario</button>
+    <button class="ritem" data-tool="ana"><span class="ic">📊</span>Analysis</button>
+    <div class="rspring"></div>
+    <button class="ritem cop" id="railCop"><span class="ic">✦</span>Copilot</button>
+  </nav>
   <div id="stage">
     <div class="frameWrap on" id="wrap-viewer">
       <div class="frameLoad" id="load-viewer"><div class="spin"></div>Loading Network Viewer…</div>
@@ -277,8 +297,13 @@
     footer{font-size:9px}
   }
 </style>
+<style>/* STEAM Studio overrides */
+  /* Studio: hide bulky panels until a rail tool is chosen */
+  body.studio-hide-agg #agg{display:none!important}
+  body.studio-hide-layers #chips,body.studio-hide-layers #dissctl{display:none!important}
+ </style>
 </head>
-<body>
+<body class="studio-hide-agg studio-hide-layers">
 <canvas id="map" aria-label="STEAM 2040 highway network map. Drag to pan, pinch or scroll to zoom."></canvas>
 <div id="ztip" role="status"></div>
 
@@ -359,7 +384,7 @@
     <label><input type="checkbox" id="m1Density"> per km²</label>
   </div>
   <div id="contigrow" class="mono" style="font-size:11px;line-height:1.7">
-    <span style="opacity:.7">Keep zones contiguous \u2014 do not merge across</span>
+    <span style="opacity:.7">Keep zones contiguous — do not merge across</span>
     <select id="barLevelSel" aria-label="Barrier road class">
       <option value="fwy">freeways</option>
       <option value="art">arterials +</option>
@@ -1485,7 +1510,7 @@ function render(){
   updateScalebar();
 }
 function drawShadeLegend(t){
-  const labels={district:"District (hover a zone for its name)",landuse:"Land use \u2013 GFA total",
+  const labels={district:"District (hover a zone for its name)",landuse:"Land use – GFA total",
                 prod:"Productions",attr:"Attractions",pa:"Productions + Attractions"};
   const lines=[];
   let cm=null, seqMax=0, isSeq=false;
@@ -1497,7 +1522,7 @@ function drawShadeLegend(t){
     else lines.push((SHADE==="district"||SHADE==="landuse")?"Load land use to colour by "+SHADE:"Load an OD matrix to colour by "+SHADE);
   }
   if(ODFLOW){ lines.push(DEMAND?"OD desire lines (brighter/thicker = more trips)":"Load an OD matrix for desire lines"); }
-  if(BARS){ lines.push(sc<BAR_MIN_SC?"Bars: zoom in to show P/A/land use/population":"Bars  \u25a0P \u25a0A \u25a0land use \u25a0pop"); }
+  if(BARS){ lines.push(sc<BAR_MIN_SC?"Bars: zoom in to show P/A/land use/population":"Bars  ■P ■A ■land use ■pop"); }
   if(!lines.length) return;
   const pad=8, bw=186;
   const boxH=lines.length*15+(isSeq?34:0)+pad*2, x0=12, y0=H-14-boxH;
@@ -1902,9 +1927,9 @@ function solveLevel(seq,seqN,tolFrac,conf){
 function labelResult(achieved){
   const pc=Math.round(ACCEPT.conf*1000)/10;
   let mg=0; const MG=ACT.centMerged; if(MG)for(let i=0;i<MG.length;i++)mg+=MG[i];
-  agglbl.textContent=ACT.zones.toLocaleString()+" zones ("+mg.toLocaleString()+" merged \u00b7 pink) \u00b7 "
+  agglbl.textContent=ACT.zones.toLocaleString()+" zones ("+mg.toLocaleString()+" merged · pink) · "
     +(achieved*100).toFixed(1)+"% within "+ACCEPT.tol+"%";
-  netstatsEl.textContent=ACT.zones.toLocaleString()+" centroids \u00b7 "+ACT.nconn.toLocaleString()+" connections";
+  netstatsEl.textContent=ACT.zones.toLocaleString()+" centroids · "+ACT.nconn.toLocaleString()+" connections";
 }
 function identityACT(){ const st=replayTo(null,0); return assemble(st.px,st.py,st.par,st.T); }
 
@@ -1915,7 +1940,7 @@ function runSeq(pinned, doneCb){
   const eng=createUniformSeq(N0,CX,CY,BARIDX,pinned);
   (function tick(){
     if(eng.step(28)){ seqBusy=false; doneCb(eng.seq(),eng.count()); }
-    else{ agglbl.textContent="Computing merge sequence\u2026 "+Math.round(eng.progress()*100)+"%";
+    else{ agglbl.textContent="Computing merge sequence… "+Math.round(eng.progress()*100)+"%";
       setTimeout(tick,0); }
   })();
 }
@@ -1927,12 +1952,12 @@ function ensureStudySeq(selIdx,cb){
   const key=selIdx.join(",");
   if(studySeq && studyKey===key){cb();return;}
   if(!BARIDX)BARIDX=buildBarrierIndex(barrierLayers());
-  agglbl.textContent="Preparing study area\u2026";
+  agglbl.textContent="Preparing study area…";
   seqBusy=true;
   const eng=buildStudySeq(N0,CX,CY,selIdx,BARIDX);
   (function tick(){
     if(eng.step(28)){ seqBusy=false; studySeq=eng.seq(); studySeqN=eng.count(); studyKey=key; cb(); }
-    else{ agglbl.textContent="Preparing study area\u2026 "+Math.round(eng.progress()*100)+"%";
+    else{ agglbl.textContent="Preparing study area… "+Math.round(eng.progress()*100)+"%";
       setTimeout(tick,0); }
   })();
 }
@@ -1952,8 +1977,8 @@ function populateMaxZones(){
 
 function showIdle(){
   ACT=identityACT();
-  agglbl.textContent="Pick acceptance to aggregate \u00b7 "+N0.toLocaleString()+" zones";
-  netstatsEl.textContent=N0.toLocaleString()+" centroids \u00b7 "+ACT.nconn.toLocaleString()+" connections";
+  agglbl.textContent="Pick acceptance to aggregate · "+N0.toLocaleString()+" zones";
+  netstatsEl.textContent=N0.toLocaleString()+" centroids · "+ACT.nconn.toLocaleString()+" connections";
   render();
 }
 /* ===================== demand matrix + land use engine ===================== */
@@ -2132,12 +2157,12 @@ function ensureDemandSeq(cb){
   const Wref=c?s/c:1;
   const wlookup=(a,b)=>{ if(a>=N0||b>=N0)return 0; const k=Math.min(a,b)*N0+Math.max(a,b);
     const ei=key2idx.get(k); return ei===undefined?0:eW[ei]/Wref; };
-  agglbl.textContent="Computing demand-aware sequence\u2026";
+  agglbl.textContent="Computing demand-aware sequence…";
   seqBusy=true;
   const eng=createUniformSeq(N0,CX,CY,BARIDX,null,wlookup);
   (function tick(){
     if(eng.step(28)){seqBusy=false;DSEQ=eng.seq();DSEQN=eng.count();cb();}
-    else{agglbl.textContent="Computing demand-aware sequence\u2026 "+Math.round(eng.progress()*100)+"%";setTimeout(tick,0);}
+    else{agglbl.textContent="Computing demand-aware sequence… "+Math.round(eng.progress()*100)+"%";setTimeout(tick,0);}
   })();
 }
 function intrazonalPctAt(seq,seqN,k){
@@ -2148,7 +2173,7 @@ function valSuffix(seq,seqN,k){
   if(!DEMAND) return "";
   const conv=intrazonalPctAt(seq,seqN,k);            // fraction of all trips now intrazonal
   const base=DEMAND.intra0/DEMAND.grand;
-  return " \u00b7 "+(conv*100).toFixed(2)+"% trips \u2192 intrazonal (was "
+  return " · "+(conv*100).toFixed(2)+"% trips → intrazonal (was "
     +(base*100).toFixed(1)+"%, now "+((base+conv)*100).toFixed(1)+"%)";
 }
 
@@ -2312,7 +2337,7 @@ function showZoneTip(i,clientX,clientY){
   if(!zTipEl){zTipEl=document.getElementById("ztip");}
   if(!zTipEl) return;
   const cm=clusterMetrics();
-  const dist=(LANDUSE&&LANDUSE.distName&&cm.haveDist&&LANDUSE.distName.get(cm.dc[i]))||(cm.haveDist?("#"+(cm.dc[i]|0)):"\u2014");
+  const dist=(LANDUSE&&LANDUSE.distName&&cm.haveDist&&LANDUSE.distName.get(cm.dc[i]))||(cm.haveDist?("#"+(cm.dc[i]|0)):"—");
   const sz=cm.size[i]|0;
   const head = sz>1 ? (sz.toLocaleString()+" zones") : ("Zone "+(cm.rep[i]|0));
   const rows=[];
@@ -2334,19 +2359,19 @@ function hideZoneTip(){ if(!zTipEl)zTipEl=document.getElementById("ztip"); if(zT
 function ensureZD(selIdx,cb){
   const key=selIdx.join(",");
   if(ZDcache && ZDkey===key){cb(ZDcache);return;}
-  agglbl.textContent="Computing driving distance to study area\u2026";
+  agglbl.textContent="Computing driving distance to study area…";
   setTimeout(()=>{ ZDcache=drivingDistToStudy(selIdx); ZDkey=key; cb(ZDcache); },20);
 }
 function ensureFocusSeq(selIdx,pin,homKey,scoreArr,areaArr,areaCap,cb){
   const key=FMODE+":"+METHOD+":"+guardSig()+":"+selIdx.join(",");
   if(FSEQ && FKEY===key){cb();return;}
   if(!BARIDX)BARIDX=buildBarrierIndex(barrierLayers());
-  agglbl.textContent="Building "+METHOD.toUpperCase()+" aggregation\u2026";
+  agglbl.textContent="Building "+METHOD.toUpperCase()+" aggregation…";
   seqBusy=true;
   const eng=buildFocusSeq(N0,CX,CY,BARIDX,pin,homKey,scoreArr,areaArr,areaCap);
   (function tick(){
     if(eng.step(28)){seqBusy=false;FSEQ=eng.seq();FSEQN=eng.count();FKEY=key;cb();}
-    else{agglbl.textContent="Building "+METHOD.toUpperCase()+" aggregation\u2026 "+Math.round(eng.progress()*100)+"%";setTimeout(tick,0);}
+    else{agglbl.textContent="Building "+METHOD.toUpperCase()+" aggregation… "+Math.round(eng.progress()*100)+"%";setTimeout(tick,0);}
   })();
 }
 function buildPinnedUniform(){           // whole model: only external (AREATYPE 99) is held out
@@ -2413,17 +2438,17 @@ function methodHomScore(){
   if(METHOD==="m1"){ const ls=landScore();
     dims.push(makeDim(luCol("AREATYPE"))); if(M1_STRICT) dims.push(makeDim(luCol("AREATYPE2")));
     scoreArr=ls.score? (M1_DENSITY?densityOf(ls.score):ls.score) : null;
-    note="land use"+(ls.haveTrips?"+trips":"")+(M1_DENSITY?"/km\u00b2":"")+" \u00b7 same AREATYPE"+(M1_STRICT?"/2":"")
-        +" \u00b7 guard:"+gtxt; }
-  else if(METHOD==="m2"){ dims.push(makeDim(luCol("DISTRICT"))); note="within district (proportional) \u00b7 guard:"+gtxt; }
-  else if(METHOD==="m3"){ note="low OD, adjacent \u00b7 guard:"+gtxt; }
+    note="land use"+(ls.haveTrips?"+trips":"")+(M1_DENSITY?"/km²":"")+" · same AREATYPE"+(M1_STRICT?"/2":"")
+        +" · guard:"+gtxt; }
+  else if(METHOD==="m2"){ dims.push(makeDim(luCol("DISTRICT"))); note="within district (proportional) · guard:"+gtxt; }
+  else if(METHOD==="m3"){ note="low OD, adjacent · guard:"+gtxt; }
   else if(METHOD==="m4"){ const ls=landScore();
     dims.push(makeDim(luCol("AREATYPE"))); dims.push(makeDim(luCol("DISTRICT")));
-    scoreArr=ls.score; note="hybrid: same AREATYPE + district, low land use \u00b7 guard:"+gtxt; }
+    scoreArr=ls.score; note="hybrid: same AREATYPE + district, low land use · guard:"+gtxt; }
   else if(METHOD==="m5"){ const ls=landScore(); const ar=zoneAreaArr();
     scoreArr=(ls.score&&ar)?densityOf(ls.score):null; areaArr=ar;
     const sc=areaCapScale(); areaCap=(AREA_CAP_MULT>0&&sc>0)?AREA_CAP_MULT*sc:0;
-    note="size/density, low activity per km\u00b2 first"+(areaCap?(" \u00b7 cap "+Math.round(areaCap)+"km\u00b2"):"")+" \u00b7 guard:"+gtxt; }
+    note="size/density, low activity per km² first"+(areaCap?(" · cap "+Math.round(areaCap)+"km²"):"")+" · guard:"+gtxt; }
   return {homKey:composeHomKey(dims),scoreArr,note,areaArr,areaCap};
 }
 function runMethod(){
@@ -2431,8 +2456,8 @@ function runMethod(){
   const selIdx=[];
   if(study){ for(let i=0;i<N0;i++) if(SEL[i]) selIdx.push(i);
     if(!selIdx.length){ ACT=identityACT();
-      agglbl.textContent="Lasso a study area \u2014 it and its neighbours stay full resolution";
-      netstatsEl.textContent=N0.toLocaleString()+" centroids \u00b7 "+ACT.nconn.toLocaleString()+" connections";
+      agglbl.textContent="Lasso a study area — it and its neighbours stay full resolution";
+      netstatsEl.textContent=N0.toLocaleString()+" centroids · "+ACT.nconn.toLocaleString()+" connections";
       render(); return; } }
   const finish=(pin,selArr,gateTxt)=>{
     let elig=0; for(let i=0;i<N0;i++) if(!pin[i]) elig++;
@@ -2446,26 +2471,26 @@ function runMethod(){
     ensureFocusSeq(selArr,pin,hs.homKey,hs.scoreArr,hs.areaArr,hs.areaCap,()=>{
       const useBudget=(METHOD==="m3"||METHOD==="m4") && DEMAND;
       let st, k, tail="";
-      if(useBudget){ k=solveDemand(FSEQ,FSEQN,BUDGET/100); st=replayTo(FSEQ,k); tail=valSuffix(FSEQ,FSEQN,k)+(k>=FSEQN?" \u00b7 max":""); }
+      if(useBudget){ k=solveDemand(FSEQ,FSEQN,BUDGET/100); st=replayTo(FSEQ,k); tail=valSuffix(FSEQ,FSEQN,k)+(k>=FSEQN?" · max":""); }
       else if(METHOD==="m2"){
         const tgt=(+document.getElementById("maxZoneSel").value)||N0;
         const frac=Math.max(0,Math.min(1,(N0-tgt)/Math.max(1,elig)));
         st=replayPerGroup(FSEQ,FSEQN,luCol("DISTRICT"),pin,frac);
-        tail=" \u00b7 ~"+Math.round(frac*100)+"%/district";
+        tail=" · ~"+Math.round(frac*100)+"%/district";
       }
       else { const tgt=(+document.getElementById("maxZoneSel").value)||N0; k=Math.min(FSEQN,Math.max(0,N0-tgt));
-        st=replayTo(FSEQ,k); tail=valSuffix(FSEQ,FSEQN,k)+(k>=FSEQN?" \u00b7 max":""); }
+        st=replayTo(FSEQ,k); tail=valSuffix(FSEQ,FSEQN,k)+(k>=FSEQN?" · max":""); }
       ACT=assemble(st.px,st.py,st.par,st.T);
       let mg=0; const MG=ACT.centMerged; if(MG)for(let i=0;i<MG.length;i++)mg+=MG[i];
-      const lead=study?(selArr.length.toLocaleString()+" study \u00b7 "):"whole model \u00b7 ";
-      agglbl.textContent=lead+ACT.zones.toLocaleString()+" zones ("+mg.toLocaleString()+" merged) \u00b7 "
+      const lead=study?(selArr.length.toLocaleString()+" study · "):"whole model · ";
+      agglbl.textContent=lead+ACT.zones.toLocaleString()+" zones ("+mg.toLocaleString()+" merged) · "
         +(gateTxt||"")+hs.note+tail;
-      netstatsEl.textContent=ACT.zones.toLocaleString()+" centroids \u00b7 "+ACT.nconn.toLocaleString()+" connections \u00b7 "
+      netstatsEl.textContent=ACT.zones.toLocaleString()+" centroids · "+ACT.nconn.toLocaleString()+" connections · "
         +elig.toLocaleString()+" eligible"+(study?(" (>"+GATE_KM+"km)"):"");
       shadeCache.key=null; render();
     });
   };
-  if(study) ensureZD(selIdx,(ZD)=>finish(buildPinned(ZD),selIdx,">"+GATE_KM+"km drive \u00b7 "));
+  if(study) ensureZD(selIdx,(ZD)=>finish(buildPinned(ZD),selIdx,">"+GATE_KM+"km drive · "));
   else finish(buildPinnedUniform(),[],"");
 }
 
@@ -2474,17 +2499,17 @@ function applyAggregation(){
   if(METHOD==="demand"){
     if(!DEMAND){
       ACT=identityACT();
-      agglbl.textContent="Load an OD matrix (\uff0b Load network) to aggregate by intrazonal demand \u00b7 "+N0.toLocaleString()+" zones";
-      netstatsEl.textContent=N0.toLocaleString()+" centroids \u00b7 "+ACT.nconn.toLocaleString()+" connections";
+      agglbl.textContent="Load an OD matrix (＋ Load network) to aggregate by intrazonal demand · "+N0.toLocaleString()+" zones";
+      netstatsEl.textContent=N0.toLocaleString()+" centroids · "+ACT.nconn.toLocaleString()+" connections";
       render(); return;
     }
     ensureUniformSeq(()=>{
       const k=solveDemand(USEQ,USEQN,BUDGET/100);
       const st=replayTo(USEQ,k); ACT=assemble(st.px,st.py,st.par,st.T);
       let mg=0; const MG=ACT.centMerged; if(MG)for(let i=0;i<MG.length;i++)mg+=MG[i];
-      agglbl.textContent="whole model \u00b7 "+ACT.zones.toLocaleString()+" zones ("+mg.toLocaleString()+" merged)"
-        +valSuffix(USEQ,USEQN,k)+(k>=USEQN?" \u00b7 max":"");
-      netstatsEl.textContent=ACT.zones.toLocaleString()+" centroids \u00b7 "+ACT.nconn.toLocaleString()+" connections";
+      agglbl.textContent="whole model · "+ACT.zones.toLocaleString()+" zones ("+mg.toLocaleString()+" merged)"
+        +valSuffix(USEQ,USEQN,k)+(k>=USEQN?" · max":"");
+      netstatsEl.textContent=ACT.zones.toLocaleString()+" centroids · "+ACT.nconn.toLocaleString()+" connections";
       shadeCache.key=null; render();
     });
     return;
@@ -2497,7 +2522,7 @@ function applyAggregation(){
     const st=replayTo(USEQ,k); ACT=assemble(st.px,st.py,st.par,st.T);
     labelResult(fracWithin(st,tolFrac));
     agglbl.textContent+=valSuffix(USEQ,USEQN,k);
-    if(k>=USEQN) agglbl.textContent+=" \u00b7 max merge";
+    if(k>=USEQN) agglbl.textContent+=" · max merge";
     shadeCache.key=null; render();
   });
 }
@@ -2527,36 +2552,36 @@ function exportPanel(){
   if(m)m.remove();
   m=document.createElement("div");m.id="expmodal";
   const kb=n=>Math.max(1,Math.round(n/1024))+" KB";
-  m.innerHTML='<div id="expcard"><h2>Export \u00b7 '+E.zones.toLocaleString()
-    +' zones \u00b7 '+E.nroad.toLocaleString()+' road + '+E.nlinks.toLocaleString()+' access links</h2>'
+  m.innerHTML='<div id="expcard"><h2>Export · '+E.zones.toLocaleString()
+    +' zones · '+E.nroad.toLocaleString()+' road + '+E.nlinks.toLocaleString()+' access links</h2>'
     +'<div class="xrow"><span class="xname mono">'+zipName+'<small> '+kb(E.zip.length)
-    +' \u00b7 shp/shx/dbf/prj + csv</small></span>'
+    +' · shp/shx/dbf/prj + csv</small></span>'
     +'<button class="sbtn" id="xzipd">Download</button></div>'
     +'<div class="xrow"><span class="xname mono">'+csvName+'<small> '+kb(E.csv.length)
-    +' \u00b7 zone aggregation lookup</small></span>'
+    +' · zone aggregation lookup</small></span>'
     +'<button class="sbtn" id="xcsvc">Copy</button>'
     +'<button class="sbtn" id="xcsvd">Download</button></div>'
     +'<div id="xmsg" class="mono"></div><div class="xfoot">'
-    +(navigator.share?'<button class="sbtn" id="xshare">Share zip\u2026</button>':'')
+    +(navigator.share?'<button class="sbtn" id="xshare">Share zip…</button>':'')
     +'<button class="sbtn" id="xclose">Close</button></div>'
-    +'<p class="xhint">The zip contains ready ESRI shapefiles (new_road_links, new_centroids, new_access_links) in the source CRS plus the aggregation CSV \u2014 drop straight into ArcGIS/QGIS/CUBE. In the Claude app the sandbox blocks downloads: use Share (save to Files) or Copy for the CSV. On the Vercel site, Download just works.</p></div>';
+    +'<p class="xhint">The zip contains ready ESRI shapefiles (new_road_links, new_centroids, new_access_links) in the source CRS plus the aggregation CSV — drop straight into ArcGIS/QGIS/CUBE. In the Claude app the sandbox blocks downloads: use Share (save to Files) or Copy for the CSV. On the Vercel site, Download just works.</p></div>';
   document.body.appendChild(m);
   const msg=m.querySelector("#xmsg");
   m.addEventListener("click",async e=>{
     const id=e.target.id;
     if(id==="xzipd"){
       try{dl(zipName,E.zip,"application/zip");
-        msg.textContent="Download triggered \u2014 if nothing arrived, this frame blocks it; use Share";
-      }catch(err){msg.textContent="Download blocked \u2014 use Share"}
+        msg.textContent="Download triggered — if nothing arrived, this frame blocks it; use Share";
+      }catch(err){msg.textContent="Download blocked — use Share"}
     }
     if(id==="xcsvd"){
       try{dl(csvName,E.csv,"text/csv");
         msg.textContent="CSV download triggered";
-      }catch(err){msg.textContent="Download blocked \u2014 use Copy"}
+      }catch(err){msg.textContent="Download blocked — use Copy"}
     }
     if(id==="xcsvc"){
-      msg.textContent="copying\u2026";
-      msg.textContent=(await copyText(E.csv))?"Copied CSV \u2713":"Copy blocked here";
+      msg.textContent="copying…";
+      msg.textContent=(await copyText(E.csv))?"Copied CSV ✓":"Copy blocked here";
     }
     if(id==="xshare"){
       try{
@@ -2579,12 +2604,12 @@ document.getElementById("odBtn").onclick=()=>{
     if(st.step(30)){
       const r=st.result(), NP=N0*(N0-1)/2;
       const f=v=>(v/NP*100).toFixed(2)+"%";
-      out.textContent=">+5%: "+f(r.inc)+" \u00b7 <\u22125%: "+f(r.dec)
-        +" \u00b7 merged: "+r.coll.toLocaleString()
-        +" \u00b7 within \u00b15%: "+f(NP-r.inc-r.dec-r.coll);
+      out.textContent=">+5%: "+f(r.inc)+" · <−5%: "+f(r.dec)
+        +" · merged: "+r.coll.toLocaleString()
+        +" · within ±5%: "+f(NP-r.inc-r.dec-r.coll);
       odBusy=false;
     }else{
-      out.textContent="computing\u2026 "+Math.round(st.progress()*100)+"%";
+      out.textContent="computing… "+Math.round(st.progress()*100)+"%";
       setTimeout(tick,0);
     }
   })();
@@ -2652,15 +2677,15 @@ function readFileText(file){return new Promise((res,rej)=>{const r=new FileReade
 document.getElementById("matFile").addEventListener("change",async e=>{
   const f=e.target.files&&e.target.files[0]; if(!f)return;
   const st=document.getElementById("dataStatus");
-  st.textContent="Reading matrix "+f.name+"\u2026";
+  st.textContent="Reading matrix "+f.name+"…";
   try{
     const buf=await readFileBuf(f);
-    st.textContent="Parsing matrix\u2026";
+    st.textContent="Parsing matrix…";
     await new Promise(r=>setTimeout(r,20));
     const fmt=document.getElementById("matFmt").value;
     const res=parseMatrix(buf,fmt);
-    st.textContent="Matrix: "+res.cells.toLocaleString()+" cells \u00b7 "+Math.round(res.grand).toLocaleString()
-      +" trips \u00b7 "+(res.mode==="long"?"O,D,V":"square")+" \u00b7 "+res.edges.toLocaleString()+" adjacent-zone flows";
+    st.textContent="Matrix: "+res.cells.toLocaleString()+" cells · "+Math.round(res.grand).toLocaleString()
+      +" trips · "+(res.mode==="long"?"O,D,V":"square")+" · "+res.edges.toLocaleString()+" adjacent-zone flows";
     shadeCache.key=null; ODtopCache=null; metCache=null; syncRows();
     applyAggregation();
   }catch(err){ st.textContent="Matrix error: "+(err&&err.message||err); }
@@ -2668,13 +2693,13 @@ document.getElementById("matFile").addEventListener("change",async e=>{
 document.getElementById("landFile").addEventListener("change",async e=>{
   const f=e.target.files&&e.target.files[0]; if(!f)return;
   const st=document.getElementById("dataStatus");
-  st.textContent="Reading land use "+f.name+"\u2026";
+  st.textContent="Reading land use "+f.name+"…";
   try{
     const txt=await readFileText(f);
     const res=parseLanduse(txt);
     st.textContent=(document.getElementById("dataStatus").textContent.indexOf("Matrix:")>=0?
       document.getElementById("dataStatus").textContent+"  |  ":"")
-      +"Land use: "+res.matched.toLocaleString()+" zones \u00b7 cols "+res.cols.join(", ");
+      +"Land use: "+res.matched.toLocaleString()+" zones · cols "+res.cols.join(", ");
     applyAggregation();   // refreshes weighted centroids
   }catch(err){ st.textContent="Land use error: "+(err&&err.message||err); }
 });
@@ -2940,6 +2965,18 @@ __STEAM_ES__
     try{ document.dispatchEvent(new KeyboardEvent("keydown",{key:key, bubbles:true})); return {ok:true}; }
     catch(e){ return {ok:false, err:String(e)}; }
   }
+  /* toggle a class on <body> (used by the Studio rail for map-first / panel visibility) */
+  function bodyClass(name, on){ document.body.classList.toggle(name, !!on); return {ok:true, on:document.body.classList.contains(name)}; }
+  /* accordion apps: reveal the panel and open exactly one <details class="sec"> by summary text */
+  function section(text){
+    document.body.classList.remove("collapsed");
+    var t=(text||"").toLowerCase(), ds=document.querySelectorAll("details.sec"), found=false;
+    for(var i=0;i<ds.length;i++){
+      var s=ds[i].querySelector("summary"), hit=!!s && (s.innerText||"").toLowerCase().indexOf(t)>=0;
+      ds[i].open=hit; if(hit){ found=true; try{ s.scrollIntoView({block:"nearest"}); }catch(e){} }
+    }
+    return {ok:found};
+  }
 
   window.addEventListener("message", function(ev){
     var m = ev.data;
@@ -2955,6 +2992,8 @@ __STEAM_ES__
         case "read":  out = readId(m.id); break;
         case "snap":  out = snap(m.ids); break;
         case "open":  out = openDetails(m.text); break;
+        case "bodyclass": out = bodyClass(m.name, m.on); break;
+        case "section":   out = section(m.text); break;
         case "key":   out = pressKey(m.key); break;
         default:      out = {ok:false, err:"unknown cmd "+m.cmd};
       }
@@ -3116,8 +3155,12 @@ __STEAM_ES__
   #help p{ font-size:11.5px; line-height:1.5 }
   #coords{color:var(--txt);text-align:right}
 </style>
+<style>/* STEAM Studio overrides */
+  /* Studio: the rail controls panels, so hide the in-app panel toggles */
+  #panelOpen,#panelToggle{display:none!important}
+ </style>
 </head>
-<body>
+<body class="collapsed">
 <canvas id="map" aria-label="STEAM 2040 traffic assignment map"></canvas>
 <div id="ztip" role="status"></div>
 
@@ -3125,7 +3168,7 @@ __STEAM_ES__
   <div class="topbar">
     <h1>STEAM 2040 Assignment<small id="subttl">v3.2.2 AD · equilibrium · scenarios</small></h1>
     <button id="helpBtn" class="xbtn" aria-label="Help">?</button>
-    <button id="panelToggle" class="xbtn" aria-label="Hide controls">\u2715</button>
+    <button id="panelToggle" class="xbtn" aria-label="Hide controls">✕</button>
   </div>
   <div id="panel">
     <details class="sec" open><summary>Run</summary>
@@ -3138,9 +3181,9 @@ __STEAM_ES__
       <div class="row">
         <label title="Convert a 24-hour matrix to a single hour">Period
           <select id="periodSel" aria-label="Assignment period">
-            <option value="0.1" selected>AM peak (24h \u00f7 10)</option>
+            <option value="0.1" selected>AM peak (24h ÷ 10)</option>
             <option value="1">24-hour total</option>
-            <option value="0.08">off-peak (\u00f7 12)</option>
+            <option value="0.08">off-peak (÷ 12)</option>
           </select></label>
         <label title="Extra scaling, e.g. growth">&times;<input type="number" id="growthIn" value="1" min="0.1" max="20" step="0.1" style="width:44px"></label>
       </div>
@@ -3177,8 +3220,8 @@ __STEAM_ES__
         <label title="per 100 m² school GFA">sch<input type="number" id="aSch" value="1.5" step="0.1" style="width:42px"></label>
       </div>
       <div class="row">
-        <label title="gravity deterrence: higher = shorter trips">deterrence \u03b2<input type="number" id="betaGrav" value="0.10" step="0.01" min="0.01" style="width:52px"></label>
-        <span class="dim" style="font-size:10px">exp(\u2212\u03b2\u00b7km), crow-fly</span>
+        <label title="gravity deterrence: higher = shorter trips">deterrence β<input type="number" id="betaGrav" value="0.10" step="0.01" min="0.01" style="width:52px"></label>
+        <span class="dim" style="font-size:10px">exp(−β·km), crow-fly</span>
       </div>
       <div class="row"><button class="sbtn go" id="buildDemandBtn">Build demand model</button></div>
       <div id="demStats" class="mono dim" style="font-size:10px"></div>
@@ -3190,7 +3233,7 @@ __STEAM_ES__
           <button data-m="vol" class="on">Volume</button>
           <button data-m="vc">V/C</button>
           <button data-m="los">LOS</button>
-          <button data-m="diff">\u0394</button>
+          <button data-m="diff">Δ</button>
         </div>
       </div>
       <div class="row">
@@ -3204,9 +3247,9 @@ __STEAM_ES__
     </details>
 
     <details class="sec"><summary>Recommend &amp; solve</summary>
-      <div class="row"><button class="sbtn" id="recBtn">\u2728 Rank corridors</button>
+      <div class="row"><button class="sbtn" id="recBtn">✨ Rank corridors</button>
         <span class="dim" style="font-size:10px">by congested delay</span></div>
-      <div class="row"><button class="sbtn go" id="solveBtn">\u26a1 Find solutions</button>
+      <div class="row"><button class="sbtn go" id="solveBtn">⚡ Find solutions</button>
         <span class="dim" style="font-size:10px">reassigns &amp; measures VHT saved</span></div>
       <div class="row"><label title="how hard to search">Search
         <select id="solveDepth"><option value="fast" selected>fast</option><option value="deep">deep</option></select></label>
@@ -3215,7 +3258,7 @@ __STEAM_ES__
     </details>
     <div id="prog2" style="display:none"></div>
 
-    <details class="sec"><summary>Scenario \u2014 test a change</summary>
+    <details class="sec"><summary>Scenario — test a change</summary>
       <div class="row"><div class="seg" id="editSeg">
         <button data-e="pan" class="on">Pan</button>
         <button data-e="upgrade">Upgrade</button>
@@ -3261,42 +3304,42 @@ __STEAM_ES__
     </details>
 
     <div id="status" class="mono"></div>
-    <div id="note" class="dim">Loaded matrices are treated as 24-hour; <b>Period</b> converts to a single hour (AM peak = 24h \u00f7 10) so volumes match the hourly capacities. All-ones is an engine test (relative loads only). Tap <b>?</b> for help.</div>
+    <div id="note" class="dim">Loaded matrices are treated as 24-hour; <b>Period</b> converts to a single hour (AM peak = 24h ÷ 10) so volumes match the hourly capacities. All-ones is an engine test (relative loads only). Tap <b>?</b> for help.</div>
   </div>
 </header>
 
-<button id="panelOpen" aria-label="Show controls">\u2630 Controls</button>
+<button id="panelOpen" aria-label="Show controls">☰ Controls</button>
 <div id="miniBar">
   <button class="sbtn go" id="miniRun">Run</button>
-  <div class="seg" id="miniMode"><button data-m="vol" class="on">Vol</button><button data-m="vc">V/C</button><button data-m="los">LOS</button><button data-m="diff">\u0394</button></div>
+  <div class="seg" id="miniMode"><button data-m="vol" class="on">Vol</button><button data-m="vc">V/C</button><button data-m="los">LOS</button><button data-m="diff">Δ</button></div>
 </div>
 
 <div id="views">
   <button class="vbtn" id="zin" aria-label="Zoom in">+</button>
-  <button class="vbtn" id="zout" aria-label="Zoom out">\u2212</button>
-  <button class="vbtn" id="vfull" aria-label="Full network">\u2302</button>
-  <button class="vbtn" id="miniToggle" aria-label="Toggle overview">\u25a6</button>
+  <button class="vbtn" id="zout" aria-label="Zoom out">−</button>
+  <button class="vbtn" id="vfull" aria-label="Full network">⌂</button>
+  <button class="vbtn" id="miniToggle" aria-label="Toggle overview">▦</button>
 </div>
 
 <canvas id="mini" width="150" height="120" aria-label="Overview map"></canvas>
 
 <footer>
-  <div id="scalebar" class="mono"><span id="sclbl">\u2014</span><div class="bar" style="width:80px"></div></div>
-  <div id="northArrow" aria-hidden="true">\u25b2<span>N</span></div>
-  <div id="coords" class="mono">E \u2014 \u00b7 N \u2014</div>
+  <div id="scalebar" class="mono"><span id="sclbl">—</span><div class="bar" style="width:80px"></div></div>
+  <div id="northArrow" aria-hidden="true">▲<span>N</span></div>
+  <div id="coords" class="mono">E — · N —</div>
 </footer>
 
 <div id="toasts" aria-live="polite"></div>
 
 <div id="help" role="dialog" aria-label="Help" aria-modal="true">
   <div class="card">
-    <button id="helpClose" class="xbtn" aria-label="Close" style="position:absolute;top:10px;right:10px">\u2715</button>
-    <h2>STEAM 2040 Assignment \u2014 quick guide</h2>
+    <button id="helpClose" class="xbtn" aria-label="Close" style="position:absolute;top:10px;right:10px">✕</button>
+    <h2>STEAM 2040 Assignment — quick guide</h2>
     <ol>
       <li><b>Run</b> an assignment. Free-flow is fastest; <b>BPR</b> loads incrementally; <b>Frank-Wolfe</b> solves a true user equilibrium with an optimal step each iteration and drives the relative gap toward zero. The gap and step size show in the run line.</li>
-      <li><b>Colour</b> the network by volume, v/c, LOS (A\u2013F) or scenario \u0394. The KPI strip shows VHT, VMT, average speed and over-capacity links.</li>
+      <li><b>Colour</b> the network by volume, v/c, LOS (A–F) or scenario Δ. The KPI strip shows VHT, VMT, average speed and over-capacity links.</li>
       <li><b>Recommend</b> ranks corridors by congested delay and can queue a lane widening or a parallel relief road.</li>
-      <li><b>Scenario</b>: <i>Upgrade</i> taps a link to add lanes; <i>Draw road</i> places a new road at two taps (it ties into the nearest node); <i>Select-link</i> shows what uses a link; <i>Screenline</i> sums volumes crossing a line. Run scenario for a matched before/after with a cost\u2013benefit estimate.</li>
+      <li><b>Scenario</b>: <i>Upgrade</i> taps a link to add lanes; <i>Draw road</i> places a new road at two taps (it ties into the nearest node); <i>Select-link</i> shows what uses a link; <i>Screenline</i> sums volumes crossing a line. Run scenario for a matched before/after with a cost–benefit estimate.</li>
       <li><b>Analysis</b>: top congested links, a v/c histogram, connectivity diagnostics, and CSV export. <b>Settings</b> edits capacity, speed and BPR parameters.</li>
     </ol>
     <p class="dim">Offline and self-contained. With the all-ones test matrix the magnitudes are illustrative; load a real O,D,trips CSV for decision-grade results. Keyboard: R run, S scenario, U upgrade, D draw, P pan, M cycle colour, H help, Esc close.</p>
@@ -3515,7 +3558,7 @@ function setBusy(b){ for(const id of ["runBtn","recBtn","scnRunBtn"]){ const e=d
 function assignChunked(label,onDone){
   if(ASSIGN.running) return;
   const od=originsAndDemand();
-  if(!od){ setStatus("No OD loaded \u2014 load a long O,D,trips CSV or switch demand to all-ones."); return; }
+  if(!od){ setStatus("No OD loaded — load a long O,D,trips CSV or switch demand to all-ones."); return; }
   const origins=od.origins, demandFor=od.demandFor, me=GRAPH.me;
   const periodF=(+document.getElementById("periodSel").value)||1; GAPHIST=[];
   GROWTH=Math.max(0,(+document.getElementById("growthIn").value||1))*periodF;
@@ -3543,7 +3586,7 @@ function assignChunked(label,onDone){
     }
     const done=it*origins.length+oi;
     document.getElementById("progbar").style.width=(100*done/totalSteps).toFixed(1)+"%";
-    setStatus(label+"\u2026 "+(iters>1?("it "+Math.min(it+1,iters)+"/"+iters+(gap!=null?" gap "+(gap*100).toFixed(2)+"%":"")+(lam!=null?" \u03bb "+lam.toFixed(3):"")+" \u00b7 "):"")+Math.min(oi,origins.length)+"/"+origins.length);
+    setStatus(label+"… "+(iters>1?("it "+Math.min(it+1,iters)+"/"+iters+(gap!=null?" gap "+(gap*100).toFixed(2)+"%":"")+(lam!=null?" λ "+lam.toFixed(3):"")+" · "):"")+Math.min(oi,origins.length)+"/"+origins.length);
     if(it<iters) setTimeout(chunk,0);
     else { ASSIGN.running=false; setBusy(false); prog.classList.remove("show");
       const go=document.getElementById("gapOut"); if(go) go.textContent=(method==="aon"?"free-flow":method==="bpr"?"BPR incremental":(method==="fw"?"Frank-Wolfe":"MSA")+(gap!=null?" · gap "+(gap*100).toFixed(2)+"% · "+it+" it":""));
@@ -3564,14 +3607,14 @@ let baseSig=null;
 function curSig(){ return document.getElementById("methodSel").value+"|"+document.getElementById("demandSel").value+"|"+document.getElementById("sampleSel").value; }
 function runAssignment(){
   if(!GLINK) buildLinks();
-  setStatus("Building routing graph\u2026"); buildGraph(null);
+  setStatus("Building routing graph…"); buildGraph(null);
   assignChunked("Assigning baseline",(vol,norig,secs)=>{
     baseVol=vol.slice(0,GLINK.m); baseMet=metricsOf(vol); baseSig=curSig(); RESULT="base"; RECS=null;RECSET=null;DIFF=null;scnMet=null;
     SELFLOW=null; SCREENHITS=null;
     const loaded=scatterVOL(vol); assignDone=true;
-    setStatus(norig.toLocaleString()+" origins \u00b7 "+loaded.toLocaleString()+" links \u00b7 "
-      +GRAPH.zonesRouted.toLocaleString()+"/"+N0.toLocaleString()+" zones \u00b7 VHT "+fmtN(baseMet.vht)+" \u00b7 "+secs.toFixed(1)+"s");
-    updateScnPanel(); render(); toast("Assignment done \u00b7 "+secs.toFixed(1)+"s","ok");
+    setStatus(norig.toLocaleString()+" origins · "+loaded.toLocaleString()+" links · "
+      +GRAPH.zonesRouted.toLocaleString()+"/"+N0.toLocaleString()+" zones · VHT "+fmtN(baseMet.vht)+" · "+secs.toFixed(1)+"s");
+    updateScnPanel(); render(); toast("Assignment done · "+secs.toFixed(1)+"s","ok");
   });
 }
 /* ---- recommendations: rank links by congested delay, group into corridors ---- */
@@ -3635,7 +3678,7 @@ function mergeUp(baseUp,c){ const up=new Map(baseUp); c.up.forEach((v,g)=>up.set
 function searchSolutions(){
   if(!baseVol){ toast("Run a baseline assignment first","warn"); return; }
   recommend(); if(!RECS||!RECS.length){ toast("No congested corridors found","warn"); return; }
-  const S=evalSample(); if(!S){ toast("No demand to evaluate \u2014 build or load a matrix","warn"); return; }
+  const S=evalSample(); if(!S){ toast("No demand to evaluate — build or load a matrix","warn"); return; }
   const greedy=document.getElementById("solveGreedy").checked; let cands=candidatesFromRECS();
   // analytical pre-screen: rank the wide candidate set cheaply, then reassign only the most promising
   const deep=document.getElementById("solveDepth").value==="deep"; const EVALN=greedy?(deep?16:12):(deep?28:20);
@@ -3643,23 +3686,23 @@ function searchSolutions(){
   cands.sort((a,b)=>b._est-a._est);
   if(cands.length>EVALN) cands=cands.slice(0,EVALN);
   document.getElementById("prog").classList.add("show"); document.getElementById("progbar").style.width="0%";
-  setStatus("Solution search: evaluating baseline\u2026");
+  setStatus("Solution search: evaluating baseline…");
   setTimeout(()=>{ const baseQuick=quickAssignVHT(null,S);
     if(!greedy){
       SOLUTIONS=[]; let ci=0;
       (function tick(){ const c=cands[ci]; const vht=quickAssignVHT({upgrades:c.up,extras:c.extras,draft:null},S);
         const dv=baseQuick-vht, cost=candCost(c); SOLUTIONS.push(Object.assign({},c,{dvht:dv,pct:baseQuick>0?100*dv/baseQuick:0,cost,bcr:dv/cost})); ci++;
-        document.getElementById("progbar").style.width=(100*ci/cands.length).toFixed(0)+"%"; setStatus("Evaluating candidate "+ci+"/"+cands.length+"\u2026");
+        document.getElementById("progbar").style.width=(100*ci/cands.length).toFixed(0)+"%"; setStatus("Evaluating candidate "+ci+"/"+cands.length+"…");
         if(ci<cands.length) setTimeout(tick,0);
         else { document.getElementById("prog").classList.remove("show"); SOLUTIONS.sort((a,b)=>b.dvht-a.dvht); PROGRAM=null; renderSolutions(baseQuick);
-          setStatus("Search done \u00b7 best saves "+fmtN(SOLUTIONS[0].dvht)+" veh-h ("+SOLUTIONS[0].pct.toFixed(1)+"%)"); toast("Evaluated "+SOLUTIONS.length+" solutions","ok"); } })();
+          setStatus("Search done · best saves "+fmtN(SOLUTIONS[0].dvht)+" veh-h ("+SOLUTIONS[0].pct.toFixed(1)+"%)"); toast("Evaluated "+SOLUTIONS.length+" solutions","ok"); } })();
     } else {
       PROGRAM={picks:[], up:new Map(), extras:[]}; let prevVHT=baseQuick; const maxPicks=document.getElementById("solveDepth").value==="deep"?6:4; let remaining=cands.slice();
       (function round(){ if(!remaining.length||PROGRAM.picks.length>=maxPicks){ finishGreedy(baseQuick); return; }
         let bi=-1,bv=-1,bvht=0,r=0;
         (function ev(){ const c=remaining[r]; const up=mergeUp(PROGRAM.up,c); const ex=PROGRAM.extras.concat(c.extras);
           const vht=quickAssignVHT({upgrades:up,extras:ex,draft:null},S); const dv=prevVHT-vht; if(dv>bv){bv=dv;bi=r;bvht=vht;} r++;
-          document.getElementById("progbar").style.width=(100*(PROGRAM.picks.length+r/remaining.length)/maxPicks).toFixed(0)+"%"; setStatus("Program step "+(PROGRAM.picks.length+1)+" \u00b7 testing "+r+"/"+remaining.length);
+          document.getElementById("progbar").style.width=(100*(PROGRAM.picks.length+r/remaining.length)/maxPicks).toFixed(0)+"%"; setStatus("Program step "+(PROGRAM.picks.length+1)+" · testing "+r+"/"+remaining.length);
           if(r<remaining.length) setTimeout(ev,0);
           else { if(bi<0||bv<=0){ finishGreedy(baseQuick); return; } const c=remaining[bi]; PROGRAM.up=mergeUp(PROGRAM.up,c); PROGRAM.extras=PROGRAM.extras.concat(c.extras);
             PROGRAM.picks.push(Object.assign({},c,{stepSaved:bv})); prevVHT=bvht; remaining.splice(bi,1); setTimeout(round,0); } })();
@@ -3669,17 +3712,17 @@ function searchSolutions(){
 }
 function finishGreedy(baseQuick){ document.getElementById("prog").classList.remove("show"); const box=document.getElementById("reclist"); box.innerHTML="";
   if(!PROGRAM.picks.length){ box.innerHTML="<div class='dim' style='font-size:10px'>No intervention reduced VHT under this demand.</div>"; return; }
-  let cum=0; const h=document.createElement("div"); h.className="dim"; h.style.fontSize="10px"; h.textContent="Greedy program \u00b7 base VHT "+fmtN(baseQuick)+":"; box.appendChild(h);
+  let cum=0; const h=document.createElement("div"); h.className="dim"; h.style.fontSize="10px"; h.textContent="Greedy program · base VHT "+fmtN(baseQuick)+":"; box.appendChild(h);
   PROGRAM.picks.forEach((p,i)=>{ cum+=p.stepSaved; const el=document.createElement("div"); el.className="recitem";
-    el.innerHTML="<b>Step "+(i+1)+": "+p.type+"</b> \u00b7 corridor "+p.rank+"<br>+"+fmtN(p.stepSaved)+" veh-h (cum "+fmtN(cum)+", "+(baseQuick>0?(100*cum/baseQuick).toFixed(1):0)+"%)"; box.appendChild(el); });
+    el.innerHTML="<b>Step "+(i+1)+": "+p.type+"</b> · corridor "+p.rank+"<br>+"+fmtN(p.stepSaved)+" veh-h (cum "+fmtN(cum)+", "+(baseQuick>0?(100*cum/baseQuick).toFixed(1):0)+"%)"; box.appendChild(el); });
   const a=document.createElement("button"); a.className="sbtn go"; a.textContent="Load program into scenario"; a.style.marginTop="6px";
   a.onclick=()=>{ SCN.upgrades=new Map(PROGRAM.up); SCN.extras=PROGRAM.extras.map(e=>Object.assign({},e)); updateScnPanel(); render(); setStatus("Program loaded. Press Run scenario to confirm."); toast("Program loaded into scenario","ok"); };
   box.appendChild(a); }
 function renderSolutions(baseQuick){ const box=document.getElementById("reclist"); box.innerHTML="";
-  const h=document.createElement("div"); h.className="dim"; h.style.fontSize="10px"; h.textContent="Ranked by VHT saved (measured by reassignment) \u00b7 base "+fmtN(baseQuick)+":"; box.appendChild(h);
+  const h=document.createElement("div"); h.className="dim"; h.style.fontSize="10px"; h.textContent="Ranked by VHT saved (measured by reassignment) · base "+fmtN(baseQuick)+":"; box.appendChild(h);
   SOLUTIONS.slice(0,15).forEach((s,i)=>{ const el=document.createElement("div"); el.className="recitem";
     const good=s.dvht>0;
-    el.innerHTML="<b>#"+(i+1)+" "+s.type+"</b> \u00b7 corridor "+s.rank+"<br><span style='color:"+(good?"#2ecc71":"#e67e22")+"'>"+(good?"saves ":"adds ")+fmtN(Math.abs(s.dvht))+" veh-h ("+s.pct.toFixed(1)+"%)</span> \u00b7 "+s.cost.toFixed(1)+(s.extras.length?" road-km":" lane-km")+" \u00b7 BCR "+s.bcr.toFixed(0);
+    el.innerHTML="<b>#"+(i+1)+" "+s.type+"</b> · corridor "+s.rank+"<br><span style='color:"+(good?"#2ecc71":"#e67e22")+"'>"+(good?"saves ":"adds ")+fmtN(Math.abs(s.dvht))+" veh-h ("+s.pct.toFixed(1)+"%)</span> · "+s.cost.toFixed(1)+(s.extras.length?" road-km":" lane-km")+" · BCR "+s.bcr.toFixed(0);
     el.onclick=()=>{ SCN.upgrades=new Map(s.up); SCN.extras=s.extras.map(e=>Object.assign({},e)); SELG=s.best; updateScnPanel(); zoomToLink(s.best); render(); setStatus("Loaded into scenario. Press Run scenario to confirm the full benefit."); };
     box.appendChild(el); }); }
 
@@ -3703,11 +3746,11 @@ function proposeRoad(r){             // add a new parallel relief road for a con
 }
 function buildRecList(){
   const box=document.getElementById("reclist"); if(!box)return; box.innerHTML="";
-  if(!RECS||!RECS.length){ box.innerHTML="<div class='dim'>No candidates \u2014 run an assignment first.</div>"; return; }
+  if(!RECS||!RECS.length){ box.innerHTML="<div class='dim'>No candidates — run an assignment first.</div>"; return; }
   RECS.forEach(r=>{ const el=document.createElement("div"); el.className="recitem";
     const info=document.createElement("div");
-    info.innerHTML="<b>#"+r.rank+"</b> "+CLS[GLINK.cls[r.best]]+" \u00b7 "+r.links.length+" seg \u00b7 v/c "+r.maxvc.toFixed(2)
-      +" \u00b7 vol "+fmtN(r.vol)+"<br><span class='dim'>delay score "+fmtN(r.score)+"</span>";
+    info.innerHTML="<b>#"+r.rank+"</b> "+CLS[GLINK.cls[r.best]]+" · "+r.links.length+" seg · v/c "+r.maxvc.toFixed(2)
+      +" · vol "+fmtN(r.vol)+"<br><span class='dim'>delay score "+fmtN(r.score)+"</span>";
     info.onclick=()=>{ SELG=r.best; zoomToLink(r.best); render(); };
     const btns=document.createElement("div"); btns.style.cssText="display:flex;gap:6px;margin-top:5px";
     const bLane=document.createElement("button"); bLane.className="sbtn"; bLane.textContent="+lane";
@@ -3727,23 +3770,23 @@ function updateScnPanel(){
   if(baseMet&&scnMet){
     const dV=scnMet.vht-baseMet.vht, dvmt=scnMet.vmt-baseMet.vmt, dov=scnMet.over-baseMet.over;
     const pc=baseMet.vht?(100*dV/baseMet.vht):0;
-    h+="<table class='cmp'><tr><th></th><th>before</th><th>after</th><th>\u0394</th></tr>"
+    h+="<table class='cmp'><tr><th></th><th>before</th><th>after</th><th>Δ</th></tr>"
       +row("VHT",baseMet.vht,scnMet.vht,dV,pc)
       +row("VMT",baseMet.vmt,scnMet.vmt,dvmt,baseMet.vmt?100*dvmt/baseMet.vmt:0)
       +"<tr><td>over-cap links</td><td>"+baseMet.over.toLocaleString()+"</td><td>"+scnMet.over.toLocaleString()+"</td><td>"+(dov>0?"+":"")+dov.toLocaleString()+"</td></tr></table>";
     const saveH=-dV*PARAMS.hours, val=saveH*PARAMS.vot;
-    h+="<div class='dim' style='font-size:10.5px;margin-top:4px'>Daily VHT change "+(dV>0?"+":"")+fmtN(dV)+" veh\u00b7h \u00b7 annualised "
-      +(val>=0?"saving ":"cost ")+fmtN(Math.abs(val))+" (at "+PARAMS.vot+"/h \u00d7 "+PARAMS.hours+" days)</div>";
+    h+="<div class='dim' style='font-size:10.5px;margin-top:4px'>Daily VHT change "+(dV>0?"+":"")+fmtN(dV)+" veh·h · annualised "
+      +(val>=0?"saving ":"cost ")+fmtN(Math.abs(val))+" (at "+PARAMS.vot+"/h × "+PARAMS.hours+" days)</div>";
   }
   e.innerHTML=h;
   function row(name,b,a,d,pc){ const cls=d<0?"good":(d>0?"bad":""); 
     return "<tr><td>"+name+"</td><td>"+fmtN(b)+"</td><td>"+fmtN(a)+"</td><td class='"+cls+"'>"+(d>0?"+":"")+fmtN(d)+" ("+(pc>0?"+":"")+pc.toFixed(1)+"%)</td></tr>"; }
 }
 function runScenario(){
-  if(!SCN.upgrades.size && !SCN.extras.length){ setStatus("No edits \u2014 upgrade a link or draw a road first."); return; }
+  if(!SCN.upgrades.size && !SCN.extras.length){ setStatus("No edits — upgrade a link or draw a road first."); return; }
   // guarantee the baseline matches current method/demand/sample, else the diff is meaningless
   if(!baseVol || baseSig!==curSig()){
-    setStatus("Re-running baseline to match current settings\u2026");
+    setStatus("Re-running baseline to match current settings…");
     if(!GLINK) buildLinks(); buildGraph(null);
     assignChunked("Assigning baseline",(vol)=>{ baseVol=vol.slice(0,GLINK.m); baseMet=metricsOf(vol); baseSig=curSig(); scenarioCore(); });
     return;
@@ -3760,8 +3803,8 @@ function scenarioCore(){
     MODE="diff"; document.querySelectorAll("#modeSeg button,#miniMode button").forEach(x=>x.classList.toggle("on",x.dataset.m==="diff"));
     updateScnPanel(); render();
     const dv=scnMet.vht-baseMet.vht;
-    setStatus("Scenario assigned \u00b7 \u0394VHT "+fmtN(dv)+" \u00b7 "+secs.toFixed(1)+"s");
-    toast((dv<0?"VHT down ":"VHT up ")+fmtN(Math.abs(dv))+" veh\u00b7h",dv<0?"ok":"warn");
+    setStatus("Scenario assigned · ΔVHT "+fmtN(dv)+" · "+secs.toFixed(1)+"s");
+    toast((dv<0?"VHT down ":"VHT up ")+fmtN(Math.abs(dv))+" veh·h",dv<0?"ok":"warn");
   });
 }
 function clearEdits(){ SCN={extras:[],upgrades:new Map(),draft:null}; DIFF=null; scnVol=null; scnMet=null;
@@ -3779,7 +3822,7 @@ function ramp(t){ // viridis-ish 0..1
   const f=t*(s.length-1),i=Math.min(s.length-2,Math.floor(f)),fr=f-i,a=s[i],b=s[i+1];
   return "rgb("+(a[0]+(b[0]-a[0])*fr|0)+","+(a[1]+(b[1]-a[1])*fr|0)+","+(a[2]+(b[2]-a[2])*fr|0)+")";
 }
-let CB=false; let GAPHIST=[]; const THEME={mapBg:"#0c1320",baseLink:"#46587e"};
+let CB=false; let GAPHIST=[]; const THEME={mapBg:"#0c1320",baseLink:"#8298cd"};
 function vcColor(r){ // level-of-service style
   if(CB){ // colour-blind safe blue->orange sequential
     const t=Math.max(0,Math.min(1.3,r))/1.3, s=[[44,123,182],[171,217,233],[255,225,140],[253,141,60],[179,40,20]];
@@ -3870,7 +3913,7 @@ function render(){
 function drawLegend(t){
   if(!assignDone) return;
   const x0=12, w=176, pad=8;
-  const title = MODE==="vol" ? "Link volume" : MODE==="diff" ? "\u0394 volume (scenario \u2212 base)" : MODE==="los" ? "Level of service (v/c)" : "Volume / capacity";
+  const title = MODE==="vol" ? "Link volume" : MODE==="diff" ? "Δ volume (scenario − base)" : MODE==="los" ? "Level of service (v/c)" : "Volume / capacity";
   const boxH = (MODE==="vol"||MODE==="diff") ? 56 : 96, y0=H-14-boxH;
   t.globalAlpha=.88; t.fillStyle="#0d1320"; t.strokeStyle="#243044"; t.lineWidth=1;
   t.beginPath(); t.rect(x0,y0,w+pad*2,boxH); t.fill(); t.stroke();
@@ -3886,14 +3929,14 @@ function drawLegend(t){
     const gx=x0+pad,gy=y0+pad+18,gw=w,gh=10;
     for(let i=0;i<gw;i++){ const dv=(i/gw*2-1)*DIFFMAX; t.fillStyle=diffColor(dv); t.fillRect(gx+i,gy,1,gh); }
     t.fillStyle="#8aa6c0";
-    const lo="\u2212"+fmtN(DIFFMAX); t.fillText(lo,gx,gy+gh+2);
-    t.fillText("less \u2190 0 \u2192 more", gx+gw/2-44, gy+gh+2);
+    const lo="−"+fmtN(DIFFMAX); t.fillText(lo,gx,gy+gh+2);
+    t.fillText("less ← 0 → more", gx+gw/2-44, gy+gh+2);
     const hi="+"+fmtN(DIFFMAX); t.fillText(hi,gx+gw-t.measureText(hi).width,gy+gh+2);
   } else {
     const isLos=MODE==="los";
     const rows = isLos
       ? [["A free flow",0.5],["B",0.65],["C",0.75],["D approaching",0.85],["E at capacity",0.95],["F over capacity",1.2]]
-      : [["< 0.6",0.5],["0.6 \u2013 0.8",0.7],["0.8 \u2013 0.9",0.85],["0.9 \u2013 1.0",0.95],["1.0 \u2013 1.2",1.1],["> 1.2",1.3]];
+      : [["< 0.6",0.5],["0.6 – 0.8",0.7],["0.8 – 0.9",0.85],["0.9 – 1.0",0.95],["1.0 – 1.2",1.1],["> 1.2",1.3]];
     let yy=y0+pad+18;
     for(const [lab,mid] of rows){ t.fillStyle=vcColor(mid); t.fillRect(x0+pad,yy,12,9); t.fillStyle="#cdd6e4"; t.fillText(lab,x0+pad+18,yy-1); yy+=12; }
   }
@@ -3908,7 +3951,7 @@ function updateScalebar(){ const target=90/sc, nice=[10,20,50,100,200,500,1000,2
   const sl=document.getElementById("sclbl"); if(sl)sl.textContent=m>=1000?(m/1000+" km"):(m+" m"); }
 const coordsEl=document.getElementById("coords");
 function showCoords(px,py){ const x=cx+(px-W/2)/sc,y=cy-(py-H/2)/sc;
-  coordsEl.textContent="E "+Math.round(x).toLocaleString()+" \u00b7 N "+Math.round(y).toLocaleString(); }
+  coordsEl.textContent="E "+Math.round(x).toLocaleString()+" · N "+Math.round(y).toLocaleString(); }
 
 /* ---------- hover: nearest loaded link ---------- */
 let zTip=document.getElementById("ztip");
@@ -3927,9 +3970,9 @@ function nearestLink(px,py){
 function showTip(hit,px,py){
   const c=hit.c,i=hit.i, v=VOL[c][i], lt=RD[c].lt[i], ln=Math.max(1,RD[c].ln[i]), cap=ln*PARAMS.cap[c], r=v/cap;
   const ffspd=PARAMS.spd[c], congSpd=ffspd/(1+PARAMS.alpha*Math.pow(r,PARAMS.beta));
-  zTip.innerHTML="<b>"+c+"</b> \u00b7 type "+lt+" \u00b7 "+ln+" ln \u00b7 LOS "+losLetter(r)+"<br>"
+  zTip.innerHTML="<b>"+c+"</b> · type "+lt+" · "+ln+" ln · LOS "+losLetter(r)+"<br>"
     +"Volume: "+Math.round(v).toLocaleString()+" veh<br>"
-    +"Capacity: "+Math.round(cap).toLocaleString()+" \u00b7 V/C "+r.toFixed(2)+"<br>"
+    +"Capacity: "+Math.round(cap).toLocaleString()+" · V/C "+r.toFixed(2)+"<br>"
     +"Speed: "+congSpd.toFixed(0)+" / "+ffspd+" km/h";
   let lx=px+14,ly=py+14; if(lx+170>W)lx=px-184; if(ly+90>H)ly=py-96;
   zTip.style.left=lx+"px"; zTip.style.top=ly+"px"; zTip.style.display="block";
@@ -4056,14 +4099,14 @@ function loadEmbeddedOD(){
   if(ODMAT) return; if(!OD_B64||!OD_N){ return; }
   if(typeof pako==="undefined"){ setStatus("Embedded OD present but decompressor missing."); return; }
   try{
-    setStatus("Loading embedded OD matrix\u2026");
+    setStatus("Loading embedded OD matrix…");
     const bin=atob(OD_B64); const raw=new Uint8Array(bin.length); for(let i=0;i<bin.length;i++) raw[i]=bin.charCodeAt(i);
     const bytes=pako.ungzip(raw); const buf=bytes.slice().buffer;
     const cnt=new DataView(buf).getUint32(0,true);
     const O=new Uint16Array(buf,4,cnt), D=new Uint16Array(buf,4+cnt*2,cnt), V=new Uint16Array(buf,4+cnt*4,cnt);
     const r=buildODfromArrays(O,D,V,cnt,true);
     document.getElementById("demandSel").value="od";
-    const os=document.getElementById("odStats"); if(os) os.textContent="Embedded matrix \u00b7 "+r.cells.toLocaleString()+" OD pairs \u00b7 "+Math.round(r.grand).toLocaleString()+" trips \u00b7 "+r.origins.toLocaleString()+" origins";
+    const os=document.getElementById("odStats"); if(os) os.textContent="Embedded matrix · "+r.cells.toLocaleString()+" OD pairs · "+Math.round(r.grand).toLocaleString()+" trips · "+r.origins.toLocaleString()+" origins";
     setStatus("Embedded OD loaded ("+Math.round(r.grand).toLocaleString()+" trips). Press Run to assign.");
     toast("OD matrix loaded","ok");
   }catch(e){ setStatus("Could not load embedded OD: "+e.message); }
@@ -4075,7 +4118,7 @@ function loadLU(){ if(LUF||!LU_B64||!LU_N) return; try{
   const bin=atob(LU_B64); const raw=new Uint8Array(bin.length); for(let i=0;i<bin.length;i++) raw[i]=bin.charCodeAt(i);
   LUF=new Float32Array(raw.buffer); }catch(e){ LUF=null; } }
 function luVal(realId,col){ if(!LUF) return 0; const z=realId-1; if(z<0) return 0; const o=z*9+col; return (o>=0&&o<LUF.length)?LUF[o]:0; }
-function buildDemandModel(){ setStatus("Building demand model from land use\u2026"); document.getElementById("demStats").textContent="working\u2026"; setTimeout(buildDemandModelCore,30); }
+function buildDemandModel(){ setStatus("Building demand model from land use…"); document.getElementById("demStats").textContent="working…"; setTimeout(buildDemandModelCore,30); }
 function buildDemandModelCore(){
   if(!GLINK) buildLinks(); if(!GRAPH) buildGraph(null);
   loadLU(); if(!LUF){ toast("Land use not available","warn"); return; }
@@ -4093,7 +4136,7 @@ function buildDemandModelCore(){
     D[k]=(aRet*ret+aOff*off+aInd*ind+aSch*sch+0.004*(med+oth))/100;
     X[k]=CENT[z*2]; Y[k]=CENT[z*2+1]; node[k]=GRAPH.znode[z]; sumO+=O[k]; sumD+=D[k];
   }
-  if(sumO<=0){ toast("No trips generated \u2014 check rates","warn"); setStatus("Demand model: zero productions."); return; }
+  if(sumO<=0){ toast("No trips generated — check rates","warn"); setStatus("Demand model: zero productions."); return; }
   const balance= sumD>0? sumO/sumD : 0; for(let k=0;k<n;k++) D[k]*=balance;   // attractions balanced to productions
   let F; try{ F=new Float32Array(n*n); }catch(e){ toast("Too many zones for in-memory gravity","warn"); return; }
   for(let i=0;i<n;i++){ const xi=X[i],yi=Y[i], base=i*n;
@@ -4113,14 +4156,14 @@ function buildDemandModelCore(){
   ODMAT={byOrigNode,cells,grand};
   document.getElementById("demandSel").value="od";
   const mtl= grand>0?(tlsum/grand):0;
-  const msg=Math.round(grand).toLocaleString()+" trips \u00b7 "+cells.toLocaleString()+" OD cells \u00b7 mean trip "+mtl.toFixed(1)+" km";
+  const msg=Math.round(grand).toLocaleString()+" trips · "+cells.toLocaleString()+" OD cells · mean trip "+mtl.toFixed(1)+" km";
   document.getElementById("demStats").textContent=msg;
-  const os=document.getElementById("odStats"); if(os) os.textContent="Synthesised from land use \u00b7 "+msg;
+  const os=document.getElementById("odStats"); if(os) os.textContent="Synthesised from land use · "+msg;
   setStatus("Demand model built. Pick Frank-Wolfe + AM peak, then Run."); toast("Demand model built","ok");
 }
 document.getElementById("odFile").addEventListener("change",async e=>{
   const f=e.target.files&&e.target.files[0]; if(!f)return;
-  setStatus("Reading OD "+f.name+"\u2026");
+  setStatus("Reading OD "+f.name+"…");
   const txt=await f.text();
   const idx=zoneIdIndex(); const lines=txt.split(/\r?\n/); let cells=0, grand=0;
   // demand stored sparse: Map origin node -> Map destNode -> trips ; aggregate to nodes
@@ -4136,8 +4179,8 @@ document.getElementById("odFile").addEventListener("change",async e=>{
   }
   ODMAT={byOrigNode,cells,grand};
   document.getElementById("demandSel").value="od";
-  const os=document.getElementById("odStats"); if(os) os.textContent=cells.toLocaleString()+" OD pairs \u00b7 "+Math.round(grand).toLocaleString()+" trips \u00b7 "+byOrigNode.size.toLocaleString()+" loaded origins";
-  setStatus("OD loaded: "+cells.toLocaleString()+" pairs \u00b7 "+Math.round(grand).toLocaleString()+" trips. Press Run.");
+  const os=document.getElementById("odStats"); if(os) os.textContent=cells.toLocaleString()+" OD pairs · "+Math.round(grand).toLocaleString()+" trips · "+byOrigNode.size.toLocaleString()+" loaded origins";
+  setStatus("OD loaded: "+cells.toLocaleString()+" pairs · "+Math.round(grand).toLocaleString()+" trips. Press Run.");
   toast("OD matrix loaded","ok");
 });
 
@@ -4164,7 +4207,7 @@ function updateKPI(vol){ const box=document.getElementById("kpi"); if(!box)retur
     if(g<GLINK.m){ const r=v/GRAPH.ECAP[g]; vcsum+=r; nl++; if(v>GRAPH.ECAP[g])over++; } }
   const avgspd=vht>0?vmt/vht:0, avgvc=nl?vcsum/nl:0, delay=vht-ffvht;
   const k=(v,l)=>"<div class='k'><div class='v'>"+v+"</div><div class='l'>"+l+"</div></div>";
-  box.innerHTML=k(fmtN(vht),"VHT veh\u00b7h")+k(fmtN(vmt),"VMT veh\u00b7km")+k(avgspd.toFixed(0),"avg km/h")
+  box.innerHTML=k(fmtN(vht),"VHT veh·h")+k(fmtN(vmt),"VMT veh·km")+k(avgspd.toFixed(0),"avg km/h")
     +k(avgvc.toFixed(2),"avg v/c")+k(over.toLocaleString(),"over cap")+k(fmtN(delay),"delay h"); }
 
 function curVol(){ return (RESULT==="scenario"&&scnVol)?scnVol:baseVol; }
@@ -4180,7 +4223,7 @@ function drawConv(){ const cv=document.getElementById("convChart"); if(!cv)retur
   gs.forEach((v,i)=>{ const px=x(i),py=y(v); i?ctx2.lineTo(px,py):ctx2.moveTo(px,py); }); ctx2.stroke();
   ctx2.fillStyle="#7df9ff"; gs.forEach((v,i)=>{ ctx2.beginPath(); ctx2.arc(x(i),y(v),1.6,0,7); ctx2.fill(); });
   ctx2.fillStyle="#8aa6c0"; ctx2.font="9px ui-monospace,monospace"; ctx2.textBaseline="top";
-  ctx2.fillText("relative gap / iteration (log) \u00b7 now "+(gs[gs.length-1]*100).toFixed(2)+"%",6,3); ctx2.textBaseline="alphabetic";
+  ctx2.fillText("relative gap / iteration (log) · now "+(gs[gs.length-1]*100).toFixed(2)+"%",6,3); ctx2.textBaseline="alphabetic";
 }
 function classSummary(){ if(!assignDone){toast("Run an assignment first","warn");return;}
   const src=(RESULT==="scenario"&&scnVol)?scnVol:baseVol; if(!src){return;}
@@ -4210,7 +4253,7 @@ function histogram(){ if(!assignDone){toast("Run an assignment first","warn");re
     bins[r<0.6?0:r<0.8?1:r<0.9?2:r<1?3:r<1.2?4:5]++; }
   const max=Math.max(1,bins[0],bins[1],bins[2],bins[3],bins[4],bins[5]);
   const labs=["<.6",".6-.8",".8-.9",".9-1","1-1.2",">1.2"], cols=["#2ecc71","#9acd32","#f1c40f","#e67e22","#e74c3c","#8e1b1b"];
-  let h="<div class='dim' style='font-size:10px'>v/c distribution \u00b7 "+bins.reduce((a,b)=>a+b,0).toLocaleString()+" loaded links</div>";
+  let h="<div class='dim' style='font-size:10px'>v/c distribution · "+bins.reduce((a,b)=>a+b,0).toLocaleString()+" loaded links</div>";
   for(let i=0;i<6;i++) h+="<div style='display:flex;align-items:center;gap:5px;margin-top:3px'><span style='width:36px;font-size:9px;color:var(--dim)'>"+labs[i]+"</span><div style='height:9px;background:"+cols[i]+";width:"+(100*bins[i]/max).toFixed(1)+"%;border-radius:2px;min-width:1px'></div><span style='font-size:9px;color:var(--dim)'>"+bins[i].toLocaleString()+"</span></div>";
   aOut(h); }
 
@@ -4241,7 +4284,7 @@ function exportCSV(){ if(!assignDone){toast("Run an assignment first","warn");re
 /* ---- select-link analysis (access bundle feeding a tapped link) ---- */
 function selectLinkAt(px,py){ if(!baseVol){toast("Run an assignment first","warn");return;}
   const g0=nearestAnyLink(px,py); if(g0<0||g0>=GLINK.m){setStatus("No link near tap.");return;}
-  setStatus("Tracing flows through link\u2026");
+  setStatus("Tracing flows through link…");
   buildGraph(null); recompTimes(baseVol);
   const idMap=GRAPH.idMap, nodeA=idMap.get(GLINK.A[g0]), nodeB=idMap.get(GLINK.B[g0]);
   const od=originsAndDemand(); let origins=od?od.origins.slice():[];
@@ -4255,7 +4298,7 @@ function selectLinkAt(px,py){ if(!baseVol){toast("Run an assignment first","warn
     let u=b,guard=0; while(predE[u]>=0 && guard++<200000){ const e=predE[u], gg=elink[e]; if(gg<GLINK.m) SELFLOW[gg]+=w; u=esrc[e]; } }
   SELMAX=1; for(let g=0;g<GLINK.m;g++) if(SELFLOW[g]>SELMAX)SELMAX=SELFLOW[g];
   SELG=g0; SCREEN=null; SCREENHITS=null;
-  document.getElementById("selInfo").innerHTML="Select-link \u00b7 "+CLS[GLINK.cls[g0]]+" link "+g0+"<br>"+Math.round(total).toLocaleString()+" veh from "+contrib.toLocaleString()+" origins use this link (baseline).";
+  document.getElementById("selInfo").innerHTML="Select-link · "+CLS[GLINK.cls[g0]]+" link "+g0+"<br>"+Math.round(total).toLocaleString()+" veh from "+contrib.toLocaleString()+" origins use this link (baseline).";
   setStatus("Select-link: "+Math.round(total).toLocaleString()+" veh through link "+g0); render();
   toast("Select-link traced ("+contrib+" origins)","ok"); }
 
@@ -4270,7 +4313,7 @@ function screenTap(px,py){ const w=worldAt(px,py); if(!SCREEN||SCREEN.length>=2)
     for(let i=0;i<d.n;i++){ let crossed=false;
       for(let j=off[i];j<off[i+1]-1;j++){ if(segInt(A,B,[xy[j*2],xy[j*2+1]],[xy[(j+1)*2],xy[(j+1)*2+1]])){crossed=true;break;} }
       if(crossed){ const g=gi[i],v=src[g]; if(v>0){ total+=v; cnt++; SCREENHITS.add(g); } } } }
-  document.getElementById("selInfo").innerHTML="Screenline \u00b7 "+cnt+" links<br>"+Math.round(total).toLocaleString()+" veh crossing.";
+  document.getElementById("selInfo").innerHTML="Screenline · "+cnt+" links<br>"+Math.round(total).toLocaleString()+" veh crossing.";
   setStatus("Screenline: "+Math.round(total).toLocaleString()+" veh across "+cnt+" links"); render();
   toast(Math.round(total).toLocaleString()+" veh across screenline","ok"); }
 
@@ -4316,26 +4359,26 @@ function saveScenario(){ if(!SCN.upgrades.size && !SCN.extras.length){toast("No 
   const name=(document.getElementById("scnName").value||("Scenario "+(SCENARIOS.length+1))).slice(0,40);
   SCENARIOS.push({name, up:[...SCN.upgrades.entries()], ex:SCN.extras.map(e=>({pts:e.pts,lanes:e.lanes,lt:e.lt})),
     dvht:(scnMet&&baseMet)?scnMet.vht-baseMet.vht:null });
-  persistScn(); buildScnList(); document.getElementById("scnName").value=""; toast("Saved \u201c"+name+"\u201d","ok"); }
+  persistScn(); buildScnList(); document.getElementById("scnName").value=""; toast("Saved “"+name+"”","ok"); }
 function loadScenarioEdits(i){ const s=SCENARIOS[i]; if(!s)return;
   SCN={upgrades:new Map(s.up.map(p=>[p[0]|0,p[1]|0])), extras:s.ex.map(e=>({pts:e.pts,lanes:e.lanes,lt:e.lt})), draft:null};
-  updateScnPanel(); render(); setStatus("Loaded \u201c"+s.name+"\u201d \u2014 Run scenario to evaluate."); toast("Loaded \u201c"+s.name+"\u201d"); }
+  updateScnPanel(); render(); setStatus("Loaded “"+s.name+"” — Run scenario to evaluate."); toast("Loaded “"+s.name+"”"); }
 function delScenario(i){ SCENARIOS.splice(i,1); persistScn(); buildScnList(); }
 function buildScnList(){ const box=document.getElementById("scnList"); if(!box)return; box.innerHTML="";
   SCENARIOS.forEach((s,i)=>{ const el=document.createElement("div"); el.className="scnItem";
-    const dv=s.dvht!=null?(" \u00b7 \u0394VHT "+fmtN(s.dvht)):"";
+    const dv=s.dvht!=null?(" · ΔVHT "+fmtN(s.dvht)):"";
     const lbl=document.createElement("b"); lbl.textContent=s.name;
     const meta=document.createElement("span"); meta.className="dim"; meta.textContent=(s.up.length+s.ex.length)+" edits"+dv;
     const b1=document.createElement("button"); b1.className="sbtn"; b1.textContent="Load"; b1.onclick=()=>loadScenarioEdits(i);
-    const b2=document.createElement("button"); b2.className="sbtn"; b2.textContent="\u2715"; b2.setAttribute("aria-label","Delete"); b2.onclick=()=>delScenario(i);
+    const b2=document.createElement("button"); b2.className="sbtn"; b2.textContent="✕"; b2.setAttribute("aria-label","Delete"); b2.onclick=()=>delScenario(i);
     el.appendChild(lbl); el.appendChild(meta); el.appendChild(b1); el.appendChild(b2); box.appendChild(el); }); }
 
 /* ---- settings (editable capacity / speed / BPR / appraisal) ---- */
 function buildSettings(){ const box=document.getElementById("settingsBody"); if(!box)return;
   let h="<table class='cmp'><tr><th>class</th><th>cap/lane</th><th>km/h</th></tr>";
   for(const c of CLS) h+="<tr><td>"+c+"</td><td><input data-cap='"+c+"' type='number' value='"+PARAMS.cap[c]+"' style='width:62px'></td><td><input data-spd='"+c+"' type='number' value='"+PARAMS.spd[c]+"' style='width:52px'></td></tr>";
-  h+="</table><div class='row' style='margin-top:6px;flex-wrap:wrap'><label>BPR \u03b1 <input id='alphaIn' type='number' step='0.01' value='"+PARAMS.alpha+"' style='width:58px'></label>"
-    +"<label>\u03b2 <input id='betaIn' type='number' step='0.5' value='"+PARAMS.beta+"' style='width:48px'></label></div>"
+  h+="</table><div class='row' style='margin-top:6px;flex-wrap:wrap'><label>BPR α <input id='alphaIn' type='number' step='0.01' value='"+PARAMS.alpha+"' style='width:58px'></label>"
+    +"<label>β <input id='betaIn' type='number' step='0.5' value='"+PARAMS.beta+"' style='width:48px'></label></div>"
     +"<div class='row' style='flex-wrap:wrap'><label>value of time <input id='votIn' type='number' value='"+PARAMS.vot+"' style='width:56px'></label>"
     +"<label>peak days/yr <input id='hoursIn' type='number' value='"+PARAMS.hours+"' style='width:52px'></label></div>";
   box.innerHTML=h; }
@@ -4345,7 +4388,7 @@ function applySettingsFn(){ for(const c of CLS){ const ci=document.querySelector
   PARAMS.vot=Math.max(0,+document.getElementById("votIn").value); PARAMS.hours=Math.max(1,+document.getElementById("hoursIn").value);
   try{ localStorage.setItem("steam_assign_params",JSON.stringify(PARAMS)); }catch(_){}
   GLINK=null; GRAPH=null; baseVol=null; scnVol=null; DIFF=null; VOL=null; assignDone=false; baseSig=null; SELFLOW=null; SCREENHITS=null;
-  buildLinks(); updateKPI(null); render(); setStatus("Parameters applied \u2014 re-run the assignment."); toast("Parameters applied","ok"); }
+  buildLinks(); updateKPI(null); render(); setStatus("Parameters applied — re-run the assignment."); toast("Parameters applied","ok"); }
 function resetSettingsFn(){ PARAMS=JSON.parse(JSON.stringify(PARAM_DEFAULT)); try{localStorage.removeItem("steam_assign_params");}catch(_){}
   document.getElementById("growthIn").value=PARAMS.growth; buildSettings(); applySettingsFn(); }
 
@@ -4355,7 +4398,7 @@ document.getElementById("helpClose").onclick=()=>document.getElementById("help")
 document.getElementById("help").addEventListener("click",e=>{ if(e.target.id==="help")e.target.classList.remove("show"); });
 document.getElementById("themeSel").addEventListener("change",e=>applyTheme(e.target.value));
 document.getElementById("cbChk").addEventListener("change",e=>{ CB=e.target.checked; render(); });
-document.getElementById("growthIn").addEventListener("change",()=>{ if(baseVol) setStatus("Growth changed \u2014 re-run to apply."); });
+document.getElementById("growthIn").addEventListener("change",()=>{ if(baseVol) setStatus("Growth changed — re-run to apply."); });
 document.getElementById("topBtn").onclick=topLinks;
 document.getElementById("buildDemandBtn").onclick=buildDemandModel;
 document.getElementById("classBtn").onclick=classSummary;
@@ -4386,7 +4429,7 @@ try{ const th=localStorage.getItem("steam_assign_theme"); if(th){ document.getEl
 document.getElementById("growthIn").value=PARAMS.growth;
 buildSettings(); buildScnList();
 window.addEventListener("load",()=>{ try{ loadEmbeddedOD(); }catch(e){} });
-setStatus(N0.toLocaleString()+" zones \u00b7 loading embedded OD matrix\u2026 then press Run");
+setStatus(N0.toLocaleString()+" zones · loading embedded OD matrix… then press Run");
 __STEAM_ES__
 <script>
 /* STEAM 2040 Studio — copilot bridge (injected into each embedded app).
@@ -4451,6 +4494,18 @@ __STEAM_ES__
     try{ document.dispatchEvent(new KeyboardEvent("keydown",{key:key, bubbles:true})); return {ok:true}; }
     catch(e){ return {ok:false, err:String(e)}; }
   }
+  /* toggle a class on <body> (used by the Studio rail for map-first / panel visibility) */
+  function bodyClass(name, on){ document.body.classList.toggle(name, !!on); return {ok:true, on:document.body.classList.contains(name)}; }
+  /* accordion apps: reveal the panel and open exactly one <details class="sec"> by summary text */
+  function section(text){
+    document.body.classList.remove("collapsed");
+    var t=(text||"").toLowerCase(), ds=document.querySelectorAll("details.sec"), found=false;
+    for(var i=0;i<ds.length;i++){
+      var s=ds[i].querySelector("summary"), hit=!!s && (s.innerText||"").toLowerCase().indexOf(t)>=0;
+      ds[i].open=hit; if(hit){ found=true; try{ s.scrollIntoView({block:"nearest"}); }catch(e){} }
+    }
+    return {ok:found};
+  }
 
   window.addEventListener("message", function(ev){
     var m = ev.data;
@@ -4466,6 +4521,8 @@ __STEAM_ES__
         case "read":  out = readId(m.id); break;
         case "snap":  out = snap(m.ids); break;
         case "open":  out = openDetails(m.text); break;
+        case "bodyclass": out = bodyClass(m.name, m.on); break;
+        case "section":   out = section(m.text); break;
         case "key":   out = pressKey(m.key); break;
         default:      out = {ok:false, err:"unknown cmd "+m.cmd};
       }
@@ -4631,14 +4688,14 @@ async function rankOrSolve(btn, label){
   return {html:html, chips:["Colour by V/C","Find solutions","Top links","Colour by LOS"]};
 }
 
-/* ---------- tab / dock UI ---------- */
-function switchApp(key,silent){
+/* ---------- app switch + mode chip ---------- */
+var MODEICON={viewer:"🗺️",assign:"🚦"}, MODENAME={viewer:"Network",assign:"Assignment"};
+function switchApp(key){
   if(!APPS[key]) return;
   activeApp=key;
-  for(var k in APPS){
-    document.getElementById("wrap-"+k).classList.toggle("on",k===key);
-  }
-  document.querySelectorAll("#tabs .tab").forEach(function(t){ t.classList.toggle("on",t.dataset.app===key); });
+  for(var k in APPS){ document.getElementById("wrap-"+k).classList.toggle("on",k===key); }
+  document.getElementById("modename").textContent=MODENAME[key]||APPS[key].label;
+  var mc=document.querySelector("#modechip .ic"); if(mc) mc.textContent=MODEICON[key]||"🗺️";
   ensureFrame(key); waitReady(key);
   updateCtx();
 }
@@ -4646,8 +4703,40 @@ function updateCtx(){
   document.getElementById("ctxapp").textContent=APPS[activeApp].label;
   document.getElementById("ctxdot").classList.toggle("live",!!APPS[activeApp].ready);
 }
-document.querySelectorAll("#tabs .tab").forEach(function(t){
-  t.addEventListener("click",function(){ switchApp(t.dataset.app); });
+
+/* ---------- left rail: tools reveal contextual panels, map-first by default ---------- */
+var TOOLS={
+  net:{app:"viewer"}, zones:{app:"viewer"},
+  assign:{app:"assign",section:"run"}, rec:{app:"assign",section:"recommend"},
+  scn:{app:"assign",section:"scenario"}, ana:{app:"assign",section:"analysis"}
+};
+var currentTool=null;
+function highlightRail(id){
+  document.querySelectorAll("#rail .ritem[data-tool]").forEach(function(b){ b.classList.toggle("on",b.dataset.tool===id); });
+}
+async function applyViewerPanels(){
+  if(!APPS.viewer.frame) return;
+  await rpc("viewer",{cmd:"bodyclass",name:"studio-hide-layers",on:currentTool!=="net"});
+  await rpc("viewer",{cmd:"bodyclass",name:"studio-hide-agg",   on:currentTool!=="zones"});
+}
+async function selectTool(id){
+  var t=TOOLS[id]; if(!t) return;
+  if(currentTool===id) return clearTool();      // toggle off → clean map
+  currentTool=id; highlightRail(id);
+  switchApp(t.app); await waitReady(t.app);
+  if(t.app==="assign"){ await rpc("assign",{cmd:"section",text:t.section}); }
+  else { await applyViewerPanels(); }
+}
+async function clearTool(){
+  currentTool=null; highlightRail(null);
+  if(APPS.assign.frame) await rpc("assign",{cmd:"bodyclass",name:"collapsed",on:true});
+  if(APPS.viewer.frame) await applyViewerPanels();
+}
+document.querySelectorAll("#rail .ritem[data-tool]").forEach(function(b){
+  b.addEventListener("click",function(){ selectTool(b.dataset.tool); });
+});
+document.getElementById("railCop").addEventListener("click",function(){
+  if(document.body.classList.contains("dock-closed")) openDock(); else closeDock();
 });
 function openDock(){ document.body.classList.remove("dock-closed"); setTimeout(function(){ document.getElementById("q").focus(); },50); }
 function closeDock(){ document.body.classList.add("dock-closed"); }

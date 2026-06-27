@@ -42,14 +42,37 @@ Type plain English (e.g. *"run a Frank-Wolfe assignment"*, *"colour zones by
 district"*, *"zoom to the Metro area"*, *"explain V/C"*) or tap a suggestion
 chip.
 
+## One workspace, not two apps
+
+The two tools share a single shell:
+
+- A **left icon rail** replaces tabs — **View** (Network, Zones) and **Model**
+  (Assign, Solve, Scenario, Analysis), with the Copilot at the bottom.
+- The app opens **map-first**: a clean, clearly-rendered network with no panel
+  clutter. Clicking a rail icon switches to the owning tool and reveals just
+  that tool's panel (the Assignment's accordion opens only the relevant
+  section); clicking it again returns to the clean map.
+- A mode chip in the top bar shows which tool's map you're looking at.
+
 ## How it's built
 
 Each original app runs **untouched inside its own iframe**, loaded from
 embedded source via a `Blob` URL — so there are no global-scope collisions and
 both apps behave exactly as they did standalone. A small **bridge** script is
-injected into each app; the container and Copilot talk to it over
-`postMessage` to click controls, set inputs and read state. The whole thing is
-one `index.html` with no build step.
+injected into each app; the container, rail and Copilot talk to it over
+`postMessage` to click controls, set inputs, read state, and toggle panel
+visibility. The build also brightens the faint base-network colour and converts
+literal `\uXXXX` escapes (a quirk of the originals) to real glyphs. The whole
+thing is one `index.html` with no build step at runtime.
+
+### Integration depth
+
+The rail makes the two tools feel like one app over one map, and the Copilot
+moves between them automatically. What is **not yet** wired is a single shared
+zone model — i.e. aggregating zones in the Viewer does not yet re-derive the
+Assignment on the merged zones. That requires merging the two engines onto one
+shared network/zone structure (and an OD decompressor the base apps don't ship)
+and is the natural next phase.
 
 ## Run
 

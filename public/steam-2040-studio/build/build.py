@@ -14,8 +14,49 @@ container = (SCRATCH / "container.html").read_text(encoding="utf-8")
 
 ENDRE = re.compile(r"</script\s*>", re.IGNORECASE)
 
+# Several glyphs are written as literal \uXXXX in HTML text in the original
+# files, so they render as the raw escape (e.g. "✕"). Convert every
+# \uXXXX that is NOT preceded by a backslash to the real character — valid
+# both in HTML text and inside JS string/regex literals.
+UESC = re.compile(r"(?<!\\)\\u([0-9a-fA-F]{4})")
+def unescape_glyphs(s):
+    return UESC.sub(lambda m: chr(int(m.group(1), 16)), s)
+
+# CSS injected so the Studio rail can declutter each app (map-first by default,
+# panels revealed contextually).
+OVERRIDE = {
+ "viewer": """
+  /* Studio: hide bulky panels until a rail tool is chosen */
+  body.studio-hide-agg #agg{display:none!important}
+  body.studio-hide-layers #chips,body.studio-hide-layers #dissctl{display:none!important}
+ """,
+ "assign": """
+  /* Studio: the rail controls panels, so hide the in-app panel toggles */
+  #panelOpen,#panelToggle{display:none!important}
+ """,
+}
+# Per-app source tweaks applied before embedding (clarity fixes + Studio hooks).
+def tweak(src, appid):
+    src = unescape_glyphs(src)
+    if appid == "assign":
+        # brighten the faint base-network colour so the map reads clearly at rest
+        src = src.replace('baseLink:"#46587e"', 'baseLink:"#8298cd"')
+    css = OVERRIDE.get(appid)
+    if css:
+        style = "<style>/* STEAM Studio overrides */" + css + "</style>\n</head>"
+        m = list(re.finditer(r"</head\s*>", src, re.IGNORECASE))
+        if m:
+            i = m[-1].start(); src = src[:i] + style + src[m[-1].end():]
+    # start each app map-first (panels hidden) so the Studio rail reveals them
+    if appid == "viewer":
+        src = src.replace("<body>", '<body class="studio-hide-agg studio-hide-layers">', 1)
+    elif appid == "assign":
+        src = src.replace("<body>", '<body class="collapsed">', 1)
+    return src
+
 def prep(path, appid):
     src = path.read_text(encoding="utf-8")
+    src = tweak(src, appid)
     # sanity: count real closing script tags
     n = len(ENDRE.findall(src))
     # inject the bridge just before the LAST </body>

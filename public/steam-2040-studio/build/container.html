@@ -23,19 +23,30 @@
   #brand{display:flex;align-items:baseline;gap:8px;font-weight:800;letter-spacing:.02em;font-size:15px}
   #brand .v{color:var(--gold)}
   #brand small{color:var(--dim);font-weight:500;font-size:10.5px;letter-spacing:0}
-  #tabs{display:flex;gap:6px;margin-left:6px}
-  .tab{padding:7px 15px;border-radius:9px;border:1px solid var(--line);background:#0e1626;
-    color:var(--dim);font-size:12.5px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:7px}
-  .tab .ic{font-size:13px}
-  .tab.on{color:#0b1018;background:var(--gold);border-color:var(--gold)}
-  .tab:not(.on):hover{color:var(--txt);border-color:#33486e}
+  #modechip{margin-left:8px;padding:4px 10px;border-radius:999px;border:1px solid var(--line);
+    background:#0e1626;color:var(--cyan);font-size:11px;font-weight:600;display:flex;align-items:center;gap:6px}
+  #modechip .ic{font-size:12px}
   #barRight{margin-left:auto;display:flex;align-items:center;gap:10px}
   #copBtn{padding:7px 13px;border-radius:9px;border:1px solid #2b6;background:#10301f;
     color:#9defc0;font-size:12.5px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:7px}
   #copBtn .pulse{width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:0 0 8px var(--green)}
 
-  /* ---- stage ---- */
+  /* ---- left icon rail ---- */
   #main{flex:1;display:flex;min-height:0}
+  #rail{flex:none;width:66px;background:linear-gradient(#0c1422,#0a0f1a);border-right:1px solid var(--line);
+    display:flex;flex-direction:column;align-items:center;padding:8px 0;gap:4px;z-index:15}
+  .rgrp{font-size:8.5px;letter-spacing:.08em;color:#4a5a78;text-transform:uppercase;margin:8px 0 2px;font-weight:700}
+  .ritem{width:54px;padding:7px 0 5px;border-radius:11px;border:1px solid transparent;background:none;
+    color:var(--dim);cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;
+    font-size:9.5px;font-weight:600;line-height:1}
+  .ritem .ic{font-size:18px;line-height:1}
+  .ritem:hover{background:#101a2c;color:var(--txt)}
+  .ritem.on{background:#13233c;border-color:#2d4a74;color:var(--gold)}
+  .ritem.cop{color:#9defc0}
+  .ritem.cop.on{background:#10301f;border-color:#2b6}
+  .rspring{flex:1}
+
+  /* ---- stage ---- */
   #stage{flex:1;position:relative;min-width:0;background:var(--bg)}
   .frameWrap{position:absolute;inset:0;display:none}
   .frameWrap.on{display:block}
@@ -119,17 +130,26 @@
 <body class="dock-closed">
 
 <div id="bar">
-  <div id="brand">STEAM <span class="v">2040</span> Studio <small>unified network + assignment + copilot</small></div>
-  <div id="tabs">
-    <button class="tab on" data-app="viewer"><span class="ic">🗺️</span><span class="lbl">Network Viewer</span></button>
-    <button class="tab" data-app="assign"><span class="ic">🚦</span><span class="lbl">Assignment</span></button>
-  </div>
+  <div id="brand">STEAM <span class="v">2040</span> Studio <small>unified network · assignment · copilot</small></div>
+  <div id="modechip"><span class="ic">🗺️</span><span id="modename">Network</span></div>
   <div id="barRight">
     <button id="copBtn"><span class="pulse"></span>Copilot</button>
   </div>
 </div>
 
 <div id="main">
+  <nav id="rail" aria-label="Tools">
+    <div class="rgrp">View</div>
+    <button class="ritem" data-tool="net"><span class="ic">🗺️</span>Network</button>
+    <button class="ritem" data-tool="zones"><span class="ic">⬡</span>Zones</button>
+    <div class="rgrp">Model</div>
+    <button class="ritem" data-tool="assign"><span class="ic">🚦</span>Assign</button>
+    <button class="ritem" data-tool="rec"><span class="ic">✨</span>Solve</button>
+    <button class="ritem" data-tool="scn"><span class="ic">🛠️</span>Scenario</button>
+    <button class="ritem" data-tool="ana"><span class="ic">📊</span>Analysis</button>
+    <div class="rspring"></div>
+    <button class="ritem cop" id="railCop"><span class="ic">✦</span>Copilot</button>
+  </nav>
   <div id="stage">
     <div class="frameWrap on" id="wrap-viewer">
       <div class="frameLoad" id="load-viewer"><div class="spin"></div>Loading Network Viewer…</div>
@@ -309,14 +329,14 @@ async function rankOrSolve(btn, label){
   return {html:html, chips:["Colour by V/C","Find solutions","Top links","Colour by LOS"]};
 }
 
-/* ---------- tab / dock UI ---------- */
-function switchApp(key,silent){
+/* ---------- app switch + mode chip ---------- */
+var MODEICON={viewer:"🗺️",assign:"🚦"}, MODENAME={viewer:"Network",assign:"Assignment"};
+function switchApp(key){
   if(!APPS[key]) return;
   activeApp=key;
-  for(var k in APPS){
-    document.getElementById("wrap-"+k).classList.toggle("on",k===key);
-  }
-  document.querySelectorAll("#tabs .tab").forEach(function(t){ t.classList.toggle("on",t.dataset.app===key); });
+  for(var k in APPS){ document.getElementById("wrap-"+k).classList.toggle("on",k===key); }
+  document.getElementById("modename").textContent=MODENAME[key]||APPS[key].label;
+  var mc=document.querySelector("#modechip .ic"); if(mc) mc.textContent=MODEICON[key]||"🗺️";
   ensureFrame(key); waitReady(key);
   updateCtx();
 }
@@ -324,8 +344,40 @@ function updateCtx(){
   document.getElementById("ctxapp").textContent=APPS[activeApp].label;
   document.getElementById("ctxdot").classList.toggle("live",!!APPS[activeApp].ready);
 }
-document.querySelectorAll("#tabs .tab").forEach(function(t){
-  t.addEventListener("click",function(){ switchApp(t.dataset.app); });
+
+/* ---------- left rail: tools reveal contextual panels, map-first by default ---------- */
+var TOOLS={
+  net:{app:"viewer"}, zones:{app:"viewer"},
+  assign:{app:"assign",section:"run"}, rec:{app:"assign",section:"recommend"},
+  scn:{app:"assign",section:"scenario"}, ana:{app:"assign",section:"analysis"}
+};
+var currentTool=null;
+function highlightRail(id){
+  document.querySelectorAll("#rail .ritem[data-tool]").forEach(function(b){ b.classList.toggle("on",b.dataset.tool===id); });
+}
+async function applyViewerPanels(){
+  if(!APPS.viewer.frame) return;
+  await rpc("viewer",{cmd:"bodyclass",name:"studio-hide-layers",on:currentTool!=="net"});
+  await rpc("viewer",{cmd:"bodyclass",name:"studio-hide-agg",   on:currentTool!=="zones"});
+}
+async function selectTool(id){
+  var t=TOOLS[id]; if(!t) return;
+  if(currentTool===id) return clearTool();      // toggle off → clean map
+  currentTool=id; highlightRail(id);
+  switchApp(t.app); await waitReady(t.app);
+  if(t.app==="assign"){ await rpc("assign",{cmd:"section",text:t.section}); }
+  else { await applyViewerPanels(); }
+}
+async function clearTool(){
+  currentTool=null; highlightRail(null);
+  if(APPS.assign.frame) await rpc("assign",{cmd:"bodyclass",name:"collapsed",on:true});
+  if(APPS.viewer.frame) await applyViewerPanels();
+}
+document.querySelectorAll("#rail .ritem[data-tool]").forEach(function(b){
+  b.addEventListener("click",function(){ selectTool(b.dataset.tool); });
+});
+document.getElementById("railCop").addEventListener("click",function(){
+  if(document.body.classList.contains("dock-closed")) openDock(); else closeDock();
 });
 function openDock(){ document.body.classList.remove("dock-closed"); setTimeout(function(){ document.getElementById("q").focus(); },50); }
 function closeDock(){ document.body.classList.add("dock-closed"); }

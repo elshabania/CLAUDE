@@ -60,6 +60,18 @@
     try{ document.dispatchEvent(new KeyboardEvent("keydown",{key:key, bubbles:true})); return {ok:true}; }
     catch(e){ return {ok:false, err:String(e)}; }
   }
+  /* toggle a class on <body> (used by the Studio rail for map-first / panel visibility) */
+  function bodyClass(name, on){ document.body.classList.toggle(name, !!on); return {ok:true, on:document.body.classList.contains(name)}; }
+  /* accordion apps: reveal the panel and open exactly one <details class="sec"> by summary text */
+  function section(text){
+    document.body.classList.remove("collapsed");
+    var t=(text||"").toLowerCase(), ds=document.querySelectorAll("details.sec"), found=false;
+    for(var i=0;i<ds.length;i++){
+      var s=ds[i].querySelector("summary"), hit=!!s && (s.innerText||"").toLowerCase().indexOf(t)>=0;
+      ds[i].open=hit; if(hit){ found=true; try{ s.scrollIntoView({block:"nearest"}); }catch(e){} }
+    }
+    return {ok:found};
+  }
 
   window.addEventListener("message", function(ev){
     var m = ev.data;
@@ -75,6 +87,8 @@
         case "read":  out = readId(m.id); break;
         case "snap":  out = snap(m.ids); break;
         case "open":  out = openDetails(m.text); break;
+        case "bodyclass": out = bodyClass(m.name, m.on); break;
+        case "section":   out = section(m.text); break;
         case "key":   out = pressKey(m.key); break;
         default:      out = {ok:false, err:"unknown cmd "+m.cmd};
       }
