@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>STEAM 2040 Studio — Abu Dhabi</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><rect width='16' height='16' fill='%230c1320'/><path d='M3 11h10M8 3v10' stroke='%23c8a24a' stroke-width='2'/></svg>" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <!-- left rail -->
+  <nav id="rail">
+    <button class="rail-btn active" data-ws="network" title="Network">
+      <svg viewBox="0 0 24 24"><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z"/></svg>
+    </button>
+    <button class="rail-btn" data-ws="aggregate" title="Zone aggregation">
+      <svg viewBox="0 0 24 24"><path d="M12 2l8 10-8 10-8-10z"/></svg>
+    </button>
+    <button class="rail-btn" data-ws="assign" title="Assignment">
+      <svg viewBox="0 0 24 24"><path d="M5 19L19 5M19 5h-9M19 5v9"/></svg>
+    </button>
+  </nav>
+
+  <!-- map -->
+  <main id="stage">
+    <canvas id="map"></canvas>
+
+    <!-- status pill -->
+    <div id="status" class="status">
+      <span class="spin" hidden></span>
+      <span class="status-text">starting…</span>
+    </div>
+
+    <!-- control panel -->
+    <section id="panel" class="panel">
+      <!-- filled per workspace by app.js -->
+    </section>
+
+    <!-- legend -->
+    <div id="legend" class="legend">Abu Dhabi 2040 network</div>
+
+    <!-- chat stack -->
+    <div id="chat" class="chat"></div>
+
+    <!-- copilot bar -->
+    <form id="bar" class="bar" autocomplete="off">
+      <span class="copilot-label">copilot</span>
+      <input id="cmd" class="cmd" type="text" placeholder="colour zones by population" />
+      <button id="send" class="send" type="submit">Send</button>
+    </form>
+  </main>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>

@@ -1,9 +1,14 @@
 # Road CAD Viewer
 
-> Also in this repo: [**Abu Dhabi Streets**](public/abu-dhabi-streets/README.md) — a
-> standalone map app showing Abu Dhabi's main and local street network as
-> toggleable layers over a Google Maps basemap. Served at
-> `/abu-dhabi-streets` on the deployed site.
+> Also in this repo:
+> - [**Abu Dhabi Streets**](public/abu-dhabi-streets/README.md) — a standalone
+>   map app showing Abu Dhabi's main and local street network as toggleable
+>   layers over a Google Maps basemap. Served at `/abu-dhabi-streets`.
+> - [**STEAM 2040 Studio**](public/steam-2040/README.md) — a browser-native
+>   strategic transport-modelling workstation for the Abu Dhabi 2040 network
+>   (map, equilibrium assignment, zone aggregation, improvement recommender,
+>   shapefile/CSV/GeoJSON export, and a natural-language copilot). Served at
+>   `/steam-2040`.
 
 A Next.js app that reads road CAD drawings (DXF and DWG) and detects road
 geometry from layer naming conventions (centerline, edge of pavement, lane
