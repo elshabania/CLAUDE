@@ -1,13 +1,25 @@
 /* Loads the gzipped typed-array blobs and exposes the in-memory model. */
 "use strict";
 
-const DATA = "data/";
+// Resolve data URLs relative to this module, so the app works whether it is
+// served at /steam-2040/, at the bare /steam-2040 (no trailing slash), from a
+// sub-path, or straight off the filesystem.
+const DATA = new URL("data/", import.meta.url);
 
 async function loadGz(name, Type) {
-  const res = await fetch(DATA + name + ".gz");
+  const res = await fetch(new URL(name + ".gz", DATA));
   if (!res.ok) throw new Error("fetch " + name + ": " + res.status);
-  const stream = res.body.pipeThrough(new DecompressionStream("gzip"));
-  const buf = await new Response(stream).arrayBuffer();
+  const raw = new Uint8Array(await res.arrayBuffer());
+  // The blobs are gzip on disk, but a CDN may serve a *.gz file with
+  // Content-Encoding: gzip (the browser then transparently inflates it). Detect
+  // the gzip magic so we inflate exactly once in either case.
+  let buf;
+  if (raw.length >= 2 && raw[0] === 0x1f && raw[1] === 0x8b) {
+    const stream = new Blob([raw]).stream().pipeThrough(new DecompressionStream("gzip"));
+    buf = await new Response(stream).arrayBuffer();
+  } else {
+    buf = raw.buffer;
+  }
   return new Type(buf);
 }
 
