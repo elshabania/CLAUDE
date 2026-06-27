@@ -66,6 +66,7 @@ export class Copilot {
       [/colou?r (?:the )?zones? by ([a-z\- ]+)/, (m) => this._zoneColour(m[1])],
 
       // filters / show only
+      [/(show|hide|toggle|add|remove)\b.*(centroid|connector)/, (m, s) => this._overlay(s)],
       [/show (?:only )?(freeway|arterial|collector)s?/, (m) => { this.app.filterClass([m[1]], true); this.app.say(`Showing ${m[1]}s.`, "ai"); }],
       [/(worst congestion|most congested|worst links|over capacity|los f links?)/, () => this._worst()],
       [/busiest corridors?|busiest links?|heaviest corridors?/, () => this._busiest()],
@@ -130,6 +131,15 @@ export class Copilot {
     const key = map[metric.trim()] || metric.trim().split(" ")[0];
     this.app.colorZones(key);
     this.app.say(`Coloured zones by ${metric.trim()}.`, "ai");
+  }
+
+  _overlay(s) {
+    const on = !/\b(hide|remove|off)\b/.test(s);
+    const did = [];
+    if (/centroid/.test(s)) { this.app.showCentroids(on); did.push("centroids"); }
+    if (/connector/.test(s)) { this.app.showConnectors(on); did.push("connectors"); }
+    if (this.app.ws === "network") this.app.renderPanel();
+    this.app.say(`${on ? "Showing" : "Hiding"} ${did.join(" and ")}.`, "ai");
   }
 
   async _worst() {

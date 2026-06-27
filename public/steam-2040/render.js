@@ -18,6 +18,7 @@ export class Renderer {
     this.linkBucket = null;        // Uint8Array(NL)
     this.linkWidth = null;         // Float32Array(NL)
     this.linkLegend = "";
+    this.linkIsVC = false;         // v/c uses the green->red ramp + absolute scale
     this.filterClasses = null;     // Set<int> | null
     this.highlight = null;         // Set<int> | null
 
@@ -25,6 +26,10 @@ export class Renderer {
     this.zoneVals = null;          // Float32Array(Z+1)
     this.zoneBucket = null;        // Int16Array(Z+1)  (-1 = skip)
     this.zoneLegend = "";
+
+    // overlay layers
+    this.showCentroids = false;
+    this.showConnectors = false;
 
     this.resize();
     window.addEventListener("resize", () => { this.resize(); this.draw(); });
@@ -78,9 +83,26 @@ export class Renderer {
   // values: Float32Array(NL); opts {widthByVal, legend, sqrtWidth}
   setLinkValues(values, legend, opts = {}) {
     this.linkVals = values; this.linkLegend = legend;
+    this.linkIsVC = !!opts.vc;
     const NL = this.m.NL;
     const bucket = new Uint8Array(NL);
     const width = new Float32Array(NL);
+
+    // v/c: map on an absolute scale (0 .. absMax) so colour means the same
+    // thing every run — green below ~0.7, amber near capacity, red over 1.
+    if (opts.vc) {
+      const absMax = opts.absMax || 1.5;
+      for (let l = 0; l < NL; l++) {
+        const v = values[l];
+        if (v <= 0) { bucket[l] = 255; width[l] = 0.8; continue; }
+        const t = Math.min(1, v / absMax);
+        bucket[l] = Math.min(NBUCKET - 1, (t * NBUCKET) | 0);
+        width[l] = FACILITY_WIDTH[this.m.link.cls[l]] + (v > 1 ? 1.4 : 0);
+      }
+      this.linkBucket = bucket; this.linkWidth = width;
+      return;
+    }
+
     // percentile mapping over positive values
     const pos = [];
     let vmax = 0;
@@ -101,7 +123,7 @@ export class Renderer {
     }
     this.linkBucket = bucket; this.linkWidth = width;
   }
-  clearLinkValues() { this.linkVals = null; this.linkBucket = null; this.linkLegend = ""; }
+  clearLinkValues() { this.linkVals = null; this.linkBucket = null; this.linkLegend = ""; this.linkIsVC = false; }
 
   setZoneValues(values, legend) {
     this.zoneVals = values; this.zoneLegend = legend;
@@ -127,6 +149,8 @@ export class Renderer {
 
   setFilter(classes) { this.filterClasses = classes; }
   setHighlight(set) { this.highlight = set; }
+  setCentroids(on) { this.showCentroids = on; }
+  setConnectors(on) { this.showConnectors = on; }
 
   // which classes are visible at the current zoom (LOD), unless filtered
   visibleClasses() {
@@ -171,7 +195,7 @@ export class Renderer {
       ctx.stroke();
       // coloured buckets
       for (let b = 0; b < NBUCKET; b++) {
-        const c = Palette.ramp(b / (NBUCKET - 1));
+        const c = this.linkIsVC ? Palette.vcRamp(b / (NBUCKET - 1)) : Palette.ramp(b / (NBUCKET - 1));
         ctx.strokeStyle = `rgb(${c[0]},${c[1]},${c[2]})`;
         ctx.lineWidth = 0.8 + 2.6 * (b / (NBUCKET - 1));
         ctx.beginPath();
@@ -198,6 +222,21 @@ export class Renderer {
       }
     }
 
+    // zone centroid connectors (centroid -> nearest network node)
+    if (this.showConnectors) {
+      const xy = m.zone.xy, nxy = m.node.xy, node = m.zone.node, Z = m.Z;
+      ctx.strokeStyle = "rgba(125,249,255,.35)"; ctx.lineWidth = 0.6;
+      ctx.beginPath();
+      for (let z = 1; z <= Z; z++) {
+        const nd = node[z - 1]; if (nd < 0) continue;
+        const x = xy[2 * (z - 1)], y = xy[2 * (z - 1) + 1];
+        const px = this.sx(x), py = this.sy(y);
+        if (px < -20 || px > this.W + 20 || py < -20 || py > this.H + 20) continue;
+        ctx.moveTo(px, py); ctx.lineTo(this.sx(nxy[2 * nd]), this.sy(nxy[2 * nd + 1]));
+      }
+      ctx.stroke();
+    }
+
     // highlight set
     if (this.highlight && this.highlight.size) {
       ctx.strokeStyle = Palette.mode === "cbsafe" ? "#ffd24a" : "#7df9ff";
@@ -221,6 +260,19 @@ export class Renderer {
         const c = Palette.ramp(b / (NBUCKET - 1));
         ctx.fillStyle = `rgb(${c[0]},${c[1]},${c[2]})`;
         ctx.beginPath(); ctx.arc(px, py, 2.6, 0, 6.283); ctx.fill();
+      }
+    }
+
+    // zone centroids (plain dots, when no zone attribute is coloured)
+    if (this.showCentroids && !this.zoneBucket) {
+      const Z = m.Z, xy = m.zone.xy;
+      ctx.fillStyle = Palette.mode === "cbsafe" ? "#ffd24a" : "#7df9ff";
+      for (let z = 1; z <= Z; z++) {
+        const x = xy[2 * (z - 1)], y = xy[2 * (z - 1) + 1];
+        if (!(Math.abs(y) > 1)) continue;
+        const px = this.sx(x), py = this.sy(y);
+        if (px < -5 || px > this.W + 5 || py < -5 || py > this.H + 5) continue;
+        ctx.beginPath(); ctx.arc(px, py, 1.8, 0, 6.283); ctx.fill();
       }
     }
   }

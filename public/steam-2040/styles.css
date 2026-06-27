@@ -119,6 +119,24 @@ select:focus, input:focus { border-color: var(--cyan); }
 .kpi .v { color: var(--text); font-size: 14px; font-weight: 600; font-variant-numeric: tabular-nums; }
 .kpi .v.gold { color: var(--gold); }
 
+/* recommendations list */
+.recs { margin-top: 12px; }
+.recs-h { color: var(--muted); font-size: 11px; margin-bottom: 8px; }
+.rec { border: 1px solid var(--border); border-radius: 8px; padding: 8px 9px;
+  margin-bottom: 7px; background: var(--inset); }
+.rec:hover { border-color: var(--cyan); }
+.rec-top { display: flex; align-items: center; gap: 7px; }
+.rec-i { flex: 0 0 auto; width: 18px; height: 18px; border-radius: 5px;
+  background: var(--gold); color: #1a1304; font-weight: 700; font-size: 11px;
+  display: grid; place-items: center; }
+.rec-link { flex: 1; color: var(--text); font-size: 12px; font-weight: 600; }
+.rec-apply { background: rgba(125,249,255,.14); color: var(--cyan);
+  border: 1px solid rgba(125,249,255,.3); border-radius: 6px; padding: 4px 8px;
+  font: inherit; font-size: 11px; cursor: pointer; white-space: nowrap; }
+.rec-apply:hover { background: rgba(125,249,255,.24); }
+.rec-stats { color: var(--muted); font-size: 11px; margin-top: 5px; }
+.rec-stats b { color: var(--gold); }
+
 /* legend */
 .legend {
   bottom: 78px; left: 14px;

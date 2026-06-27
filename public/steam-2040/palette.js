@@ -11,6 +11,11 @@ const CBSAFE = [
   [44,123,182],[88,159,196],[133,196,210],[178,223,224],[224,243,219],
   [254,224,144],[253,174,97],[244,109,67],[215,48,39],[178,24,43],
 ];
+// traffic ramp for v/c: free-flowing green -> amber (~capacity) -> deep red
+const TRAFFIC = [
+  [38,166,91],[106,184,72],[173,201,52],[241,196,15],[243,156,18],
+  [230,126,34],[211,84,30],[192,57,43],[155,30,30],
+];
 
 function lerp(ramp, t) {
   t = t < 0 ? 0 : t > 1 ? 1 : t;
@@ -25,16 +30,21 @@ function lerp(ramp, t) {
   ];
 }
 
+function gradientOf(ramp) {
+  return "linear-gradient(90deg," + ramp.map((c, i) =>
+    `rgb(${c[0]},${c[1]},${c[2]}) ${(100 * i / (ramp.length - 1)).toFixed(0)}%`).join(",") + ")";
+}
+
 export const Palette = {
   mode: "viridis",
-  ramp(t) { return lerp(this.mode === "cbsafe" ? CBSAFE : VIRIDIS, t); },
+  _seq() { return this.mode === "cbsafe" ? CBSAFE : VIRIDIS; },
+  ramp(t) { return lerp(this._seq(), t); },
   css(t) { const c = this.ramp(t); return `rgb(${c[0]},${c[1]},${c[2]})`; },
-  // CSS gradient string for the legend swatch
-  gradient() {
-    const ramp = this.mode === "cbsafe" ? CBSAFE : VIRIDIS;
-    return "linear-gradient(90deg," + ramp.map((c, i) =>
-      `rgb(${c[0]},${c[1]},${c[2]}) ${(100 * i / (ramp.length - 1)).toFixed(0)}%`).join(",") + ")";
-  },
+  // v/c ramp: green->red (or the cb-safe blue->red when that palette is on)
+  vcRamp(t) { return lerp(this.mode === "cbsafe" ? CBSAFE : TRAFFIC, t); },
+  // CSS gradient strings for the legend swatch
+  gradient() { return gradientOf(this._seq()); },
+  vcGradient() { return gradientOf(this.mode === "cbsafe" ? CBSAFE : TRAFFIC); },
 };
 
 // fixed facility colours for the default network view

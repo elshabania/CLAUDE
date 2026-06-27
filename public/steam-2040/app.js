@@ -70,7 +70,8 @@ class App {
     this.legendEl.innerHTML = "";
     if (ramp) {
       const r = document.createElement("span");
-      r.className = "ramp"; r.style.background = Palette.gradient();
+      r.className = "ramp";
+      r.style.background = ramp === "vc" ? Palette.vcGradient() : Palette.gradient();
       this.legendEl.appendChild(r);
     }
     this.legendEl.appendChild(document.createTextNode(text));
@@ -120,10 +121,19 @@ class App {
             <option value="">all (level-of-detail)</option>
             <option value="freeway">freeways</option><option value="arterial">arterials</option>
             <option value="collector">collectors</option>
-          </select></div>`;
+          </select></div>
+        <div class="row"><label>Zone overlay</label>
+          <div class="seg" id="ov">
+            <button data-ov="centroids" class="${this.renderer?.showCentroids ? "on" : ""}">Centroids</button>
+            <button data-ov="connectors" class="${this.renderer?.showConnectors ? "on" : ""}">Connectors</button>
+          </div></div>`;
       p.querySelector("#lc").onchange = (e) => this.colorLinks(e.target.value);
       p.querySelector("#zc").onchange = (e) => this.colorZones(e.target.value);
       p.querySelector("#fc").onchange = (e) => this.filterClass(e.target.value ? [e.target.value] : null, true);
+      p.querySelectorAll("#ov button").forEach(b => b.onclick = () => {
+        const on = b.classList.toggle("on");
+        if (b.dataset.ov === "centroids") this.showCentroids(on); else this.showConnectors(on);
+      });
     } else if (this.ws === "aggregate") {
       p.innerHTML = `
         <h2>Zone aggregation</h2>
@@ -170,7 +180,8 @@ class App {
           <div class="seg" id="as-seg"><button data-v="volume" class="on">Volume</button><button data-v="vc">V/C</button></div></div>
         <div class="row"><button class="btn ghost" id="as-rec">Recommend improvements</button></div>
         <div class="row"><button class="btn ghost" id="as-csv">Export link results</button></div>
-        <div class="kpis" id="as-kpi"></div>`;
+        <div class="kpis" id="as-kpi"></div>
+        <div id="as-recs" class="recs"></div>`;
       p.querySelector("#as-run").onclick = () => this.runAssignment({
         method: p.querySelector("#as-m").value, demand: p.querySelector("#as-d").value,
         period: p.querySelector("#as-p").value, sample: +p.querySelector("#as-s").value,
@@ -194,8 +205,15 @@ class App {
       await this.runAssignment({ method: "fw", demand: "matrix", period: "am", sample: 250 });
     }
     let vals = new Float32Array(NL), legend = "", sqrtWidth = false;
+    if (metric === "vc") {
+      // v/c on an absolute green->red scale
+      vals = this.eng.vcArray(this.volume);
+      this.renderer.setLinkValues(vals, "v/c", { vc: true, absMax: 1.5 });
+      this.setLegend("v/c: free-flow → over capacity" + (Palette.mode === "cbsafe" ? " (cb-safe)" : ""), "vc");
+      this.scheduleDraw();
+      return;
+    }
     if (metric === "volume") { vals = this.volume.slice(); legend = "volume: low → high"; sqrtWidth = true; }
-    else if (metric === "vc") { vals = this.eng.vcArray(this.volume); legend = "v/c: low → high"; }
     else if (metric === "lanes") { for (let l = 0; l < NL; l++) vals[l] = m.link.lanes[l]; legend = "lanes"; }
     else if (metric === "length") { for (let l = 0; l < NL; l++) vals[l] = m.link.len[l]; legend = "link length"; }
     else if (metric === "speed") { for (let l = 0; l < NL; l++) vals[l] = m.meta.freeSpeed[m.link.cls[l]]; legend = "free-flow speed"; }
@@ -236,6 +254,9 @@ class App {
     this.setLegend("zones by " + (labels[metric] || metric) + (Palette.mode === "cbsafe" ? " (cb-safe)" : " (viridis)"));
     this.scheduleDraw();
   }
+
+  showCentroids(on) { this.renderer.setCentroids(on); this.scheduleDraw(); }
+  showConnectors(on) { this.renderer.setConnectors(on); this.scheduleDraw(); }
 
   filterClass(names, zoom) {
     if (!names) { this.renderer.setFilter(null); this.scheduleDraw(); return; }
@@ -308,8 +329,37 @@ class App {
     this.recs = this.eng.recommend(this.volume, this.time);
     this.renderer.setHighlight(new Set(this.recs.slice(0, 6).map(r => r.link)));
     this.colorLinks("vc");
+    this._renderRecs();
     this.status(`found ${this.recs.length} candidates`, false);
     return this.recs;
+  }
+
+  _renderRecs() {
+    const el = this.panelEl.querySelector("#as-recs"); if (!el) return;
+    if (!this.recs || !this.recs.length) { el.innerHTML = `<div class="recs-h">No congested links to improve.</div>`; return; }
+    const FAC = this.model.meta.facilities;
+    const rows = this.recs.slice(0, 8).map((r, i) => `
+      <div class="rec" data-n="${i + 1}">
+        <div class="rec-top"><span class="rec-i">${i + 1}</span>
+          <span class="rec-link">link ${r.link} · ${FAC[r.cls]}</span>
+          <button class="rec-apply" data-n="${i + 1}">Apply &amp; re-assign</button></div>
+        <div class="rec-stats">v/c ${r.vc.toFixed(1)} · saves ~${fmt(r.saveHrYr)} veh-h/yr · cost ~${(r.cost / 1e6).toFixed(0)}M AED · <b>BCR ${r.bcr.toFixed(1)}</b></div>
+      </div>`).join("");
+    el.innerHTML = `<div class="recs-h">Proposed improvements (widen +2 lanes), ranked by benefit-cost:</div>${rows}`;
+    el.querySelectorAll(".rec-apply").forEach(b => b.onclick = () => this._applyFromPanel(+b.dataset.n));
+    el.querySelectorAll(".rec").forEach(d => d.onmouseenter = () => {
+      const r = this.recs[+d.dataset.n - 1]; if (!r) return;
+      this.renderer.setHighlight(new Set([r.link])); this.scheduleDraw();
+    });
+  }
+
+  async _applyFromPanel(n) {
+    const r = await this.applyRecommendation(n);
+    if (r) {
+      this.say(`Applied #${n}: widened link ${r.rec.link}. Network VHT ${r.saved != null ? `${fmt(r.before)} → ${fmt(r.after)} (saved ${fmt(r.saved)})` : fmt(r.after)}.`, "ai");
+      this.recs = this.eng.recommend(this.volume, this.time);  // re-screen the improved network
+      this._renderRecs();
+    }
   }
 
   async applyRecommendation(n) {
