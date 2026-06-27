@@ -57,3 +57,48 @@ jobs:
         with:
           name: ${{ matrix.artifact }}
           path: steam2040/dist/*
+
+  # Publish the built binaries to a rolling GitHub Release so they can be
+  # downloaded directly (no GitHub login, no nested zip) and just opened.
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    defaults:
+      run:
+        working-directory: .
+    steps:
+      - name: Download all build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+      - name: Stage assets with OS-specific names
+        run: |
+          mkdir -p out
+          cp artifacts/STEAM-2040-Studio-windows/STEAM-2040-Studio.exe out/STEAM-2040-Studio-windows.exe
+          cp artifacts/STEAM-2040-Studio-macos/STEAM-2040-Studio   out/STEAM-2040-Studio-macos
+          cp artifacts/STEAM-2040-Studio-linux/STEAM-2040-Studio   out/STEAM-2040-Studio-linux
+          ls -lh out
+      - name: Publish rolling release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: steam2040-latest
+          name: STEAM 2040 Studio (latest build)
+          prerelease: true
+          body: |
+            Standalone **STEAM 2040 Studio** executables, built from the latest
+            commit on `claude/new-session-ckhspy`. Nothing to install — download
+            and open.
+
+            | Laptop | Download |
+            |--------|----------|
+            | **Windows** | `STEAM-2040-Studio-windows.exe` |
+            | macOS | `STEAM-2040-Studio-macos` |
+            | Linux | `STEAM-2040-Studio-linux` |
+
+            First launch compiles the Numba kernels once (a brief splash);
+            afterwards startup is instant. Windows may show a SmartScreen
+            "unknown publisher" prompt — click *More info → Run anyway* (the
+            binary is unsigned). Everything runs offline.
+          files: out/*
