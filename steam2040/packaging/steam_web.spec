@@ -1,12 +1,15 @@
 # PyInstaller spec for STEAM 2040 Studio — the web-app build.
 #
-# Produces a single standalone executable that starts the local server and
-# opens the browser UI. Build from the steam2040/ project root:
+# Produces a ONE-FOLDER build (dist/STEAM2040Studio/) containing the launcher
+# executable plus its dependencies. One-folder is used deliberately instead of
+# one-file: the one-file self-extractor is a frequent Windows Defender /
+# SmartScreen false-positive trigger, whereas a plain folder of files is not.
+# CI zips the folder for download.
 #
 #     pip install pyinstaller
 #     pyinstaller packaging/steam_web.spec
 #
-# PyInstaller can't cross-compile: build the Windows .exe on Windows, etc.
+# PyInstaller can't cross-compile: build the Windows build on Windows, etc.
 # (.github/workflows/build-desktop.yml does all three on CI.)
 
 # -*- mode: python ; coding: utf-8 -*-
@@ -43,12 +46,17 @@ a = Analysis(
 )
 pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 
+# One-folder build: EXE holds only the bootstrap; COLLECT gathers the rest.
 exe = EXE(
-    pyz, a.scripts, a.binaries, a.zipfiles, a.datas, [],
+    pyz, a.scripts, [],
+    exclude_binaries=True,
     name="STEAM2040Studio",
     debug=False,
     strip=False,
     upx=False,
     console=True,          # keep a console so the user sees the local URL
-    onefile=True,
+)
+coll = COLLECT(
+    exe, a.binaries, a.zipfiles, a.datas,
+    strip=False, upx=False, name="STEAM2040Studio",
 )
