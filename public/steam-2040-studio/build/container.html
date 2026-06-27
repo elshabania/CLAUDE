@@ -1,0 +1,661 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>STEAM 2040 Studio</title>
+<style>
+  :root{
+    --bg:#0b1018; --panel:#11192699; --solid:#0f1828; --line:#22304a; --txt:#d7e1f2;
+    --dim:#7e90b5; --gold:#ffd60a; --cyan:#7df9ff; --red:#ff453a; --green:#2ecc71;
+    --dock:380px;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--txt);
+    font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;overscroll-behavior:none}
+  body{position:fixed;inset:0;display:flex;flex-direction:column}
+  .mono{font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace}
+  button{font-family:inherit}
+
+  /* ---- top bar ---- */
+  #bar{flex:none;height:50px;display:flex;align-items:center;gap:14px;padding:0 14px;
+    background:linear-gradient(#101a2c,#0c1220);border-bottom:1px solid var(--line);z-index:20}
+  #brand{display:flex;align-items:baseline;gap:8px;font-weight:800;letter-spacing:.02em;font-size:15px}
+  #brand .v{color:var(--gold)}
+  #brand small{color:var(--dim);font-weight:500;font-size:10.5px;letter-spacing:0}
+  #tabs{display:flex;gap:6px;margin-left:6px}
+  .tab{padding:7px 15px;border-radius:9px;border:1px solid var(--line);background:#0e1626;
+    color:var(--dim);font-size:12.5px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:7px}
+  .tab .ic{font-size:13px}
+  .tab.on{color:#0b1018;background:var(--gold);border-color:var(--gold)}
+  .tab:not(.on):hover{color:var(--txt);border-color:#33486e}
+  #barRight{margin-left:auto;display:flex;align-items:center;gap:10px}
+  #copBtn{padding:7px 13px;border-radius:9px;border:1px solid #2b6;background:#10301f;
+    color:#9defc0;font-size:12.5px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:7px}
+  #copBtn .pulse{width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:0 0 8px var(--green)}
+
+  /* ---- stage ---- */
+  #main{flex:1;display:flex;min-height:0}
+  #stage{flex:1;position:relative;min-width:0;background:var(--bg)}
+  .frameWrap{position:absolute;inset:0;display:none}
+  .frameWrap.on{display:block}
+  iframe{width:100%;height:100%;border:0;display:block;background:var(--bg)}
+  .frameLoad{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+    flex-direction:column;gap:12px;color:var(--dim);font-size:13px;background:var(--bg);z-index:2}
+  .frameLoad.hide{display:none}
+  .spin{width:26px;height:26px;border-radius:50%;border:3px solid #1d2a42;border-top-color:var(--gold);
+    animation:sp 0.8s linear infinite}
+  @keyframes sp{to{transform:rotate(360deg)}}
+
+  /* ---- copilot dock ---- */
+  #dock{flex:none;width:var(--dock);display:flex;flex-direction:column;min-height:0;
+    background:linear-gradient(#0d1422,#0b1018);border-left:1px solid var(--line)}
+  body.dock-closed #dock{display:none}
+  #dockHead{flex:none;padding:11px 14px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:10px}
+  #dockHead .av{width:30px;height:30px;border-radius:8px;flex:none;display:grid;place-items:center;
+    background:radial-gradient(circle at 30% 25%,#1c8f55,#0c3b25);font-size:15px;box-shadow:0 0 0 1px #2b6 inset}
+  #dockHead h2{font-size:13.5px;font-weight:700}
+  #dockHead .sub{font-size:10px;color:var(--dim)}
+  #dockClose{margin-left:auto;width:28px;height:28px;border-radius:7px;border:1px solid var(--line);
+    background:#0e1626;color:var(--dim);cursor:pointer;font-size:14px}
+  #ctxline{flex:none;padding:6px 14px;font-size:10.5px;color:var(--dim);border-bottom:1px solid var(--line);
+    display:flex;align-items:center;gap:7px}
+  #ctxline b{color:var(--cyan);font-weight:600}
+  #ctxdot{width:7px;height:7px;border-radius:50%;background:var(--dim)}
+  #ctxdot.live{background:var(--green);box-shadow:0 0 7px var(--green)}
+
+  #log{flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:11px}
+  .msg{display:flex;gap:9px;max-width:100%}
+  .msg .ava{width:25px;height:25px;border-radius:7px;flex:none;display:grid;place-items:center;font-size:13px}
+  .msg.cop .ava{background:radial-gradient(circle at 30% 25%,#1c8f55,#0c3b25);box-shadow:0 0 0 1px #2b6 inset}
+  .msg.user{flex-direction:row-reverse}
+  .msg.user .ava{background:#1b2942;box-shadow:0 0 0 1px var(--line) inset}
+  .bub{padding:9px 12px;border-radius:12px;font-size:12.5px;line-height:1.5;word-wrap:break-word;overflow-wrap:anywhere}
+  .msg.cop .bub{background:#101a2b;border:1px solid var(--line);border-top-left-radius:3px}
+  .msg.user .bub{background:#14305a;border:1px solid #1d4a86;border-top-right-radius:3px;color:#eaf2ff}
+  .bub b{color:var(--gold);font-weight:600}
+  .bub code{font-family:ui-monospace,monospace;background:#0a1422;border:1px solid var(--line);
+    border-radius:4px;padding:1px 5px;font-size:11px;color:var(--cyan)}
+  .bub .k{color:var(--cyan)}
+  .bub ul{margin:5px 0 2px;padding-left:17px}
+  .bub li{margin:2px 0}
+  .bub .did{margin-top:7px;padding-top:6px;border-top:1px dashed var(--line);font-size:11px;color:var(--green)}
+  .bub .did.warn{color:var(--gold)}
+  .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+  .sg{padding:5px 10px;border-radius:999px;border:1px solid var(--line);background:#0e1a2c;
+    color:var(--cyan);font-size:11px;cursor:pointer;white-space:nowrap}
+  .sg:hover{border-color:var(--cyan)}
+  .typing .bub{color:var(--dim)}
+  .dots span{display:inline-block;width:5px;height:5px;border-radius:50%;background:var(--dim);margin:0 1px;
+    animation:bl 1.2s infinite}
+  .dots span:nth-child(2){animation-delay:.2s}.dots span:nth-child(3){animation-delay:.4s}
+  @keyframes bl{0%,60%,100%{opacity:.25}30%{opacity:1}}
+
+  #quick{flex:none;padding:8px 12px 0;display:flex;flex-wrap:wrap;gap:6px;border-top:1px solid var(--line)}
+  #inputRow{flex:none;padding:10px 12px 12px;display:flex;gap:8px;align-items:flex-end}
+  #q{flex:1;resize:none;max-height:96px;min-height:40px;background:#0a1322;border:1px solid var(--line);
+    border-radius:10px;color:var(--txt);font-size:12.5px;padding:10px 12px;font-family:inherit;line-height:1.4}
+  #q:focus{outline:none;border-color:#2b6;box-shadow:0 0 0 2px #1c8f5530}
+  #send{flex:none;width:40px;height:40px;border-radius:10px;border:0;background:var(--green);color:#04130b;
+    font-size:16px;cursor:pointer;font-weight:800}
+  #send:disabled{opacity:.4;cursor:default}
+
+  /* floating reopen button when dock closed */
+  #copFab{position:fixed;right:16px;bottom:16px;z-index:40;display:none;align-items:center;gap:8px;
+    padding:11px 16px;border-radius:999px;border:1px solid #2b6;background:#10301f;color:#9defc0;
+    font-size:13px;font-weight:700;cursor:pointer;box-shadow:0 6px 20px rgba(0,0,0,.5)}
+  body.dock-closed #copFab{display:flex}
+
+  @media (max-width:820px){
+    :root{--dock:100vw}
+    #brand small{display:none}
+    #dock{position:fixed;inset:0;z-index:50}
+    body.dock-closed #copFab{display:flex}
+    .tab span.lbl{display:none}
+    .tab{padding:7px 11px}
+  }
+</style>
+</head>
+<body class="dock-closed">
+
+<div id="bar">
+  <div id="brand">STEAM <span class="v">2040</span> Studio <small>unified network + assignment + copilot</small></div>
+  <div id="tabs">
+    <button class="tab on" data-app="viewer"><span class="ic">🗺️</span><span class="lbl">Network Viewer</span></button>
+    <button class="tab" data-app="assign"><span class="ic">🚦</span><span class="lbl">Assignment</span></button>
+  </div>
+  <div id="barRight">
+    <button id="copBtn"><span class="pulse"></span>Copilot</button>
+  </div>
+</div>
+
+<div id="main">
+  <div id="stage">
+    <div class="frameWrap on" id="wrap-viewer">
+      <div class="frameLoad" id="load-viewer"><div class="spin"></div>Loading Network Viewer…</div>
+    </div>
+    <div class="frameWrap" id="wrap-assign">
+      <div class="frameLoad" id="load-assign"><div class="spin"></div>Loading Assignment engine…</div>
+    </div>
+  </div>
+
+  <aside id="dock">
+    <div id="dockHead">
+      <div class="av">✦</div>
+      <div>
+        <h2>STEAM Copilot</h2>
+        <div class="sub">drives both apps · offline</div>
+      </div>
+      <button id="dockClose" aria-label="Hide copilot">✕</button>
+    </div>
+    <div id="ctxline"><span id="ctxdot"></span>Context: <b id="ctxapp">Network Viewer</b></div>
+    <div id="log"></div>
+    <div id="quick"></div>
+    <div id="inputRow">
+      <textarea id="q" rows="1" placeholder="Ask or tell the copilot… (e.g. “run a Frank-Wolfe assignment”)"></textarea>
+      <button id="send" aria-label="Send">➤</button>
+    </div>
+  </aside>
+</div>
+
+<button id="copFab"><span>✦</span> Ask Copilot</button>
+
+<!--APP_SOURCES-->
+
+<script>
+"use strict";
+/* =====================================================================
+   STEAM 2040 Studio — container + Copilot
+   Two original apps run untouched inside iframes (Blob URLs built from
+   embedded source). The copilot drives them through the injected bridge.
+   ===================================================================== */
+(function(){
+
+/* ---------- embedded-source helpers ---------- */
+var ENDTOK = "__STEAM_ES__";
+function appSource(id){
+  var el=document.getElementById(id);
+  return el ? el.textContent.split(ENDTOK).join("</scr"+"ipt>") : "";
+}
+
+/* ---------- app registry ---------- */
+var APPS = {
+  viewer:{ srcId:"src-viewer", label:"Network Viewer", frame:null, win:null, ready:false, url:null,
+    snapIds:["netstats","agglbl","odout","selinfo","loadStatus","dataStatus"] },
+  assign:{ srcId:"src-assign", label:"Assignment",     frame:null, win:null, ready:false, url:null,
+    snapIds:["kpi","status","gapOut","odStats","scnstats","analysisOut","demStats"] }
+};
+var activeApp="viewer";
+
+function ensureFrame(key){
+  var a=APPS[key];
+  if(a.frame) return a;
+  var html=appSource(a.srcId);
+  a.url=URL.createObjectURL(new Blob([html],{type:"text/html"}));
+  var f=document.createElement("iframe");
+  f.title=a.label;
+  f.src=a.url;
+  f.addEventListener("load",function(){ var l=document.getElementById("load-"+key); if(l) l.classList.add("hide"); });
+  document.getElementById("wrap-"+key).appendChild(f);
+  a.frame=f; a.win=f.contentWindow;
+  return a;
+}
+
+/* ---------- RPC to a frame's bridge ---------- */
+var rid=0, pending={};
+window.addEventListener("message",function(ev){
+  var m=ev.data; if(!m || m.steam!==1 || !m.resp) return;
+  if(m.event==="ready"){
+    for(var k in APPS){ if(APPS[k].label && m.app===k){ APPS[k].ready=true; updateCtx(); } }
+    return;
+  }
+  if(m.rid && pending[m.rid]){ pending[m.rid](m.out); delete pending[m.rid]; }
+});
+
+function waitReady(key,timeout){
+  return new Promise(function(res){
+    var a=ensureFrame(key);
+    var t0=Date.now();
+    (function poll(){
+      if(a.ready) return res(true);
+      try{ a.win.postMessage({steam:1,cmd:"ping",rid:0},"*"); }catch(e){}
+      if(Date.now()-t0>(timeout||9000)) return res(a.ready);
+      setTimeout(poll,120);
+    })();
+  });
+}
+function rpc(key,cmd){
+  return new Promise(function(res){
+    var a=APPS[key]; if(!a.win){ ensureFrame(key); a=APPS[key]; }
+    var id=++rid; cmd.steam=1; cmd.rid=id;
+    var done=false;
+    pending[id]=function(out){ done=true; res(out||{}); };
+    try{ a.win.postMessage(cmd,"*"); }catch(e){ res({ok:false,err:String(e)}); }
+    setTimeout(function(){ if(!done && pending[id]){ delete pending[id]; res({ok:false,err:"timeout"}); } },5000);
+  });
+}
+/* run a list of ops on an app, ensuring it is loaded+ready first */
+async function drive(key, ops){
+  await waitReady(key);
+  var results=[];
+  for(var i=0;i<ops.length;i++){
+    var op=ops[i], cmd={cmd:op[0]};
+    if(op[0]==="click")  cmd.id=op[1];
+    else if(op[0]==="set"){ cmd.id=op[1]; cmd.value=op[2]; }
+    else if(op[0]==="check"){ cmd.id=op[1]; cmd.value=op[2]; }
+    else if(op[0]==="seg"){ cmd.container=op[1]; cmd.key=op[2]; }
+    else if(op[0]==="open") cmd.text=op[1];
+    else if(op[0]==="key")  cmd.key=op[1];
+    results.push(await rpc(key,cmd));
+    await new Promise(function(r){ setTimeout(r,90); });   // let the app settle between ops
+  }
+  return results;
+}
+async function snapshot(key){
+  await waitReady(key);
+  var out=await rpc(key,{cmd:"snap",ids:APPS[key].snapIds});
+  return (out&&out.data)||{};
+}
+/* poll an app's state until ok(state) or timeout */
+async function pollState(key, ok, timeout){
+  var t0=Date.now(), s=await snapshot(key);
+  while(!ok(s) && Date.now()-t0<(timeout||9000)){
+    await new Promise(function(r){ setTimeout(r,400); });
+    s=await snapshot(key);
+  }
+  return s;
+}
+/* run an assignment, waiting for results; fall back to the all-ones engine
+   test if no OD matrix is available (the embedded matrix needs a decompressor
+   the base apps don't ship, so "loaded OD" can be empty). */
+async function runAssign(method, label){
+  switchApp("assign"); await waitReady("assign");
+  if(method) await rpc("assign",{cmd:"set",id:"methodSel",value:method});
+  await rpc("assign",{cmd:"click",id:"runBtn"});
+  var noOD=function(s){ return /no od|switch demand|load a/i.test(s.status||""); };
+  var done=function(s){ return (s.kpi&&s.kpi.length>2) || noOD(s); };
+  var s=await pollState("assign", done, 11000), fell=false;
+  if((!s.kpi||s.kpi.length<3) && noOD(s)){
+    fell=true;
+    await rpc("assign",{cmd:"set",id:"demandSel",value:"ones"});
+    if(method) await rpc("assign",{cmd:"set",id:"methodSel",value:method});
+    await rpc("assign",{cmd:"click",id:"runBtn"});
+    s=await pollState("assign", function(x){ return x.kpi&&x.kpi.length>2; }, 14000);
+  }
+  var html=label||"Assignment complete.";
+  if(fell) html+=" <i>No OD matrix is loaded, so I ran the built-in <b>all-ones</b> engine test — magnitudes are illustrative; load an O,D,trips CSV for decision-grade numbers.</i>";
+  var bits=[];
+  if(s.kpi)    bits.push("<span class='k'>KPIs:</span> "+esc(s.kpi.slice(0,260)));
+  if(s.gapOut) bits.push("<span class='k'>Gap:</span> "+esc(s.gapOut.slice(0,90)));
+  if(bits.length) html+="<div class='did"+(fell?" warn":"")+"'>"+bits.join("<br>")+"</div>";
+  else if(s.status) html+="<div class='did warn'>"+esc(s.status.slice(0,200))+"</div>";
+  return {html:html, chips:["Colour by V/C","Rank corridors","Top links","Find solutions"]};
+}
+/* rank corridors / find solutions need a completed assignment first */
+async function rankOrSolve(btn, label){
+  switchApp("assign"); await waitReady("assign");
+  var s=await snapshot("assign");
+  var pre="";
+  if(!s.kpi || s.kpi.length<3){
+    pre=" <i>(ran a quick assignment first so there was something to rank).</i>";
+    await runAssign(null,"");
+  }
+  await rpc("assign",{cmd:"open",text:"recommend"});
+  await rpc("assign",{cmd:"click",id:btn});
+  s=await pollState("assign", function(x){ return x.reclist && x.reclist.length>2; }, 14000);
+  var html=label+pre;
+  if(s.reclist) html+="<div class='did'>"+esc(s.reclist.slice(0,420))+"</div>";
+  else if(s.status) html+="<div class='did warn'>"+esc(s.status.slice(0,180))+"</div>";
+  return {html:html, chips:["Colour by V/C","Find solutions","Top links","Colour by LOS"]};
+}
+
+/* ---------- tab / dock UI ---------- */
+function switchApp(key,silent){
+  if(!APPS[key]) return;
+  activeApp=key;
+  for(var k in APPS){
+    document.getElementById("wrap-"+k).classList.toggle("on",k===key);
+  }
+  document.querySelectorAll("#tabs .tab").forEach(function(t){ t.classList.toggle("on",t.dataset.app===key); });
+  ensureFrame(key); waitReady(key);
+  updateCtx();
+}
+function updateCtx(){
+  document.getElementById("ctxapp").textContent=APPS[activeApp].label;
+  document.getElementById("ctxdot").classList.toggle("live",!!APPS[activeApp].ready);
+}
+document.querySelectorAll("#tabs .tab").forEach(function(t){
+  t.addEventListener("click",function(){ switchApp(t.dataset.app); });
+});
+function openDock(){ document.body.classList.remove("dock-closed"); setTimeout(function(){ document.getElementById("q").focus(); },50); }
+function closeDock(){ document.body.classList.add("dock-closed"); }
+document.getElementById("copBtn").addEventListener("click",openDock);
+document.getElementById("copFab").addEventListener("click",openDock);
+document.getElementById("dockClose").addEventListener("click",closeDock);
+
+/* =====================================================================
+   COPILOT
+   ===================================================================== */
+var log=document.getElementById("log");
+function esc(s){ return String(s).replace(/[&<>]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;"}[c];}); }
+
+function addMsg(role, html){
+  var m=document.createElement("div"); m.className="msg "+role;
+  m.innerHTML='<div class="ava">'+(role==="cop"?"✦":"🙂")+'</div><div class="bub">'+html+'</div>';
+  log.appendChild(m); log.scrollTop=log.scrollHeight;
+  return m;
+}
+function addChips(container, chips){
+  if(!chips||!chips.length) return;
+  var box=document.createElement("div"); box.className="chips";
+  chips.forEach(function(c){
+    var b=document.createElement("button"); b.className="sg"; b.textContent=c;
+    b.addEventListener("click",function(){ submit(c); });
+    box.appendChild(b);
+  });
+  container.querySelector(".bub").appendChild(box);
+  log.scrollTop=log.scrollHeight;
+}
+function thinking(){
+  var m=document.createElement("div"); m.className="msg cop typing";
+  m.innerHTML='<div class="ava">✦</div><div class="bub"><span class="dots"><span></span><span></span><span></span></span></div>';
+  log.appendChild(m); log.scrollTop=log.scrollHeight; return m;
+}
+
+/* ---- knowledge base (concept Q&A) ---- */
+var KB=[
+ {k:["bpr","bureau of public roads","volume delay","congestion function"],
+  a:"<b>BPR</b> is the Bureau of Public Roads volume–delay function: <code>t = t0 · (1 + α·(v/c)^β)</code>, usually α=0.15, β=4. Travel time stays near free-flow until volume approaches capacity, then rises sharply. In the Assignment app, the <span class='k'>BPR (4 inc)</span> method loads demand in four increments using this curve; <span class='k'>Frank-Wolfe</span> and <span class='k'>MSA</span> use it inside an equilibrium loop."},
+ {k:["frank-wolfe","frank wolfe","fw","convex combination"],
+  a:"<b>Frank-Wolfe</b> solves a true user equilibrium. Each iteration finds an all-or-nothing direction, then takes the optimal step (line search) toward it, mixing the new and old flows. It drives the <b>relative gap</b> down — the gap measures how far you are from equilibrium, where no driver can switch to a faster route."},
+ {k:["msa","method of successive averages","successive averages"],
+  a:"<b>MSA</b> (Method of Successive Averages) is a simpler equilibrium method: at iteration <i>n</i> it blends the new all-or-nothing flows with the current flows using a fixed 1/<i>n</i> weight. Robust but converges slower than Frank-Wolfe's optimal step."},
+ {k:["aon","all-or-nothing","all or nothing","free-flow","free flow"],
+  a:"<b>All-or-nothing / free-flow</b> assignment loads every O–D trip onto the single shortest path at free-flow speed, ignoring congestion. It's the fastest method and a good sanity check, but it over-concentrates flow because it never reroutes around jams."},
+ {k:["v/c","vc","volume to capacity","volume-to-capacity","volume capacity"],
+  a:"<b>V/C</b> is volume ÷ capacity on a link. Below ~0.85 traffic flows freely; near 1.0 it's at capacity; above 1.0 the link is over-saturated. Colour the Assignment map by <span class='k'>V/C</span> to see bottlenecks."},
+ {k:["los","level of service","a-f","grade"],
+  a:"<b>LOS</b> (Level of Service) grades a link A–F from its V/C and speed: A is free-flow, E is at capacity, F is breakdown/stop-and-go. Use the <span class='k'>LOS</span> colour mode to communicate conditions to non-engineers."},
+ {k:["equilibrium","user equilibrium","wardrop","nash"],
+  a:"<b>User equilibrium</b> (Wardrop's first principle) is the state where every used route between an O–D pair has equal, minimal travel time — no driver can unilaterally find a faster path. Frank-Wolfe and MSA iterate toward it; the relative gap reports how close you are."},
+ {k:["gap","relative gap","convergence"],
+  a:"The <b>relative gap</b> measures convergence of an equilibrium assignment: the gap between the current total travel time and the lower bound from an all-or-nothing pass. Smaller is better; the convergence chart under <span class='k'>Run</span> plots it per iteration."},
+ {k:["vht","vehicle hours"],
+  a:"<b>VHT</b> = Vehicle-Hours Travelled, the sum of (volume × travel time) over all links — total time the network spends moving. Congestion-relief projects are judged by how much VHT they save."},
+ {k:["vmt","vehicle miles","vehicle kilometres","vehicle km"],
+  a:"<b>VMT/VKT</b> = Vehicle-Miles (or Kilometres) Travelled, the sum of (volume × length). It tracks total travel demand served and pairs with VHT to give average network speed (VMT ÷ VHT)."},
+ {k:["aggregation","aggregate zones","merge zones","taz","zone system","zoning"],
+  a:"The Network Viewer's <b>zone aggregation</b> tools merge fine TAZs (Traffic Analysis Zones) into a coarser system while protecting model accuracy. Methods M1–M5 use land use, districts, low-OD pairing, hybrids and size/density; <span class='k'>Distance change</span> and <span class='k'>Intrazonal demand</span> bound the error introduced. Guardrails stop merges across regions, sectors, freeways, etc."},
+ {k:["taz","traffic analysis zone","centroid","centroids"],
+  a:"A <b>TAZ</b> (Traffic Analysis Zone) is the spatial unit of travel demand; its <b>centroid</b> is the point where all of a zone's trips load onto the network through connectors. This model has 3,692 centroids."},
+ {k:["od","o-d","origin-destination","matrix","demand matrix","trip table"],
+  a:"An <b>OD matrix</b> (origin–destination / trip table) holds the number of trips from each origin zone to each destination zone. The Assignment app loads it (or builds one from land use) and routes it onto the network. Load a CSV of <code>O,D,trips</code> for decision-grade results."},
+ {k:["desire line","desire lines","od flow","flow line"],
+  a:"<b>OD desire lines</b> draw straight origin→destination links weighted by trips, showing raw demand independent of the road network. Toggle them in the Network Viewer's <span class='k'>Colour zones by…</span> row."},
+ {k:["gravity","deterrence","beta","trip distribution","distribute"],
+  a:"The Assignment app's <b>demand model</b> generates trip ends from land use, then distributes them with a <b>gravity model</b>: trips ∝ productions × attractions × exp(−β·distance). A larger deterrence <b>β</b> means trips stay shorter/more local."},
+ {k:["screenline","screen line","cordon"],
+  a:"A <b>screenline</b> is a line you draw across the network; the tool sums the volume of every link crossing it — used to validate a corridor's total throughput or compare scenarios. Use the <span class='k'>Screenline</span> tool in the Assignment app's Scenario section."},
+ {k:["select link","select-link","selectlink"],
+  a:"<b>Select-link</b> analysis picks one link and shows all the O–D flows that use it — answering “where does the traffic on this road come from and go to?” Pick the <span class='k'>Select-link</span> tool, then tap a link."},
+ {k:["capacity","lanes","speed","settings"],
+  a:"Link <b>capacity</b> (veh/hr) and free-flow <b>speed</b> come from road class and lane count. Edit them — and the BPR α/β — under <span class='k'>Settings</span> in the Assignment app; re-run afterwards to apply."},
+ {k:["scenario","upgrade","widen","add lane","new road","build road"],
+  a:"In the Assignment app's <b>Scenario</b> section you can <span class='k'>Upgrade</span> a link (add lanes), <span class='k'>Draw road</span> (place a new road between two taps), then <span class='k'>Run scenario</span> to re-assign and measure VHT/VMT change versus the base case. Save named scenarios to compare."},
+ {k:["pnr","park and ride","park-and-ride","pt","transit","walk"],
+  a:"The base network includes 152,879 road links plus public-transport (PT), walk and Park-and-Ride (PnR) layers. Toggle them with the layer chips at the top of the Network Viewer."}
+];
+
+/* ---- action intents: each maps language → app + bridge ops ---- */
+function A(o){ return o; }
+var ACTIONS=[
+ /* navigation */
+ A({app:null, keys:["network viewer","viewer","the map","zone tool","aggregation app","first app","left tab"],
+    imp:true, say:"Switched to the <b>Network Viewer</b>.", run:function(){ switchApp("viewer"); return Promise.resolve(true); }}),
+ A({app:null, keys:["assignment app","assignment","traffic model","assign tab","traffic app","second app","equilibrium app"],
+    imp:true, say:"Switched to the <b>Assignment</b> app.", run:function(){ switchApp("assign"); return Promise.resolve(true); }}),
+
+ /* ---- Network Viewer ---- */
+ A({app:"viewer", keys:["metro","abu dhabi metro","metro area"], say:"Zoomed to the Metro area.", ops:[["click","vmetro"]]}),
+ A({app:"viewer", keys:["al ain","alain"], say:"Zoomed to Al Ain.", ops:[["click","valain"]]}),
+ A({app:"viewer", keys:["full network","fit network","whole network","reset view","fit all","zoom to fit","entire network"],
+    say:"Fit the full network in view.", ops:[["click","vfull"]]}),
+ A({app:"viewer", keys:["zoom in"], say:"Zoomed in.", ops:[["click","zin"]]}),
+ A({app:"viewer", keys:["zoom out"], say:"Zoomed out.", ops:[["click","zout"]]}),
+ A({app:"viewer", keys:["method m1","m1","land use and distance"], say:"Aggregation method set to <b>M1 · Land use + distance</b>.", ops:[["set","methodSel","m1"]]}),
+ A({app:"viewer", keys:["method m2","m2","districts"], say:"Aggregation method set to <b>M2 · Districts</b>.", ops:[["set","methodSel","m2"]]}),
+ A({app:"viewer", keys:["method m3","m3","low od"], say:"Aggregation method set to <b>M3 · Low OD</b>.", ops:[["set","methodSel","m3"]]}),
+ A({app:"viewer", keys:["method m4","m4","hybrid"], say:"Aggregation method set to <b>M4 · Hybrid</b>.", ops:[["set","methodSel","m4"]]}),
+ A({app:"viewer", keys:["method m5","m5","size","density"], say:"Aggregation method set to <b>M5 · Size / density</b>.", ops:[["set","methodSel","m5"]]}),
+ A({app:"viewer", keys:["distance change","geometry method","by distance"], say:"Aggregation method set to <b>Distance change (geometry)</b>.", ops:[["set","methodSel","distance"]]}),
+ A({app:"viewer", keys:["intrazonal demand","demand method"], say:"Aggregation method set to <b>Intrazonal demand</b>.", ops:[["set","methodSel","demand"]]}),
+ A({app:"viewer", keys:["colour by district","color by district","shade district"], say:"Colouring zones by <b>district</b>.", ops:[["set","shadeSel","district"]]}),
+ A({app:"viewer", keys:["colour by land use","color by land use","shade land use","colour landuse"], say:"Colouring zones by <b>land use</b>.", ops:[["set","shadeSel","landuse"]]}),
+ A({app:"viewer", keys:["colour by productions","color by productions","productions"], say:"Colouring zones by <b>productions</b>.", ops:[["set","shadeSel","prod"]]}),
+ A({app:"viewer", keys:["colour by attractions","color by attractions","attractions"], say:"Colouring zones by <b>attractions</b>.", ops:[["set","shadeSel","attr"]]}),
+ A({app:"viewer", keys:["productions plus attractions","p + a","p plus a","p+a"], say:"Colouring zones by <b>P + A</b>.", ops:[["set","shadeSel","pa"]]}),
+ A({app:"viewer", keys:["no shading","clear colour","clear color","colour none"], say:"Cleared zone colouring.", ops:[["set","shadeSel","none"]]}),
+ A({app:"viewer", keys:["desire lines","od desire","show od flow","flow lines"], say:"Toggled <b>OD desire lines</b>.", ops:[["check","odFlowChk",true]]}),
+ A({app:"viewer", keys:["show bars","p/a/lu","population bars","bars"], say:"Toggled the <b>P / A / LU / Pop</b> bars.", ops:[["check","barsChk",true]]}),
+ A({app:"viewer", keys:["study area","study mode"], say:"Switched to <b>Study area</b> aggregation mode.", ops:[["seg","#fmode","study"]]}),
+ A({app:"viewer", keys:["uniform mode","uniform"], say:"Switched to <b>Uniform</b> aggregation mode.", ops:[["seg","#fmode","uniform"]]}),
+ A({app:"viewer", keys:["lasso","select zones","draw selection"], say:"Lasso tool armed — drag on the map to select zones.", ops:[["seg","#fmode","study"],["click","lassoBtn"]]}),
+ A({app:"viewer", keys:["clear selection","clear zones"], say:"Cleared the selection.", ops:[["click","clearBtn"]]}),
+ A({app:"viewer", keys:["od stats","od delta","od change stats"], say:"Computed OD Δ statistics — see the readout in the panel.", ops:[["click","odBtn"]], readAfter:["odout"]}),
+ A({app:"viewer", keys:["export","download","export zones"], say:"Opened the export dialog.", ops:[["click","expBtn"]]}),
+ A({app:"viewer", keys:["load network","import network","add network","load panel"], say:"Opened the <b>Load network</b> panel.", ops:[["click","loadToggle"]]}),
+
+ /* ---- Assignment ---- */
+ /* method-specific runs are listed before the generic run so they win ties */
+ A({app:"assign", keys:["free-flow assignment","free flow assignment","all or nothing","aon","run free flow"],
+    run:function(){ return runAssign("aon","Ran a <b>free-flow</b> assignment."); }}),
+ A({app:"assign", keys:["bpr assignment","run bpr","bpr"],
+    run:function(){ return runAssign("bpr","Ran a <b>BPR</b> (4-increment) assignment."); }}),
+ A({app:"assign", keys:["frank-wolfe","frank wolfe","equilibrium assignment","user equilibrium","run equilibrium","fw"],
+    run:function(){ return runAssign("fw","Ran a <b>Frank-Wolfe</b> equilibrium assignment."); }}),
+ A({app:"assign", keys:["msa","successive averages"],
+    run:function(){ return runAssign("msa","Ran an <b>MSA</b> equilibrium assignment."); }}),
+ A({app:"assign", keys:["run assignment","run the model","run it","run model","assign traffic","go run","just run"],
+    run:function(){ return runAssign(null,"Ran the assignment."); }}),
+ A({app:"assign", keys:["colour by volume","color by volume","show volume","volume"], say:"Colouring by <b>volume</b>.", ops:[["seg","#modeSeg","vol"]]}),
+ A({app:"assign", keys:["colour by v/c","color by vc","show vc","v/c map","vc"], say:"Colouring by <b>V/C</b>.", ops:[["seg","#modeSeg","vc"]]}),
+ A({app:"assign", keys:["colour by los","color by los","level of service map","los"], say:"Colouring by <b>LOS</b>.", ops:[["seg","#modeSeg","los"]]}),
+ A({app:"assign", keys:["scenario difference","show delta","difference map","diff"], say:"Colouring by scenario <b>Δ</b>.", ops:[["seg","#modeSeg","diff"]]}),
+ A({app:"assign", keys:["all-ones","all ones","test matrix"], say:"Demand set to the <b>all-ones</b> test matrix.", ops:[["set","demandSel","ones"]]}),
+ A({app:"assign", keys:["loaded matrix","use od matrix","real demand"], say:"Demand set to the <b>loaded OD matrix</b>.", ops:[["set","demandSel","od"]]}),
+ A({app:"assign", keys:["am peak","peak period","peak hour"], say:"Period set to <b>AM peak</b> (24h ÷ 10).", ops:[["set","periodSel","0.1"]]}),
+ A({app:"assign", keys:["24 hour","24-hour","daily total","whole day"], say:"Period set to <b>24-hour total</b>.", ops:[["set","periodSel","1"]]}),
+ A({app:"assign", keys:["off-peak","off peak"], say:"Period set to <b>off-peak</b> (÷ 12).", ops:[["set","periodSel","0.08"]]}),
+ A({app:"assign", keys:["build demand","demand model","generate demand","trips from land use"],
+    say:"Building the demand model from land use…", ops:[["open","demand model"],["click","buildDemandBtn"]], readAfter:["demStats"]}),
+ A({app:"assign", keys:["rank corridors","recommend","rank","worst corridors","congested corridors"],
+    run:function(){ return rankOrSolve("recBtn","Ranked corridors by congested delay."); }}),
+ A({app:"assign", keys:["find solutions","solve","fix congestion","propose solutions","suggest fixes"],
+    run:function(){ return rankOrSolve("solveBtn","Searched for solutions — re-assigned and measured VHT saved."); }}),
+ A({app:"assign", keys:["upgrade tool","upgrade mode","add lanes","widen"], say:"<b>Upgrade</b> tool armed — tap a link to add lanes.", ops:[["open","scenario"],["seg","#editSeg","upgrade"]]}),
+ A({app:"assign", keys:["draw road","draw mode","new road tool"], say:"<b>Draw road</b> tool armed — tap two points to place a road.", ops:[["open","scenario"],["seg","#editSeg","draw"]]}),
+ A({app:"assign", keys:["select-link tool","select link tool","selectlink"], say:"<b>Select-link</b> tool armed — tap a link to see its O–D flows.", ops:[["open","scenario"],["seg","#editSeg","select"]]}),
+ A({app:"assign", keys:["screenline tool","screen line tool","draw screenline"], say:"<b>Screenline</b> tool armed — draw a line to sum crossing volume.", ops:[["open","scenario"],["seg","#editSeg","screen"]]}),
+ A({app:"assign", keys:["run scenario","test scenario","assign scenario"], say:"Running the scenario…", ops:[["open","scenario"],["click","scnRunBtn"]], readAfter:["scnstats"]}),
+ A({app:"assign", keys:["clear edits","reset scenario","clear scenario"], say:"Cleared scenario edits.", ops:[["click","clearBtn"]]}),
+ A({app:"assign", keys:["top links","worst links","most congested links"], say:"Listed the top congested links.", ops:[["open","analysis"],["click","topBtn"]], readAfter:["analysisOut"]}),
+ A({app:"assign", keys:["histogram","v/c histogram","vc histogram","distribution"], say:"Built the V/C histogram.", ops:[["open","analysis"],["click","histBtn"]], readAfter:["analysisOut"]}),
+ A({app:"assign", keys:["class summary","by class","road class summary"], say:"Built the class summary.", ops:[["open","analysis"],["click","classBtn"]], readAfter:["analysisOut"]}),
+ A({app:"assign", keys:["connectivity","connected","diagnostics"], say:"Ran connectivity diagnostics.", ops:[["open","analysis"],["click","connBtn"]], readAfter:["analysisOut"]}),
+ A({app:"assign", keys:["export csv","download csv","export results"], say:"Exported results to CSV.", ops:[["open","analysis"],["click","exportBtn"]]}),
+ A({app:"assign", keys:["light theme","light mode"], say:"Switched to the <b>light</b> theme.", ops:[["set","themeSel","light"]]}),
+ A({app:"assign", keys:["dark theme","dark mode"], say:"Switched to the <b>dark</b> theme.", ops:[["set","themeSel","dark"]]}),
+ A({app:"assign", keys:["high contrast","contrast theme"], say:"Switched to the <b>high contrast</b> theme.", ops:[["set","themeSel","contrast"]]}),
+ A({app:"assign", keys:["colour-blind","color-blind","colour blind","colorblind"], say:"Toggled <b>colour-blind safe</b> palette.", ops:[["check","cbChk",true]]}),
+ A({app:"assign", keys:["settings","capacity settings","bpr settings"], say:"Opened the <b>Settings</b> section.", ops:[["open","settings"]]}),
+ A({app:"assign", keys:["help","quick guide","how does this work"], say:"Opened the in-app help.", ops:[["click","helpBtn"]]})
+];
+
+/* state-question intents */
+var STATE=[
+ {keys:["results","kpi","kpis","how did it go","what happened","vht now","current vht","how congested","over capacity","summary of results","network performance","stats"],
+  app:"assign", run:reportAssign},
+ {keys:["what's selected","whats selected","selection","how many zones","network stats","zone count","centroids"],
+  app:"viewer", run:reportViewer}
+];
+
+/* meta intents */
+var META=[
+ {keys:["what can you do","help me","capabilities","commands","what can i ask","how do i use you","what do you do"], run:helpReply},
+ {keys:["what is this","what is steam","what are these apps","overview","explain this app","what is this tool"], run:overviewReply},
+ {keys:["hello","hi","hey","yo","good morning","good evening"], run:function(){ return Promise.resolve({html:"Hi — I'm the STEAM Copilot. I can run either app for you and explain the modelling. Try a chip below or ask me anything.", chips:["What can you do?","Run a Frank-Wolfe assignment","Zoom to the Metro area","Explain V/C"]}); }},
+ {keys:["thanks","thank you","cheers","nice","great","cool"], run:function(){ return Promise.resolve({html:"Anytime. Want me to rank the congested corridors or test a scenario next?", chips:["Rank corridors","Find solutions","Colour by V/C"]}); }}
+];
+
+/* ---------- matcher ---------- */
+var Q_CUE=/\b(what|why|how|explain|define|describe|tell me|meaning of|difference|which|when|who)\b/;
+var IMP_CUE=/\b(run|show|go|switch|open|colou?r|set|zoom|fit|toggle|build|rank|find|solve|draw|upgrade|select|export|enable|turn|use|make|give me|let'?s|display|jump|take me)\b/;
+function norm(s){ return " "+s.toLowerCase().replace(/[^a-z0-9/+\s.-]/g," ").replace(/\s+/g," ")+" "; }
+function hasWord(t, w){ return t.indexOf(" "+w+" ")>=0; }
+/* a key phrase matches when ALL its words appear (any order); longest phrase wins */
+function scoreKeys(t, keys){
+  var best=0;
+  for(var i=0;i<keys.length;i++){
+    var phrase=keys[i].toLowerCase().trim();
+    var words=phrase.split(/\s+/).filter(Boolean), all=true;
+    for(var j=0;j<words.length;j++){ if(!hasWord(t,words[j])){ all=false; break; } }
+    if(all && phrase.length>best) best=phrase.length;
+  }
+  return best;
+}
+function classify(text){
+  var t=norm(text), isQ=Q_CUE.test(t), isImp=IMP_CUE.test(t);
+  var cands=[];
+  META.forEach(function(r){ var s=scoreKeys(t,r.keys); if(s) cands.push({type:"meta",r:r,s:s+2}); });
+  STATE.forEach(function(r){ var s=scoreKeys(t,r.keys); if(s) cands.push({type:"state",r:r,s:s+1}); });
+  ACTIONS.forEach(function(r){ var s=scoreKeys(t,r.keys); if(s){ if(isImp) s+=4; if(isQ&&!isImp) s-=3; cands.push({type:"action",r:r,s:s}); } });
+  KB.forEach(function(r){ var s=scoreKeys(t,r.k); if(s){ if(isQ) s+=4; cands.push({type:"kb",r:r,s:s}); } });
+  cands.sort(function(a,b){ return b.s-a.s; });
+  return cands.length?cands[0]:null;
+}
+
+/* ---------- formatting helpers for state ---------- */
+function fmtState(obj, fields){
+  var rows=[];
+  fields.forEach(function(f){ var v=obj[f.id]; if(v) rows.push("<li><span class='k'>"+f.label+":</span> "+esc(v)+"</li>"); });
+  return rows.length? "<ul>"+rows.join("")+"</ul>" : "";
+}
+async function reportAssign(){
+  switchApp("assign");
+  var s=await snapshot("assign");
+  var kpi=s.kpi||"", status=s.status||"", gap=s.gapOut||"";
+  if(!kpi && !status){
+    return {html:"The Assignment app hasn't produced results yet. Want me to run one now?", chips:["Run a Frank-Wolfe assignment","Run BPR","Run free-flow"]};
+  }
+  var html="Here's the current Assignment state:";
+  html+=fmtState({kpi:kpi,status:status,gap:gap},[{id:"kpi",label:"KPIs"},{id:"gap",label:"Gap"},{id:"status",label:"Status"}]);
+  return {html:html, chips:["Rank corridors","Colour by V/C","Top links","Find solutions"]};
+}
+async function reportViewer(){
+  switchApp("viewer");
+  var s=await snapshot("viewer");
+  var html="Network Viewer state:";
+  html+=fmtState(s,[{id:"netstats",label:"Network"},{id:"agglbl",label:"Aggregation"},{id:"selinfo",label:"Selection"},{id:"odout",label:"OD Δ"}]);
+  if(!s.netstats && !s.agglbl) html="The Network Viewer is loaded. Pick an aggregation method or a colour scheme and I'll run it.";
+  return {html:html, chips:["Colour by district","Zoom to the Metro area","OD Δ stats"]};
+}
+
+/* ---------- meta replies ---------- */
+function helpReply(){
+  return Promise.resolve({html:
+   "I'm wired into <b>both</b> apps and switch between them automatically. I can:"+
+   "<ul>"+
+   "<li><span class='k'>Drive the Assignment app</span> — run free-flow / BPR / Frank-Wolfe / MSA, colour by volume·V/C·LOS·Δ, rank corridors, find solutions, run scenarios, analysis &amp; export.</li>"+
+   "<li><span class='k'>Drive the Network Viewer</span> — zoom to Metro / Al Ain, set aggregation methods M1–M5, colour zones, OD desire lines, lasso a study area, OD Δ stats.</li>"+
+   "<li><span class='k'>Read live results</span> — ask “what are the current KPIs?” and I'll report VHT, VMT, speed, over-capacity links.</li>"+
+   "<li><span class='k'>Explain the modelling</span> — BPR, equilibrium, V/C, LOS, gravity model, TAZ aggregation, screenlines, and more.</li>"+
+   "</ul>Just tell me what you want in plain English.",
+   chips:["Run a Frank-Wolfe assignment","Rank corridors","Zoom to the Metro area","Explain BPR","What are the current KPIs?"]});
+}
+function overviewReply(){
+  return Promise.resolve({html:
+   "<b>STEAM 2040 Studio</b> unifies two strategic-model tools over the same 2040 network (152,879 road links + PT, walk &amp; PnR):"+
+   "<ul>"+
+   "<li>🗺️ <span class='k'>Network Viewer</span> — explore the network and aggregate the 3,692-zone TAZ system while controlling the error it introduces.</li>"+
+   "<li>🚦 <span class='k'>Assignment</span> — route an OD matrix onto the network (free-flow → user equilibrium), test road upgrades and new roads, and rank/solve congestion.</li>"+
+   "</ul>I'm the copilot tying them together. What would you like to do?",
+   chips:["What can you do?","Run an assignment","Open the Network Viewer"]});
+}
+
+/* ---------- main dispatch ---------- */
+async function handle(text){
+  var c=classify(text);
+  if(!c){
+    return {html:"I'm not sure how to do that yet. I can run either app or explain the modelling — try one of these:",
+            chips:["What can you do?","Run a Frank-Wolfe assignment","Rank corridors","Explain V/C"]};
+  }
+  if(c.type==="meta")  return await c.r.run();
+  if(c.type==="kb")    return {html:c.r.a, chips:kbChips(text)};
+  if(c.type==="state") return await c.r.run();
+
+  /* action */
+  var r=c.r;
+  if(r.run){ var rr=await r.run(); if(rr && rr.html) return rr; return {html:r.say||"Done.", done:true}; }
+  var key=r.app;
+  if(key && key!==activeApp) switchApp(key);
+  await drive(key, r.ops);
+  var resp={html:r.say||"Done.", done:true};
+  if(r.readAfter && r.readAfter.length){
+    await new Promise(function(res){ setTimeout(res, key==="assign"?700:250); });
+    var s=await snapshot(key);
+    var extra=[];
+    r.readAfter.forEach(function(id){ if(s[id]) extra.push("<span class='k'>"+id+":</span> "+esc(s[id].slice(0,220))); });
+    if(extra.length) resp.html += "<div class='did'>"+extra.join("<br>")+"</div>";
+  }
+  resp.chips = followups(key);
+  return resp;
+}
+function kbChips(text){
+  return ["Run an assignment","Colour by V/C","Rank corridors","What can you do?"];
+}
+function followups(key){
+  return key==="assign"
+    ? ["Colour by V/C","Rank corridors","What are the current KPIs?","Find solutions"]
+    : ["Colour by district","Zoom to Al Ain","OD desire lines","Open the Assignment app"];
+}
+
+/* ---------- submit / UI wiring ---------- */
+var busy=false;
+async function submit(text){
+  text=(text||"").trim(); if(!text||busy) return;
+  busy=true; document.getElementById("send").disabled=true;
+  addMsg("user", esc(text));
+  var t=thinking();
+  var resp;
+  try{ resp=await handle(text); }
+  catch(e){ resp={html:"Something went wrong handling that ("+esc(String(e&&e.message||e))+"). Try rephrasing?"}; }
+  t.remove();
+  var m=addMsg("cop", resp.html||"Done.");
+  if(resp.done){ /* already styled inline */ }
+  addChips(m, resp.chips);
+  busy=false; document.getElementById("send").disabled=false;
+  var q=document.getElementById("q"); q.focus();
+}
+var qEl=document.getElementById("q");
+function autosize(){ qEl.style.height="auto"; qEl.style.height=Math.min(qEl.scrollHeight,96)+"px"; }
+qEl.addEventListener("input",autosize);
+qEl.addEventListener("keydown",function(e){ if(e.key==="Enter"&&!e.shiftKey){ e.preventDefault(); var v=qEl.value; qEl.value=""; autosize(); submit(v); } });
+document.getElementById("send").addEventListener("click",function(){ var v=qEl.value; qEl.value=""; autosize(); submit(v); });
+
+/* quick chips */
+var QUICK=["What can you do?","Run a Frank-Wolfe assignment","Rank corridors","Zoom to the Metro area","Explain BPR"];
+var qbox=document.getElementById("quick");
+QUICK.forEach(function(c){ var b=document.createElement("button"); b.className="sg"; b.textContent=c; b.addEventListener("click",function(){ submit(c); }); qbox.appendChild(b); });
+
+/* greeting */
+addMsg("cop","👋 I'm the <b>STEAM Copilot</b>. I run the <b>Network Viewer</b> and the <b>Assignment</b> app for you and explain the modelling behind them — all offline. Tell me what you want, or tap a suggestion.");
+addChips(log.lastChild,["What can you do?","Run an assignment","Zoom to the Metro area"]);
+
+/* boot: load the default viewer frame, open dock after a beat */
+ensureFrame("viewer"); waitReady("viewer").then(updateCtx);
+setTimeout(openDock, 650);
+
+})();
+</script>
+</body>
+</html>
