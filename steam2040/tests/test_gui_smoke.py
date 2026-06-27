@@ -14,8 +14,14 @@ pytest.importorskip("PySide6")
 
 @pytest.fixture(scope="module")
 def qapp():
-    from PySide6.QtWidgets import QApplication
-    app = QApplication.instance() or QApplication([])
+    # Skip (don't fail) when the Qt platform plugin can't load — e.g. a CI
+    # runner without libEGL/libGL. The headless engine tests still cover the
+    # logic; this fixture only guards the optional GUI-render checks.
+    try:
+        from PySide6.QtWidgets import QApplication
+        app = QApplication.instance() or QApplication([])
+    except Exception as exc:  # ImportError on libEGL, plugin load failure, etc.
+        pytest.skip(f"Qt platform unavailable: {exc}")
     yield app
 
 
