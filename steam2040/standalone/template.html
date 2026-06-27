@@ -1,0 +1,248 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>STEAM 2040 Studio</title>
+<style>
+  :root{
+    --bg:#0c1320; --panel:#0d1424; --panel2:#101a2e; --border:#243044;
+    --text:#cdd6e4; --muted:#7f8da6; --gold:#c8a24a; --cyan:#7df9ff;
+    --good:#3fb950; --warn:#d29922; --bad:#f85149;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;overflow:hidden;background:var(--bg);
+    color:var(--text);font:13px/1.45 "Segoe UI",system-ui,-apple-system,sans-serif;
+    -webkit-font-smoothing:antialiased}
+  body.light{--bg:#eef2f8;--panel:#ffffff;--panel2:#f3f6fb;--border:#cdd6e4;
+    --text:#1a2230;--muted:#5a6678}
+  #map{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none;
+    cursor:grab;background:var(--bg)}
+  #map:active{cursor:grabbing}
+
+  /* left rail */
+  .rail{position:fixed;left:0;top:0;bottom:0;width:54px;background:var(--panel);
+    border-right:1px solid var(--border);display:flex;flex-direction:column;
+    align-items:center;padding-top:12px;gap:6px;z-index:30}
+  .rail button{width:40px;height:40px;border:1px solid transparent;border-radius:9px;
+    background:transparent;color:var(--muted);font-size:18px;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;transition:.15s}
+  .rail button:hover{color:var(--text);background:var(--panel2)}
+  .rail button.on{color:var(--gold);background:var(--panel2);border-color:var(--border)}
+  .rail .spacer{flex:1}
+  .rail .brand{color:var(--gold);font-weight:700;font-size:11px;letter-spacing:.5px;
+    writing-mode:vertical-rl;transform:rotate(180deg);margin-bottom:14px;opacity:.7}
+
+  /* status pill */
+  #status{position:fixed;left:70px;top:14px;z-index:25;background:var(--panel);
+    border:1px solid var(--border);border-radius:20px;padding:7px 15px;
+    font-size:12px;color:var(--text);max-width:46vw;white-space:nowrap;
+    overflow:hidden;text-overflow:ellipsis;box-shadow:0 2px 14px #0006}
+  #status.busy::before{content:"";display:inline-block;width:8px;height:8px;
+    border-radius:50%;background:var(--gold);margin-right:8px;
+    animation:pulse 1s infinite}
+  @keyframes pulse{0%,100%{opacity:.3}50%{opacity:1}}
+
+  /* control panel */
+  .panel{position:fixed;right:14px;top:14px;width:296px;z-index:25;
+    background:var(--panel);border:1px solid var(--border);border-radius:12px;
+    box-shadow:0 6px 28px #0007;overflow:hidden}
+  .panel h1{margin:0;padding:13px 16px;font-size:14px;font-weight:700;
+    color:var(--gold);letter-spacing:.4px;border-bottom:1px solid var(--border);
+    background:var(--panel2)}
+  .panel .body{padding:14px 16px;display:flex;flex-direction:column;gap:12px}
+  .ws{display:flex;flex-direction:column;gap:11px}
+  .ws[hidden]{display:none}
+  label{font-size:11px;color:var(--muted);display:block;margin-bottom:4px;
+    text-transform:uppercase;letter-spacing:.5px}
+  select,input[type=number],input[type=text]{width:100%;padding:8px 10px;
+    background:var(--panel2);border:1px solid var(--border);border-radius:7px;
+    color:var(--text);font-size:13px;outline:none}
+  select:focus,input:focus{border-color:var(--gold)}
+  .row{display:flex;gap:9px}
+  .row>div{flex:1}
+  button.act{width:100%;padding:9px;border:1px solid var(--gold);border-radius:8px;
+    background:linear-gradient(180deg,#caa24a22,#caa24a11);color:var(--gold);
+    font-weight:600;font-size:13px;cursor:pointer;transition:.15s}
+  button.act:hover{background:var(--gold);color:#1a1406}
+  button.act.stop{border-color:var(--bad);color:var(--bad);
+    background:linear-gradient(180deg,#f8514922,#f8514911)}
+  button.act.stop:hover{background:var(--bad);color:#fff}
+  .seg{display:flex;border:1px solid var(--border);border-radius:7px;overflow:hidden}
+  .seg button{flex:1;padding:7px;background:var(--panel2);border:0;color:var(--muted);
+    cursor:pointer;font-size:12px;border-right:1px solid var(--border)}
+  .seg button:last-child{border-right:0}
+  .seg button.on{background:var(--gold);color:#1a1406;font-weight:600}
+  .swatches{display:flex;flex-wrap:wrap;gap:5px}
+  .swatches button{flex:1 1 30%;padding:6px 4px;background:var(--panel2);
+    border:1px solid var(--border);border-radius:6px;color:var(--muted);
+    cursor:pointer;font-size:11px}
+  .swatches button:hover{color:var(--text);border-color:var(--gold)}
+  .kpi{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+  .kpi>div{background:var(--panel2);border:1px solid var(--border);border-radius:7px;
+    padding:7px 9px}
+  .kpi span{display:block;font-size:10px;color:var(--muted);text-transform:uppercase;
+    letter-spacing:.4px}
+  .kpi b{font-size:15px;color:var(--text);font-weight:600}
+  .note{font-size:11px;color:var(--muted)}
+  .pill{display:inline-block;background:var(--panel2);border:1px solid var(--border);
+    border-radius:12px;padding:3px 9px;font-size:11px;color:var(--cyan)}
+
+  /* legend */
+  #legend{position:fixed;left:70px;bottom:78px;z-index:20;background:var(--panel);
+    border:1px solid var(--border);border-radius:9px;padding:8px 13px;font-size:12px;
+    color:var(--muted);max-width:320px;box-shadow:0 2px 14px #0006}
+
+  /* hover tip */
+  #tip{position:fixed;z-index:40;pointer-events:none;
+    background:#060c18ee;border:1px solid var(--border);border-radius:7px;
+    padding:7px 10px;font-size:12px;color:var(--text);box-shadow:0 4px 16px #0008;
+    max-width:260px}
+  #tip[hidden]{display:none}
+
+  /* copilot bar */
+  .copilot{position:fixed;left:54px;right:0;bottom:0;z-index:35;
+    background:var(--panel);border-top:1px solid var(--border);padding:9px 16px;
+    display:flex;flex-direction:column;gap:7px}
+  #chat{display:flex;flex-direction:column;gap:5px;max-height:128px;overflow:hidden}
+  .msg{align-self:flex-start;background:var(--panel2);border:1px solid var(--border);
+    border-radius:9px 9px 9px 2px;padding:6px 11px;font-size:12px;max-width:74%;
+    white-space:pre-wrap;color:var(--text)}
+  .msg.you{align-self:flex-end;background:#caa24a18;border-color:#caa24a55;
+    border-radius:9px 9px 2px 9px;color:var(--gold)}
+  .bar{display:flex;gap:9px;align-items:center}
+  .bar .glyph{color:var(--gold);font-size:17px;font-weight:700;padding-left:2px}
+  #cmd{flex:1;padding:10px 13px;background:var(--panel2);border:1px solid var(--border);
+    border-radius:9px;color:var(--text);font-size:13px;outline:none}
+  #cmd:focus{border-color:var(--gold)}
+  #send{padding:10px 18px;border:1px solid var(--gold);border-radius:9px;
+    background:var(--gold);color:#1a1406;font-weight:600;cursor:pointer;font-size:13px}
+  #send:hover{filter:brightness(1.1)}
+  ::-webkit-scrollbar{width:8px;height:8px}
+  ::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px}
+</style>
+</head>
+<body>
+  <canvas id="map"></canvas>
+
+  <nav class="rail">
+    <div class="brand">STEAM&nbsp;2040</div>
+    <button data-m="network" class="on" title="Network">▤</button>
+    <button data-m="aggregation" title="Zone aggregation">◳</button>
+    <button data-m="assignment" title="Assignment">⇄</button>
+    <div class="spacer"></div>
+  </nav>
+
+  <div id="status">starting…</div>
+  <div id="legend">facility class</div>
+  <div id="tip" hidden></div>
+
+  <section class="panel">
+    <h1 id="paneltitle">Network</h1>
+    <div class="body">
+
+      <!-- NETWORK -->
+      <div class="ws" id="panel-network">
+        <div>
+          <label>Colour links by</label>
+          <div class="swatches">
+            <button data-style="class">class</button>
+            <button data-style="lanes">lanes</button>
+            <button data-style="length">length</button>
+            <button data-style="volume">volume</button>
+            <button data-style="vc">v/c</button>
+            <button data-style="los">LOS</button>
+          </div>
+        </div>
+        <div>
+          <label>Colour zones by</label>
+          <select id="zoneAttr">
+            <option value="">— none —</option>
+            <option value="population">population</option>
+            <option value="jobs">jobs</option>
+            <option value="students">students</option>
+            <option value="households">households</option>
+            <option value="retail">retail GFA</option>
+            <option value="office">office GFA</option>
+            <option value="industrial">industrial GFA</option>
+            <option value="school">school GFA</option>
+            <option value="productions">trip productions</option>
+            <option value="attractions">trip attractions</option>
+            <option value="jobs-housing">jobs / housing</option>
+            <option value="metro">metro access</option>
+          </select>
+        </div>
+        <div class="note">Right-click a link to inspect it · scroll to zoom · drag to pan.</div>
+      </div>
+
+      <!-- AGGREGATION -->
+      <div class="ws" id="panel-agg" hidden>
+        <div class="row">
+          <div><label>Target zones</label><input id="aggTarget" type="number" value="1500" min="50" step="50"></div>
+          <div><label>Max span (m)</label><input id="aggSpan" type="number" value="6000" min="500" step="500"></div>
+        </div>
+        <div>
+          <label>Do not cross</label>
+          <select id="aggBarrier">
+            <option value="fwy">freeways</option>
+            <option value="art">arterials &amp; above</option>
+            <option value="coll" selected>collectors &amp; above</option>
+          </select>
+        </div>
+        <button class="act" id="aggBtn">Aggregate zones</button>
+        <div class="pill" id="aggKpi">—</div>
+        <div class="note">Single-linkage merge. No cluster crosses the barrier or exceeds the span. Export from the copilot: <b>export shapefile</b>, <b>export correspondence</b>.</div>
+      </div>
+
+      <!-- ASSIGNMENT -->
+      <div class="ws" id="panel-assign" hidden>
+        <div class="row">
+          <div>
+            <label>Method</label>
+            <select id="method">
+              <option value="frankwolfe">Frank–Wolfe (UE)</option>
+              <option value="msa">MSA</option>
+              <option value="incremental">Incremental</option>
+              <option value="freeflow">Free-flow (AON)</option>
+            </select>
+          </div>
+          <div>
+            <label>Demand</label>
+            <select id="demand">
+              <option value="fixed">Matrix</option>
+              <option value="gravity">Gravity</option>
+            </select>
+          </div>
+        </div>
+        <button class="act" id="runAssign">Run assignment</button>
+        <div>
+          <label>Show</label>
+          <div class="seg" id="volvc">
+            <button data-c="volume" class="on">Volume</button>
+            <button data-c="vc">v/c</button>
+          </div>
+        </div>
+        <div class="kpi" id="kpi"></div>
+      </div>
+
+    </div>
+  </section>
+
+  <div class="copilot">
+    <div id="chat"></div>
+    <div class="bar">
+      <span class="glyph">✦</span>
+      <input id="cmd" type="text" autocomplete="off" spellcheck="false"
+             placeholder="ask the copilot — e.g. run an AM peak assignment">
+      <button id="send">Send</button>
+    </div>
+  </div>
+
+<script>window.STEAM_BLOB="__BLOB__";window.STEAM_ORIGIN=__ORIGIN__;</script>
+<script>
+__ENGINE__
+__GLMAP__
+__APP__
+</script>
+</body>
+</html>
