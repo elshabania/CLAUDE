@@ -5,7 +5,10 @@
 import os
 from PyInstaller.utils.hooks import collect_submodules
 
-ROOT = os.path.abspath(os.getcwd())
+# SPECPATH is injected by PyInstaller and is the directory holding this .spec
+# file (steam2040/packaging). The project root is its parent — this is robust
+# regardless of the working directory the build was launched from.
+ROOT = os.path.dirname(SPECPATH)
 
 # bundle the front end; data files use os-specific separator handled by spec.
 datas = [
@@ -22,7 +25,7 @@ hiddenimports = (collect_submodules("numba") + collect_submodules("llvmlite")
                  + collect_submodules("uvicorn") + ["scipy.spatial"])
 
 a = Analysis(
-    ["main.py"],
+    [os.path.join(ROOT, "main.py")],
     pathex=[ROOT],
     binaries=[],
     datas=datas,
