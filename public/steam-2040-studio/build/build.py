@@ -192,7 +192,7 @@ def tweak(src, appid):
         # the base classification + centroids + extra layers to read results.
         assert 'const diff=(MODE==="diff" && DIFF);' in src
         src = src.replace('const diff=(MODE==="diff" && DIFF);',
-            'const diff=(MODE==="diff" && DIFF); var RESULTSVIEW=((assignDone&&(MODE==="vol"||MODE==="vc"||MODE==="los"))||diff);', 1)
+            'const diff=(MODE==="diff" && DIFF); var RESULTSVIEW=((assignDone&&(MODE==="vol"||MODE==="vc"||MODE==="los"))||MODE==="diff");', 1)
         # diff mode: dim the unchanged links further so the Δ reads clearly
         src = src.replace('lw=Math.max(.4,base*.5); t.globalAlpha=.25;',
                           'lw=Math.max(.35,base*.45); t.globalAlpha=.10;', 1)
