@@ -59,6 +59,37 @@
   #zoneBar .zb-go{background:var(--gold);color:#0b1018;border-color:var(--gold)}
   #zoneBar .zb-alt{background:#0e1626;color:var(--txt)}
   @media (max-width:820px){ #zoneBar .zb-lbl{display:none} #zoneBar{top:8px} }
+
+  /* ---- draggable / reorderable program list ---- */
+  #progPanel{position:absolute;top:64px;right:18px;z-index:12;width:300px;display:none;
+    flex-direction:column;background:rgba(13,20,34,.97);border:1px solid #2d4a74;border-radius:12px;
+    box-shadow:0 10px 30px rgba(0,0,0,.55);overflow:hidden}
+  #progPanel.show{display:flex}
+  #progHead{display:flex;align-items:center;gap:8px;padding:9px 11px;cursor:grab;
+    background:linear-gradient(#16243c,#101a2c);border-bottom:1px solid var(--line);user-select:none}
+  #progHead.grab{cursor:grabbing}
+  #progHead .ph-grip{color:var(--dim);font-size:14px}
+  #progHead b{font-size:12.5px}
+  #progMeta{margin-left:auto;font-size:10px;color:var(--dim)}
+  #progClose{width:22px;height:22px;border-radius:6px;border:1px solid var(--line);background:#0e1626;color:var(--dim);cursor:pointer;font-size:12px}
+  #progHint{font-size:9.5px;color:var(--dim);padding:6px 11px;border-bottom:1px solid var(--line);line-height:1.4}
+  #progItems{max-height:46vh;overflow-y:auto;padding:7px;display:flex;flex-direction:column;gap:5px}
+  .pitem{display:flex;align-items:center;gap:7px;padding:7px 8px;border:1px solid var(--line);border-radius:8px;
+    background:#0d1424;font-size:11px;cursor:default}
+  .pitem.drag{opacity:.4}
+  .pitem.over{border-color:var(--gold)}
+  .pitem .pgrip{cursor:grab;color:var(--dim);font-size:13px;touch-action:none}
+  .pitem .pbody{flex:1;line-height:1.35;min-width:0}
+  .pitem .pbody b{color:var(--gold);font-weight:600}
+  .pitem .pbody .psub{color:var(--dim);font-size:10px}
+  .pitem .pmove{display:flex;flex-direction:column;gap:1px}
+  .pitem .pmove button,.pitem .pdrop{width:18px;height:15px;border:1px solid var(--line);background:#0e1626;color:var(--dim);
+    cursor:pointer;font-size:9px;border-radius:4px;line-height:1;padding:0}
+  .pitem .pdrop{height:32px;color:#e07a7a}
+  #progFoot{display:flex;align-items:center;gap:8px;padding:9px 11px;border-top:1px solid var(--line)}
+  #progTot{flex:1;font-size:10px;color:var(--cyan);line-height:1.4}
+  #progFoot .zb-go{border:0;border-radius:8px;font-size:11.5px;font-weight:700;cursor:pointer;padding:7px 11px;background:var(--gold);color:#0b1018}
+  #progEmpty{padding:14px 11px;font-size:11px;color:var(--dim)}
   .frameWrap{position:absolute;inset:0;display:none}
   .frameWrap.on{display:block}
   iframe{width:100%;height:100%;border:0;display:block;background:var(--bg)}
@@ -175,6 +206,12 @@
       <span class="zb-lbl">Aggregate zones, then test the assignment on them →</span>
       <button id="zbAssign" class="zb-go">▶ Assign on these zones</button>
       <button id="zbFull" class="zb-alt">↺ Full zones</button>
+    </div>
+    <div id="progPanel" aria-label="Solution program">
+      <div id="progHead"><span class="ph-grip">⠿</span><b>Program</b><span id="progMeta"></span><button id="progClose" aria-label="Close">✕</button></div>
+      <div id="progHint">Drag ⠿ to reorder · ✕ to drop a project · drag the header to move this panel</div>
+      <div id="progItems"></div>
+      <div id="progFoot"><span id="progTot"></span><button id="progApply" class="zb-go">Apply &amp; run scenario</button></div>
     </div>
   </div>
 
@@ -351,7 +388,9 @@ async function rankOrSolve(btn, label){
   var html=label+pre;
   if(s.reclist) html+="<div class='did'>"+esc(s.reclist.slice(0,420))+"</div>";
   else if(s.status) html+="<div class='did warn'>"+esc(s.status.slice(0,180))+"</div>";
-  return {html:html, chips:["Colour by V/C","Find solutions","Top links","Colour by LOS"]};
+  var prog=/program/i.test(s.reclist||"");
+  if(btn==="solveBtn" && prog){ openProgram(true); html+=" <i>Opened the draggable program list.</i>"; }
+  return {html:html, chips:prog?["Show program list","Colour by V/C","Top links"]:["Colour by V/C","Find solutions","Top links","Colour by LOS"]};
 }
 /* HANDOFF: take the Viewer's zone aggregation, re-aggregate the Assignment's
    OD onto those merged zones, and re-run — "assign on the aggregated zones". */
@@ -473,6 +512,76 @@ document.getElementById("railCop").addEventListener("click",function(){
 });
 document.getElementById("zbAssign").addEventListener("click",function(){ openDock(); submit("assign on the aggregated zones"); });
 document.getElementById("zbFull").addEventListener("click",function(){ openDock(); submit("reset to full zones"); });
+
+/* ---------- draggable / reorderable solution program ---------- */
+var PROG=[], dragI=null, progP=document.getElementById("progPanel");
+function fmtVH(n){ n=Math.round(n); return Math.abs(n)>=1000?(n/1000).toFixed(1)+"k":(""+n); }
+async function openProgram(auto){
+  switchApp("assign"); await waitReady("assign");
+  if(!auto){ progP.classList.add("show"); renderProgList(!PROG.length); }   // show immediately
+  var r=null;
+  for(var i=0;i<8;i++){ r=await rpc("assign",{cmd:"getprog"}); if(r&&r.ok) break; await new Promise(function(res){setTimeout(res,400);}); }
+  if(!r||!r.ok){ if(!auto && !PROG.length) renderProgList(true); return; }
+  PROG=r.picks||[]; progP.classList.add("show"); renderProgList();
+}
+function progTotals(){ var v=0,c=0; PROG.forEach(function(p){ v+=p.stepSaved||0; c+=p.stepCost||0; }); return {vht:v,cost:c,bcr:c>0?v/c:0}; }
+function renderProgList(empty){
+  var box=document.getElementById("progItems"); box.innerHTML="";
+  document.getElementById("progMeta").textContent = (empty||!PROG.length)?"":(PROG.length+" project"+(PROG.length===1?"":"s"));
+  if(empty || !PROG.length){
+    var e=document.createElement("div"); e.id="progEmpty";
+    e.innerHTML="No program yet. In <b>Solve</b>, tick <b>build program</b>, set a <b>Budget</b> and run <b>Find solutions</b> — then reopen this.";
+    box.appendChild(e); document.getElementById("progTot").textContent=""; return;
+  }
+  PROG.forEach(function(p,idx){
+    var it=document.createElement("div"); it.className="pitem"; it.draggable=true; it.dataset.i=idx;
+    it.innerHTML='<span class="pgrip" title="drag to reorder">⠿</span>'+
+      '<div class="pbody"><b>'+(idx+1)+'. '+esc(p.type)+'</b> <span class="psub">· corridor '+p.rank+'</span>'+
+      '<br><span class="psub">'+fmtVH(p.stepSaved)+' veh-h · '+(p.stepCost||0).toFixed(1)+' lane-km · BCR '+((p.stepCost>0)?(p.stepSaved/p.stepCost).toFixed(0):"∞")+'</span></div>'+
+      '<div class="pmove"><button data-up title="up">▲</button><button data-dn title="down">▼</button></div>'+
+      '<button class="pdrop" title="remove">✕</button>';
+    it.querySelector("[data-up]").addEventListener("click",function(){ if(idx>0){ var t=PROG[idx-1];PROG[idx-1]=PROG[idx];PROG[idx]=t; renderProgList(); } });
+    it.querySelector("[data-dn]").addEventListener("click",function(){ if(idx<PROG.length-1){ var t=PROG[idx+1];PROG[idx+1]=PROG[idx];PROG[idx]=t; renderProgList(); } });
+    it.querySelector(".pdrop").addEventListener("click",function(){ PROG.splice(idx,1); renderProgList(); });
+    it.addEventListener("dragstart",function(e){ dragI=idx; it.classList.add("drag"); try{e.dataTransfer.effectAllowed="move";e.dataTransfer.setData("text","x");}catch(_){} });
+    it.addEventListener("dragend",function(){ it.classList.remove("drag"); document.querySelectorAll(".pitem.over").forEach(function(x){x.classList.remove("over");}); });
+    it.addEventListener("dragover",function(e){ e.preventDefault(); it.classList.add("over"); });
+    it.addEventListener("dragleave",function(){ it.classList.remove("over"); });
+    it.addEventListener("drop",function(e){ e.preventDefault(); it.classList.remove("over"); if(dragI==null||dragI===idx) return; var m=PROG.splice(dragI,1)[0]; PROG.splice(idx,0,m); dragI=null; renderProgList(); });
+    box.appendChild(it);
+  });
+  var t=progTotals();
+  document.getElementById("progTot").innerHTML="Total <b>"+fmtVH(t.vht)+"</b> veh-h · "+t.cost.toFixed(1)+" lane-km · BCR "+(t.bcr>0?t.bcr.toFixed(0):"–");
+}
+async function progApply(){
+  if(!PROG.length) return;
+  switchApp("assign"); await waitReady("assign");
+  await rpc("assign",{cmd:"applyprog",picks:PROG});
+  currentTool="scn"; highlightRail("scn");
+  await rpc("assign",{cmd:"section",text:"scenario"});
+  await rpc("assign",{cmd:"click",id:"scnRunBtn"});
+  progP.classList.remove("show");
+  openDock();
+  var m=addMsg("cop","Applied your <b>"+PROG.length+"-project program</b> to the scenario and ran it. Colour by <b>Δ</b> to see the change.");
+  addChips(m,["Colour by Δ","What are the current KPIs?","Show program list"]);
+}
+document.getElementById("progApply").addEventListener("click",progApply);
+document.getElementById("progClose").addEventListener("click",function(){ progP.classList.remove("show"); });
+(function(){   /* move the whole panel by dragging its header */
+  var head=document.getElementById("progHead"), dragging=false, ox=0, oy=0;
+  head.addEventListener("pointerdown",function(e){
+    if(e.target.id==="progClose") return;
+    dragging=true; head.classList.add("grab"); var r=progP.getBoundingClientRect();
+    ox=e.clientX-r.left; oy=e.clientY-r.top; progP.style.right="auto"; progP.style.left=r.left+"px"; progP.style.top=r.top+"px";
+    try{ head.setPointerCapture(e.pointerId); }catch(_){}
+  });
+  head.addEventListener("pointermove",function(e){
+    if(!dragging) return;
+    progP.style.left=Math.max(72,Math.min(window.innerWidth-60,e.clientX-ox))+"px";
+    progP.style.top=Math.max(54,Math.min(window.innerHeight-40,e.clientY-oy))+"px";
+  });
+  head.addEventListener("pointerup",function(e){ dragging=false; head.classList.remove("grab"); try{ head.releasePointerCapture(e.pointerId); }catch(_){} });
+})();
 function openDock(){ document.body.classList.remove("dock-closed"); setTimeout(function(){ document.getElementById("q").focus(); },50); }
 function closeDock(){ document.body.classList.add("dock-closed"); }
 document.getElementById("copBtn").addEventListener("click",openDock);
@@ -627,6 +736,9 @@ var ACTIONS=[
     run:function(){ return rankOrSolve("recBtn","Ranked corridors by congested delay."); }}),
  A({app:"assign", keys:["find solutions","solve","fix congestion","propose solutions","suggest fixes"],
     run:function(){ return rankOrSolve("solveBtn","Searched for solutions — re-assigned and measured VHT saved."); }}),
+ A({app:null, keys:["show program list","program list","show the program","open program","program panel","drag program","reorder program","edit program","move program"],
+    say:"Opened the <b>program list</b> — drag ⠿ to reorder, ✕ to drop a project, drag the header to move it, then <b>Apply</b>.",
+    run:function(){ openProgram(); return Promise.resolve(true); }}),
  A({app:"assign", keys:["upgrade tool","upgrade mode","add lanes","widen"], say:"<b>Upgrade</b> tool armed — tap a link to add lanes.", ops:[["open","scenario"],["seg","#editSeg","upgrade"]]}),
  A({app:"assign", keys:["draw road","draw mode","new road tool"], say:"<b>Draw road</b> tool armed — tap two points to place a road.", ops:[["open","scenario"],["seg","#editSeg","draw"]]}),
  A({app:"assign", keys:["select-link tool","select link tool","selectlink"], say:"<b>Select-link</b> tool armed — tap a link to see its O–D flows.", ops:[["open","scenario"],["seg","#editSeg","select"]]}),

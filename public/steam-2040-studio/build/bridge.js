@@ -91,6 +91,33 @@
     try{ window.__XLAYERS=layers; if(typeof render==="function") render(); return {ok:true}; }
     catch(e){ return {ok:false, err:String(e)}; }
   }
+  /* ASSIGNMENT: serialize the current solution program for the draggable list */
+  function getProgram(){
+    try{
+      if(typeof PROGRAM==="undefined" || !PROGRAM || !PROGRAM.picks || !PROGRAM.picks.length) return {ok:false};
+      var picks=PROGRAM.picks.map(function(p){
+        return { type:p.type, rank:p.rank, stepSaved:p.stepSaved||0, stepCost:p.stepCost||0,
+          up:Array.from(p.up||[]).map(function(e){ return [e[0], e[1]]; }),
+          extras:(p.extras||[]).map(function(e){ return {pts:e.pts, lanes:e.lanes, lt:e.lt, _n0:e._n0, _n1:e._n1}; }) };
+      });
+      return {ok:true, picks:picks, cost:PROGRAM.cost||0};
+    }catch(e){ return {ok:false, err:String(e)}; }
+  }
+  /* ASSIGNMENT: apply an edited / reordered program to the scenario */
+  function applyProgram(picks){
+    try{
+      if(typeof SCN==="undefined") return {ok:false, err:"no scenario"};
+      var up=new Map(), extras=[];
+      (picks||[]).forEach(function(p){
+        (p.up||[]).forEach(function(e){ up.set(e[0], (up.get(e[0])||0)+e[1]); });
+        (p.extras||[]).forEach(function(e){ extras.push({pts:e.pts, lanes:e.lanes, lt:e.lt, _n0:e._n0, _n1:e._n1}); });
+      });
+      SCN.upgrades=up; SCN.extras=extras;
+      if(typeof updateScnPanel==="function") updateScnPanel();
+      if(typeof render==="function") render();
+      return {ok:true, n:(picks||[]).length};
+    }catch(e){ return {ok:false, err:String(e)}; }
+  }
   /* shared map view (both apps use cx,cy world-centre + sc px/m) for zoom sync */
   function getView(){ try{ return {ok:true, cx:cx, cy:cy, sc:sc}; }catch(e){ return {ok:false}; } }
   function setView(v){
@@ -163,6 +190,8 @@
         case "setview":   out = setView(m); break;
         case "getxl":     out = getXlayers(); break;
         case "setxl":     out = setXlayers(m.layers); break;
+        case "getprog":   out = getProgram(); break;
+        case "applyprog": out = applyProgram(m.picks||[]); break;
         case "key":   out = pressKey(m.key); break;
         default:      out = {ok:false, err:"unknown cmd "+m.cmd};
       }

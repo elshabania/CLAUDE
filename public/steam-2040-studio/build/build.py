@@ -29,6 +29,8 @@ OVERRIDE = {
   /* Studio: hide bulky panels until a rail tool is chosen */
   body.studio-hide-agg #agg{display:none!important}
   body.studio-hide-layers #chips,body.studio-hide-layers #dissctl{display:none!important}
+  /* keep the aggregation panel compact so it never covers the screen */
+  #agg{max-height:72vh!important;overflow-y:auto;overflow-x:hidden;max-width:min(440px,46vw)}
  """,
  "assign": """
   /* Studio: the rail controls panels, so hide the in-app panel toggles */
@@ -163,12 +165,15 @@ def tweak(src, appid):
         # the base classification + centroids + extra layers to read results.
         assert 'const diff=(MODE==="diff" && DIFF);' in src
         src = src.replace('const diff=(MODE==="diff" && DIFF);',
-            'const diff=(MODE==="diff" && DIFF); var RESULTSVIEW=(assignDone&&(MODE==="vol"||MODE==="vc"||MODE==="los"));', 1)
-        # base link branch -> faint when showing results, else viewer per-class style
+            'const diff=(MODE==="diff" && DIFF); var RESULTSVIEW=((assignDone&&(MODE==="vol"||MODE==="vc"||MODE==="los"))||diff);', 1)
+        # diff mode: dim the unchanged links further so the Δ reads clearly
+        src = src.replace('lw=Math.max(.4,base*.5); t.globalAlpha=.25;',
+                          'lw=Math.max(.35,base*.45); t.globalAlpha=.10;', 1)
+        # base link branch -> faint when showing results/diff, else viewer per-class style
         assert 'else { col=THEME.baseLink; lw=Math.max(.55,base*.7); t.globalAlpha=assignDone?.5:.8; }' in src
         src = src.replace(
             'else { col=THEME.baseLink; lw=Math.max(.55,base*.7); t.globalAlpha=assignDone?.5:.8; }',
-            'else { if(RESULTSVIEW){ col=THEME.baseLink; lw=Math.max(.5,base*.6); t.globalAlpha=.32; } '
+            'else { if(RESULTSVIEW){ col=THEME.baseLink; lw=Math.max(.45,base*.55); t.globalAlpha=.16; } '
             'else { var vs=VSTYLE[c]; if(vs&&sc<vs.minS) continue; '
             'col=vs?vs.col:THEME.baseLink; lw=vs?Math.min(Math.max(vs.b,vs.wm*sc),vs.mx):Math.max(.55,base*.7); '
             't.globalAlpha=vs?vs.a:.8; } }', 1)
@@ -196,6 +201,23 @@ def tweak(src, appid):
           ' t.lineWidth=Math.max(.8,_cr*.3); t.strokeStyle="#5c4a00"; t.stroke(); } t.globalAlpha=1;}\n  ')
         assert src.count('drawSelScreen(t);') >= 1
         src = src.replace('drawSelScreen(t);', CENTDRAW + 'drawSelScreen(t);', 1)
+        # SPEED: make the Origins sample apply to the loaded OD too (sample
+        # origins + scale demand), so runs/solves can be far faster.
+        assert '(demandMap ? (demandMap.get(u)||0) : destw[u])*GROWTH;' in src
+        src = src.replace('(demandMap ? (demandMap.get(u)||0) : destw[u])*GROWTH;',
+                          '(demandMap ? (demandMap.get(u)||0) : destw[u])*GROWTH*(window.__ODSCALE||1);', 1)
+        assert 'return {origins:[...ODMAT.byOrigNode.keys()], demandFor:nd=>ODMAT.byOrigNode.get(nd)}; }' in src
+        src = src.replace(
+            'return {origins:[...ODMAT.byOrigNode.keys()], demandFor:nd=>ODMAT.byOrigNode.get(nd)}; }',
+            'window.__ODSCALE=1; let _ok=[...ODMAT.byOrigNode.keys()]; let _s=+document.getElementById("sampleSel").value||0;'
+            ' if(_s>0&&_s<_ok.length){ const _st=_ok.length/_s, _o=[]; for(let _i=0;_i<_s;_i++) _o.push(_ok[Math.floor(_i*_st)]);'
+            ' if(window.__ODTOTAL==null){ let _t=0; ODMAT.byOrigNode.forEach(function(m){ m.forEach(function(v){ _t+=v; }); }); window.__ODTOTAL=_t; }'
+            ' let _sd=0; _o.forEach(function(nd){ const m=ODMAT.byOrigNode.get(nd); if(m) m.forEach(function(v){ _sd+=v; }); });'
+            ' window.__ODSCALE=_sd>0?(window.__ODTOTAL/_sd):1; _ok=_o; }'
+            ' return {origins:_ok, demandFor:nd=>ODMAT.byOrigNode.get(nd)}; }', 1)
+        assert 'return {origins,demandFor:()=>null};' in src
+        src = src.replace('return {origins,demandFor:()=>null};',
+                          'window.__ODSCALE=1; return {origins,demandFor:()=>null};', 1)
     css = OVERRIDE.get(appid)
     if css:
         style = "<style>/* STEAM Studio overrides */" + css + "</style>\n</head>"
