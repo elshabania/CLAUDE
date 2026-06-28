@@ -1,0 +1,1936 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0c1320">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>STEAM 2040 Studio</title>
+<style>
+  :root{
+    --bg:#0c1320; --panel:#0d1424; --panel2:#101a2e; --border:#243044;
+    --text:#cdd6e4; --muted:#7f8da6; --gold:#c8a24a; --cyan:#7df9ff;
+    --good:#3fb950; --warn:#d29922; --bad:#f85149; --tipbg:#060c18ee;
+  }
+  *{box-sizing:border-box}
+  *{transition:background-color .18s ease,border-color .18s ease,color .18s ease}
+  #map,.rail .brand{transition:none}
+  html,body{margin:0;height:100%;overflow:hidden;background:var(--bg);
+    color:var(--text);font:13px/1.45 "Segoe UI",system-ui,-apple-system,sans-serif;
+    -webkit-font-smoothing:antialiased;overscroll-behavior:none;
+    -webkit-text-size-adjust:100%;touch-action:none}
+  body.light{--bg:#eef2f8;--panel:#ffffff;--panel2:#f3f6fb;--border:#cdd6e4;
+    --text:#1a2230;--muted:#5a6678;--tipbg:#fffffff2}
+  #map{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none;
+    overscroll-behavior:none;-webkit-user-select:none;user-select:none;
+    -webkit-tap-highlight-color:transparent;cursor:grab;background:var(--bg)}
+  #map:active{cursor:grabbing}
+  .m-sheet-handle,.m-fab{display:none}
+
+  /* left rail */
+  .rail{position:fixed;left:0;top:0;bottom:0;width:54px;background:var(--panel);
+    border-right:1px solid var(--border);display:flex;flex-direction:column;
+    align-items:center;padding-top:12px;gap:6px;z-index:30}
+  .rail button{width:40px;height:40px;border:1px solid transparent;border-radius:9px;
+    background:transparent;color:var(--muted);font-size:18px;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;transition:.15s}
+  .rail button:hover{color:var(--text);background:var(--panel2)}
+  .rail button.on{color:var(--gold);background:var(--panel2);border-color:var(--border)}
+  .rail .spacer{flex:1}
+  .rail .brand{color:var(--gold);font-weight:700;font-size:11px;letter-spacing:.5px;
+    writing-mode:vertical-rl;transform:rotate(180deg);margin-bottom:14px;opacity:.7}
+
+  /* status pill */
+  #status{position:fixed;left:70px;top:14px;z-index:25;background:var(--panel);
+    border:1px solid var(--border);border-radius:20px;padding:7px 15px;
+    font-size:12px;color:var(--text);max-width:46vw;white-space:nowrap;
+    overflow:hidden;text-overflow:ellipsis;box-shadow:0 2px 14px #0006}
+  #status.busy::before{content:"";display:inline-block;width:8px;height:8px;
+    border-radius:50%;background:var(--gold);margin-right:8px;
+    animation:pulse 1s infinite}
+  @keyframes pulse{0%,100%{opacity:.3}50%{opacity:1}}
+
+  /* fatal error overlay */
+  #errscreen{position:fixed;inset:0;z-index:1000;display:none;
+    background:var(--bg);color:var(--text);padding:8vh 6vw;overflow:auto}
+  #errscreen.show{display:block}
+  #errscreen h2{color:var(--bad);font-size:22px;margin:0 0 14px}
+  #errscreen .ed{font-size:14px;line-height:1.6;max-width:640px}
+  #errscreen .ed code{display:block;background:var(--panel2);border:1px solid var(--border);
+    border-radius:7px;padding:10px 12px;margin:12px 0;color:var(--gold);
+    white-space:pre-wrap;word-break:break-word}
+  #errscreen .hint{color:var(--muted)}
+  #errscreen button{margin-top:18px;padding:9px 18px;border:1px solid var(--gold);
+    border-radius:8px;background:var(--gold);color:#1a1406;font-weight:600;cursor:pointer}
+
+  /* self-test badge */
+  #selftest{position:fixed;left:50%;bottom:96px;transform:translateX(-50%);z-index:60;
+    display:none;padding:7px 16px;border-radius:18px;font-size:12px;font-weight:600;
+    border:1px solid var(--border);box-shadow:0 2px 14px #0006}
+  #selftest.show{display:block}
+  #selftest.pass{background:#12381f;border-color:var(--good);color:var(--good)}
+  #selftest.fail{background:#3a1414;border-color:var(--bad);color:var(--bad)}
+
+  @media (prefers-reduced-motion: reduce){
+    *{transition:none !important;animation:none !important}
+    #status.busy::before{animation:none;opacity:.8}
+  }
+
+  /* control panel */
+  .panel{position:fixed;right:14px;top:14px;width:296px;z-index:25;
+    background:var(--panel);border:1px solid var(--border);border-radius:12px;
+    box-shadow:0 6px 28px #0007;overflow:hidden}
+  .panel h1{margin:0;padding:13px 16px;font-size:14px;font-weight:700;
+    color:var(--gold);letter-spacing:.4px;border-bottom:1px solid var(--border);
+    background:var(--panel2)}
+  .panel .body{padding:14px 16px;display:flex;flex-direction:column;gap:12px}
+  .ws{display:flex;flex-direction:column;gap:11px}
+  .ws[hidden]{display:none}
+  label{font-size:11px;color:var(--muted);display:block;margin-bottom:4px;
+    text-transform:uppercase;letter-spacing:.5px}
+  select,input[type=number],input[type=text]{width:100%;padding:8px 10px;
+    background:var(--panel2);border:1px solid var(--border);border-radius:7px;
+    color:var(--text);font-size:13px;outline:none}
+  select:focus,input:focus{border-color:var(--gold)}
+  .row{display:flex;gap:9px}
+  .row>div{flex:1}
+  button.act{width:100%;padding:9px;border:1px solid var(--gold);border-radius:8px;
+    background:linear-gradient(180deg,#caa24a22,#caa24a11);color:var(--gold);
+    font-weight:600;font-size:13px;cursor:pointer;transition:.15s}
+  button.act:hover{background:var(--gold);color:#1a1406}
+  button.act.stop{border-color:var(--bad);color:var(--bad);
+    background:linear-gradient(180deg,#f8514922,#f8514911)}
+  button.act.stop:hover{background:var(--bad);color:#fff}
+  .seg{display:flex;border:1px solid var(--border);border-radius:7px;overflow:hidden}
+  .seg button{flex:1;padding:7px;background:var(--panel2);border:0;color:var(--muted);
+    cursor:pointer;font-size:12px;border-right:1px solid var(--border)}
+  .seg button:last-child{border-right:0}
+  .seg button.on{background:var(--gold);color:#1a1406;font-weight:600}
+  .swatches{display:flex;flex-wrap:wrap;gap:5px}
+  .swatches button{flex:1 1 30%;padding:6px 4px;background:var(--panel2);
+    border:1px solid var(--border);border-radius:6px;color:var(--muted);
+    cursor:pointer;font-size:11px}
+  .swatches button:hover{color:var(--text);border-color:var(--gold)}
+  .swatches button.on{color:var(--gold);border-color:var(--gold)}
+  .kpi{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+  .kpi>div{background:var(--panel2);border:1px solid var(--border);border-radius:7px;
+    padding:7px 9px}
+  .kpi span{display:block;font-size:10px;color:var(--muted);text-transform:uppercase;
+    letter-spacing:.4px}
+  .kpi b{font-size:15px;color:var(--text);font-weight:600}
+  .note{font-size:11px;color:var(--muted)}
+  .pill{display:inline-block;background:var(--panel2);border:1px solid var(--border);
+    border-radius:12px;padding:3px 9px;font-size:11px;color:var(--cyan)}
+
+  /* mini histogram */
+  .spark-wrap{display:none}
+  .spark-wrap.on{display:block}
+  .spark-wrap label{margin-bottom:5px}
+  #spark{width:100%;height:54px;display:block;background:var(--panel2);
+    border:1px solid var(--border);border-radius:7px}
+
+  /* legend */
+  #legend{position:fixed;left:70px;bottom:78px;z-index:20;background:var(--panel);
+    border:1px solid var(--border);border-radius:9px;padding:9px 13px;font-size:12px;
+    color:var(--muted);max-width:340px;box-shadow:0 2px 14px #0006}
+  #legend .lg-title{color:var(--text);font-size:11px;font-weight:600;
+    text-transform:uppercase;letter-spacing:.5px;margin-bottom:7px}
+  #legend .lg-bar{height:11px;border-radius:4px;border:1px solid var(--border);width:220px;max-width:60vw}
+  #legend .lg-ticks{display:flex;justify-content:space-between;width:220px;max-width:60vw;margin-top:4px;font-size:10px;color:var(--muted)}
+  #legend .lg-chips{display:flex;flex-wrap:wrap;gap:5px 12px;margin-top:2px}
+  #legend .lg-chip{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text)}
+  #legend .lg-dot{width:11px;height:11px;border-radius:3px;flex:none;border:1px solid #0004}
+
+  /* hover tip card */
+  #tip{position:fixed;z-index:40;pointer-events:none;background:var(--tipbg);
+    border:1px solid var(--border);border-radius:8px;padding:8px 11px;font-size:12px;
+    color:var(--text);box-shadow:0 6px 20px #0009;max-width:280px;backdrop-filter:blur(3px)}
+  #tip[hidden]{display:none}
+  #tip .tt-title{display:flex;align-items:center;gap:7px;font-weight:600;margin-bottom:5px}
+  #tip .tt-chip{width:10px;height:10px;border-radius:3px;flex:none;border:1px solid #0005}
+  #tip .tt-row{display:flex;justify-content:space-between;gap:18px;color:var(--muted)}
+  #tip .tt-row b{color:var(--text);font-weight:600}
+
+  /* toasts */
+  #toasts{position:fixed;left:50%;bottom:84px;transform:translateX(-50%);z-index:60;
+    display:flex;flex-direction:column;gap:7px;align-items:center;pointer-events:none}
+  .toast{background:var(--panel);border:1px solid var(--border);border-left:3px solid var(--gold);
+    border-radius:8px;padding:9px 15px;font-size:12px;color:var(--text);box-shadow:0 6px 22px #0008;
+    opacity:0;transform:translateY(8px);transition:opacity .2s ease,transform .2s ease;max-width:70vw}
+  .toast.show{opacity:1;transform:translateY(0)}
+  .toast.bad{border-left-color:var(--bad)}
+  .toast.good{border-left-color:var(--good)}
+
+  /* onboarding hint */
+  #hint{position:fixed;right:14px;top:340px;z-index:26;width:296px;background:var(--panel);
+    border:1px solid var(--gold);border-radius:12px;padding:13px 15px;box-shadow:0 8px 30px #0009;font-size:12px;color:var(--text)}
+  #hint[hidden]{display:none}
+  #hint h2{margin:0 0 7px;font-size:12px;color:var(--gold);letter-spacing:.3px}
+  #hint ul{margin:0 0 9px;padding-left:17px;color:var(--muted);line-height:1.7}
+  #hint kbd{background:var(--panel2);border:1px solid var(--border);border-radius:4px;padding:1px 5px;font-size:11px;color:var(--text)}
+  #hint button{background:var(--gold);border:0;border-radius:7px;padding:6px 12px;color:#1a1406;font-weight:600;cursor:pointer;font-size:12px}
+
+  /* copilot bar */
+  .copilot{position:fixed;left:54px;right:0;bottom:0;z-index:35;
+    background:var(--panel);border-top:1px solid var(--border);padding:9px 16px;
+    display:flex;flex-direction:column;gap:7px}
+  #chat{display:flex;flex-direction:column;gap:5px;max-height:128px;overflow:hidden}
+  .msg{align-self:flex-start;background:var(--panel2);border:1px solid var(--border);
+    border-radius:9px 9px 9px 2px;padding:6px 11px;font-size:12px;max-width:74%;
+    white-space:pre-wrap;color:var(--text)}
+  .msg.you{align-self:flex-end;background:#caa24a18;border-color:#caa24a55;
+    border-radius:9px 9px 2px 9px;color:var(--gold)}
+  .chips{display:flex;gap:6px;flex-wrap:wrap;padding-bottom:1px}
+  .chips button{background:var(--panel2);border:1px solid var(--border);border-radius:13px;
+    padding:4px 11px;font-size:11px;color:var(--muted);cursor:pointer;white-space:nowrap}
+  .chips button:hover{color:var(--gold);border-color:var(--gold)}
+  .bar{display:flex;gap:9px;align-items:center}
+  .bar .glyph{color:var(--gold);font-size:17px;font-weight:700;padding-left:2px}
+  #cmd{flex:1;padding:10px 13px;background:var(--panel2);border:1px solid var(--border);
+    border-radius:9px;color:var(--text);font-size:13px;outline:none}
+  #cmd:focus{border-color:var(--gold)}
+  #send{padding:10px 18px;border:1px solid var(--gold);border-radius:9px;
+    background:var(--gold);color:#1a1406;font-weight:600;cursor:pointer;font-size:13px}
+  #send:hover{filter:brightness(1.1)}
+  ::-webkit-scrollbar{width:8px;height:8px}
+  ::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px}
+
+  /* ===================== MOBILE / TABLET ===================== */
+  @media (max-width:820px){
+    :root{ --safe-t:env(safe-area-inset-top,0px); --safe-b:env(safe-area-inset-bottom,0px);
+           --safe-l:env(safe-area-inset-left,0px); --safe-r:env(safe-area-inset-right,0px);
+           --rail-h:56px; --copilot-h:60px; }
+    .rail{left:0;right:0;top:auto;bottom:0;width:auto;height:auto;flex-direction:row;
+      align-items:stretch;justify-content:center;gap:6px;
+      padding:6px calc(8px + var(--safe-l)) calc(6px + var(--safe-b)) calc(8px + var(--safe-r));
+      border-right:0;border-top:1px solid var(--border);z-index:60}
+    .rail .brand,.rail .spacer{display:none}
+    .rail button{flex:1;max-width:120px;height:44px;min-height:44px;width:auto;font-size:20px}
+    #status{left:calc(10px + var(--safe-l));top:calc(10px + var(--safe-t));
+      max-width:calc(100vw - 20px - var(--safe-l) - var(--safe-r));font-size:12px;padding:8px 14px}
+    #legend{left:calc(10px + var(--safe-l));right:calc(10px + var(--safe-r));max-width:none;
+      bottom:calc(var(--copilot-h) + var(--rail-h) + 14px + var(--safe-b));white-space:normal}
+    .panel{left:0;right:0;top:auto;width:auto;bottom:calc(var(--rail-h) + var(--safe-b));
+      max-height:70vh;border-radius:16px 16px 0 0;border-left:0;border-right:0;border-bottom:0;
+      display:flex;flex-direction:column;transform:translateY(110%);
+      transition:transform .28s cubic-bezier(.2,.8,.2,1);box-shadow:0 -8px 32px #000a;z-index:55}
+    body.sheet-open .panel{transform:translateY(0)}
+    .m-sheet-handle{display:block;width:44px;height:5px;border-radius:3px;background:var(--border);margin:9px auto 2px}
+    .panel h1{padding:6px 16px 12px;text-align:center}
+    .panel .body{overflow-y:auto;-webkit-overflow-scrolling:touch;padding-bottom:calc(16px + var(--safe-b))}
+    .m-fab{display:flex;position:fixed;z-index:58;right:calc(12px + var(--safe-r));
+      bottom:calc(var(--copilot-h) + var(--rail-h) + 14px + var(--safe-b));
+      width:52px;height:52px;border-radius:50%;align-items:center;justify-content:center;
+      background:var(--gold);color:#1a1406;border:0;font-size:22px;font-weight:700;
+      box-shadow:0 4px 18px #0009;cursor:pointer;transition:.2s}
+    body.sheet-open .m-fab{transform:rotate(45deg)}
+    .copilot{left:0;right:0;bottom:calc(var(--rail-h) + var(--safe-b) + var(--kb,0px));
+      padding:8px calc(12px + var(--safe-l)) 8px calc(12px + var(--safe-r));transition:bottom .2s ease}
+    body.kb-open .copilot{bottom:var(--kb,0px)}
+    body.kb-open .rail{transform:translateY(120%)}
+    #hint{right:10px;left:10px;width:auto;top:auto;bottom:calc(var(--copilot-h) + var(--rail-h) + 60px + var(--safe-b))}
+    #chat{max-height:84px}
+    #cmd{min-height:44px;font-size:16px}
+    #send{min-height:44px;min-width:60px}
+    #tip{display:none}
+  }
+  @media (pointer:coarse){
+    .swatches button,.seg button,.rail button{min-height:44px}
+    button.act{min-height:46px}
+  }
+</style>
+</head>
+<body>
+  <canvas id="map" role="img" aria-label="Interactive transport network map"></canvas>
+
+  <nav class="rail" role="toolbar" aria-label="Workspaces" aria-orientation="vertical">
+    <div class="brand" aria-hidden="true">STEAM&nbsp;2040</div>
+    <button data-m="network" class="on" title="Network" aria-label="Network workspace" aria-pressed="true">▤</button>
+    <button data-m="aggregation" title="Zone aggregation" aria-label="Zone aggregation workspace" aria-pressed="false">◳</button>
+    <button data-m="assignment" title="Assignment" aria-label="Assignment workspace" aria-pressed="false">⇄</button>
+    <div class="spacer"></div>
+    <button id="themeBtn" title="Toggle light / dark" aria-label="Toggle light or dark theme">◐</button>
+    <button id="helpBtn" title="Help (?)" aria-label="Help">?</button>
+  </nav>
+
+  <div id="status" role="status" aria-live="polite">starting…</div>
+  <div id="legend"><div class="lg-title">Facility class</div></div>
+  <div id="tip" hidden role="tooltip"></div>
+  <div id="toasts"></div>
+
+  <button class="m-fab" id="mFab" aria-label="Toggle controls">≡</button>
+
+  <section class="panel" role="region" aria-labelledby="paneltitle">
+    <div class="m-sheet-handle" id="mHandle"></div>
+    <h1 id="paneltitle">Network</h1>
+    <div class="body">
+
+      <!-- NETWORK -->
+      <div class="ws" id="panel-network">
+        <div>
+          <label>Colour links by</label>
+          <div class="swatches">
+            <button data-style="class">class</button>
+            <button data-style="lanes">lanes</button>
+            <button data-style="length">length</button>
+            <button data-style="volume">volume</button>
+            <button data-style="vc">v/c</button>
+            <button data-style="los">LOS</button>
+          </div>
+        </div>
+        <div>
+          <label>Colour zones by</label>
+          <select id="zoneAttr">
+            <option value="">— none —</option>
+            <option value="population">population</option>
+            <option value="jobs">jobs</option>
+            <option value="students">students</option>
+            <option value="households">households</option>
+            <option value="retail">retail GFA</option>
+            <option value="office">office GFA</option>
+            <option value="industrial">industrial GFA</option>
+            <option value="school">school GFA</option>
+            <option value="productions">trip productions</option>
+            <option value="attractions">trip attractions</option>
+            <option value="jobs-housing">jobs / housing</option>
+            <option value="metro">metro access</option>
+          </select>
+        </div>
+        <div class="spark-wrap" id="sparkWrap">
+          <label id="sparkLbl">Distribution</label>
+          <canvas id="spark" width="264" height="54"></canvas>
+        </div>
+        <div class="note">Right-click (or long-press) a link to inspect · scroll or pinch to zoom · drag to pan · double-tap to zoom. Shift+right-click = select-link · Alt+right-click = isochrone.</div>
+      </div>
+
+      <!-- AGGREGATION -->
+      <div class="ws" id="panel-agg" hidden>
+        <div class="row">
+          <div><label>Target zones</label><input id="aggTarget" type="number" value="1500" min="50" step="50"></div>
+          <div><label>Max span (m)</label><input id="aggSpan" type="number" value="6000" min="500" step="500"></div>
+        </div>
+        <div>
+          <label>Do not cross</label>
+          <select id="aggBarrier">
+            <option value="fwy">freeways</option>
+            <option value="art">arterials &amp; above</option>
+            <option value="coll" selected>collectors &amp; above</option>
+          </select>
+        </div>
+        <button class="act" id="aggBtn">Aggregate zones</button>
+        <div class="pill" id="aggKpi">—</div>
+        <div class="note">Single-linkage merge. No cluster crosses the barrier or exceeds the span. Export from the copilot: <b>export shapefile</b>, <b>export correspondence</b>.</div>
+      </div>
+
+      <!-- ASSIGNMENT -->
+      <div class="ws" id="panel-assign" hidden>
+        <div class="row">
+          <div>
+            <label>Method</label>
+            <select id="method">
+              <option value="frankwolfe">Frank–Wolfe (UE)</option>
+              <option value="msa">MSA</option>
+              <option value="incremental">Incremental</option>
+              <option value="freeflow">Free-flow (AON)</option>
+            </select>
+          </div>
+          <div>
+            <label>Demand</label>
+            <select id="demand">
+              <option value="fixed">Matrix</option>
+              <option value="gravity">Gravity</option>
+            </select>
+          </div>
+        </div>
+        <button class="act" id="runAssign">Run assignment</button>
+        <div>
+          <label>Show</label>
+          <div class="seg" id="volvc">
+            <button data-c="volume" class="on">Volume</button>
+            <button data-c="vc">v/c</button>
+          </div>
+        </div>
+        <div class="kpi" id="kpi"></div>
+      </div>
+
+    </div>
+  </section>
+
+  <div id="hint" hidden>
+    <h2>Welcome to STEAM 2040 Studio</h2>
+    <ul>
+      <li>Press <kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> to switch workspaces</li>
+      <li>Press <kbd>/</kbd> to focus the copilot, <kbd>?</kbd> for help</li>
+      <li>Right-click a link to inspect · <kbd>Esc</kbd> clears highlights</li>
+    </ul>
+    <button id="hintClose">Got it</button>
+  </div>
+
+  <div class="copilot" role="region" aria-label="Copilot">
+    <div id="chat" role="log" aria-live="polite" aria-label="Copilot conversation"></div>
+    <div class="chips" id="chips">
+      <button data-cmd="run frank-wolfe">Run assignment</button>
+      <button data-cmd="colour links by volume">Colour by volume</button>
+      <button data-cmd="show the worst congestion">Worst congestion</button>
+      <button data-cmd="recommend improvements">Recommend fixes</button>
+      <button data-cmd="colour zones by population">Zones · population</button>
+      <button data-cmd="export link results csv">Export CSV</button>
+    </div>
+    <div class="bar">
+      <span class="glyph" aria-hidden="true">✦</span>
+      <input id="cmd" type="text" autocomplete="off" spellcheck="false"
+             aria-label="Ask the copilot"
+             placeholder="ask the copilot — e.g. run an AM peak assignment">
+      <button id="send" aria-label="Send command to copilot">Send</button>
+    </div>
+  </div>
+
+  <div id="errscreen" role="alertdialog" aria-modal="true" aria-labelledby="err-title">
+    <h2 id="err-title">Something went wrong</h2>
+    <div class="ed">
+      <div id="err-msg"></div>
+      <code id="err-detail" hidden></code>
+      <div class="hint" id="err-hint"></div>
+      <button type="button" onclick="location.reload()">Reload</button>
+    </div>
+  </div>
+
+  <div id="selftest" role="status" aria-live="polite"></div>
+
+<script>window.STEAM_BLOB="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";window.STEAM_ORIGIN=[0.0, 0.0];</script>
+<script>
+/* STEAM 2040 Studio — transport engine (pure JS, typed arrays).
+ *
+ * Ported from the Python core: CSR graph, binary-heap Dijkstra + tree-load,
+ * free-flow / MSA / incremental / (conjugate) Frank-Wolfe assignment, gravity
+ * demand, zone aggregation under barrier + span rules, an improvement
+ * recommender, and interactive analysis (select-link, scenario diff, isochrone,
+ * corridor, screenline). Runs single-threaded; assignment samples origins by
+ * default (the speed/accuracy dial) and is async + interruptible.
+ */
+const FACILITY = ["fwy", "ramp", "art", "coll", "local", "rural", "junc"];
+const CAP_LANE = { fwy: 2000, ramp: 1500, art: 900, coll: 700, local: 500, rural: 600, junc: 600 };
+const SPEED = { fwy: 100, ramp: 60, art: 60, coll: 50, local: 30, rural: 80, junc: 30 };
+const BARRIER_RANK = { fwy: 0, ramp: 1, art: 2, coll: 3, rural: 3, local: 4, junc: 5 };
+const LANEKM_COST = { fwy: 12e6, ramp: 8e6, art: 6e6, coll: 4e6, local: 2e6, rural: 3e6, junc: 2e6 };
+
+function dtypeCtor(s) {
+  return { "<i4": Int32Array, "<f4": Float32Array, "|u1": Uint8Array,
+           "<i2": Int16Array, "<f8": Float64Array }[s] || Float32Array;
+}
+
+async function decodeBlob(b64) {
+  const bin = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+  const ds = new DecompressionStream("gzip");
+  const buf = await new Response(new Blob([bin]).stream().pipeThrough(ds)).arrayBuffer();
+  const dv = new DataView(buf);
+  const hlen = dv.getUint32(0, true);
+  const header = JSON.parse(new TextDecoder().decode(new Uint8Array(buf, 4, hlen)));
+  const base = 4 + hlen;
+  const sec = {};
+  for (const [name, m] of Object.entries(header.sections)) {
+    const C = dtypeCtor(m.dtype);
+    sec[name] = new C(buf.slice(base + m.offset, base + m.offset + m.len));
+  }
+  return { header, sec };
+}
+
+class Model {
+  constructor(decoded) {
+    this.h = decoded.header;
+    this.s = decoded.sec;
+    this.nLinks = this.h.n_links | 0;
+    this.nNodes = this.h.n_nodes | 0;
+    this.nZones = this.h.n_zones | 0;
+    // Capability flags: tolerate networks shipped without zones or an OD matrix.
+    this.hasZones = this.nZones > 0 && !!this.s.z_centroid && this.s.z_centroid.length >= this.nZones * 2;
+    this.hasOD = (this.h.n_od | 0) > 0 && !!this.s.od_o && !!this.s.od_d && !!this.s.od_t;
+    if (!this.hasZones) this.nZones = 0;
+    if (!this.hasOD) this.h.n_od = 0;
+    if (this.nLinks <= 0) throw new Error("This network has no road links — nothing to display.");
+    this.settings = { bprAlpha: 0.15, bprBeta: 4, periodFactor: 0.1, deterrence: 0.1,
+                      vot: 35, workingDays: 250, originSample: 600, fwIters: 8, fwGap: 1e-3,
+                      dispVcCap: 3, dispSpeedFloor: 5 };
+    this._derive();
+    this._buildCSR();
+    if (this.hasZones) this._zoneNodes(); else this.zoneNode = new Int32Array(0);
+    if (this.hasZones && this.hasOD) this._groupOD(); else this.odByNode = new Map();
+    this.result = null;
+    this.aggregation = null;
+  }
+
+  canAssign(demand) {
+    if (!this.hasZones) return false;
+    return demand === "gravity" ? true : this.hasOD;   // gravity synthesises demand from land use
+  }
+
+  className(i) { return FACILITY[this.s.klass[i]] || "local"; }
+
+  _derive() {
+    const n = this.nLinks, s = this.s;
+    this.cap = new Float32Array(n);
+    this.fftime = new Float32Array(n);
+    for (let i = 0; i < n; i++) {
+      const c = FACILITY[s.klass[i]] || "local";
+      this.cap[i] = Math.max(1, s.lanes[i]) * CAP_LANE[c];
+      this.fftime[i] = s.length[i] / (SPEED[c] / 3.6);
+    }
+  }
+
+  _buildCSR() {
+    const n = this.nLinks, s = this.s;
+    let extra = 0;
+    for (let i = 0; i < n; i++) if (!s.oneway[i]) extra++;
+    const E = n + extra;
+    const src = new Int32Array(E), dst = new Int32Array(E), elink = new Int32Array(E);
+    let e = 0;
+    for (let i = 0; i < n; i++) { src[e] = s.node_a[i]; dst[e] = s.node_b[i]; elink[e] = i; e++;
+      if (!s.oneway[i]) { src[e] = s.node_b[i]; dst[e] = s.node_a[i]; elink[e] = i; e++; } }
+    const indptr = new Int32Array(this.nNodes + 1);
+    for (let k = 0; k < E; k++) indptr[src[k] + 1]++;
+    for (let k = 0; k < this.nNodes; k++) indptr[k + 1] += indptr[k];
+    const indices = new Int32Array(E), edgeLink = new Int32Array(E), weight = new Float32Array(E);
+    const cur = indptr.slice();
+    for (let k = 0; k < E; k++) { const p = cur[src[k]]++; indices[p] = dst[k]; edgeLink[p] = elink[k]; }
+    this.csr = { indptr, indices, edgeLink, weight, E };
+    this.setWeights(this.fftime);
+  }
+
+  setWeights(linkTimeArr) {
+    const { edgeLink, weight, E } = this.csr;
+    for (let k = 0; k < E; k++) weight[k] = linkTimeArr[edgeLink[k]];
+  }
+
+  _zoneNodes() {
+    const nx = this.s.node_xy, cell = 1000;
+    const grid = new Map();
+    const key = (x, y) => ((x / cell) | 0) + "," + ((y / cell) | 0);
+    for (let i = 0; i < this.nNodes; i++) {
+      const k = key(nx[i * 2], nx[i * 2 + 1]);
+      let a = grid.get(k); if (!a) grid.set(k, a = []); a.push(i);
+    }
+    const zc = this.s.z_centroid;
+    this.zoneNode = new Int32Array(this.nZones).fill(-1);
+    for (let z = 0; z < this.nZones; z++) {
+      const x = zc[z * 2], y = zc[z * 2 + 1];
+      if (x === 0 && y === 0) continue;
+      const gx = (x / cell) | 0, gy = (y / cell) | 0;
+      let best = -1, bd = Infinity;
+      for (let r = 0; r <= 4 && best < 0; r++) {
+        for (let dx = -r; dx <= r; dx++) for (let dy = -r; dy <= r; dy++) {
+          if (r > 0 && Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
+          const a = grid.get((gx + dx) + "," + (gy + dy)); if (!a) continue;
+          for (const i of a) { const d = (nx[i * 2] - x) ** 2 + (nx[i * 2 + 1] - y) ** 2; if (d < bd) { bd = d; best = i; } }
+        }
+      }
+      this.zoneNode[z] = best;
+    }
+  }
+
+  _groupOD() {
+    const s = this.s, zn = this.zoneNode, M = this.h.n_od;
+    const byNode = new Map();
+    for (let k = 0; k < M; k++) {
+      const on = zn[s.od_o[k]], dn = zn[s.od_d[k]];
+      if (on < 0 || dn < 0 || on === dn) continue;
+      let a = byNode.get(on); if (!a) byNode.set(on, a = []);
+      a.push(dn, s.od_t[k]);
+    }
+    this.odByNode = byNode;
+  }
+
+  // ---- BPR (assignment link cost; the equilibrium uses ONLY this) ----
+  bpr(vol, out) {
+    const { bprAlpha: A, bprBeta: B } = this.settings, n = this.nLinks;
+    out = out || new Float32Array(n);
+    for (let i = 0; i < n; i++) {
+      const v = vol[i] > 0 ? vol[i] : 0;
+      const c = this.cap[i] > 1e-9 ? this.cap[i] : 1e-9;
+      const ff = this.fftime[i] >= 0 ? this.fftime[i] : 0;
+      let t = ff * (1 + A * Math.pow(v / c, B));
+      out[i] = Number.isFinite(t) ? t : ff;
+    }
+    return out;
+  }
+
+  // Display-only congestion time (capped v/c) — NOT used by the equilibrium.
+  dispTime(vol, out) {
+    const { bprAlpha: A, bprBeta: B } = this.settings, n = this.nLinks;
+    const vcCap = this.settings.dispVcCap || 3;
+    out = out || new Float32Array(n);
+    for (let i = 0; i < n; i++) {
+      const v = vol[i] > 0 ? vol[i] : 0;
+      const c = this.cap[i] > 1e-9 ? this.cap[i] : 1e-9;
+      const ff = this.fftime[i] >= 0 ? this.fftime[i] : 0;
+      const r = Math.min(v / c, vcCap);
+      let t = ff * (1 + A * Math.pow(r, B));
+      out[i] = Number.isFinite(t) ? t : ff;
+    }
+    return out;
+  }
+
+  // Reusable Dijkstra scratch (allocated once per Model; shared across origins
+  // and the analysis tools — no per-call allocation).
+  _scratch() {
+    let sc = this._sc;
+    if (!sc || sc.N !== this.nNodes) {
+      const N = this.nNodes, H = this.csr.E + 1;
+      sc = this._sc = { N, dist: new Float64Array(N), pe: new Int32Array(N),
+                        pn: new Int32Array(N), hd: new Float64Array(H), hn: new Int32Array(H) };
+    }
+    return sc;
+  }
+
+  // ---- Dijkstra (lazy-deletion 4-ary heap) ----
+  _dijkstra(srcNode, dist, pe, pn, hd, hn) {
+    const indptr = this.csr.indptr, indices = this.csr.indices,
+          edgeLink = this.csr.edgeLink, weight = this.csr.weight;
+    dist.fill(Infinity); pe.fill(-1); pn.fill(-1);
+    dist[srcNode] = 0; hd[0] = 0; hn[0] = srcNode; let size = 1;
+    while (size > 0) {
+      const d = hd[0], u = hn[0]; size--;
+      if (size > 0) {
+        const md = hd[size], mn = hn[size]; let i = 0;
+        for (;;) {
+          let c = 4 * i + 1; if (c >= size) break;
+          let best = c, bd = hd[c];
+          const c1 = c + 1, c2 = c + 2, c3 = c + 3;
+          if (c1 < size && hd[c1] < bd) { best = c1; bd = hd[c1]; }
+          if (c2 < size && hd[c2] < bd) { best = c2; bd = hd[c2]; }
+          if (c3 < size && hd[c3] < bd) { best = c3; bd = hd[c3]; }
+          if (bd >= md) break;
+          hd[i] = bd; hn[i] = hn[best]; i = best;
+        }
+        hd[i] = md; hn[i] = mn;
+      }
+      if (d > dist[u]) continue;
+      const end = indptr[u + 1];
+      for (let k = indptr[u]; k < end; k++) {
+        const v = indices[k], nd = d + weight[k];
+        if (nd < dist[v]) {
+          dist[v] = nd; pe[v] = edgeLink[k]; pn[v] = u;
+          let j = size++;
+          while (j > 0) { const p = (j - 1) >> 2; if (hd[p] <= nd) break;
+            hd[j] = hd[p]; hn[j] = hn[p]; j = p; }
+          hd[j] = nd; hn[j] = v;
+        }
+      }
+    }
+  }
+
+  _sampleOrigins(nodes) {
+    const k = this.settings.originSample;
+    if (!k || k >= nodes.length) return { nodes, scale: 1 };
+    const step = nodes.length / k, out = [];
+    for (let i = 0; i < k; i++) out.push(nodes[Math.floor(i * step)]);
+    return { nodes: out, scale: nodes.length / out.length };
+  }
+
+  // Flatten odByNode into contiguous typed arrays honouring the current sample.
+  _buildODArrays() {
+    const origins = [...this.odByNode.keys()];
+    const { nodes, scale } = this._sampleOrigins(origins);
+    let tot = 0; for (const s of nodes) tot += this.odByNode.get(s).length >> 1;
+    const on = new Int32Array(nodes.length), oOff = new Int32Array(nodes.length + 1);
+    const odDst = new Int32Array(tot), odTrp = new Float32Array(tot);
+    let p = 0;
+    for (let i = 0; i < nodes.length; i++) {
+      const s = nodes[i]; on[i] = s; oOff[i] = p; const dl = this.odByNode.get(s);
+      for (let q = 0; q < dl.length; q += 2) { odDst[p] = dl[q]; odTrp[p] = dl[q + 1]; p++; }
+    }
+    oOff[nodes.length] = p;
+    this._odNodes = on; this._odOff = oOff; this._odDst = odDst; this._odTrp = odTrp;
+    this._odScale = scale; this._odSampleKey = this.settings.originSample;
+  }
+
+  // all-or-nothing load of the fixed matrix demand at the current weights
+  _aonFixed(volOut) {
+    const { dist, pe, pn, hd, hn } = this._scratch();
+    volOut.fill(0); let sptt = 0;
+    const pf = this.settings.periodFactor;
+    if (!this._odNodes || this._odSampleKey !== this.settings.originSample) this._buildODArrays();
+    const on = this._odNodes, oOff = this._odOff, odDst = this._odDst, odTrp = this._odTrp, scale = this._odScale;
+    for (let oi = 0; oi < on.length; oi++) {
+      const s = on[oi];
+      this._dijkstra(s, dist, pe, pn, hd, hn);
+      const qe = oOff[oi + 1];
+      for (let q = oOff[oi]; q < qe; q++) {
+        const dn = odDst[q], t = odTrp[q] * scale * pf;
+        if (t <= 0 || dn === s || pe[dn] < 0) continue;
+        sptt += t * dist[dn];
+        let u = dn; while (u !== s) { const e = pe[u]; if (e < 0) break; volOut[e] += t; u = pn[u]; }
+      }
+    }
+    return sptt;
+  }
+
+  // gravity demand load
+  _aonGravity(volOut) {
+    const s = this.s, zn = this.zoneNode;
+    const prod = new Float64Array(this.nZones), attr = new Float64Array(this.nZones);
+    for (let z = 0; z < this.nZones; z++) {
+      prod[z] = 1.2 * s.z_pop_tot[z] + 0.9 * s.z_worker[z] + 0.7 * s.z_student[z];
+      attr[z] = (3 * s.z_retail_gfa[z] + 1.5 * s.z_office_gfa[z] + 0.6 * s.z_ind_gfa[z] + 2 * s.z_school_gfa[z]) / 100;
+    }
+    const zoneList = []; for (let z = 0; z < this.nZones; z++) if (zn[z] >= 0 && attr[z] > 0) zoneList.push(z);
+    const oList = []; for (let z = 0; z < this.nZones; z++) if (zn[z] >= 0 && prod[z] > 0) oList.push(z);
+    const { nodes: oSample, scale } = this._sampleOrigins(oList);
+    const { dist, pe, pn, hd, hn } = this._scratch();
+    volOut.fill(0); let sptt = 0, total = 0; const beta = this.settings.deterrence;
+    for (const z of oSample) {
+      const s0 = zn[z], P = prod[z] * scale * this.settings.periodFactor;
+      this._dijkstra(s0, dist, pe, pn, hd, hn);
+      let wsum = 0; const ws = [];
+      for (const zj of zoneList) { const nd = zn[zj]; if (nd === s0 || dist[nd] === Infinity) { ws.push(0); continue; }
+        const w = attr[zj] * Math.exp(-beta * dist[nd] / 60); ws.push(w); wsum += w; }
+      if (wsum <= 0) continue;
+      for (let q = 0; q < zoneList.length; q++) { if (ws[q] <= 0) continue;
+        const nd = zn[zoneList[q]], t = P * ws[q] / wsum; sptt += t * dist[nd]; total += t;
+        let u = nd; while (u !== s0) { const e = pe[u]; if (e < 0) break; volOut[e] += t; u = pn[u]; } }
+    }
+    this._gravityTotal = total;
+    return sptt;
+  }
+
+  _aon(volOut, demand) { return demand === "gravity" ? this._aonGravity(volOut) : this._aonFixed(volOut); }
+
+  _emptyDemand() {
+    if (!this.odByNode || this.odByNode.size === 0) {
+      // gravity can still synthesise from land use even without an OD matrix
+      return !this.hasZones;
+    }
+    for (const dl of this.odByNode.values()) for (let q = 1; q < dl.length; q += 2) if (dl[q] > 0) return false;
+    return !this.hasZones;
+  }
+
+  // warmStart (optional): Float32Array of starting link volumes.
+  assign(method, demand, progress, warmStart) {
+    const n = this.nLinks, vol = new Float32Array(n), aux = new Float32Array(n);
+    const gap = [];
+    if (warmStart && warmStart.length === n) for (let i = 0; i < n; i++) { const v = warmStart[i]; vol[i] = v > 0 ? v : 0; }
+    if (method === "freeflow") { this.setWeights(this.fftime); this._aon(vol, demand); }
+    else if (method === "incremental") {
+      const incs = [0.4, 0.3, 0.2, 0.1]; let acc = new Float32Array(n);
+      for (let s = 0; s < incs.length; s++) { this.setWeights(this.bpr(acc)); this._aon(aux, demand);
+        for (let i = 0; i < n; i++) acc[i] += incs[s] * aux[i]; if (progress) progress(s + 1, incs.length, NaN); }
+      vol.set(acc);
+    } else if (method === "msa") {
+      if (!warmStart) { this.setWeights(this.fftime); this._aon(vol, demand); }
+      const K = this.settings.fwIters;
+      for (let k = 1; k <= K; k++) { const t = this.bpr(vol); this.setWeights(t); const sptt = this._aon(aux, demand);
+        const step = 1 / (k + 1); for (let i = 0; i < n; i++) vol[i] = (1 - step) * vol[i] + step * aux[i];
+        const g = this._gap(vol, sptt); gap.push(g); if (progress) progress(k, K, g); }
+    } else { // conjugate frank-wolfe
+      if (!warmStart) { this.setWeights(this.fftime); this._aon(vol, demand); }
+      const K = this.settings.fwIters;
+      const prevDir = new Float32Array(n); let havePrev = false;
+      for (let k = 0; k < K; k++) { const t = this.bpr(vol); this.setWeights(t); const sptt = this._aon(aux, demand);
+        const g = this._gap(vol, sptt, t); gap.push(g); if (progress) progress(k + 1, K, g);
+        if (g < this.settings.fwGap) break;
+        const dir = this._cfwDir(vol, aux, t, prevDir, havePrev); havePrev = true;
+        const target = this._dirTarget(vol, dir);
+        const lam = this._line(vol, target);
+        for (let i = 0; i < n; i++) { vol[i] += lam * (target[i] - vol[i]); if (!(vol[i] > 0)) vol[i] = 0; } }
+    }
+    this._finalize(vol, gap, demand, method);
+    return this.result;
+  }
+
+  // Async, interruptible assignment: yields between iterations and calls
+  // onIter(k, K, gap) with this.result kept current so the map/KPIs refresh live.
+  // Set this.abort = true to stop early. warmStart (optional) seeds the volumes.
+  async assignProgressive(method, demand, onIter, warmStart) {
+    if (!this.canAssign(demand)) {
+      throw new Error(demand === "gravity"
+        ? "Gravity assignment needs zone land-use data, which this network does not include."
+        : "Matrix assignment needs zones and an OD matrix, which this network does not include.");
+    }
+    const n = this.nLinks, vol = new Float32Array(n), aux = new Float32Array(n), gap = [];
+    this.abort = false;
+    if (warmStart && warmStart.length === n) for (let i = 0; i < n; i++) { const v = warmStart[i]; vol[i] = v > 0 ? v : 0; }
+    const step = () => new Promise(r => setTimeout(r, 0));
+    const emit = async (k, K, g) => { this._finalize(vol, gap, demand, method); if (onIter) onIter(k, K, g); await step(); };
+    if (method === "freeflow") {
+      this.setWeights(this.fftime); this._aon(vol, demand); await emit(1, 1, NaN);
+    } else if (method === "incremental") {
+      const incs = [0.4, 0.3, 0.2, 0.1], acc = new Float32Array(n);
+      for (let s = 0; s < incs.length; s++) { if (this.abort) break;
+        this.setWeights(this.bpr(acc)); this._aon(aux, demand);
+        for (let i = 0; i < n; i++) acc[i] += incs[s] * aux[i]; vol.set(acc); await emit(s + 1, incs.length, NaN); }
+    } else if (method === "msa") {
+      if (!warmStart) { this.setWeights(this.fftime); this._aon(vol, demand); } const K = this.settings.fwIters;
+      for (let k = 1; k <= K; k++) { if (this.abort) break;
+        const t = this.bpr(vol); this.setWeights(t); const sptt = this._aon(aux, demand);
+        const a = 1 / (k + 1); for (let i = 0; i < n; i++) vol[i] = (1 - a) * vol[i] + a * aux[i];
+        const g = this._gap(vol, sptt); gap.push(g); await emit(k, K, g); }
+    } else { // conjugate frank-wolfe
+      if (!warmStart) { this.setWeights(this.fftime); this._aon(vol, demand); } const K = this.settings.fwIters;
+      const prevDir = new Float32Array(n); let havePrev = false;
+      for (let k = 0; k < K; k++) { if (this.abort) break;
+        const t = this.bpr(vol); this.setWeights(t); const sptt = this._aon(aux, demand);
+        const g = this._gap(vol, sptt, t); gap.push(g); await emit(k + 1, K, g);
+        if (g < this.settings.fwGap) break;
+        const dir = this._cfwDir(vol, aux, t, prevDir, havePrev); havePrev = true;
+        const target = this._dirTarget(vol, dir);
+        const lam = this._line(vol, target);
+        for (let i = 0; i < n; i++) { vol[i] += lam * (target[i] - vol[i]); if (!(vol[i] > 0)) vol[i] = 0; } }
+    }
+    return this.result;
+  }
+
+  // Conjugate Frank-Wolfe descent direction (returns the target vertex so the
+  // existing line search, which interpolates x -> target, is reused unchanged).
+  _cfwDir(vol, aux, t, prevDir, havePrev) {
+    const n = this.nLinks, dir = new Float32Array(n);
+    for (let i = 0; i < n; i++) dir[i] = aux[i] - vol[i];
+    if (!havePrev) { prevDir.set(dir); return dir; }
+    const A = this.settings.bprAlpha, B = this.settings.bprBeta;
+    let num = 0, den = 0;
+    for (let i = 0; i < n; i++) {
+      const c = this.cap[i] > 1e-9 ? this.cap[i] : 1e-9;
+      const v = vol[i] > 0 ? vol[i] : 0;
+      let h = this.fftime[i] * A * B * Math.pow(v / c, B - 1) / c;   // diagonal Hessian approx
+      if (!(h >= 0) || !Number.isFinite(h)) h = 0;
+      num += h * prevDir[i] * dir[i];
+      den += h * prevDir[i] * (dir[i] - prevDir[i]);
+    }
+    let beta = den !== 0 ? num / den : 0;
+    if (!Number.isFinite(beta)) beta = 0;
+    beta = Math.max(0, Math.min(0.99, beta));
+    const comb = new Float32Array(n);
+    for (let i = 0; i < n; i++) comb[i] = (1 - beta) * dir[i] + beta * prevDir[i];
+    prevDir.set(comb);
+    return comb;
+  }
+
+  _dirTarget(vol, dir) {
+    const n = this.nLinks, out = new Float32Array(n);
+    for (let i = 0; i < n; i++) { let v = vol[i] + dir[i]; out[i] = v > 0 ? v : 0; }
+    return out;
+  }
+
+  _gap(vol, sptt, t) { t = t || this.bpr(vol); let tstt = 0;
+    for (let i = 0; i < this.nLinks; i++) { const term = vol[i] * t[i]; if (Number.isFinite(term)) tstt += term; }
+    return (sptt > 0 && Number.isFinite(tstt)) ? Math.abs((tstt - sptt) / sptt) : 0; }
+
+  // Derivative of the Beckmann objective along x -> y at step lam.
+  _dirDeriv(x, y, lam) {
+    const n = this.nLinks, A = this.settings.bprAlpha, B = this.settings.bprBeta;
+    let s = 0;
+    for (let i = 0; i < n; i++) {
+      const dx = y[i] - x[i]; if (dx === 0) continue;
+      let f = x[i] + lam * dx; if (!(f > 0)) f = 0;
+      const c = this.cap[i] > 1e-9 ? this.cap[i] : 1e-9;
+      let tt = this.fftime[i] * (1 + A * Math.pow(f / c, B));
+      if (!Number.isFinite(tt)) tt = this.fftime[i];
+      s += dx * tt;
+    }
+    return s;
+  }
+
+  _line(x, y) {
+    const d0 = this._dirDeriv(x, y, 0);
+    if (!(d0 < 0)) return 0;
+    const d1 = this._dirDeriv(x, y, 1);
+    if (d1 <= 0) return 1;
+    let lo = 0, hi = 1;
+    for (let it = 0; it < 40; it++) {
+      const m = 0.5 * (lo + hi), dm = this._dirDeriv(x, y, m);
+      if (!Number.isFinite(dm)) { hi = m; continue; }
+      if (Math.abs(dm) < 1e-4) return m;
+      if (dm > 0) hi = m; else lo = m;
+    }
+    return 0.5 * (lo + hi);
+  }
+
+  _finalize(vol, gap, demand, method) {
+    const n = this.nLinks, ctime = this.bpr(vol), vc = new Float32Array(n), los = new Uint8Array(n);
+    const dtime = this.dispTime(vol);
+    for (let i = 0; i < n; i++) {
+      const c = this.cap[i] > 1e-9 ? this.cap[i] : 1e-9;
+      let r = vol[i] / c; if (!Number.isFinite(r) || r < 0) r = 0;
+      vc[i] = r; los[i] = losBand(r);
+    }
+    this.result = { volume: vol, ctime, fftime: this.fftime, cap: this.cap, vc, los,
+                    dtime, gap: gap.slice(), demand, method };
+    return this.result;
+  }
+
+  // KPIs that survive extreme v/c. VHT/VMT/delay use the TRUE equilibrium time;
+  // the headline speed uses a per-link display floor so a few v/c~16 links can't
+  // zero it. Percentile speeds are VMT-weighted and robust.
+  kpis() {
+    const r = this.result; if (!r) return null;
+    const n = this.nLinks, floorKmh = this.settings.dispSpeedFloor || 5;
+    let vmt = 0, vht = 0, delay = 0, wsum = 0, wvc = 0, over = 0, peak = 0, loaded = 0;
+    let laneKmOver = 0, vmtEF = 0, dispVHT = 0;
+    const speeds = [];
+    for (let i = 0; i < n; i++) {
+      const v = r.volume[i]; if (!(v > 0)) continue; loaded++;
+      const lenM = this.s.length[i] > 0 ? this.s.length[i] : 0;
+      const km = lenM / 1000;
+      const ct = r.ctime[i] > 1e-9 ? r.ctime[i] : 1e-9;
+      const ft = r.fftime[i] > 1e-9 ? r.fftime[i] : 1e-9;
+      const h = ct / 3600, fh = ft / 3600;
+      if (Number.isFinite(km)) { vmt += v * km; vht += v * h; }
+      if (Number.isFinite(h - fh)) delay += v * Math.max(0, h - fh);
+      const vc = Number.isFinite(r.vc[i]) ? r.vc[i] : 0;
+      wsum += v; wvc += vc * v; if (vc > 1) { over++; laneKmOver += Math.max(1, this.s.lanes[i]) * km; }
+      if (vc > peak) peak = vc;
+      if (r.los[i] >= 4) vmtEF += v * km;
+      const dt = (r.dtime ? r.dtime[i] : ct);
+      let sp = lenM > 0 && dt > 1e-9 ? lenM / dt * 3.6 : floorKmh;
+      if (!Number.isFinite(sp)) sp = floorKmh;
+      sp = Math.max(floorKmh, sp);
+      dispVHT += (km > 0 ? v * km / sp : 0);
+      if (km > 0) speeds.push([sp, v * km]);
+    }
+    speeds.sort((a, b) => a[0] - b[0]);
+    let tot = 0; for (const s of speeds) tot += s[1];
+    const pct = (p) => { if (!speeds.length || tot <= 0) return 0; const target = p * tot; let acc = 0;
+      for (const s of speeds) { acc += s[1]; if (acc >= target) return s[0]; } return speeds[speeds.length - 1][0]; };
+    const speedRaw = vht > 0 ? vmt / vht : 0;
+    const speedDisp = dispVHT > 0 ? vmt / dispVHT : 0;
+    return {
+      vmt, vht, delay, loaded, over, peak,
+      avgVc: wsum > 0 ? wvc / wsum : 0,
+      overShare: loaded ? over / loaded : 0,
+      speed: speedDisp, speedRaw,
+      p15: pct(0.15), p50: pct(0.50), p85: pct(0.85),
+      laneKmOver, pctVmtEF: vmt > 0 ? vmtEF / vmt : 0, speedFloor: floorKmh,
+      gap: r.gap.length ? r.gap[r.gap.length - 1] : NaN
+    };
+  }
+
+  topCongested(nTop) {
+    const r = this.result; if (!r) return [];
+    const idx = [...Array(this.nLinks).keys()].filter(i => r.volume[i] > 0);
+    idx.sort((a, b) => (r.volume[b] * (r.ctime[b] - r.fftime[b])) - (r.volume[a] * (r.ctime[a] - r.fftime[a])));
+    return idx.slice(0, nTop).map(i => ({ i, klass: this.className(i), lanes: this.s.lanes[i],
+      vol: r.volume[i], cap: r.cap[i], vc: r.vc[i], los: "ABCDEF"[r.los[i]], delay: r.volume[i] * (r.ctime[i] - r.fftime[i]) / 3600 }));
+  }
+
+  // ---- aggregation ----
+  aggregate(target, barrier, maxSpan, keys) {
+    const zc = this.s.z_centroid, valid = [];
+    for (let z = 0; z < this.nZones; z++) if (!(zc[z * 2] === 0 && zc[z * 2 + 1] === 0)) valid.push(z);
+    const grid = this._barrierGrid(barrier);
+    const key = (z) => (keys || ["district"]).map(k => this.s["z_" + k][z]).join(",");
+    const cell = maxSpan, gmap = new Map();
+    const gk = (x, y) => ((x / cell) | 0) + "," + ((y / cell) | 0);
+    for (const z of valid) { const k = gk(zc[z * 2], zc[z * 2 + 1]); let a = gmap.get(k); if (!a) gmap.set(k, a = []); a.push(z); }
+    const pairs = [];
+    for (const z of valid) { const gx = (zc[z * 2] / cell) | 0, gy = (zc[z * 2 + 1] / cell) | 0;
+      for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) { const a = gmap.get((gx + dx) + "," + (gy + dy)); if (!a) continue;
+        for (const w of a) { if (w <= z) continue; const d = Math.hypot(zc[z * 2] - zc[w * 2], zc[z * 2 + 1] - zc[w * 2 + 1]);
+          if (d <= maxSpan && key(z) === key(w) && !grid.crosses(zc[z * 2], zc[z * 2 + 1], zc[w * 2], zc[w * 2 + 1])) pairs.push([d, z, w]); } } }
+    pairs.sort((a, b) => a[0] - b[0]);
+    const parent = new Int32Array(this.nZones); for (let z = 0; z < this.nZones; z++) parent[z] = z;
+    const find = (a) => { while (parent[a] !== a) { parent[a] = parent[parent[a]]; a = parent[a]; } return a; };
+    let nClusters = valid.length; const merges = [];
+    for (const [d, z, w] of pairs) { if (nClusters <= target) break; const ra = find(z), rb = find(w); if (ra === rb) continue;
+      parent[rb] = ra; nClusters--; merges.push([z, w, d]); }
+    const labels = new Int32Array(this.nZones).fill(-1); const root2id = new Map(); let next = 0;
+    for (const z of valid) { const r = find(z); if (!root2id.has(r)) root2id.set(r, next++); labels[z] = root2id.get(r); }
+    this.aggregation = { labels, nClusters: next, mergeEdges: merges, target, barrier, maxSpan };
+    return this.aggregation;
+  }
+
+  _barrierGrid(barrier) {
+    const cutoff = BARRIER_RANK[barrier], segs = [], cell = 2000, gmap = new Map();
+    const gx = this.s.geom_xy, off = this.s.geom_off;
+    const addCellsForSeg = (i, ax, ay, bx, by) => { const steps = Math.max(1, (Math.max(Math.abs(bx - ax), Math.abs(by - ay)) / cell) | 0);
+      const seen = new Set(); for (let s = 0; s <= steps; s++) { const t = s / steps, x = ax + (bx - ax) * t, y = ay + (by - ay) * t;
+        const k = ((x / cell) | 0) + "," + ((y / cell) | 0); if (seen.has(k)) continue; seen.add(k); let a = gmap.get(k); if (!a) gmap.set(k, a = []); a.push(i); } };
+    for (let i = 0; i < this.nLinks; i++) { const c = FACILITY[this.s.klass[i]]; if (BARRIER_RANK[c] > cutoff) continue;
+      for (let k = off[i]; k < off[i + 1] - 1; k++) { const ax = gx[k * 2], ay = gx[k * 2 + 1], bx = gx[(k + 1) * 2], by = gx[(k + 1) * 2 + 1];
+        const id = segs.length; segs.push([ax, ay, bx, by]); addCellsForSeg(id, ax, ay, bx, by); } }
+    return { crosses: (x1, y1, x2, y2) => {
+      const steps = Math.max(1, (Math.max(Math.abs(x2 - x1), Math.abs(y2 - y1)) / cell) | 0), cand = new Set();
+      for (let s = 0; s <= steps; s++) { const t = s / steps, x = x1 + (x2 - x1) * t, y = y1 + (y2 - y1) * t;
+        const a = gmap.get(((x / cell) | 0) + "," + ((y / cell) | 0)); if (a) for (const id of a) cand.add(id); }
+      for (const id of cand) { const [ax, ay, bx, by] = segs[id]; if (segCross(x1, y1, x2, y2, ax, ay, bx, by)) return true; } return false; } };
+  }
+
+  // ---- recommender ----
+  recommend(nTop) {
+    const r = this.result; if (!r) return [];
+    const cand = this.topCongested(60).filter(c => c.vc > 0.9);
+    const out = [];
+    for (const c of cand) { const i = c.i, lanes = this.s.lanes[i], capNew = r.cap[i] * (lanes + 2) / Math.max(1, lanes);
+      const tOld = this.fftime[i] * (1 + this.settings.bprAlpha * Math.pow(r.volume[i] / Math.max(r.cap[i], 1e-9), this.settings.bprBeta));
+      const tNew = this.fftime[i] * (1 + this.settings.bprAlpha * Math.pow(r.volume[i] / Math.max(capNew, 1e-9), this.settings.bprBeta));
+      const saveH = r.volume[i] * (tOld - tNew) / 3600;
+      const annual = saveH * this.settings.vot * this.settings.workingDays * 10;
+      const cost = 2 * (this.s.length[i] / 1000) * (LANEKM_COST[c.klass] || 4e6);
+      out.push({ i, klass: c.klass, vc: c.vc, saveVehH: saveH, annualBenefit: annual, cost, bcr: cost > 0 ? annual / cost : Infinity }); }
+    out.sort((a, b) => b.bcr - a.bcr);
+    return out.slice(0, nTop);
+  }
+
+  upgradeLink(i, addLanes) { this.s.lanes[i] = Math.max(1, this.s.lanes[i] + addLanes); this._derive(); }
+
+  // ===================================================================
+  // ANALYSIS / SCENARIO EXTENSIONS (additive)
+  // ===================================================================
+  linkTime(congested) { return (congested && this.result) ? this.result.ctime : this.fftime; }
+
+  // ---- select-link analysis ----
+  selectLink(linkId, opts) {
+    opts = opts || {};
+    const congested = opts.congested !== false;
+    this.setWeights(this.linkTime(congested));
+    const sc = this._scratch(), { dist, pe, pn } = sc;
+    const a = this.s.node_a[linkId], b = this.s.node_b[linkId];
+    const oneway = this.s.oneway[linkId];
+    const usesLink = (dn, src) => { let u = dn;
+      while (u !== src) { const e = pe[u]; if (e < 0) return false; if (e === linkId) return true; u = pn[u]; } return false; };
+    const origins = [...this.odByNode.keys()];
+    const { nodes, scale } = this._sampleOrigins(origins);
+    const linkVol = new Float32Array(this.nLinks);
+    const flows = []; let through = 0, totalDemand = 0;
+    for (const s of nodes) {
+      this._dijkstra(s, dist, pe, pn, sc.hd, sc.hn);
+      const dl = this.odByNode.get(s);
+      for (let q = 0; q < dl.length; q += 2) {
+        const dn = dl[q], t = dl[q + 1] * scale * this.settings.periodFactor;
+        if (t <= 0 || dn === s || pe[dn] < 0) continue;
+        totalDemand += t;
+        if (usesLink(dn, s)) { through += t; flows.push({ on: s, dn, t });
+          let u = dn; while (u !== s) { const e = pe[u]; if (e < 0) break; linkVol[e] += t; u = pn[u]; } }
+      }
+    }
+    flows.sort((x, y) => y.t - x.t);
+    const contributing = []; for (let i = 0; i < this.nLinks; i++) if (linkVol[i] > 0) contributing.push(i);
+    const node2zone = (nd) => { for (let z = 0; z < this.nZones; z++) if (this.zoneNode[z] === nd) return z; return -1; };
+    return { linkId, a, b, oneway, through, totalDemand,
+             share: totalDemand > 0 ? through / totalDemand : 0, contributing, linkVol,
+             topFlows: flows.slice(0, 12).map(f => ({ oNode: f.on, dNode: f.dn, oZone: node2zone(f.on), dZone: node2zone(f.dn), trips: f.t })) };
+  }
+
+  // ---- scenario editing ----
+  snapshotVolume() { this._baseVol = this.result ? this.result.volume.slice() : null; return this._baseVol; }
+  volumeDiff() {
+    if (!this.result) return null;
+    const n = this.nLinks, d = new Float32Array(n), base = this._baseVol;
+    for (let i = 0; i < n; i++) d[i] = this.result.volume[i] - (base ? base[i] : 0);
+    return d;
+  }
+  addLanes(i, n) { this.s.lanes[i] = Math.max(1, this.s.lanes[i] + (n == null ? 1 : n)); this._derive(); this.setWeights(this.fftime); this._applyClosures(); }
+  closeLink(i) { if (!this._closed) this._closed = new Set(); this._closed.add(i); this.cap[i] = 1e-6; this.fftime[i] = 1e12; this._applyClosures(); }
+  restoreLink(i) { if (this._closed) this._closed.delete(i); this._derive(); this._applyClosures(); }
+  restoreAll() { this._closed = new Set(); this._derive(); this.setWeights(this.fftime); }
+  _applyClosures() {
+    if (this._closed) for (const i of this._closed) { this.cap[i] = 1e-6; this.fftime[i] = 1e12; }
+    const { edgeLink, weight, E } = this.csr;
+    for (let k = 0; k < E; k++) if (this._closed && this._closed.has(edgeLink[k])) weight[k] = 1e12;
+  }
+
+  // ---- isochrone / catchment ----
+  isochrone(srcNode, bandsMin, congested) {
+    this.setWeights(this.linkTime(congested !== false));
+    const sc = this._scratch(); this._dijkstra(srcNode, sc.dist, sc.pe, sc.pn, sc.hd, sc.hn);
+    const dist = sc.dist, bandSec = bandsMin.map(m => m * 60);
+    const band = new Int32Array(this.nLinks).fill(-1);
+    const counts = new Array(bandsMin.length).fill(0);
+    for (let i = 0; i < this.nLinks; i++) {
+      const da = dist[this.s.node_a[i]], db = dist[this.s.node_b[i]];
+      const d = Math.min(da, db); if (!isFinite(d)) continue;
+      let bi = -1; for (let k = 0; k < bandSec.length; k++) if (d <= bandSec[k]) { bi = k; break; }
+      band[i] = bi; if (bi >= 0) counts[bi]++;
+    }
+    return { srcNode, band, counts, bandsMin };
+  }
+
+  // ---- corridor / path query ----
+  corridor(zoneA, zoneB, congested) {
+    const sA = this.zoneNode[zoneA], sB = this.zoneNode[zoneB];
+    if (sA < 0 || sB < 0) return null;
+    this.setWeights(this.linkTime(congested));
+    const sc = this._scratch(); this._dijkstra(sA, sc.dist, sc.pe, sc.pn, sc.hd, sc.hn);
+    if (!isFinite(sc.dist[sB]) || sc.pe[sB] < 0) return null;
+    const links = []; let u = sB, distM = 0, timeS = 0, guard = 0;
+    while (u !== sA && guard++ < this.nNodes) { const e = sc.pe[u]; if (e < 0) break;
+      links.push(e); distM += this.s.length[e]; timeS += (congested && this.result ? this.result.ctime[e] : this.fftime[e]); u = sc.pn[u]; }
+    links.reverse();
+    return { zoneA, zoneB, sA, sB, links, distKm: distM / 1000, timeMin: timeS / 60, congested: !!congested };
+  }
+
+  // ---- screenline counts ----
+  screenline(x1, y1, x2, y2) {
+    const gx = this.s.geom_xy, off = this.s.geom_off, r = this.result;
+    const crossing = []; let vol = 0;
+    for (let i = 0; i < this.nLinks; i++) {
+      let hit = false;
+      for (let k = off[i]; k < off[i + 1] - 1 && !hit; k++) {
+        const ax = gx[k * 2], ay = gx[k * 2 + 1], bx = gx[(k + 1) * 2], by = gx[(k + 1) * 2 + 1];
+        if (segCross(x1, y1, x2, y2, ax, ay, bx, by)) hit = true;
+      }
+      if (hit) { crossing.push(i); if (r) vol += r.volume[i]; }
+    }
+    return { x1, y1, x2, y2, links: crossing, count: crossing.length, volume: vol };
+  }
+}
+
+function losBand(vc) { const t = [0.6, 0.7, 0.8, 0.9, 1.0]; let b = 0; for (const x of t) { if (vc >= x) b++; else break; } return b; }
+function orient(ax, ay, bx, by, cx, cy) { return (bx - ax) * (cy - ay) - (by - ay) * (cx - ax); }
+function segCross(ax, ay, bx, by, cx, cy, dx, dy) {
+  const d1 = orient(cx, cy, dx, dy, ax, ay), d2 = orient(cx, cy, dx, dy, bx, by),
+        d3 = orient(ax, ay, bx, by, cx, cy), d4 = orient(ax, ay, bx, by, dx, dy);
+  return (d1 > 0) !== (d2 > 0) && (d3 > 0) !== (d4 > 0);
+}
+
+/* WebGL2 map for the standalone app: instanced link ribbons (per-link colour +
+ * width from a data texture, with zoom level-of-detail and optional direction
+ * arrows) plus instanced zone dots sized by magnitude. Handles 150k links and
+ * 6k zones on the GPU in one draw call per layer. */
+
+const LINK_VERT = `#version 300 es
+precision highp float;
+layout(location=0) in vec2 aCorner;
+layout(location=1) in vec2 aP0;
+layout(location=2) in vec2 aP1;
+layout(location=3) in float aLink;
+layout(location=4) in float aLod;
+uniform vec2 uRes; uniform vec2 uCenter; uniform float uScale; uniform float uWidthScale;
+uniform float uMPP; uniform float uDpr;
+uniform highp usampler2D uStyle; uniform int uTexW;
+out vec4 vColor; out float vDraw; out vec2 vUV; out float vArrow;
+// LOD byte: low 7 bits = min metres-per-pixel code (0 = always show); high bit = arrow flag.
+float lodThreshold(float code){
+  if(code < 0.5) return 0.0;            // 0 -> always visible
+  float n = (code - 1.0) / 126.0;       // code 1..127 -> ~0.5 .. 4000 mpp (log)
+  return 0.5 * pow(4000.0/0.5, n);
+}
+void main(){
+  ivec2 t = ivec2(int(aLink)%uTexW, int(aLink)/uTexW);
+  uvec4 s = texelFetch(uStyle, t, 0);
+  vColor = vec4(float(s.r)/255.0,float(s.g)/255.0,float(s.b)/255.0,1.0);
+  float lodCode = mod(aLod, 128.0);
+  vArrow = aLod >= 128.0 ? 1.0 : 0.0;
+  float thr = lodThreshold(lodCode);
+  float visible = (thr <= 0.0 || uMPP <= thr) ? 1.0 : 0.0;   // cull minor classes when zoomed out
+  vDraw = float(s.a) * visible;
+  float wpx = (float(s.a)/28.0) * uWidthScale;
+  wpx = clamp(wpx, 0.8, 64.0) * uDpr;
+  vec2 p0=(aP0-uCenter)*uScale, p1=(aP1-uCenter)*uScale;
+  vec2 base=mix(p0,p1,aCorner.x), dir=p1-p0; float len=length(dir);
+  vec2 nrm = len>0.0 ? vec2(-dir.y,dir.x)/len : vec2(0.0,1.0);
+  vec2 scr = base + nrm*(aCorner.y*wpx*0.5);
+  vUV = vec2(aCorner.x, aCorner.y);
+  gl_Position = vec4(scr/(uRes*0.5),0.0,1.0);
+}`;
+const LINK_FRAG = `#version 300 es
+precision highp float;
+in vec4 vColor; in float vDraw; in vec2 vUV; in float vArrow; out vec4 o;
+void main(){
+  if(vDraw<0.5) discard;
+  vec3 col = vColor.rgb;
+  if(vArrow > 0.5){                                   // subtle chevron near the far end
+    float head = smoothstep(0.78,0.80,vUV.x);
+    float chev = 1.0 - smoothstep(0.0,0.85,abs(vUV.y));
+    float tip  = smoothstep(0.80,0.98,vUV.x);
+    col = mix(col, vec3(1.0), head*chev*tip*0.9);
+  }
+  o = vec4(col, 1.0);
+}`;
+
+const DOT_VERT = `#version 300 es
+precision highp float;
+layout(location=0) in vec2 aPos; layout(location=1) in vec4 aCol; layout(location=2) in float aMag;
+uniform vec2 uRes; uniform vec2 uCenter; uniform float uScale; uniform float uSize; uniform float uZoomK;
+out vec4 vCol; out float vPx;
+void main(){
+  vCol=aCol;
+  vec2 scr=(aPos-uCenter)*uScale;
+  gl_Position=vec4(scr/(uRes*0.5),0.0,1.0);
+  float sz = uSize * (0.45 + 1.15*sqrt(clamp(aMag,0.0,1.0))) * uZoomK;
+  gl_PointSize = clamp(sz, 2.0, 64.0);
+  vPx = gl_PointSize;
+}`;
+const DOT_FRAG = `#version 300 es
+precision highp float; in vec4 vCol; in float vPx; out vec4 o;
+void main(){
+  float r = length(gl_PointCoord-0.5)*2.0;
+  float aa = 2.0/max(vPx,1.0);
+  float a = (1.0 - smoothstep(1.0-aa, 1.0, r)) * vCol.a;
+  if(a<=0.003) discard;
+  o = vec4(vCol.rgb, a);
+}`;
+
+function sh(gl,t,src){ const s=gl.createShader(t); gl.shaderSource(s,src); gl.compileShader(s);
+  if(!gl.getShaderParameter(s,gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s)); return s; }
+function prog(gl,v,f){ const p=gl.createProgram(); gl.attachShader(p,sh(gl,gl.VERTEX_SHADER,v)); gl.attachShader(p,sh(gl,gl.FRAGMENT_SHADER,f));
+  gl.linkProgram(p); if(!gl.getProgramParameter(p,gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p)); return p; }
+
+class GLMap {
+  constructor(canvas){
+    this.canvas=canvas; const gl=canvas.getContext("webgl2",{antialias:true}); if(!gl) throw new Error("WebGL2 unavailable"); this.gl=gl;
+    this.linkProg=prog(gl,LINK_VERT,LINK_FRAG); this.dotProg=prog(gl,DOT_VERT,DOT_FRAG);
+    this.center=[0,0]; this.scale=1; this.widthScale=1; this.nSeg=0; this.nLinks=0; this.bounds=[0,0,1,1];
+    this.showLinks=true; this.showDots=false; this.dotSize=4; this.dpr=Math.min(window.devicePixelRatio||1,2.5);
+    this.mpp=1; this.lodByLink=null;
+    this.lvao=gl.createVertexArray(); gl.bindVertexArray(this.lvao);
+    const corners=new Float32Array([0,-1,0,1,1,-1,1,1]); const cb=gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER,cb); gl.bufferData(gl.ARRAY_BUFFER,corners,gl.STATIC_DRAW);
+    gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0,2,gl.FLOAT,false,0,0); gl.bindVertexArray(null);
+    this.dvao=gl.createVertexArray();
+  }
+  setLinks(offsets, xy, bounds){
+    const gl=this.gl; this.bounds=bounds; const nLinks=offsets.length-1; this.nLinks=nLinks;
+    let nSeg=0; for(let i=0;i<nLinks;i++) nSeg+=Math.max(0,(offsets[i+1]-offsets[i])-1); this.nSeg=nSeg;
+    const p0=new Float32Array(nSeg*2),p1=new Float32Array(nSeg*2),lk=new Float32Array(nSeg),lod=new Float32Array(nSeg);
+    const cell=400,grid=new Map(),segP0=new Float32Array(nSeg*2),segP1=new Float32Array(nSeg*2),segLink=new Int32Array(nSeg);
+    const lbl=this.lodByLink;
+    let s=0; for(let i=0;i<nLinks;i++){ const a=offsets[i],b=offsets[i+1]; const lv=lbl?lbl[i]:0;
+      for(let k=a;k<b-1;k++){ const x0=xy[k*2],y0=xy[k*2+1],x1=xy[(k+1)*2],y1=xy[(k+1)*2+1];
+        p0[s*2]=x0;p0[s*2+1]=y0;p1[s*2]=x1;p1[s*2+1]=y1;lk[s]=i;lod[s]=lv; segP0[s*2]=x0;segP0[s*2+1]=y0;segP1[s*2]=x1;segP1[s*2+1]=y1;segLink[s]=i;
+        const mx=(x0+x1)/2,my=(y0+y1)/2,key=((mx/cell)|0)+","+((my/cell)|0); let arr=grid.get(key); if(!arr)grid.set(key,arr=[]); arr.push(s); s++; } }
+    this._grid=grid; this._cell=cell; this._segP0=segP0; this._segP1=segP1; this._segLink=segLink; this._segCount=nSeg;
+    gl.bindVertexArray(this.lvao); this._ibuf(1,p0); this._ibuf(2,p1); this._ibuf(3,lk,1);
+    if(!this._lodBuf)this._lodBuf=gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER,this._lodBuf); gl.bufferData(gl.ARRAY_BUFFER,lod,gl.DYNAMIC_DRAW);
+    gl.enableVertexAttribArray(4); gl.vertexAttribPointer(4,1,gl.FLOAT,false,0,0); gl.vertexAttribDivisor(4,1);
+    gl.bindVertexArray(null);
+  }
+  _ibuf(loc,data,sz){ const gl=this.gl; const buf=gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER,buf); gl.bufferData(gl.ARRAY_BUFFER,data,gl.STATIC_DRAW);
+    gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc,sz||2,gl.FLOAT,false,0,0); gl.vertexAttribDivisor(loc,1); }
+  setStyle(bytes){ const gl=this.gl,n=this.nLinks,texW=2048,texH=Math.ceil(n/texW),data=new Uint8Array(texW*texH*4);
+    for(let i=0;i<n;i++){ data[i*4]=bytes[i*5];data[i*4+1]=bytes[i*5+1];data[i*4+2]=bytes[i*5+2];data[i*4+3]=bytes[i*5+4]; }
+    if(!this.styleTex)this.styleTex=gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D,this.styleTex);
+    gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.NEAREST); gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.NEAREST);
+    gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA8UI,texW,texH,0,gl.RGBA_INTEGER,gl.UNSIGNED_BYTE,data); this.texW=texW; this.render(); }
+  // perLink: Uint8Array length nLinks; high bit = arrow, low 7 bits = lod code
+  setLodCodes(perLink){ this.lodByLink=perLink; const gl=this.gl; if(!this._lodBuf||!this._segLink)return;
+    const n=this._segCount, lod=new Float32Array(n), sl=this._segLink;
+    for(let s=0;s<n;s++) lod[s]=perLink[sl[s]];
+    gl.bindVertexArray(this.lvao); gl.bindBuffer(gl.ARRAY_BUFFER,this._lodBuf); gl.bufferSubData(gl.ARRAY_BUFFER,0,lod); gl.bindVertexArray(null); this.render(); }
+  setDots(xy, rgba, mag){ const gl=this.gl; this.nDots=xy.length/2; gl.bindVertexArray(this.dvao);
+    const pb=gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER,pb); gl.bufferData(gl.ARRAY_BUFFER,xy,gl.STATIC_DRAW);
+    gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0,2,gl.FLOAT,false,0,0);
+    if(!this.dotCol) this.dotCol=gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER,this.dotCol); gl.bufferData(gl.ARRAY_BUFFER,rgba,gl.DYNAMIC_DRAW);
+    gl.enableVertexAttribArray(1); gl.vertexAttribPointer(1,4,gl.UNSIGNED_BYTE,true,0,0);
+    const md = mag || (()=>{ const a=new Float32Array(this.nDots); a.fill(1); return a; })();
+    if(!this.dotMag) this.dotMag=gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER,this.dotMag); gl.bufferData(gl.ARRAY_BUFFER,md,gl.DYNAMIC_DRAW);
+    gl.enableVertexAttribArray(2); gl.vertexAttribPointer(2,1,gl.FLOAT,false,0,0);
+    gl.bindVertexArray(null); this._dotXY=xy; }
+  updateDotColors(rgba){ const gl=this.gl; gl.bindBuffer(gl.ARRAY_BUFFER,this.dotCol); gl.bufferSubData(gl.ARRAY_BUFFER,0,rgba); this.render(); }
+  resize(){ this.dpr=Math.min(window.devicePixelRatio||1, 2.5);
+    const cw=Math.max(1,this.canvas.clientWidth||this.canvas.width||1), chh=Math.max(1,this.canvas.clientHeight||this.canvas.height||1);
+    this.canvas.width=Math.round(cw*this.dpr); this.canvas.height=Math.round(chh*this.dpr);
+    this.gl.viewport(0,0,this.canvas.width,this.canvas.height); this.render(); }
+  resetView(){ const[xmn,ymn,xmx,ymx]=this.bounds; this.center=[(xmn+xmx)/2,(ymn+ymx)/2]; const w=Math.max(xmx-xmn,1),h=Math.max(ymx-ymn,1);
+    this.scale=Math.min(this.canvas.width/w,this.canvas.height/h)*0.92; this.render(); }
+  s2w(sx,sy){ const px=sx*this.dpr-this.canvas.width/2, py=-(sy*this.dpr-this.canvas.height/2); return [px/this.scale+this.center[0],py/this.scale+this.center[1]]; }
+  zoomAt(sx,sy,f){ const b=this.s2w(sx,sy); this.scale*=f; const a=this.s2w(sx,sy); this.center[0]+=b[0]-a[0]; this.center[1]+=b[1]-a[1]; this.render(); }
+  pan(dx,dy){ this.center[0]-=dx*this.dpr/this.scale; this.center[1]+=dy*this.dpr/this.scale; this.render(); }
+  flyTo(x,y,scale){ this.center=[x,y]; if(scale)this.scale=scale; this.render(); }
+  // --- touch/gesture helpers: convert viewport (clientX/Y) -> canvas-local CSS px ---
+  _canvasXY(clientX,clientY){ const r=this.canvas.getBoundingClientRect(); return [clientX-r.left, clientY-r.top]; }
+  zoomAtClient(clientX,clientY,f){ const [cx,cy]=this._canvasXY(clientX,clientY); this.zoomAt(cx,cy,f); }
+  zoomAtMidpoint(c0x,c0y,c1x,c1y,f){ this.zoomAtClient((c0x+c1x)/2,(c0y+c1y)/2,f); }
+  pick(sx,sy,tol=7){ if(!this._grid)return -1; const[wx,wy]=this.s2w(sx,sy),r=tol*this.dpr/this.scale,cx=(wx/this._cell)|0,cy=(wy/this._cell)|0; let best=-1,bd=r*r;
+    for(let gx=cx-1;gx<=cx+1;gx++)for(let gy=cy-1;gy<=cy+1;gy++){ const a=this._grid.get(gx+","+gy); if(!a)continue;
+      for(const s of a){ const d=segD2(wx,wy,this._segP0[s*2],this._segP0[s*2+1],this._segP1[s*2],this._segP1[s*2+1]); if(d<bd){bd=d;best=this._segLink[s];} } } return best; }
+  render(){ const gl=this.gl; gl.clearColor(0.047,0.075,0.125,1); gl.clear(gl.COLOR_BUFFER_BIT);
+    this.mpp = this.dpr / Math.max(this.scale, 1e-9);
+    const wScale = this.widthScale * Math.min(2.2, Math.max(0.5, Math.sqrt(8.0/Math.max(this.mpp,1e-3))));
+    if(this.showLinks && this.nSeg && this.styleTex){ gl.disable(gl.BLEND); gl.useProgram(this.linkProg); gl.bindVertexArray(this.lvao);
+      gl.uniform2f(u(gl,this.linkProg,"uRes"),this.canvas.width,this.canvas.height); gl.uniform2f(u(gl,this.linkProg,"uCenter"),this.center[0],this.center[1]);
+      gl.uniform1f(u(gl,this.linkProg,"uScale"),this.scale); gl.uniform1f(u(gl,this.linkProg,"uWidthScale"),wScale); gl.uniform1i(u(gl,this.linkProg,"uTexW"),this.texW);
+      gl.uniform1f(u(gl,this.linkProg,"uMPP"),this.mpp); gl.uniform1f(u(gl,this.linkProg,"uDpr"),this.dpr);
+      gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D,this.styleTex); gl.uniform1i(u(gl,this.linkProg,"uStyle"),0);
+      gl.drawArraysInstanced(gl.TRIANGLE_STRIP,0,4,this.nSeg); }
+    if(this.showDots && this.nDots){ gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA); gl.useProgram(this.dotProg); gl.bindVertexArray(this.dvao);
+      gl.uniform2f(u(gl,this.dotProg,"uRes"),this.canvas.width,this.canvas.height); gl.uniform2f(u(gl,this.dotProg,"uCenter"),this.center[0],this.center[1]);
+      gl.uniform1f(u(gl,this.dotProg,"uScale"),this.scale); gl.uniform1f(u(gl,this.dotProg,"uSize"),this.dotSize*this.dpr);
+      const zoomK = Math.min(1.8, Math.max(0.6, Math.sqrt(40.0/Math.max(this.mpp,1e-3))));
+      gl.uniform1f(u(gl,this.dotProg,"uZoomK"),zoomK);
+      gl.drawArrays(gl.POINTS,0,this.nDots); gl.disable(gl.BLEND); }
+    if(this.onAfterRender)this.onAfterRender(); }
+}
+function u(gl,p,n){ if(!p._u)p._u={}; if(p._u[n]===undefined)p._u[n]=gl.getUniformLocation(p,n); return p._u[n]; }
+function segD2(px,py,ax,ay,bx,by){ const dx=bx-ax,dy=by-ay,L=dx*dx+dy*dy; let t=L>0?((px-ax)*dx+(py-ay)*dy)/L:0; t=Math.max(0,Math.min(1,t)); const cx=ax+t*dx,cy=ay+t*dy; return (px-cx)**2+(py-cy)**2; }
+/* STEAM 2040 Studio — standalone app controller, copilot and exporters. */
+
+// ---- colour ----------------------------------------------------------------
+const VIR = (() => { const c = [[68,1,84],[59,82,139],[33,145,140],[94,201,98],[253,231,37]], n = 256, L = new Uint8Array(n*3);
+  for (let i=0;i<n;i++){ const t=i/(n-1)*(c.length-1), k=Math.min(c.length-2,t|0), f=t-k;
+    for(let j=0;j<3;j++) L[i*3+j]=Math.round(c[k][j]+(c[k+1][j]-c[k][j])*f); } return L; })();
+function vir(t){ t=Math.max(0,Math.min(1,t))*255|0; return [VIR[t*3],VIR[t*3+1],VIR[t*3+2]]; }
+function rgbCss(a){ return `rgb(${a[0]},${a[1]},${a[2]})`; }
+const CLASS_RGB={fwy:[202,0,32],ramp:[244,165,130],art:[5,113,176],coll:[146,197,222],local:[150,150,150],rural:[123,50,148],junc:[230,171,2]};
+const CLASS_W={fwy:3,ramp:2,art:2.6,coll:1.6,local:1,rural:1.4,junc:1};
+const LOS_RGB=[[26,150,65],[166,217,106],[255,255,191],[253,174,97],[215,25,28],[140,0,0]];
+const LOD_MPP={local:12,junc:12,coll:40,rural:40,ramp:1e9,art:1e9,fwy:1e9};
+const ISO_BANDS=[5,10,15,20,30];   // isochrone bands (minutes)
+
+// ---- state -----------------------------------------------------------------
+const S = { model:null, map:null, mode:"network", colorMode:"class", zoneAttr:null,
+  highlight:null, ctx:{ lastZone:null, lastZones:null, lastLinks:null }, llm:null,
+  diff:null, isoBands:null, _recs:null, snapshots:[], assigning:false };
+const $ = id => document.getElementById(id);
+function status(t, busy){ const el=$("status"); if(el){ el.textContent=t; el.classList.toggle("busy",!!busy); } }
+
+// ---- toasts ----------------------------------------------------------------
+function toast(msg, kind){ const host=$("toasts"); if(!host) return;
+  const t=document.createElement("div"); t.className="toast"+(kind?" "+kind:""); t.textContent=msg;
+  host.appendChild(t); requestAnimationFrame(()=>t.classList.add("show"));
+  setTimeout(()=>{ t.classList.remove("show"); setTimeout(()=>t.remove(),250); }, 2600);
+  while(host.children.length>4) host.removeChild(host.firstChild); }
+
+// ---- legend (rich) ---------------------------------------------------------
+function virGradientCss(stops=8){ const out=[]; for(let i=0;i<stops;i++){ const t=i/(stops-1); out.push(`${rgbCss(vir(t))} ${(t*100).toFixed(0)}%`); } return `linear-gradient(90deg,${out.join(",")})`; }
+function fmtTick(v){ const a=Math.abs(v); if(a>=1e6)return (v/1e6).toFixed(1)+"M"; if(a>=1e3)return (v/1e3).toFixed(1)+"k"; if(a>0&&a<1)return v.toFixed(2); return Math.round(v).toLocaleString(); }
+function legend(spec){
+  if(typeof spec==="string") spec={title:spec,type:"text"};
+  const el=$("legend"); if(!el||!spec) return;
+  let html=`<div class="lg-title">${spec.title||""}</div>`;
+  if(spec.type==="gradient"){
+    html+=`<div class="lg-bar" style="background:${virGradientCss()}"></div>`+
+      `<div class="lg-ticks"><span>${fmtTick(spec.min)}</span><span>${fmtTick(spec.mid)}</span><span>${fmtTick(spec.max)}</span></div>`;
+  } else if(spec.type==="chips"){
+    html+=`<div class="lg-chips">`+spec.items.map(it=>`<div class="lg-chip"><span class="lg-dot" style="background:${rgbCss(it.rgb)}"></span>${it.label}</div>`).join("")+`</div>`;
+  }
+  el.innerHTML=html;
+}
+
+// ---- robustness / accessibility / self-test --------------------------------
+function STEAM_hasWebGL2(){ try{ const c=document.createElement("canvas"); return !!(window.WebGL2RenderingContext && c.getContext("webgl2")); }catch(_){ return false; } }
+let STEAM_fatalShown=false;
+function STEAM_fatal(title, message, hint, detail){
+  if(STEAM_fatalShown) return; STEAM_fatalShown=true; try{ status("error"); }catch(_){}
+  const el=$("errscreen"); if(!el){ alert(title+"\n\n"+message); return; }
+  $("err-title").textContent=title||"Something went wrong"; $("err-msg").textContent=message||"An unexpected error occurred.";
+  const dt=$("err-detail"); if(detail){ dt.textContent=detail; dt.hidden=false; } else { dt.hidden=true; }
+  $("err-hint").textContent=hint||"Reload the page to try again."; el.classList.add("show");
+  try{ el.querySelector("button").focus(); }catch(_){}
+}
+function STEAM_bootHint(e){ const msg=((e&&e.message)||"").toLowerCase();
+  if(/atob|base64|character|invalid/.test(msg)) return "The embedded network data looks corrupt or truncated. Re-export the standalone file.";
+  if(/decompress|gzip|stream/.test(msg)) return "The browser could not decompress the network. Use an up-to-date Chrome, Edge or Firefox.";
+  if(/webgl/.test(msg)) return "The map could not initialise WebGL2. Enable hardware acceleration or try another browser.";
+  if(/no road links/.test(msg)) return "Open a standalone file built from a network that contains road links.";
+  return "Reload the page. If it persists, re-export the standalone file."; }
+function STEAM_applyCapabilities(){ const m=S.model; if(!m) return; const notes=[];
+  if(!m.hasZones){ const za=$("zoneAttr"); if(za){ za.disabled=true; za.title="No zones in this network"; }
+    const ab=$("aggBtn"); if(ab){ ab.disabled=true; ab.title="No zones to aggregate"; }
+    const at=$("aggTarget"), as=$("aggSpan"); if(at)at.disabled=true; if(as)as.disabled=true;
+    const ak=$("aggKpi"); if(ak)ak.textContent="zones not available"; notes.push("zones"); }
+  if(!m.hasOD){ const dm=$("demand"); if(dm){ for(const o of dm.options) if(o.value==="fixed"){ o.disabled=true; o.text+=" (none)"; } dm.value="gravity"; } }
+  if(!m.canAssign("gravity") && !m.canAssign("fixed")){ const rb=$("runAssign"); if(rb){ rb.disabled=true; rb.title="Assignment needs zones / demand data"; } }
+  if(notes.length) say("Note: this network has no "+notes.join(", ")+" data, so the related tools are disabled."); }
+function STEAM_reducedMotion(){ try{ return window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches; }catch(_){ return false; } }
+function STEAM_applyA11y(){ const cmd=$("cmd"); if(cmd){ try{ cmd.focus({preventScroll:true}); }catch(_){ cmd.focus(); } } }
+function STEAM_clampField(id, lo, hi, dflt, label){ const el=$(id); if(!el) return dflt;
+  let v=parseFloat(el.value), changed=false;
+  if(!isFinite(v)){ v=dflt; changed=true; } if(v<lo){ v=lo; changed=true; } if(v>hi){ v=hi; changed=true; } v=Math.round(v);
+  if(changed){ el.value=v; say(`Adjusted ${label} to ${v.toLocaleString()} (allowed ${lo.toLocaleString()}–${hi.toLocaleString()}).`); } return v; }
+function STEAM_zoneOk(z){ if(!S.model.hasZones){ say("This network has no zones."); return false; }
+  if(!isFinite(z)||z<0||z>=S.model.nZones){ say(`Zone ${z} is out of range (0–${(S.model.nZones-1).toLocaleString()}).`); return false; } return true; }
+function STEAM_selftestRequested(){ try{ return /(?:^|[?&])selftest(?:=|&|$)/.test(location.search); }catch(_){ return false; } }
+function STEAM_badge(pass, text){ const b=$("selftest"); if(!b) return; b.textContent=(pass?"SELF-TEST PASS · ":"SELF-TEST FAIL · ")+text; b.className="show "+(pass?"pass":"fail"); }
+async function STEAM_runSelfTest(){
+  const results=[]; const check=(name, ok, info)=>results.push({name,ok:!!ok,info:info||""});
+  try{ const m=S.model;
+    check("decode→model", !!m && m.nLinks>0, `${m?m.nLinks:0} links`);
+    check("map has links", !!(S.map && S.map.nSeg>0), `${S.map?S.map.nSeg:0} segments`);
+    if(m.canAssign("fixed") || m.canAssign("gravity")){
+      const demand = m.hasOD ? "fixed" : "gravity";
+      const sS=m.settings.originSample, sI=m.settings.fwIters; m.settings.originSample=20; m.settings.fwIters=2; m._odNodes=null;
+      let err=null; try{ await m.assignProgressive("frankwolfe", demand, ()=>{}); }catch(e){ err=e; }
+      m.settings.originSample=sS; m.settings.fwIters=sI; m._odNodes=null;
+      check("tiny assignment", !err && !!m.result && m.result.volume.length===m.nLinks, err?err.message:"ok");
+      if(m.hasZones){ const a=m.aggregate(Math.max(1,(m.nZones/2)|0),"coll",6000,["district"]); check("aggregate", !!a && a.nClusters>0, `${a.nClusters} clusters`); } else check("aggregate", true, "skipped");
+      try{ const r=m.result; let csv="link,vc\n"; for(let i=0;i<Math.min(m.nLinks,50);i++) csv+=`${i},${r.vc[i].toFixed(3)}\n`; const blob=new Blob([csv],{type:"text/csv"}); check("export blob", blob.size>0, `${blob.size} bytes`); }catch(e){ check("export blob", false, e.message); }
+    } else { check("tiny assignment", true, "skipped"); check("aggregate", true, "skipped"); check("export blob", true, "skipped"); }
+  }catch(e){ check("self-test harness", false, e.message); }
+  const pass=results.every(r=>r.ok);
+  console.log("%cSTEAM 2040 SELF-TEST: "+(pass?"PASS":"FAIL"), "font-weight:bold;color:"+(pass?"#3fb950":"#f85149"));
+  for(const r of results) console.log(`  [${r.ok?"PASS":"FAIL"}] ${r.name}${r.info?" — "+r.info:""}`);
+  STEAM_badge(pass, results.filter(r=>!r.ok).map(r=>r.name).join(", ")||`${results.length} checks ok`); return pass;
+}
+
+// ---- boot ------------------------------------------------------------------
+async function boot(){
+  if(!STEAM_hasWebGL2()){
+    STEAM_fatal("3D map unavailable","This browser or device could not create a WebGL2 context, which STEAM 2040 Studio needs to draw the network.","Try a recent Chrome, Edge or Firefox with hardware acceleration enabled.");
+    return;
+  }
+  status("decoding network…", true);
+  await tick();
+  const decoded = await decodeBlob(window.STEAM_BLOB);
+  S.model = new Model(decoded);
+  window.STEAM = S;   // expose for power users / diagnostics
+  S.map = new GLMap($("map")); S.map.onAfterRender = drawHud;
+  S.map.resize();
+  const m = S.model, off = m.s.geom_off, xy = m.s.geom_xy;
+  S.map.setLinks(off, xy, m.h.bounds);
+  applyLinkStyle("class");
+  S.map.resetView();
+  status(`${m.nLinks.toLocaleString()} links · ${m.nNodes.toLocaleString()} nodes · ${m.nZones.toLocaleString()} zones · ${(m.h.n_od||0).toLocaleString()} OD`);
+  wire(); wireMobile(); STEAM_applyCapabilities(); setMode("network");
+  const hint=$("hint"); if(hint){ hint.hidden=false; setTimeout(()=>{ if(!hint.hidden) hint.hidden=true; },14000); }
+  toast("Network loaded — press ? for shortcuts.","good");
+  if(STEAM_selftestRequested()) STEAM_runSelfTest();
+}
+const tick = () => new Promise(r=>setTimeout(r,16));
+
+// ---- styling links ---------------------------------------------------------
+function lodEncode(mpp){ if(!isFinite(mpp) || mpp>=4000) return 0;
+  const n = Math.log(Math.max(mpp,0.5)/0.5) / Math.log(4000/0.5); return Math.max(1, Math.min(127, 1 + Math.round(n*126))); }
+function applyLinkStyle(mode){
+  S.colorMode = mode; const m=S.model, n=m.nLinks, r=m.result, b=new Uint8Array(n*5), lod=new Uint8Array(n);
+  let vmax=1; if(r&&(mode==="volume")) vmax=Math.max(1,...sample(r.volume));
+  let dmax=1; const diff=S.diff;
+  if(mode==="diff"&&diff){ let mx=1; const st=Math.max(1,(diff.length/5000)|0); for(let i=0;i<diff.length;i+=st){ const a=Math.abs(diff[i]); if(a>mx)mx=a; } dmax=mx; }
+  const iso=S.isoBands;
+  const hi = S.highlight ? new Set(S.highlight) : null;
+  for(let i=0;i<n;i++){ const c=m.className(i); let rgb,w;
+    if(mode==="diff"&&diff){ const d=diff[i]; const t=Math.min(Math.abs(d)/dmax,1);
+      if(Math.abs(d)<1){ rgb=[70,70,80]; w=0.8; }
+      else if(d<0){ rgb=[40+(1-t)*60|0,160+t*60|0,40+(1-t)*40|0]; w=1+4*t; }
+      else { rgb=[170+t*70|0,40+(1-t)*40|0,40+(1-t)*40|0]; w=1+4*t; } }
+    else if(mode==="iso"&&iso){ const band=iso[i];
+      if(band<0){ rgb=[40,44,55]; w=0.7; } else { const t=ISO_BANDS.length>1?band/(ISO_BANDS.length-1):0; rgb=vir(1-t); w=1.4+(1-t)*2; } }
+    else if(mode==="class"||(!r&&(mode==="volume"||mode==="vc"||mode==="los"||mode==="speed"))){ rgb=CLASS_RGB[c]; w=CLASS_W[c]; }
+    else if(mode==="volume"){ const t=r.volume[i]/vmax; rgb=vir(t); w=0.8+5*Math.sqrt(t); }
+    else if(mode==="vc"){ const t=Math.min(r.vc[i],1.5)/1.5; rgb=vir(t); w=1+4*t; }
+    else if(mode==="los"){ rgb=LOS_RGB[r.los[i]]; w=1.6; }
+    else if(mode==="lanes"){ const t=Math.min(m.s.lanes[i],6)/6; rgb=vir(t); w=1+t*3; }
+    else if(mode==="length"){ const t=Math.min(m.s.length[i],5000)/5000; rgb=vir(t); w=1.4; }
+    else if(mode==="speed"){ const sp=r?m.s.length[i]/Math.max(r.ctime[i],1e-6)*3.6:0; const t=Math.min(sp,120)/120; rgb=r?vir(t):CLASS_RGB[c]; w=1.4; }
+    else { rgb=CLASS_RGB[c]; w=CLASS_W[c]; }
+    let arrow = (c==="fwy"||c==="art");
+    if(hi){ if(hi.has(i)){ rgb=[255,220,40]; w=Math.max(w,3.5); arrow=true; } else { rgb=rgb.map(v=>v*0.45|0); w=Math.max(0.8,w*0.7); arrow=false; } }
+    b[i*5]=rgb[0]; b[i*5+1]=rgb[1]; b[i*5+2]=rgb[2]; b[i*5+3]=255; b[i*5+4]=Math.max(1,Math.min(255,w*28))|0;
+    lod[i] = (arrow?128:0) | lodEncode(LOD_MPP[c]);
+  }
+  S.map.setStyle(b); S.map.lodByLink=lod; S.map.setLodCodes(lod);
+  updateLinkLegend(mode); updateSpark(mode);
+}
+function sample(arr){ const out=[]; const step=Math.max(1,(arr.length/5000)|0); for(let i=0;i<arr.length;i+=step) out.push(arr[i]); return out; }
+function metricVals(mode){ const m=S.model,r=m.result,n=m.nLinks,out=new Float64Array(n);
+  for(let i=0;i<n;i++){ switch(mode){
+    case "volume": out[i]=r?r.volume[i]:0; break;
+    case "vc": out[i]=r?r.vc[i]:0; break;
+    case "lanes": out[i]=m.s.lanes[i]; break;
+    case "length": out[i]=m.s.length[i]; break;
+    case "speed": out[i]=r?m.s.length[i]/Math.max(r.ctime[i],1e-6)*3.6:0; break;
+    default: out[i]=0; } } return out; }
+function updateLinkLegend(mode){
+  const m=S.model,r=m.result;
+  if(mode==="diff"){ return legend("volume diff: green ↓ · red ↑ (before→after)"); }
+  if(mode==="iso"){ return legend("travel-time bands: near→far"); }
+  const noResult=!r&&(mode==="volume"||mode==="vc"||mode==="los"||mode==="speed");
+  if(mode==="class"||noResult){
+    const order=[["fwy","freeway"],["art","arterial"],["coll","collector"],["ramp","ramp"],["local","local"],["rural","rural"],["junc","junction"]];
+    return legend({title:"Facility class",type:"chips",items:order.map(([k,l])=>({label:l,rgb:CLASS_RGB[k]}))});
+  }
+  if(mode==="los") return legend({title:"Level of service",type:"chips",items:"ABCDEF".split("").map((l,i)=>({label:"LOS "+l,rgb:LOS_RGB[i]}))});
+  const v=metricVals(mode); let mx=0; for(let i=0;i<v.length;i++) if(v[i]>mx) mx=v[i];
+  if(mode==="vc") mx=Math.max(mx,1.5);
+  const titles={volume:"Volume (veh/day)",vc:"v/c ratio",lanes:"Lanes",length:"Length (m)",speed:"Congested speed (km/h)"};
+  legend({title:titles[mode]||mode,type:"gradient",min:0,mid:mx/2,max:mx});
+}
+function drawSpark(vals,nbins=28){ const cv=$("spark"); if(!cv) return; const ctx=cv.getContext("2d"); const W=cv.width,H=cv.height; ctx.clearRect(0,0,W,H);
+  let mx=0; for(let i=0;i<vals.length;i++) if(vals[i]>mx) mx=vals[i]; if(mx<=0) mx=1;
+  const bins=new Float64Array(nbins); for(let i=0;i<vals.length;i++){ let bb=(vals[i]/mx*nbins)|0; if(bb>=nbins)bb=nbins-1; if(bb<0)bb=0; bins[bb]++; }
+  let bmx=0; for(let i=0;i<nbins;i++) if(bins[i]>bmx) bmx=bins[i]; if(bmx<=0) bmx=1;
+  const bw=W/nbins, pad=2; for(let i=0;i<nbins;i++){ const h=Math.round(bins[i]/bmx*(H-6)); ctx.fillStyle=rgbCss(vir(i/(nbins-1))); ctx.fillRect(i*bw+pad/2,H-h,bw-pad,h); } }
+function updateSpark(mode){ const wrap=$("sparkWrap"),lbl=$("sparkLbl"); if(!wrap) return;
+  const cont=["volume","vc","lanes","length","speed"].includes(mode); const r=S.model.result, ready=cont&&(["lanes","length"].includes(mode)||r);
+  wrap.classList.toggle("on",!!ready); if(!ready) return;
+  const names={volume:"Volume distribution",vc:"v/c distribution",lanes:"Lanes distribution",length:"Length distribution",speed:"Speed distribution"};
+  if(lbl) lbl.textContent=names[mode]||"Distribution"; drawSpark(metricVals(mode)); }
+
+// ---- styling zones ---------------------------------------------------------
+function zoneValues(attr){ const m=S.model,s=m.s,z=m.nZones,v=new Float64Array(z);
+  for(let i=0;i<z;i++){ switch(attr){
+    case "population": v[i]=s.z_pop_tot[i]; break;
+    case "jobs": v[i]=s.z_worker[i]; break;
+    case "students": v[i]=s.z_student[i]; break;
+    case "households": v[i]=s.z_hh[i]; break;
+    case "retail": v[i]=s.z_retail_gfa[i]; break;
+    case "office": v[i]=s.z_office_gfa[i]; break;
+    case "industrial": v[i]=s.z_ind_gfa[i]; break;
+    case "school": v[i]=s.z_school_gfa[i]; break;
+    case "productions": v[i]=1.2*s.z_pop_tot[i]+0.9*s.z_worker[i]+0.7*s.z_student[i]; break;
+    case "attractions": v[i]=(3*s.z_retail_gfa[i]+1.5*s.z_office_gfa[i]+0.6*s.z_ind_gfa[i]+2*s.z_school_gfa[i])/100; break;
+    case "jobs-housing": v[i]=s.z_hh[i]>0?s.z_worker[i]/s.z_hh[i]:0; break;
+    case "metro": v[i]=s.z_metro_access[i]; break;
+    default: v[i]=s.z_pop_tot[i]; } }
+  return v;
+}
+function showZones(attr, cluster){
+  const m=S.model, zc=m.s.z_centroid, z=m.nZones, xy=new Float32Array(z*2), col=new Uint8Array(z*4), mag=new Float32Array(z).fill(1);
+  for(let i=0;i<z;i++){ xy[i*2]=zc[i*2]; xy[i*2+1]=zc[i*2+1]; }
+  if(cluster && m.aggregation){ const lab=m.aggregation.labels;
+    for(let i=0;i<z;i++){ const l=lab[i]; if(l<0){ col[i*4+3]=0; continue;} const h=(l*2654435761)>>>0;
+      col[i*4]=(h>>16)&255; col[i*4+1]=((h>>8)&255)|40; col[i*4+2]=(h&255)|40; col[i*4+3]=255; }
+    legend(`zones by new cluster (${m.aggregation.nClusters} clusters)`);
+  } else { const val=zoneValues(attr); let mx=1; for(let i=0;i<z;i++) if(val[i]>mx) mx=val[i];
+    for(let i=0;i<z;i++){ if(zc[i*2]===0&&zc[i*2+1]===0){ col[i*4+3]=0; mag[i]=0; continue;} const t=val[i]/mx, rgb=vir(t);
+      col[i*4]=rgb[0]; col[i*4+1]=rgb[1]; col[i*4+2]=rgb[2]; col[i*4+3]=255; mag[i]=t; }
+    legend({title:`Zones · ${attr}`,type:"gradient",min:0,mid:mx/2,max:mx}); S.zoneAttr=attr;
+    const wrap=$("sparkWrap"),lbl=$("sparkLbl"); if(wrap){ wrap.classList.add("on"); if(lbl)lbl.textContent=`${attr} distribution`; drawSpark(val); }
+  }
+  S.map.setDots(xy, col, mag); S.map.showDots=true; S.map.dotSize = cluster?4:6; S.map.render();
+}
+
+// ---- assignment ------------------------------------------------------------
+async function runAssign(method, demand){
+  const m=S.model; method=method||"frankwolfe"; demand=demand||"fixed";
+  if(S.assigning){ m.abort=true; return; }            // toggle = stop
+  if(!m.canAssign(demand)){
+    if(m.canAssign("gravity") && demand!=="gravity"){ demand="gravity"; const ds=$("demand"); if(ds)ds.value="gravity"; say("No OD matrix — switched to gravity demand."); }
+    else { status("assignment unavailable — this network has no "+(m.hasZones?"OD matrix":"zones")+"."); say("Assignment is unavailable: this network has no "+(m.hasZones?"OD matrix":"zones")+"."); return; }
+  }
+  S.assigning=true; const btn=$("runAssign"); if(btn){ btn.textContent="Stop"; btn.classList.add("stop"); }
+  S.map.showDots=false;
+  const t0=performance.now();
+  await m.assignProgressive(method, demand, (k,K,g)=>{
+    applyLinkStyle("volume"); S.map.render(); fillKPI(m.kpis());
+    status(`assigning ${method}… iter ${k}/${K}`+(isFinite(g)?` · gap ${g.toExponential(2)}`:""), true);
+  });
+  const k=m.kpis(); fillKPI(k);
+  status(`assigned (${method}) in ${((performance.now()-t0)/1000).toFixed(1)}s · gap ${isFinite(k.gap)?k.gap.toExponential(2):"–"} · ${k.over.toLocaleString()} links over capacity`);
+  S.assigning=false; if(btn){ btn.textContent="Run assignment"; btn.classList.remove("stop"); }
+  return k;
+}
+function fillKPI(k){ const f=(x)=>Number.isFinite(x)?Math.round(x).toLocaleString():"–"; const sp=(x)=>Number.isFinite(x)?x.toFixed(1):"–";
+  $("kpi").innerHTML = !k ? "" : `
+    <div><span>VMT (veh-km)</span><b>${f(k.vmt)}</b></div>
+    <div><span>VHT (veh-h)</span><b>${f(k.vht)}</b></div>
+    <div><span>Total delay (veh-h)</span><b>${f(k.delay)}</b></div>
+    <div title="VMT-weighted speed with a ${sp(k.speedFloor)} km/h per-link display floor; equilibrium times are unchanged."><span>Network speed*</span><b>${sp(k.speed)} km/h</b></div>
+    <div title="Honest VMT/VHT; collapses toward 0 under extreme oversaturation."><span>Avg speed (raw)</span><b>${sp(k.speedRaw)} km/h</b></div>
+    <div title="VMT-weighted p15·median·p85 congested link speed."><span>Speed p15·50·85</span><b>${sp(k.p15)}·${sp(k.p50)}·${sp(k.p85)}</b></div>
+    <div><span>Avg v/c</span><b>${Number.isFinite(k.avgVc)?k.avgVc.toFixed(2):"–"}</b></div>
+    <div><span>Peak v/c</span><b>${Number.isFinite(k.peak)?k.peak.toFixed(1):"–"}</b></div>
+    <div><span>Over capacity</span><b>${f(k.over)} (${Number.isFinite(k.overShare)?(k.overShare*100).toFixed(0):"–"}%)</b></div>
+    <div><span>Lane-km over cap</span><b>${f(k.laneKmOver)}</b></div>
+    <div><span>% VMT in LOS E/F</span><b>${Number.isFinite(k.pctVmtEF)?(k.pctVmtEF*100).toFixed(0):"–"}%</b></div>
+    <div><span>Gap</span><b>${isFinite(k.gap)?k.gap.toExponential(1):"–"}</b></div>`;
+}
+
+// ---- workspaces ------------------------------------------------------------
+function setMode(mode){ S.mode=mode; for(const el of document.querySelectorAll(".rail button")){ const on=el.dataset.m===mode; el.classList.toggle("on",on); if(el.dataset.m) el.setAttribute("aria-pressed", on?"true":"false"); }
+  $("panel-network").hidden=mode!=="network"; $("panel-agg").hidden=mode!=="aggregation"; $("panel-assign").hidden=mode!=="assignment";
+  $("paneltitle").textContent={network:"Network",aggregation:"Zone aggregation",assignment:"Assignment"}[mode];
+  if(isMobile() && mode) openSheet(true); }
+
+// ---- HUD overlay -----------------------------------------------------------
+function drawHud(){}
+
+// ---- wiring ----------------------------------------------------------------
+function wire(){
+  for(const el of document.querySelectorAll(".rail button[data-m]")) el.onclick=()=>setMode(el.dataset.m);
+  const tb=$("themeBtn"); if(tb) tb.onclick=()=>{ const on=document.body.classList.toggle("light"); if(S.map)S.map.render(); toast(on?"Light theme on.":"Dark theme on."); };
+  const hb=$("helpBtn"); if(hb) hb.onclick=()=>showHelp();
+  const hc=$("hintClose"); if(hc) hc.onclick=()=>{ $("hint").hidden=true; };
+  for(const b of document.querySelectorAll("#chips button")) b.onclick=()=>{ $("cmd").value=b.dataset.cmd; submit(); };
+  window.addEventListener("keydown",onKey);
+  $("runAssign").onclick=()=>runAssign($("method").value,$("demand").value);
+  $("volvc").onclick=()=>{ const cur=S.colorMode==="vc"?"volume":"vc"; applyLinkStyle(cur);
+    for(const b of $("volvc").children) b.classList.toggle("on", b.dataset.c===cur); };
+  $("aggBtn").onclick=()=>{ if(!S.model.hasZones){ say("This network has no zones, so aggregation is unavailable."); return; }
+    const tgt=STEAM_clampField("aggTarget",50,S.model.nZones,1500,"target zones"); const span=STEAM_clampField("aggSpan",100,200000,6000,"max span (m)"); if(tgt==null||span==null) return;
+    const a=S.model.aggregate(tgt,$("aggBarrier").value,span,["district"]);
+    $("aggKpi").textContent=`${(S.model.nZones).toLocaleString()} → ${a.nClusters.toLocaleString()} clusters · ${a.mergeEdges.length.toLocaleString()} merges`;
+    showZones(null,true); };
+  for(const el of document.querySelectorAll(".swatches button[data-style]")) el.onclick=async()=>{
+    const md=el.dataset.style; if((md==="volume"||md==="vc")&&!S.model.result) await runAssign("frankwolfe",$("demand").value);
+    S.map.showDots=false; applyLinkStyle(md); S.map.render();
+    for(const b of document.querySelectorAll(".swatches button[data-style]")) b.classList.toggle("on",b===el); };
+  $("zoneAttr").onchange=()=>{ const a=$("zoneAttr").value; if(!a){ S.map.showDots=false; applyLinkStyle(S.colorMode); S.map.render(); return; }
+    S.map.showLinks=true; showZones(a,false); S.map.render(); toast(`Zones coloured by ${a}.`); };
+  $("send").onclick=submit; $("cmd").addEventListener("keydown",e=>{ if(e.key==="Enter") submit(); });
+  STEAM_applyA11y(); if(!STEAM_reducedMotion()) rotatePlaceholder();
+
+  // ---- map interaction: unified multi-pointer (mouse + touch) --------------
+  const c=$("map");
+  const ptrs=new Map(); let ht=0, busy=false;
+  let panId=null, lx=0, ly=0;
+  let pinching=false, pinchDist=0;
+  let lpTimer=null, lpFired=false;
+  let lastTapT=0, lastTapX=0, lastTapY=0;
+  let vX=0, vY=0, lastMoveT=0, momTimer=null;
+  function inspect(cx,cy,e){ const i=S.map.pick(cx,cy); if(i<0) return -1; S.ctx.lastLinks=[i];
+    if(e&&e.shiftKey){ doSelectLink(i); }
+    else if(e&&e.altKey){ doIsochrone(S.model.s.node_a[i],true); }
+    else say(`Selected link ${i} (${S.model.className(i)}, ${S.model.s.lanes[i]} ln, ${Math.round(S.model.s.length[i])} m).`); return i; }
+  function clearLP(){ if(lpTimer){ clearTimeout(lpTimer); lpTimer=null; } }
+  function stopMom(){ if(momTimer){ cancelAnimationFrame(momTimer); momTimer=null; } vX=0; vY=0; }
+  function startMom(){ if(Math.abs(vX)<0.4 && Math.abs(vY)<0.4) return;
+    const step=()=>{ S.map.pan(vX,vY); vX*=0.92; vY*=0.92; if(Math.abs(vX)<0.2 && Math.abs(vY)<0.2){ momTimer=null; return; } momTimer=requestAnimationFrame(step); }; momTimer=requestAnimationFrame(step); }
+  const dist=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
+  c.addEventListener("pointerdown",e=>{
+    if(e.pointerType!=="touch" && e.button===2){ inspect(...S.map._canvasXY(e.clientX,e.clientY),e); return; }
+    if(e.pointerType!=="touch" && e.button!==0) return;
+    stopMom(); c.setPointerCapture(e.pointerId);
+    ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY,startX:e.clientX,startY:e.clientY,startT:performance.now()});
+    if(ptrs.size===1){ panId=e.pointerId; lx=e.clientX; ly=e.clientY; lastMoveT=performance.now(); vX=0; vY=0; lpFired=false; clearLP();
+      if(e.pointerType==="touch"){ const px=e.clientX,py=e.clientY; lpTimer=setTimeout(()=>{ lpFired=true; panId=null; inspect(...S.map._canvasXY(px,py)); },500); } }
+    else if(ptrs.size===2){ clearLP(); panId=null; pinching=true; const[a,b]=[...ptrs.values()]; pinchDist=dist(a,b); }
+  });
+  c.addEventListener("pointermove",e=>{ const p=ptrs.get(e.pointerId); if(p){ p.x=e.clientX; p.y=e.clientY; }
+    if(pinching && ptrs.size>=2){ e.preventDefault(); const[a,b]=[...ptrs.values()]; const nd=dist(a,b);
+      if(pinchDist>0 && nd>0){ S.map.zoomAtMidpoint(a.x,a.y,b.x,b.y, nd/pinchDist); } pinchDist=nd; return; }
+    if(e.pointerId===panId && p){ if(lpTimer && Math.hypot(e.clientX-p.startX,e.clientY-p.startY)>8) clearLP();
+      const dx=e.clientX-lx, dy=e.clientY-ly; S.map.pan(dx,dy);
+      const now=performance.now(), dt=Math.max(1,now-lastMoveT); vX=dx/dt*16; vY=dy/dt*16; lx=e.clientX; ly=e.clientY; lastMoveT=now; return; }
+    if(e.pointerType!=="touch" && ptrs.size===0){ const now=performance.now(); if(now-ht<60||busy)return; ht=now;
+      const [cx,cy]=S.map._canvasXY(e.clientX,e.clientY); const i=S.map.pick(cx,cy);
+      if(i<0){ $("tip").hidden=true; return; } const m=S.model,r=m.result, cls=m.className(i);
+      const tip=$("tip"); tip.hidden=false; tip.style.left=(cx+14)+"px"; tip.style.top=(cy+14)+"px";
+      let rows=`<div class="tt-row"><span>Lanes</span><b>${m.s.lanes[i]}</b></div><div class="tt-row"><span>Length</span><b>${Math.round(m.s.length[i]).toLocaleString()} m</b></div>`;
+      if(r){ rows+=`<div class="tt-row"><span>Volume</span><b>${Math.round(r.volume[i]).toLocaleString()}</b></div><div class="tt-row"><span>Capacity</span><b>${Math.round(r.cap[i]).toLocaleString()}</b></div><div class="tt-row"><span>v/c</span><b style="color:${rgbCss(vir(Math.min(r.vc[i],1.5)/1.5))}">${r.vc[i].toFixed(2)}</b></div><div class="tt-row"><span>LOS</span><b>${"ABCDEF"[r.los[i]]}</b></div>`; }
+      tip.innerHTML=`<div class="tt-title"><span class="tt-chip" style="background:${rgbCss(CLASS_RGB[cls]||[150,150,150])}"></span>Link ${i} · ${cls}</div>${rows}`; }
+  });
+  function endPtr(e){ const p=ptrs.get(e.pointerId); const wasPan=(e.pointerId===panId); ptrs.delete(e.pointerId);
+    try{ c.releasePointerCapture(e.pointerId); }catch(_){} clearLP();
+    if(pinching){ if(ptrs.size<2) pinching=false; if(ptrs.size===1){ const[id,q]=[...ptrs.entries()][0]; panId=id; lx=q.x; ly=q.y; lastMoveT=performance.now(); vX=0; vY=0; } return; }
+    if(wasPan){ panId=null;
+      if(p && e.pointerType==="touch" && !lpFired){ const dur=performance.now()-p.startT, moved=Math.hypot(e.clientX-p.startX,e.clientY-p.startY);
+        if(dur<300 && moved<12){ const now=performance.now(); if(now-lastTapT<300 && Math.hypot(e.clientX-lastTapX,e.clientY-lastTapY)<40){ S.map.zoomAtClient(e.clientX,e.clientY,1.9); lastTapT=0; } else { lastTapT=now; lastTapX=e.clientX; lastTapY=e.clientY; } return; } }
+      startMom(); }
+  }
+  c.addEventListener("pointerup",endPtr); c.addEventListener("pointercancel",endPtr);
+  c.addEventListener("contextmenu",e=>e.preventDefault());
+  c.addEventListener("touchmove",e=>e.preventDefault(),{passive:false});
+  c.addEventListener("gesturestart",e=>e.preventDefault());
+  c.addEventListener("wheel",e=>{ e.preventDefault(); const [cx,cy]=S.map._canvasXY(e.clientX,e.clientY); S.map.zoomAt(cx,cy,Math.pow(1.0015,-e.deltaY)); },{passive:false});
+  window.addEventListener("resize",()=>S.map.resize());
+}
+
+// ---- mobile / responsive ---------------------------------------------------
+function isMobile(){ return window.matchMedia("(max-width:820px)").matches; }
+function openSheet(open){ document.body.classList.toggle("sheet-open", open!==undefined?open:!document.body.classList.contains("sheet-open")); }
+function wireMobile(){
+  const fab=$("mFab"), handle=$("mHandle");
+  if(fab) fab.onclick=()=>openSheet();
+  if(handle){ handle.onclick=()=>openSheet(false); let sy=0,down=false;
+    handle.addEventListener("pointerdown",e=>{ down=true; sy=e.clientY; handle.setPointerCapture(e.pointerId); });
+    handle.addEventListener("pointermove",e=>{ if(down && e.clientY-sy>50){ down=false; openSheet(false); } });
+    handle.addEventListener("pointerup",()=>down=false); }
+  const vv=window.visualViewport;
+  const onVV=()=>{ if(!vv) return; const kb=Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
+    document.documentElement.style.setProperty("--kb", kb+"px"); document.body.classList.toggle("kb-open", kb>80); };
+  if(vv){ vv.addEventListener("resize",onVV); vv.addEventListener("scroll",onVV); onVV(); }
+  $("cmd").addEventListener("blur",()=>{ document.documentElement.style.setProperty("--kb","0px"); document.body.classList.remove("kb-open"); });
+  const resync=()=>{ if(S.map) S.map.resize(); };
+  window.addEventListener("orientationchange",()=>setTimeout(resync,250));
+  if(vv) vv.addEventListener("resize",resync);
+  const c=$("map"); c.addEventListener("pointerdown",()=>{ if(isMobile() && document.body.classList.contains("sheet-open")) openSheet(false); });
+}
+
+// ---- keyboard shortcuts & help ---------------------------------------------
+function onKey(e){ const tag=(e.target.tagName||"").toLowerCase(), typing=tag==="input"||tag==="textarea"||tag==="select";
+  if(e.key==="/"&&!typing){ e.preventDefault(); $("cmd").focus(); return; }
+  if(e.key==="Escape"){ if(typing){ $("cmd").blur(); } if(S.highlight){ S.highlight=null; if(S.colorMode)applyLinkStyle(S.colorMode); if(S.map)S.map.render(); toast("Cleared highlights."); } $("tip").hidden=true; return; }
+  if(typing) return;
+  if(e.key==="?"){ e.preventDefault(); showHelp(); return; }
+  if(e.key==="1") setMode("network"); else if(e.key==="2") setMode("aggregation"); else if(e.key==="3") setMode("assignment"); }
+function showHelp(){ doHelp(); toast("Help posted to the copilot."); }
+const PLACEH=["colour zones by population","run an AM peak assignment","show me the worst congestion","recommend improvements","aggregate to 1500 zones","select-link 1234","isochrone from zone 200","connect ollama llama3.1"];
+function rotatePlaceholder(){ let i=0; setInterval(()=>{ const el=$("cmd"); if(el) el.placeholder=PLACEH[i++%PLACEH.length]; },3500); }
+
+// ---- copilot: fuzzy normalisation + multi-step planner ---------------------
+function say(t, you){ const d=document.createElement("div"); d.className="msg"+(you?" you":""); d.textContent=t; $("chat").appendChild(d);
+  while($("chat").children.length>6) $("chat").removeChild($("chat").firstChild); }
+function lev(a,b){ if(a===b) return 0; const la=a.length, lb=b.length; if(!la) return lb; if(!lb) return la;
+  let prev=new Array(lb+1); for(let j=0;j<=lb;j++) prev[j]=j;
+  for(let i=1;i<=la;i++){ let cur=[i]; for(let j=1;j<=lb;j++){ const c=a[i-1]===b[j-1]?0:1; cur[j]=Math.min(prev[j]+1,cur[j-1]+1,prev[j-1]+c); } prev=cur; } return prev[lb]; }
+const VOCAB="colour color links link roads zones zone by volume lanes length speed run assignment frank wolfe frankwolfe msa incremental freeflow free flow worst congestion congested over capacity recommend improvements improvement aggregate population jobs students households retail office industrial school productions attractions metro trips from to export map csv geojson shapefile correspondence summarise summarize summary overview explain stats statistics distribution districts find reset clear select isochrone catchment corridor path route screenline upgrade close reopen restore scenario snapshot compare help theme light dark show freeways arterials collectors ramps locals connect ollama claude".split(" ");
+function normalizeCmd(t){
+  return t.replace(/v\/c/g,"vc").replace(/free[-\s]?flow/g,"freeflow").replace(/frank[-\s]?wolfe/g,"frank-wolfe").replace(/select[-\s]?link/g,"select-link")
+    .split(/\b/).map(tok=>{ if(!/^[a-z]{3,}$/.test(tok)) return tok; if(VOCAB.includes(tok)) return tok;
+      let best=null,bd=99; for(const w of VOCAB){ const d=lev(tok,w); if(d<bd){bd=d;best=w;} } const tol=tok.length<=4?1:2; return (best&&bd<=tol)?best:tok; }).join("");
+}
+async function submit(){ const t=$("cmd").value.trim(); if(!t)return; $("cmd").value=""; say(t,true);
+  const steps=planSteps(t);
+  for(const step of steps){ try{ S._rawStep=step; await run(step); }catch(err){ say("⚠ "+err.message); }finally{ S._rawStep=null; } }
+}
+function planSteps(t){ const masks=[]; let s=t
+    .replace(/\d[\d,]*\.?\d*/g, m=>{ masks.push(m); return ""+(masks.length-1)+""; })
+    .replace(/"[^"]*"|'[^']*'/g, m=>{ masks.push(m); return ""+(masks.length-1)+""; });
+  const parts=s.split(/\b(?:and then|then|after that|afterwards|next|followed by|finally|also|plus)\b|[;]|,(?=\s)/i)
+    .map(p=>p.trim()).filter(Boolean).map(p=>p.replace(/(\d+)/g,(_,i)=>masks[+i]));
+  return parts.length?parts:[t]; }
+function num(t){ const m=t.match(/-?\d[\d,]*\.?\d*/); return m?+m[0].replace(/,/g,""):null; }
+
+async function run(raw){
+  let t=(raw||"").toLowerCase().trim(); if(!t) return;
+  if(/^connect\b/.test(t)) return connectLLM(t);
+  t=normalizeCmd(t);
+  if(/\bhelp\b/.test(t)) return doHelp();
+  let m;
+  // colour links
+  if((m=t.match(/colou?r links by (volume|vc|lanes|length|speed)/))){ const md=m[1]; if((md==="volume"||md==="vc"||md==="speed")&&!S.model.result)await runAssign("frankwolfe",$("demand").value); S.diff=null; S.isoBands=null; S.map.showDots=false; applyLinkStyle(md); return say(`Coloured links by ${m[1]}.`); }
+  if(/worst congestion|most congested/.test(t)){ if(!S.model.result)await runAssign("frankwolfe",$("demand").value); const top=S.model.topCongested(15); if(!top.length)return say("No loaded links yet."); S.highlight=top.map(x=>x.i); S.ctx.lastLinks=S.highlight; S.map.showDots=false; applyLinkStyle("vc"); flyToLinks(S.highlight); return say(`Worst link: ${top[0].i} (${top[0].klass}) v/c ${top[0].vc.toFixed(2)}, LOS ${top[0].los}. Highlighted the top 15.`); }
+  if(/over capacity|los f/.test(t)){ if(!S.model.result)await runAssign("frankwolfe",$("demand").value); const over=[]; for(let i=0;i<S.model.nLinks;i++) if(S.model.result.vc[i]>1) over.push(i); S.highlight=over.slice(0,400); applyLinkStyle("vc"); return say(`${over.length.toLocaleString()} links are over capacity (LOS F).`); }
+  if((m=t.match(/show (?:only )?(freeways?|arterials?|collectors?|ramps?|locals?)/))){ const map={freeway:"fwy",arterial:"art",collector:"coll",ramp:"ramp",local:"local"}; const c=map[m[1].replace(/s$/,"")]; const ids=[]; for(let i=0;i<S.model.nLinks;i++) if(S.model.className(i)===c) ids.push(i); S.highlight=ids; applyLinkStyle("class"); return say(`Showing ${ids.length.toLocaleString()} ${m[1]}.`); }
+  // colour zones
+  if((m=t.match(/colou?r zones by ([a-z\- ]+)/))){ if(!S.model.hasZones)return say("This network has no zones."); const a=normAttr(m[1].trim()); S.map.showDots=true; S.map.showLinks=true; showZones(a,false); S.map.render(); return say(`Coloured zones by ${a}.`); }
+  // run / methods
+  if(/\brun\b|assign|equilibrium|frank|wolfe|freeflow|\bmsa\b|incremental/.test(t)){ let method="frankwolfe"; if(/freeflow|all.?or.?nothing/.test(t))method="freeflow"; else if(/\bmsa\b/.test(t))method="msa"; else if(/incremental/.test(t))method="incremental";
+    if(/am peak|morning/.test(t))S.model.settings.periodFactor=0.1; else if(/24|daily/.test(t))S.model.settings.periodFactor=1; else if(/off.?peak/.test(t))S.model.settings.periodFactor=0.083;
+    const sm=t.match(/sample\s+(\d+)/); if(sm){ let smp=+sm[1]; if(!isFinite(smp)||smp<1)smp=1; else if(smp>200000)smp=200000; if(smp!==+sm[1])say(`Sample size clamped to ${smp}.`); S.model.settings.originSample=smp; S.model._odNodes=null; }
+    const demand=/gravity/.test(t)?"gravity":"fixed"; $("method").value=method; setMode("assignment"); await runAssign(method,demand); const k=S.model.kpis(); if(!k)return; return say(`Ran ${method}. VHT ${Math.round(k.vht).toLocaleString()}, network speed ${k.speed.toFixed(1)} km/h (raw ${k.speedRaw.toFixed(1)}, median ${k.p50.toFixed(1)}), ${k.over.toLocaleString()} links over capacity.`); }
+  // recommend
+  if(/recommend|improvement|where to (widen|add)/.test(t)){ if(!S.model.result)await runAssign("frankwolfe",$("demand").value); const recs=S.model.recommend(8); S._recs=recs; S.highlight=recs.map(r=>r.i); applyLinkStyle("vc"); flyToLinks(S.highlight); return say(recs.length?"Top fixes:\n"+recs.slice(0,5).map((r,i)=>`${i+1}. link ${r.i} (${r.klass}) v/c ${r.vc.toFixed(2)} · saves ${Math.round(r.saveVehH)} veh-h · BCR ${isFinite(r.bcr)?r.bcr.toFixed(2):"∞"}`).join("\n"):"No congested candidates to improve."); }
+  if((m=t.match(/apply recommendation\s+(\d+)/))){ const r=(S._recs||[])[+m[1]-1]; if(!r)return say("Run 'recommend improvements' first."); const before=S.model.kpis().vht; S.model.upgradeLink(r.i,2); await runAssign(S.model.result.method,S.model.result.demand); const after=S.model.kpis().vht; return say(`Widened link ${r.i} by 2 lanes and re-assigned. VHT ${Math.round(before).toLocaleString()} → ${Math.round(after).toLocaleString()} (${Math.round(before-after).toLocaleString()} saved).`); }
+  // scenario editing
+  if((m=t.match(/add\s+(\d+)?\s*lanes?\s+to\s+link\s+(\d+)/))){ const nl=m[1]?+m[1]:1, id=+m[2]; S.model.addLanes(id,nl); return scenarioReassign(`Added ${nl} lane(s) to link ${id}.`); }
+  if((m=t.match(/upgrade link\s+(\d+)\s*by\s*(\d+)/))){ S.model.upgradeLink(+m[1],+m[2]); if(S.model.result)await runAssign(S.model.result.method,S.model.result.demand); return say(`Upgraded link ${m[1]} by ${m[2]} lanes${S.model.result?" and re-assigned":""}.`); }
+  if((m=t.match(/close\s+link\s+(\d+)/))){ const id=+m[1]; S.model.closeLink(id); return scenarioReassign(`Closed link ${id}.`); }
+  if((m=t.match(/(?:reopen|restore)\s+link\s+(\d+)/))){ const id=+m[1]; S.model.restoreLink(id); return scenarioReassign(`Restored link ${id}.`); }
+  if(/restore (?:all|network)|reset scenario/.test(t)){ S.model.restoreAll(); S.diff=null; if(S.model.result)await runAssign(S.model.result.method,S.model.result.demand); applyLinkStyle("vc"); return say("Restored all scenario edits and re-assigned."); }
+  if(/show (?:the )?diff|before.?after|volume diff/.test(t)){ if(!S.diff) S.diff=S.model.volumeDiff(); if(!S.diff) return say("No baseline to diff. Make a scenario edit (e.g. 'close link 1234') first."); applyLinkStyle("diff"); S.map.showDots=false; return say("Showing the before/after volume diff (green ↓, red ↑)."); }
+  // select-link
+  if((m=t.match(/select-link\s+(\d+)/))||(/select-link/.test(t)&&S.ctx.lastLinks&&S.ctx.lastLinks.length)){ const id=m?+m[1]:S.ctx.lastLinks[0]; setMode("assignment"); return doSelectLink(id); }
+  // isochrone / corridor / screenline
+  if((m=t.match(/isochrone (?:from )?(?:zone\s+(\d+)|node\s+(\d+))/))||(/isochrone|catchment|reachable/.test(t)&&(m=t.match(/zone\s+(\d+)/)))){ const ff=/freeflow/.test(t); let node; if(m[2]!=null)node=+m[2]; else if(m[1]!=null){ if(!STEAM_zoneOk(+m[1]))return; node=S.model.zoneNode[+m[1]]; } if(node==null||node<0)return say("Pick a valid zone/node."); return doIsochrone(node,!ff); }
+  if((m=t.match(/(?:corridor|path|route)\s+(?:from\s+)?zone\s+(\d+)\s+to\s+(?:zone\s+)?(\d+)/))){ const ff=/freeflow/.test(t); return doCorridor(+m[1],+m[2],!ff); }
+  if((m=t.match(/screenline\s+(-?\d[\d.]*)[ ,]+(-?\d[\d.]*)[ ,]+(-?\d[\d.]*)[ ,]+(-?\d[\d.]*)/))){ return doScreenline(+m[1],+m[2],+m[3],+m[4]); }
+  if(/clear (?:analysis|overlay|highlight)|^clear$/.test(t)){ clearAnalysis(); return say("Cleared the analysis overlay."); }
+  if(/reset view|fit|zoom out/.test(t)){ S.highlight=null; S.diff=null; S.isoBands=null; S.map.showDots=!!S.zoneAttr&&S.map.showDots; applyLinkStyle(S.colorMode||"class"); S.map.resetView(); return say("Reset the view to fit the whole network."); }
+  // aggregate
+  if((m=t.match(/aggregate(?: to)?\s+(\d[\d,]*)\s*zones?/))){ if(!S.model.hasZones)return say("This network has no zones, so aggregation is unavailable."); let tgt=+m[1].replace(/,/g,""); if(!isFinite(tgt)||tgt<1)tgt=1; if(tgt>S.model.nZones)tgt=S.model.nZones; const bar=/freeway/.test(t)?"fwy":/arterial/.test(t)?"art":"coll"; const a=S.model.aggregate(tgt,bar,6000,["district"]); setMode("aggregation"); $("aggTarget").value=tgt; $("aggKpi").textContent=`${S.model.nZones.toLocaleString()} → ${a.nClusters.toLocaleString()} clusters`; showZones(null,true); S.map.render(); return say(`Aggregated to ${a.nClusters.toLocaleString()} clusters (no merge crosses a ${bar} or exceeds 6 km).`); }
+  // interrogate zones
+  if((m=t.match(/population of zone\s+(\d+)/))){ if(!STEAM_zoneOk(+m[1]))return; return say(`Zone ${m[1]} population: ${S.model.s.z_pop_tot[+m[1]].toLocaleString()}.`); }
+  if((m=t.match(/jobs in zone\s+(\d+)/))){ if(!STEAM_zoneOk(+m[1]))return; return say(`Zone ${m[1]} jobs: ${S.model.s.z_worker[+m[1]].toLocaleString()}.`); }
+  if((m=t.match(/zoom to zone\s+(\d+)/))){ if(!STEAM_zoneOk(+m[1]))return; const z=+m[1],zc=S.model.s.z_centroid; S.ctx.lastZone=z; S.map.flyTo(zc[z*2],zc[z*2+1],0.04); return say(`Zoomed to zone ${z}.`); }
+  if((m=t.match(/top\s+(\d+)\s+zones by (\w+)/))){ if(!S.model.hasZones)return say("This network has no zones."); const k=+m[1],a=normAttr(m[2]),val=zoneValues(a); const idx=[...Array(S.model.nZones).keys()].sort((x,y)=>val[y]-val[x]).slice(0,k); S.ctx.lastZones=idx; return say(`Top ${k} zones by ${a}: `+idx.map(i=>`#${i} (${Math.round(val[i]).toLocaleString()})`).join(", ")); }
+  if((m=t.match(/stats?(?: of| for)? ([a-z\- ]+)/))&&/stat|distribution/.test(t)){ if(!S.model.hasZones)return say("This network has no zones."); const a=normAttr(m[1].trim()),v=zoneValues(a),arr=Array.from(v).filter(x=>isFinite(x)),so=arr.slice().sort((x,y)=>x-y),nn=so.length,sum=arr.reduce((s,x)=>s+x,0),f=x=>Math.round(x).toLocaleString(); return say(`${a}: min ${f(so[0]||0)} · median ${f(so[nn>>1]||0)} · mean ${f(nn?sum/nn:0)} · max ${f(so[nn-1]||0)} · total ${f(sum)} (${nn.toLocaleString()} zones).`); }
+  if((m=t.match(/find district\s+(\d+)/))){ if(!S.model.hasZones||!S.model.s.z_district)return say("No district data."); const dist=+m[1],s=S.model.s,hits=[]; for(let z=0;z<S.model.nZones;z++) if(s.z_district[z]===dist) hits.push(z); if(!hits.length)return say(`No zones in district ${dist}.`); S.ctx.lastZones=hits; const zc=s.z_centroid; let sx=0,sy=0,nn=0; for(const z of hits){ if(zc[z*2]||zc[z*2+1]){sx+=zc[z*2];sy+=zc[z*2+1];nn++;} } if(nn)S.map.flyTo(sx/nn,sy/nn,0.02); return say(`District ${dist}: ${hits.length} zones.`); }
+  if(/list districts/.test(t)){ if(!S.model.hasZones||!S.model.s.z_district)return say("No district data."); const s=S.model.s,counts=new Map(); for(let z=0;z<S.model.nZones;z++){ const d=s.z_district[z]; counts.set(d,(counts.get(d)||0)+1); } const arr=[...counts.entries()].sort((a,b)=>a[0]-b[0]); return say(`${arr.length} districts: `+arr.slice(0,20).map(([d,n])=>`#${d} (${n})`).join(", ")+(arr.length>20?" …":"")); }
+  // snapshot / compare
+  if(/snapshot|save scenario/.test(t)){ const k=S.model.result?S.model.kpis():null; if(!k)return say("Run an assignment first."); const name="scenario "+(S.snapshots.length+1); S.snapshots.push({name,k}); return say(`Saved snapshot "${name}" (VHT ${Math.round(k.vht).toLocaleString()}, over-cap ${k.over.toLocaleString()}).`); }
+  if(/\bcompare\b/.test(t)){ const cur=S.model.result?S.model.kpis():null; if(!cur)return say("Run an assignment first."); const prev=S.snapshots[S.snapshots.length-1]; if(!prev)return say("No snapshot to compare — say 'snapshot' after an assignment."); const d=(a,b)=>{ const x=b-a; return (x>=0?"+":"")+Math.round(x).toLocaleString(); }; return say(`Current vs "${prev.name}":\n• VHT ${Math.round(prev.k.vht).toLocaleString()} → ${Math.round(cur.vht).toLocaleString()} (${d(prev.k.vht,cur.vht)})\n• Network speed ${prev.k.speed.toFixed(1)} → ${cur.speed.toFixed(1)} km/h\n• Over capacity ${prev.k.over.toLocaleString()} → ${cur.over.toLocaleString()} (${d(prev.k.over,cur.over)})`); }
+  // explain / summarise
+  if(/\bexplain\b/.test(t)){ if(/los|service/.test(t))return say("LOS grades a road A–F from v/c: A free-flowing (v/c<0.6) to F gridlock (v/c≥1.0)."); if(/bpr/.test(t))return say("BPR: travel time = free-flow × (1 + 0.15·(vol/cap)^4) — time rises sharply near capacity."); if(/gap/.test(t))return say("Relative gap measures closeness to user equilibrium; smaller is more converged. Frank-Wolfe stops at gap < 1e-3."); if(/aggregat/.test(t))return say("Aggregation merges nearby same-district zones, never crossing the chosen barrier class or spanning more than 6 km, until it reaches your target count."); return say("v/c is volume ÷ capacity. Below 1.0 the link is within capacity; at 1.0 saturated; above 1.0 over capacity. It drives the colour scale and LOS."); }
+  if(/summari[sz]e|overview|\bsummary\b/.test(t)){ const m2=S.model,k=m2.result?m2.kpis():null; let lk=0; for(let i=0;i<m2.nLinks;i++) lk+=m2.s.lanes[i]*m2.s.length[i]/1000; const cls={}; for(let i=0;i<m2.nLinks;i++){ const c=m2.className(i); cls[c]=(cls[c]||0)+1; } const top=Object.entries(cls).sort((a,b)=>b[1]-a[1]).map(([c,n])=>`${c} ${n.toLocaleString()}`).join(", "); const lines=[`Network: ${m2.nLinks.toLocaleString()} links, ${m2.nNodes.toLocaleString()} nodes, ${m2.nZones.toLocaleString()} zones, ${(m2.h.n_od||0).toLocaleString()} OD pairs.`,`Lane-km ${Math.round(lk).toLocaleString()} · classes: ${top}.`]; if(k)lines.push(`Assignment (${m2.result.method}): VHT ${Math.round(k.vht).toLocaleString()}, network speed ${k.speed.toFixed(1)} km/h, ${k.over.toLocaleString()} links over capacity.`); else lines.push("No assignment yet — say 'run frank-wolfe'."); return say(lines.join("\n")); }
+  // interrogate matrix
+  if((m=t.match(/trips from zone\s+(\d+)\s+to\s+(\d+)/))){ if(!S.model.hasOD)return say("This network has no OD matrix loaded."); const o=+m[1],d=+m[2]; let tr=0; const s=S.model.s; for(let k=0;k<S.model.h.n_od;k++) if(s.od_o[k]===o&&s.od_d[k]===d){tr=s.od_t[k];break;} return say(`Trips ${o}→${d}: ${tr.toFixed(1)} per day.`); }
+  if((m=t.match(/trips from zone\s+(\d+)/))){ if(!S.model.hasOD)return say("This network has no OD matrix loaded."); const o=+m[1],s=S.model.s; let tot=0; for(let k=0;k<S.model.h.n_od;k++) if(s.od_o[k]===o) tot+=s.od_t[k]; return say(`Zone ${o} produces ${Math.round(tot).toLocaleString()} trips/day.`); }
+  if((m=t.match(/trips to zone\s+(\d+)/))){ if(!S.model.hasOD)return say("This network has no OD matrix loaded."); const d=+m[1],s=S.model.s; let tot=0; for(let k=0;k<S.model.h.n_od;k++) if(s.od_d[k]===d) tot+=s.od_t[k]; return say(`Zone ${d} attracts ${Math.round(tot).toLocaleString()} trips/day.`); }
+  // interrogate network
+  if(/how many links/.test(t)) return say(`${S.model.nLinks.toLocaleString()} road links, ${S.model.nNodes.toLocaleString()} nodes.`);
+  if(/how many zones/.test(t)) return say(`${S.model.nZones.toLocaleString()} zones.`);
+  if(/total lane.?km/.test(t)){ let lk=0; for(let i=0;i<S.model.nLinks;i++) lk+=S.model.s.lanes[i]*S.model.s.length[i]/1000; return say(`Total lane-km: ${Math.round(lk).toLocaleString()}.`); }
+  // exports
+  if(/export link/.test(t)) return exportLinksCSV();
+  if(/export the correspondence|export correspondence/.test(t)) return exportCorrespondence();
+  if(/export.*geojson/.test(t)) return exportGeoJSON();
+  if(/export.*shapefile/.test(t)) return exportShapefile();
+  if(/export the map|export map/.test(t)) return exportMapPNG();
+  // theme
+  if(/light theme/.test(t)){ document.body.classList.add("light"); if(S.map)S.map.render(); return say("Light theme on."); }
+  if(/dark theme/.test(t)){ document.body.classList.remove("light"); if(S.map)S.map.render(); return say("Dark theme on."); }
+  // LLM agent fallback
+  if(S.llm) return llmAgent(S._rawStep!=null?S._rawStep:raw);
+  return notRecognised(t);
+}
+function notRecognised(t){
+  const probe=[["colour zones by population","population jobs colour zones"],["run frank-wolfe assignment","run assignment frankwolfe equilibrium"],["show the worst congestion","congestion worst congested"],["recommend improvements","recommend improvement widen"],["aggregate to 1500 zones","aggregate cluster zones"],["summarise the network","summary overview network"],["select-link 1234","select link trace flows"],["isochrone from zone 200","isochrone catchment reachable"],["export link results csv","export csv download"]];
+  const toks=t.split(/\s+/); const sugg=[];
+  for(const[phrase,kw] of probe){ const kws=kw.split(" "); let s=0; for(const tk of toks){ let bs=0; for(const w of kws){ const d=lev(tk,w); const sc=d<=2?1-d/(w.length+1):0; if(sc>bs)bs=sc; } s+=bs; } if(s>0) sugg.push([s,phrase]); }
+  sugg.sort((a,b)=>b[0]-a[0]);
+  if(sugg.length && sugg[0][0]>=0.9) return say("Not sure I got that. Did you mean:\n"+sugg.slice(0,3).map(s=>"• "+s[1]).join("\n")+"\n(or type 'help')");
+  return doHelp(true);
+}
+function doHelp(full){ return say((full?"I didn't catch that.\n":"")+[
+  "Copilot — I tolerate typos/synonyms and multi-step requests (use 'then', 'and', commas):",
+  "MAPS  · colour links by volume / vc / los / speed / lanes · colour zones by population/jobs/…",
+  "ASSIGN· run frank-wolfe (or msa / incremental / free-flow) · for the am peak · gravity · sample 800",
+  "DIAG  · worst congestion · over capacity · summarise · explain v/c · explain los",
+  "PLAN  · recommend improvements · apply recommendation 1 · upgrade link 4312 by 2 lanes · snapshot · compare",
+  "SCEN  · add 2 lanes to link 1234 · close link 1234 · reopen link 1234 · show diff · restore all",
+  "ANALYSE· select-link 1234 · isochrone from zone 200 · corridor zone 10 to 250 · screenline x1 y1 x2 y2 · clear",
+  "ZONES · population of zone 120 · top 10 zones by jobs · stats of population · list districts · find district 7 · zoom to zone 200",
+  "DEMAND· trips from zone 200 · trips to zone 55 · trips from zone 12 to 34",
+  "AGGR  · aggregate to 1500 zones · export correspondence / geojson / shapefile",
+  "LLM   · connect ollama llama3.1 · connect claude <key>"].join("\n")); }
+function normAttr(a){ a=a.trim(); const map={pop:"population",population:"population",jobs:"jobs",workers:"jobs",students:"students",household:"households",households:"households",retail:"retail",office:"office",industrial:"industrial",school:"school",productions:"productions",attractions:"attractions","jobs-housing":"jobs-housing","jobs housing":"jobs-housing",metro:"metro","metro access":"metro",density:"population"}; return map[a]||a; }
+function flyToLinks(ids){ if(!ids||!ids.length)return; const xy=S.model.s.geom_xy,off=S.model.s.geom_off; let sx=0,sy=0,nn=0; for(const i of ids){ const k=off[i]; sx+=xy[k*2]; sy+=xy[k*2+1]; nn++; } S.map.flyTo(sx/nn,sy/nn); }
+
+// ---- analysis controllers --------------------------------------------------
+async function doSelectLink(linkId){ const m=S.model; if(!m.result){ say("Running an assignment first to trace flows."); await runAssign("frankwolfe",$("demand").value); }
+  status("tracing select-link…",true); await tick(); const sl=m.selectLink(linkId,{congested:true}); S.diff=null; S.isoBands=null;
+  S.highlight=sl.contributing.length?sl.contributing:[linkId]; S.ctx.lastLinks=[linkId]; applyLinkStyle(S.colorMode==="diff"||S.colorMode==="iso"?"vc":S.colorMode); flyToLinks([linkId]); S.map.showDots=false; S.map.render(); status("");
+  const fl=sl.topFlows.slice(0,5).map(f=>`zone ${f.oZone>=0?f.oZone:"?"}→${f.dZone>=0?f.dZone:"?"} ${Math.round(f.trips)}`).join(", ");
+  return say(`Select-link ${linkId}: ${Math.round(sl.through).toLocaleString()} trips traverse it (${(sl.share*100).toFixed(1)}% of sampled demand) over ${sl.contributing.length.toLocaleString()} links. Top flows: ${fl||"(none)"}.`); }
+async function scenarioReassign(label){ const m=S.model; if(!m.result){ say("Running a base assignment first."); await runAssign("frankwolfe",$("demand").value); } m.snapshotVolume();
+  const method=m.result?m.result.method:"frankwolfe", demand=m.result?m.result.demand:$("demand").value; await runAssign(method,demand);
+  S.diff=m.volumeDiff(); S.isoBands=null; S.highlight=null; applyLinkStyle("diff"); S.map.showDots=false; S.map.render();
+  for(const b of document.querySelectorAll(".swatches button[data-style]")) b.classList.remove("on");
+  let up=0,dn=0; for(let i=0;i<S.diff.length;i++){ if(S.diff[i]>1)up++; else if(S.diff[i]<-1)dn++; }
+  return say(`${label} Re-assigned; volume diff: ${dn.toLocaleString()} links lighter (green), ${up.toLocaleString()} heavier (red).`); }
+async function doIsochrone(srcNode, congested){ const m=S.model; status("computing isochrone…",true); await tick(); const iso=m.isochrone(srcNode,ISO_BANDS,congested!==false);
+  S.isoBands=iso.band; S.diff=null; S.highlight=null; applyLinkStyle("iso"); S.map.showDots=false; const nx=m.s.node_xy; S.map.flyTo(nx[srcNode*2],nx[srcNode*2+1]); S.map.render(); status("");
+  return say(`Isochrone from node ${srcNode} (${congested!==false&&m.result?"congested":"free-flow"}). Links reachable — `+iso.counts.map((c,k)=>`≤${ISO_BANDS[k]}m: ${c.toLocaleString()}`).join(" · ")+"."); }
+async function doCorridor(zoneA, zoneB, congested){ const m=S.model; if(congested&&!m.result){ say("No assignment yet; routing at free-flow."); congested=false; } const cor=m.corridor(zoneA,zoneB,congested); if(!cor)return say(`No path found between zone ${zoneA} and zone ${zoneB}.`);
+  S.highlight=cor.links; S.ctx.lastLinks=cor.links; S.diff=null; S.isoBands=null; applyLinkStyle(S.colorMode==="diff"||S.colorMode==="iso"?"class":S.colorMode); flyToLinks(cor.links); S.map.showDots=false; S.map.render();
+  return say(`Corridor zone ${zoneA}→${zoneB} (${cor.congested?"congested":"free-flow"}): ${cor.distKm.toFixed(1)} km, ${cor.timeMin.toFixed(1)} min over ${cor.links.length} links.`); }
+async function doScreenline(x1,y1,x2,y2){ const m=S.model; const r=m.screenline(x1,y1,x2,y2); S.highlight=r.links; S.ctx.lastLinks=r.links; S.diff=null; S.isoBands=null; applyLinkStyle(m.result?"volume":"class"); flyToLinks(r.links); S.map.showDots=false; S.map.render();
+  return say(`Screenline crosses ${r.count.toLocaleString()} links${m.result?` carrying ${Math.round(r.volume).toLocaleString()} veh`:" (run an assignment for volumes)"}.`); }
+function clearAnalysis(){ S.diff=null; S.isoBands=null; S.highlight=null; applyLinkStyle("class"); S.map.render(); }
+
+// ---- LLM connect + tool-calling agent --------------------------------------
+function connectLLM(t){ let m;
+  if((m=t.match(/connect ollama\s+(\S+)(?:\s*\|\s*(\S+))?/))){ const host=(m[2]||"http://localhost:11434").replace(/\/+$/,"").replace(/\/v1.*$/,"").replace(/\/api\/.*$/,"");
+    S.llm={type:"ollama",model:m[1],host,url:host+"/v1/chat/completions",apiChat:host+"/api/chat"}; return say(`Connected to local Ollama (${m[1]}) at ${host}. Tool-calling agent active; offline planner stays as fallback. If calls fail from file://, start Ollama with OLLAMA_ORIGINS=*.`); }
+  if((m=t.match(/connect claude\s+(\S+)/))){ S.llm={type:"openai",model:"claude",url:"https://api.anthropic.com/v1/messages",key:m[1],jsonOnly:true}; return say("Connected to Claude (Anthropic API). Agent uses JSON tool protocol."); }
+  if((m=t.match(/connect ai\s+(\S+)\s*\|\s*(\S+)\s*\|\s*(\S+)/))){ S.llm={type:"openai",url:m[1],key:m[2],model:m[3]}; return say(`Connected to ${m[3]}. Tool-calling agent active.`); }
+  return say("Usage: connect ollama llama3.1 [| http://host:11434] · connect claude <key> · connect ai <url> | <key> | <model>"); }
+function _ensureResult(){ if(!S.model.result) return runAssign("frankwolfe",$("demand").value); }
+function _fmt(n){ return Math.round(n).toLocaleString(); }
+const TOOLS=[
+  { name:"colourLinks", description:"Recolour links by an attribute (class, volume, vc, los, lanes, length, speed). Auto-runs assignment if needed.", parameters:{type:"object",properties:{mode:{type:"string"}},required:["mode"]},
+    async run(a){ const md=a.mode==="v/c"?"vc":a.mode; if(["volume","vc","speed","los"].includes(md)) await _ensureResult(); S.map.showDots=false; S.map.showLinks=true; applyLinkStyle(md); S.map.render(); return `Coloured links by ${md}.`; } },
+  { name:"colourZones", description:"Colour zones by a land-use attribute (population, jobs, students, households, retail, office, industrial, school, productions, attractions, jobs-housing, metro).", parameters:{type:"object",properties:{attr:{type:"string"}},required:["attr"]},
+    run(a){ if(!S.model.hasZones) return "No zones in this network."; const at=normAttr(String(a.attr).toLowerCase()); S.map.showDots=true; S.map.showLinks=true; showZones(at,false); S.map.render(); return `Coloured zones by ${at}.`; } },
+  { name:"runAssignment", description:"Run a traffic assignment (frankwolfe, msa, incremental, freeflow; demand fixed|gravity; period am|daily|offpeak).", parameters:{type:"object",properties:{method:{type:"string"},demand:{type:"string"},period:{type:"string"},sample:{type:"integer"}},required:[]},
+    async run(a){ const method=a.method||"frankwolfe", demand=a.demand||"fixed"; if(a.period==="am")S.model.settings.periodFactor=0.1; else if(a.period==="daily")S.model.settings.periodFactor=1; else if(a.period==="offpeak")S.model.settings.periodFactor=0.083; if(a.sample){S.model.settings.originSample=+a.sample; S.model._odNodes=null;} $("method").value=method; setMode("assignment"); await runAssign(method,demand); const k=S.model.kpis(); return k?`Ran ${method}/${demand}. VHT ${_fmt(k.vht)}, network speed ${k.speed.toFixed(1)} km/h, ${_fmt(k.over)} over capacity, gap ${isFinite(k.gap)?k.gap.toExponential(2):"–"}.`:"Assignment unavailable."; } },
+  { name:"networkSummary", description:"Report network size and current KPIs.", parameters:{type:"object",properties:{},required:[]},
+    run(){ const m=S.model,k=m.kpis(); let s=`${m.nLinks.toLocaleString()} links · ${m.nNodes.toLocaleString()} nodes · ${m.nZones.toLocaleString()} zones · ${(m.h.n_od||0).toLocaleString()} OD.`; if(k)s+=` VHT ${_fmt(k.vht)}, network speed ${k.speed.toFixed(1)} km/h, ${_fmt(k.over)} over capacity.`; else s+=" Not yet assigned."; return s; } },
+  { name:"topCongested", description:"Highlight the most congested links.", parameters:{type:"object",properties:{n:{type:"integer"}},required:[]},
+    async run(a){ await _ensureResult(); const top=S.model.topCongested(a.n||15); S.highlight=top.map(x=>x.i); S.ctx.lastLinks=S.highlight; S.map.showDots=false; applyLinkStyle("vc"); flyToLinks(S.highlight); return top.length?`Top ${top.length} highlighted. Worst: link ${top[0].i} (${top[0].klass}) v/c ${top[0].vc.toFixed(2)}.`:"No loaded links."; } },
+  { name:"recommend", description:"Rank lane-widening projects by benefit-cost ratio.", parameters:{type:"object",properties:{n:{type:"integer"}},required:[]},
+    async run(a){ await _ensureResult(); const recs=S.model.recommend(a.n||8); S._recs=recs; S.highlight=recs.map(r=>r.i); applyLinkStyle("vc"); flyToLinks(S.highlight); return recs.length?"Top fixes: "+recs.slice(0,5).map((r,i)=>`#${i+1} link ${r.i} BCR ${isFinite(r.bcr)?r.bcr.toFixed(2):"∞"}`).join("; "):"No candidates."; } },
+  { name:"aggregate", description:"Aggregate zones to a target count (barrier fwy|art|coll).", parameters:{type:"object",properties:{target:{type:"integer"},barrier:{type:"string"}},required:["target"]},
+    run(a){ if(!S.model.hasZones) return "No zones."; const tgt=+a.target,bar=a.barrier||"coll"; const r=S.model.aggregate(tgt,bar,6000,["district"]); setMode("aggregation"); $("aggTarget").value=tgt; $("aggKpi").textContent=`${S.model.nZones.toLocaleString()} → ${r.nClusters.toLocaleString()} clusters`; showZones(null,true); S.map.render(); return `Aggregated to ${r.nClusters.toLocaleString()} clusters.`; } },
+  { name:"selectLink", description:"Trace which OD flows traverse a link.", parameters:{type:"object",properties:{link:{type:"integer"}},required:["link"]}, async run(a){ await doSelectLink(+a.link); return `Select-link ${a.link} done.`; } },
+  { name:"scenario", description:"Edit the network then re-assign with a before/after diff. action: addLanes|close|reopen|restore.", parameters:{type:"object",properties:{action:{type:"string"},link:{type:"integer"},lanes:{type:"integer"}},required:["action"]},
+    async run(a){ const id=+a.link; if(a.action==="addLanes"){ S.model.addLanes(id,a.lanes||1); await scenarioReassign(`Added ${a.lanes||1} lane(s) to link ${id}.`);} else if(a.action==="close"){ S.model.closeLink(id); await scenarioReassign(`Closed link ${id}.`);} else if(a.action==="reopen"){ S.model.restoreLink(id); await scenarioReassign(`Reopened link ${id}.`);} else { S.model.restoreAll(); if(S.model.result) await runAssign(S.model.result.method,S.model.result.demand);} return `Scenario ${a.action} done.`; } },
+  { name:"isochrone", description:"Travel-time bands from a zone.", parameters:{type:"object",properties:{zone:{type:"integer"}},required:["zone"]}, async run(a){ const nd=S.model.zoneNode[+a.zone]; if(nd==null||nd<0)return "Invalid zone."; await doIsochrone(nd,true); return `Isochrone from zone ${a.zone} done.`; } },
+  { name:"corridor", description:"Shortest path between two zones.", parameters:{type:"object",properties:{from:{type:"integer"},to:{type:"integer"}},required:["from","to"]}, async run(a){ await doCorridor(+a.from,+a.to,!!S.model.result); return `Corridor ${a.from}->${a.to} done.`; } },
+  { name:"interrogateZone", description:"Demographics + trip ends for a zone.", parameters:{type:"object",properties:{zone:{type:"integer"}},required:["zone"]},
+    run(a){ const z=+a.zone,s=S.model.s; if(!S.model.hasZones||z<0||z>=S.model.nZones) return `Zone ${z} unavailable.`; let prod=0,attr=0; if(S.model.hasOD) for(let k=0;k<S.model.h.n_od;k++){ if(s.od_o[k]===z)prod+=s.od_t[k]; if(s.od_d[k]===z)attr+=s.od_t[k]; } S.ctx.lastZone=z; return `Zone ${z}: pop ${_fmt(s.z_pop_tot[z])}, jobs ${_fmt(s.z_worker[z])}, students ${_fmt(s.z_student[z])}. Produces ${_fmt(prod)} trips/day, attracts ${_fmt(attr)}.`; } },
+  { name:"zoomTo", description:"Fly to a zone.", parameters:{type:"object",properties:{zone:{type:"integer"}},required:["zone"]}, run(a){ const z=+a.zone,zc=S.model.s.z_centroid; if(!S.model.hasZones||z<0||z>=S.model.nZones)return `Zone ${z} unavailable.`; S.ctx.lastZone=z; S.map.flyTo(zc[z*2],zc[z*2+1],0.04); return `Zoomed to zone ${z}.`; } },
+  { name:"clearHighlight", description:"Clear highlights/overlays.", parameters:{type:"object",properties:{},required:[]}, run(){ clearAnalysis(); return "Cleared."; } },
+  { name:"export", description:"Export data (links, correspondence, geojson, shapefile, map).", parameters:{type:"object",properties:{kind:{type:"string"}},required:["kind"]},
+    run(a){ ({links:exportLinksCSV,correspondence:exportCorrespondence,geojson:exportGeoJSON,shapefile:exportShapefile,map:exportMapPNG}[a.kind]||(()=>say("Unknown export.")))(); return `Triggered ${a.kind} export.`; } },
+  { name:"plan", description:"Run a free-text command through the deterministic planner.", parameters:{type:"object",properties:{command:{type:"string"}},required:["command"]}, async run(a){ await planOnly(String(a.command)); return `Ran: "${a.command}".`; } },
+];
+const TOOL_MAP=Object.fromEntries(TOOLS.map(t=>[t.name,t]));
+function toolSpecs(){ return TOOLS.map(t=>({type:"function",function:{name:t.name,description:t.description,parameters:t.parameters}})); }
+function agentSystemPrompt(){ const m=S.model, assigned=!!m.result;
+  const cat=TOOLS.map(t=>`- ${t.name}(${Object.keys(t.parameters.properties||{}).join(", ")}): ${t.description}`).join("\n");
+  return `You are the copilot agent inside STEAM 2040 Studio, a travel-demand model of Abu Dhabi (2040). `+
+`The network has ${m.nLinks.toLocaleString()} links, ${m.nNodes.toLocaleString()} nodes, ${m.nZones.toLocaleString()} zones, ${(m.h.n_od||0).toLocaleString()} OD pairs. Assignment ${assigned?"HAS":"has NOT"} run.\n`+
+`Drive the app by calling tools, observe results, then either call more tools or finish with a concise answer. Prefer the most specific tool; use plan() only as a last resort.\n\nTOOLS:\n${cat}\n\n`+
+`If your endpoint lacks native tool calls, reply with EXACTLY ONE JSON object:\n  call: {"tool":"<name>","args":{...}}\n  finish: {"final":"<message>"}\nDo not wrap JSON in prose.`; }
+function extractJSON(text){ if(!text) return null; let s=text.replace(/```(?:json)?/gi,"").trim(); const i=s.indexOf("{"); if(i<0)return null;
+  let depth=0,inStr=false,esc=false; for(let j=i;j<s.length;j++){ const ch=s[j];
+    if(inStr){ if(esc)esc=false; else if(ch==="\\")esc=true; else if(ch==='"')inStr=false; }
+    else if(ch==='"')inStr=true; else if(ch==="{")depth++; else if(ch==="}"){ depth--; if(depth===0){ try{ return JSON.parse(s.slice(i,j+1)); }catch(e){ return null; } } } } return null; }
+async function agentTurn(messages){ const native=S.llm.type==="ollama"&&S.llm.apiChat&&!S.llm.jsonOnly;
+  if(native){ let res; try{ res=await fetch(S.llm.apiChat,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:S.llm.model,messages,tools:toolSpecs(),stream:false})}); }catch(e){ throw new Error("net:"+e.message); }
+    if(!res.ok) throw new Error("http:"+res.status); const j=await res.json(); const msg=j.message||{};
+    const tc=(msg.tool_calls||[]).map(c=>({name:c.function?.name,args:typeof c.function?.arguments==="string"?(extractJSON(c.function.arguments)||{}):(c.function?.arguments||{})}));
+    if(tc.length) return {toolCalls:tc,text:msg.content||"",raw:msg};
+    const parsed=extractJSON(msg.content); if(parsed&&parsed.tool) return {toolCalls:[{name:parsed.tool,args:parsed.args||{}}],text:""};
+    return {toolCalls:[],text:(parsed&&parsed.final)||msg.content||""}; }
+  const headers={"Content-Type":"application/json"}; if(S.llm.key) headers.Authorization="Bearer "+S.llm.key;
+  let res; try{ res=await fetch(S.llm.url,{method:"POST",headers,body:JSON.stringify({model:S.llm.model,messages,stream:false,temperature:0})}); }catch(e){ throw new Error("net:"+e.message); }
+  if(!res.ok) throw new Error("http:"+res.status); const j=await res.json();
+  const content=j.choices?.[0]?.message?.content || j.message?.content || j.content?.[0]?.text || "";
+  const parsed=extractJSON(content); if(parsed&&parsed.tool) return {toolCalls:[{name:parsed.tool,args:parsed.args||{}}],text:""};
+  return {toolCalls:[],text:(parsed&&parsed.final)||content||""}; }
+async function llmAgent(userText){ const MAX=6, native=S.llm.type==="ollama"&&S.llm.apiChat&&!S.llm.jsonOnly;
+  const messages=[{role:"system",content:agentSystemPrompt()},{role:"user",content:userText}]; const transcript=[];
+  S._agentBusy=true; status("agent thinking…",true);
+  try{ for(let step=0;step<MAX;step++){ let turn;
+      try{ turn=await agentTurn(messages); }catch(e){ say(`LLM unreachable (${e.message}); using offline planner.`); await planOnly(userText); return; }
+      if(turn.toolCalls&&turn.toolCalls.length){ if(native&&turn.raw) messages.push(turn.raw); else messages.push({role:"assistant",content:JSON.stringify({tool:turn.toolCalls[0].name,args:turn.toolCalls[0].args})});
+        for(const call of turn.toolCalls){ const tool=TOOL_MAP[call.name]; let obs;
+          if(!tool){ obs=`Error: unknown tool "${call.name}".`; } else { status(`agent: ${call.name}…`,true); try{ obs=await tool.run(call.args||{}); }catch(err){ obs="Error: "+err.message; } }
+          transcript.push(`▸ ${call.name} → ${obs}`); say(`▸ ${call.name} — ${obs}`);
+          if(native) messages.push({role:"tool",name:call.name,content:obs}); else messages.push({role:"user",content:`Observation from ${call.name}: ${obs}`}); }
+        continue; }
+      const final=(turn.text||"").trim(); if(final){ say(final); return; }
+      if(step===0){ say("LLM returned nothing actionable; using offline planner."); await planOnly(userText); return; }
+      say("(agent finished.)"); return; }
+    say("Agent reached its step limit. Actions:\n"+(transcript.join("\n")||"(none)"));
+  } finally { S._agentBusy=false; status(""); } }
+async function planOnly(step){ const saved=S.llm; S.llm=null; try{ S._rawStep=step; await run(step); } finally{ S.llm=saved; S._rawStep=null; } }
+// offline shim used when no LLM is connected but old code paths call llmAnswer
+async function llmAnswer(t){ return llmAgent(t); }
+
+// ---- exporters -------------------------------------------------------------
+function download(name, blob){ const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=name; a.click(); URL.revokeObjectURL(a.href); }
+function exportLinksCSV(){ const m=S.model,r=m.result; if(!r) return say("Run an assignment first."); let out="link,class,lanes,length_m,capacity,volume,vc,los\n";
+  const rows=[]; for(let i=0;i<m.nLinks;i++) rows.push(`${i},${m.className(i)},${m.s.lanes[i]},${m.s.length[i].toFixed(1)},${r.cap[i].toFixed(0)},${r.volume[i].toFixed(1)},${r.vc[i].toFixed(3)},${"ABCDEF"[r.los[i]]}`);
+  download("link_results.csv", new Blob([out+rows.join("\n")],{type:"text/csv"})); say("Exported link results CSV."); toast("link_results.csv downloaded.","good"); }
+function exportCorrespondence(){ const m=S.model; if(!m.aggregation) return say("Aggregate first."); let out="old_zone,new_zone\n",rows=[];
+  for(let i=0;i<m.nZones;i++) if(m.aggregation.labels[i]>=0) rows.push(`${i},${m.aggregation.labels[i]}`); download("correspondence.csv",new Blob([out+rows.join("\n")],{type:"text/csv"})); say("Exported correspondence CSV."); toast("correspondence.csv downloaded.","good"); }
+function clusterHulls(){ const m=S.model,lab=m.aggregation.labels,zc=m.s.z_centroid; const groups=new Map();
+  for(let i=0;i<m.nZones;i++){ const l=lab[i]; if(l<0)continue; let a=groups.get(l); if(!a)groups.set(l,a=[]); a.push([zc[i*2],zc[i*2+1]]); }
+  const feats=[]; for(const[id,pts] of groups){ const ring=hull(pts); feats.push({id,n:pts.length,ring}); } return feats; }
+function hull(pts){ if(pts.length<3) return pts.slice(); const p=pts.slice().sort((a,b)=>a[0]-b[0]||a[1]-b[1]); const cross=(o,a,b)=>(a[0]-o[0])*(b[1]-o[1])-(a[1]-o[1])*(b[0]-o[0]);
+  const lo=[]; for(const q of p){ while(lo.length>=2&&cross(lo[lo.length-2],lo[lo.length-1],q)<=0)lo.pop(); lo.push(q);} const up=[]; for(let i=p.length-1;i>=0;i--){ const q=p[i]; while(up.length>=2&&cross(up[up.length-2],up[up.length-1],q)<=0)up.pop(); up.push(q);} lo.pop(); up.pop(); return lo.concat(up); }
+function exportGeoJSON(){ const m=S.model; if(!m.aggregation) return say("Aggregate first."); const [ox,oy]=worldOrigin();
+  const feats=clusterHulls().map(f=>({type:"Feature",properties:{new_zone:f.id,n_zones:f.n},geometry:{type:"Polygon",coordinates:[f.ring.map(([x,y])=>[x+ox,y+oy]).concat([[f.ring[0][0]+ox,f.ring[0][1]+oy]])]}}));
+  download("clusters.geojson",new Blob([JSON.stringify({type:"FeatureCollection",features:feats})],{type:"application/geo+json"})); say(`Exported ${feats.length} cluster polygons as GeoJSON.`); toast("clusters.geojson downloaded.","good"); }
+function worldOrigin(){ return window.STEAM_ORIGIN||[0,0]; }
+function exportMapPNG(){ S.map.render(); $("map").toBlob(b=>{ download("map.png",b); say("Exported the map as PNG."); toast("map.png downloaded.","good"); }); }
+
+// shapefile (zipped .shp/.shx/.dbf/.prj) written byte-for-byte in the browser
+async function exportShapefile(){ const m=S.model; if(!m.aggregation) return say("Aggregate first."); const feats=clusterHulls(); const [ox,oy]=worldOrigin();
+  const {shp,shx,dbf}=buildShapefile(feats.map(f=>({id:f.id,n:f.n,ring:f.ring.map(([x,y])=>[x+ox,y+oy])})));
+  const prj='PROJCS["WGS_1984_UTM_Zone_40N",GEOGCS["GCS_WGS_1984",DATUM["D_WGS_1984",SPHEROID["WGS_1984",6378137.0,298.257223563]],PRIMEM["Greenwich",0.0],UNIT["Degree",0.0174532925199433]],PROJECTION["Transverse_Mercator"],PARAMETER["Central_Meridian",57.0],UNIT["Meter",1.0]]';
+  const zip=makeZip([["clusters.shp",shp],["clusters.shx",shx],["clusters.dbf",dbf],["clusters.prj",new TextEncoder().encode(prj)]]);
+  download("clusters_shapefile.zip", new Blob([zip],{type:"application/zip"})); say(`Exported ${feats.length} clusters as a zipped ESRI shapefile (UTM 40N).`); toast("clusters_shapefile.zip downloaded.","good"); }
+
+function buildShapefile(feats){
+  const recs=feats.map(f=>{ let ring=f.ring.slice(); if(signedArea(ring)>0) ring=ring.reverse(); ring=ring.concat([ring[0]]); return {id:f.id,n:f.n,ring}; });
+  const recBodies=[]; let xmin=Infinity,ymin=Infinity,xmax=-Infinity,ymax=-Infinity;
+  for(const r of recs){ for(const[x,y] of r.ring){ xmin=Math.min(xmin,x);ymin=Math.min(ymin,y);xmax=Math.max(xmax,x);ymax=Math.max(ymax,y);} }
+  for(const r of recs){ const np=r.ring.length; const contentBytes=4+32+4+4+4+np*16; const buf=new ArrayBuffer(contentBytes); const dv=new DataView(buf); let o=0;
+    dv.setInt32(o,5,true);o+=4; dv.setFloat64(o,bb(r.ring,0,Math.min),true);o+=8; dv.setFloat64(o,bb(r.ring,1,Math.min),true);o+=8; dv.setFloat64(o,bb(r.ring,0,Math.max),true);o+=8; dv.setFloat64(o,bb(r.ring,1,Math.max),true);o+=8;
+    dv.setInt32(o,1,true);o+=4; dv.setInt32(o,np,true);o+=4; dv.setInt32(o,0,true);o+=4;
+    for(const[x,y] of r.ring){ dv.setFloat64(o,x,true);o+=8; dv.setFloat64(o,y,true);o+=8; } recBodies.push(new Uint8Array(buf)); }
+  let shpLen=100; for(const b of recBodies) shpLen+=8+b.length;
+  const shp=new Uint8Array(shpLen), shx=new Uint8Array(100+recBodies.length*8); const sd=new DataView(shp.buffer), xd=new DataView(shx.buffer);
+  sd.setInt32(0,9994); sd.setInt32(24,shpLen/2); sd.setInt32(28,1000,true); sd.setInt32(32,5,true);
+  sd.setFloat64(36,xmin,true);sd.setFloat64(44,ymin,true);sd.setFloat64(52,xmax,true);sd.setFloat64(60,ymax,true);
+  xd.setInt32(0,9994); xd.setInt32(24,(100+recBodies.length*8)/2); xd.setInt32(28,1000,true); xd.setInt32(32,5,true);
+  xd.setFloat64(36,xmin,true);xd.setFloat64(44,ymin,true);xd.setFloat64(52,xmax,true);xd.setFloat64(60,ymax,true);
+  let pos=100; for(let i=0;i<recBodies.length;i++){ const b=recBodies[i]; sd.setInt32(pos,i+1); sd.setInt32(pos+4,b.length/2); shp.set(b,pos+8);
+    xd.setInt32(100+i*8,pos/2); xd.setInt32(100+i*8+4,b.length/2); pos+=8+b.length; }
+  const nRec=recs.length, hdrLen=32+32*2+1, recLen=1+10+6; const dbf=new Uint8Array(hdrLen+nRec*recLen+1); const dd=new DataView(dbf.buffer);
+  dbf[0]=3; const now=new Date(); dbf[1]=now.getFullYear()-1900; dbf[2]=now.getMonth()+1; dbf[3]=now.getDate();
+  dd.setInt32(4,nRec,true); dd.setInt16(8,hdrLen,true); dd.setInt16(10,recLen,true);
+  writeField(dbf,32,"new_zone",78,10); writeField(dbf,64,"n_zones",78,6); dbf[hdrLen-1]=0x0d;
+  let p=hdrLen; for(const r of recs){ dbf[p++]=0x20; p=writeNum(dbf,p,r.id,10); p=writeNum(dbf,p,r.n,6); } dbf[p]=0x1a;
+  return {shp,shx,dbf};
+}
+function bb(ring,ax,fn){ let v=fn===Math.min?Infinity:-Infinity; for(const pt of ring) v=fn(v,pt[ax]); return v; }
+function signedArea(r){ let s=0; for(let i=0;i<r.length;i++){ const[x1,y1]=r[i],[x2,y2]=r[(i+1)%r.length]; s+=x1*y2-x2*y1; } return s/2; }
+function writeField(buf,off,name,type,len){ for(let i=0;i<11;i++) buf[off+i]= i<name.length?name.charCodeAt(i):0; buf[off+11]=type; buf[off+16]=len; }
+function writeNum(buf,p,val,len){ const s=String(Math.round(val)).slice(0,len).padStart(len," "); for(let i=0;i<len;i++) buf[p+i]=s.charCodeAt(i); return p+len; }
+
+function makeZip(files){ const enc=new TextEncoder(); const parts=[],central=[]; let offset=0;
+  for(const[name,data] of files){ const nb=enc.encode(name); const crc=crc32(data); const lh=new Uint8Array(30+nb.length); const d=new DataView(lh.buffer);
+    d.setUint32(0,0x04034b50,true); d.setUint16(4,20,true); d.setUint16(6,0,true); d.setUint16(8,0,true); d.setUint16(10,0,true); d.setUint16(12,0,true);
+    d.setUint32(14,crc,true); d.setUint32(18,data.length,true); d.setUint32(22,data.length,true); d.setUint16(26,nb.length,true); d.setUint16(28,0,true); lh.set(nb,30);
+    parts.push(lh,data); const ch=new Uint8Array(46+nb.length); const c=new DataView(ch.buffer);
+    c.setUint32(0,0x02014b50,true); c.setUint16(4,20,true); c.setUint16(6,20,true); c.setUint32(16,crc,true); c.setUint32(20,data.length,true); c.setUint32(24,data.length,true); c.setUint16(28,nb.length,true); c.setUint32(42,offset,true); ch.set(nb,46);
+    central.push(ch); offset+=lh.length+data.length; }
+  let cs=0; for(const c of central) cs+=c.length; const end=new Uint8Array(22); const e=new DataView(end.buffer);
+  e.setUint32(0,0x06054b50,true); e.setUint16(8,files.length,true); e.setUint16(10,files.length,true); e.setUint32(12,cs,true); e.setUint32(16,offset,true);
+  const all=parts.concat(central,[end]); let len=0; for(const p of all) len+=p.length; const out=new Uint8Array(len); let o=0; for(const p of all){ out.set(p,o); o+=p.length; } return out; }
+const CRCT=(()=>{ const t=new Uint32Array(256); for(let n=0;n<256;n++){ let c=n; for(let k=0;k<8;k++) c=c&1?0xedb88320^(c>>>1):c>>>1; t[n]=c>>>0;} return t; })();
+function crc32(d){ let c=0xffffffff; for(let i=0;i<d.length;i++) c=CRCT[(c^d[i])&0xff]^(c>>>8); return (c^0xffffffff)>>>0; }
+
+// ---- global error boundary -------------------------------------------------
+window.addEventListener("error", e=>{ STEAM_fatal("Something went wrong",(e&&e.error&&e.error.message)||e.message||"An unexpected error occurred.","Reload the page to start over."); });
+window.addEventListener("unhandledrejection", e=>{ const r=e&&e.reason; STEAM_fatal("Something went wrong",(r&&r.message)||String(r||"A background task failed."),"Reload the page to try again."); });
+boot().catch(e=>{ console.error(e); STEAM_fatal("Could not start STEAM 2040 Studio",(e&&e.message)||"Unknown error while loading the network.",STEAM_bootHint(e)); });
+</script>
+</body>
+</html>
