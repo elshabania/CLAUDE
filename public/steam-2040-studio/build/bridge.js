@@ -231,6 +231,7 @@
         case "cmpfull":   out = cmpFull(); break;
         case "showdiff":  out = showDiff(); break;
         case "key":   out = pressKey(m.key); break;
+        case "resize": try{ if(typeof resize==="function") resize(); }catch(e){} out={ok:true}; break;
         default:      out = {ok:false, err:"unknown cmd "+m.cmd};
       }
     }catch(err){ out = {ok:false, err:String(err && err.message || err)}; }

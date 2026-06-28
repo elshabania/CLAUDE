@@ -3205,6 +3205,7 @@ __STEAM_ES__
         case "cmpfull":   out = cmpFull(); break;
         case "showdiff":  out = showDiff(); break;
         case "key":   out = pressKey(m.key); break;
+        case "resize": try{ if(typeof resize==="function") resize(); }catch(e){} out={ok:true}; break;
         default:      out = {ok:false, err:"unknown cmd "+m.cmd};
       }
     }catch(err){ out = {ok:false, err:String(err && err.message || err)}; }
@@ -4901,6 +4902,7 @@ __STEAM_ES__
         case "cmpfull":   out = cmpFull(); break;
         case "showdiff":  out = showDiff(); break;
         case "key":   out = pressKey(m.key); break;
+        case "resize": try{ if(typeof resize==="function") resize(); }catch(e){} out={ok:true}; break;
         default:      out = {ok:false, err:"unknown cmd "+m.cmd};
       }
     }catch(err){ out = {ok:false, err:String(err && err.message || err)}; }
@@ -5269,6 +5271,7 @@ function switchApp(key){
   if(prev && prev!==key) syncView(prev, key);   // carry the map zoom/centre across
   if(key==="assign") syncXlayers();             // share the Viewer's extra layers
   waitReady(key);
+  afterLayoutChange();                          // re-measure canvas → accurate selection
   updateCtx();
 }
 /* transfer the Viewer-only layers (connectors / walk / PnR / PT) into the
@@ -5411,8 +5414,15 @@ document.getElementById("progClose").addEventListener("click",function(){ progP.
   });
   head.addEventListener("pointerup",function(e){ dragging=false; head.classList.remove("grab"); try{ head.releasePointerCapture(e.pointerId); }catch(_){} });
 })();
-function openDock(){ document.body.classList.remove("dock-closed"); setTimeout(function(){ document.getElementById("q").focus(); },50); }
-function closeDock(){ document.body.classList.add("dock-closed"); }
+/* force the apps to re-measure their canvas after any layout change, so click
+   hit-testing (link/zone selection) stays exactly aligned with the cursor. */
+function forceResize(){
+  for(var k in APPS){ if(APPS[k].frame && APPS[k].ready){ try{ APPS[k].win.postMessage({steam:1,cmd:"resize",rid:0},"*"); }catch(e){} } }
+}
+function afterLayoutChange(){ setTimeout(forceResize,60); setTimeout(forceResize,260); }
+function openDock(){ document.body.classList.remove("dock-closed"); afterLayoutChange(); setTimeout(function(){ document.getElementById("q").focus(); },50); }
+function closeDock(){ document.body.classList.add("dock-closed"); afterLayoutChange(); }
+window.addEventListener("resize", function(){ setTimeout(forceResize,40); });
 document.getElementById("copBtn").addEventListener("click",openDock);
 document.getElementById("copFab").addEventListener("click",openDock);
 document.getElementById("dockClose").addEventListener("click",closeDock);
