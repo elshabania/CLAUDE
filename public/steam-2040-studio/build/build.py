@@ -33,6 +33,9 @@ OVERRIDE = {
  "assign": """
   /* Studio: the rail controls panels, so hide the in-app panel toggles */
   #panelOpen,#panelToggle{display:none!important}
+  /* declutter: the rail labels the section; drop the verbose footer note */
+  #note{display:none!important}
+  details.sec{margin-bottom:0!important}
  """,
 }
 # Per-app source tweaks applied before embedding (clarity fixes + Studio hooks).

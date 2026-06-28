@@ -62,15 +62,31 @@
   }
   /* toggle a class on <body> (used by the Studio rail for map-first / panel visibility) */
   function bodyClass(name, on){ document.body.classList.toggle(name, !!on); return {ok:true, on:document.body.classList.contains(name)}; }
-  /* accordion apps: reveal the panel and open exactly one <details class="sec"> by summary text */
+  /* accordion apps: show ONLY the selected <details class="sec"> (hide the rest)
+     so a left-rail tap reveals just that one function — no stacked headers. */
   function section(text){
     document.body.classList.remove("collapsed");
     var t=(text||"").toLowerCase(), ds=document.querySelectorAll("details.sec"), found=false;
     for(var i=0;i<ds.length;i++){
       var s=ds[i].querySelector("summary"), hit=!!s && (s.innerText||"").toLowerCase().indexOf(t)>=0;
-      ds[i].open=hit; if(hit){ found=true; try{ s.scrollIntoView({block:"nearest"}); }catch(e){} }
+      ds[i].style.display = hit ? "" : "none";
+      ds[i].open = hit;
+      if(hit) found=true;
     }
     return {ok:found};
+  }
+  /* shared map view (both apps use cx,cy world-centre + sc px/m) for zoom sync */
+  function getView(){ try{ return {ok:true, cx:cx, cy:cy, sc:sc}; }catch(e){ return {ok:false}; } }
+  function setView(v){
+    try{
+      if(typeof v.cx==="number") cx=v.cx;
+      if(typeof v.cy==="number") cy=v.cy;
+      if(typeof v.sc==="number") sc=v.sc;
+      if(typeof clampScale==="function") clampScale();
+      if(typeof render==="function") render();
+      if(typeof drawMini==="function"){ try{ drawMini(); }catch(e){} }
+      return {ok:true};
+    }catch(e){ return {ok:false, err:String(e)}; }
   }
 
   /* ---- zone-aggregation handoff (Viewer ➜ Assignment) ---- */
@@ -127,6 +143,8 @@
         case "section":   out = section(m.text); break;
         case "getagg":    out = getAggregation(); break;
         case "aggod":     out = aggregateOD(m.pairs||[]); break;
+        case "getview":   out = getView(); break;
+        case "setview":   out = setView(m); break;
         case "key":   out = pressKey(m.key); break;
         default:      out = {ok:false, err:"unknown cmd "+m.cmd};
       }

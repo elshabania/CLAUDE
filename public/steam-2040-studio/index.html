@@ -33,13 +33,15 @@
 
   /* ---- left icon rail ---- */
   #main{flex:1;display:flex;min-height:0}
-  #rail{flex:none;width:66px;background:linear-gradient(#0c1422,#0a0f1a);border-right:1px solid var(--line);
-    display:flex;flex-direction:column;align-items:center;padding:8px 0;gap:4px;z-index:15}
-  .rgrp{font-size:8.5px;letter-spacing:.08em;color:#4a5a78;text-transform:uppercase;margin:8px 0 2px;font-weight:700}
-  .ritem{width:54px;padding:7px 0 5px;border-radius:11px;border:1px solid transparent;background:none;
-    color:var(--dim);cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;
-    font-size:9.5px;font-weight:600;line-height:1}
-  .ritem .ic{font-size:18px;line-height:1}
+  #rail{flex:none;width:64px;background:linear-gradient(#0c1422,#0a0f1a);border-right:1px solid var(--line);
+    display:flex;flex-direction:column;align-items:center;padding:6px 0 4px;gap:2px;z-index:15;
+    overflow-y:auto;overflow-x:hidden;scrollbar-width:thin}
+  #rail::-webkit-scrollbar{width:0}
+  .rgrp{font-size:8px;letter-spacing:.07em;color:#4a5a78;text-transform:uppercase;margin:6px 0 1px;font-weight:700}
+  .ritem{width:54px;padding:6px 0 4px;border-radius:10px;border:1px solid transparent;background:none;
+    color:var(--dim);cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:2px;
+    font-size:9px;font-weight:600;line-height:1;flex:none}
+  .ritem .ic{font-size:16px;line-height:1}
   .ritem:hover{background:#101a2c;color:var(--txt)}
   .ritem.on{background:#13233c;border-color:#2d4a74;color:var(--gold)}
   .ritem.cop{color:#9defc0}
@@ -144,9 +146,12 @@
     <button class="ritem" data-tool="zones"><span class="ic">⬡</span>Zones</button>
     <div class="rgrp">Model</div>
     <button class="ritem" data-tool="assign"><span class="ic">🚦</span>Assign</button>
+    <button class="ritem" data-tool="demand"><span class="ic">📈</span>Demand</button>
+    <button class="ritem" data-tool="display"><span class="ic">🎨</span>Display</button>
     <button class="ritem" data-tool="rec"><span class="ic">✨</span>Solve</button>
     <button class="ritem" data-tool="scn"><span class="ic">🛠️</span>Scenario</button>
     <button class="ritem" data-tool="ana"><span class="ic">📊</span>Analysis</button>
+    <button class="ritem" data-tool="settings"><span class="ic">⚙️</span>Settings</button>
     <div class="rspring"></div>
     <button class="ritem cop" id="railCop"><span class="ic">✦</span>Copilot</button>
   </nav>
@@ -2967,15 +2972,31 @@ __STEAM_ES__
   }
   /* toggle a class on <body> (used by the Studio rail for map-first / panel visibility) */
   function bodyClass(name, on){ document.body.classList.toggle(name, !!on); return {ok:true, on:document.body.classList.contains(name)}; }
-  /* accordion apps: reveal the panel and open exactly one <details class="sec"> by summary text */
+  /* accordion apps: show ONLY the selected <details class="sec"> (hide the rest)
+     so a left-rail tap reveals just that one function — no stacked headers. */
   function section(text){
     document.body.classList.remove("collapsed");
     var t=(text||"").toLowerCase(), ds=document.querySelectorAll("details.sec"), found=false;
     for(var i=0;i<ds.length;i++){
       var s=ds[i].querySelector("summary"), hit=!!s && (s.innerText||"").toLowerCase().indexOf(t)>=0;
-      ds[i].open=hit; if(hit){ found=true; try{ s.scrollIntoView({block:"nearest"}); }catch(e){} }
+      ds[i].style.display = hit ? "" : "none";
+      ds[i].open = hit;
+      if(hit) found=true;
     }
     return {ok:found};
+  }
+  /* shared map view (both apps use cx,cy world-centre + sc px/m) for zoom sync */
+  function getView(){ try{ return {ok:true, cx:cx, cy:cy, sc:sc}; }catch(e){ return {ok:false}; } }
+  function setView(v){
+    try{
+      if(typeof v.cx==="number") cx=v.cx;
+      if(typeof v.cy==="number") cy=v.cy;
+      if(typeof v.sc==="number") sc=v.sc;
+      if(typeof clampScale==="function") clampScale();
+      if(typeof render==="function") render();
+      if(typeof drawMini==="function"){ try{ drawMini(); }catch(e){} }
+      return {ok:true};
+    }catch(e){ return {ok:false, err:String(e)}; }
   }
 
   /* ---- zone-aggregation handoff (Viewer ➜ Assignment) ---- */
@@ -3032,6 +3053,8 @@ __STEAM_ES__
         case "section":   out = section(m.text); break;
         case "getagg":    out = getAggregation(); break;
         case "aggod":     out = aggregateOD(m.pairs||[]); break;
+        case "getview":   out = getView(); break;
+        case "setview":   out = setView(m); break;
         case "key":   out = pressKey(m.key); break;
         default:      out = {ok:false, err:"unknown cmd "+m.cmd};
       }
@@ -3196,6 +3219,9 @@ __STEAM_ES__
 <style>/* STEAM Studio overrides */
   /* Studio: the rail controls panels, so hide the in-app panel toggles */
   #panelOpen,#panelToggle{display:none!important}
+  /* declutter: the rail labels the section; drop the verbose footer note */
+  #note{display:none!important}
+  details.sec{margin-bottom:0!important}
  </style>
 </head>
 <body class="collapsed">
@@ -4534,15 +4560,31 @@ __STEAM_ES__
   }
   /* toggle a class on <body> (used by the Studio rail for map-first / panel visibility) */
   function bodyClass(name, on){ document.body.classList.toggle(name, !!on); return {ok:true, on:document.body.classList.contains(name)}; }
-  /* accordion apps: reveal the panel and open exactly one <details class="sec"> by summary text */
+  /* accordion apps: show ONLY the selected <details class="sec"> (hide the rest)
+     so a left-rail tap reveals just that one function — no stacked headers. */
   function section(text){
     document.body.classList.remove("collapsed");
     var t=(text||"").toLowerCase(), ds=document.querySelectorAll("details.sec"), found=false;
     for(var i=0;i<ds.length;i++){
       var s=ds[i].querySelector("summary"), hit=!!s && (s.innerText||"").toLowerCase().indexOf(t)>=0;
-      ds[i].open=hit; if(hit){ found=true; try{ s.scrollIntoView({block:"nearest"}); }catch(e){} }
+      ds[i].style.display = hit ? "" : "none";
+      ds[i].open = hit;
+      if(hit) found=true;
     }
     return {ok:found};
+  }
+  /* shared map view (both apps use cx,cy world-centre + sc px/m) for zoom sync */
+  function getView(){ try{ return {ok:true, cx:cx, cy:cy, sc:sc}; }catch(e){ return {ok:false}; } }
+  function setView(v){
+    try{
+      if(typeof v.cx==="number") cx=v.cx;
+      if(typeof v.cy==="number") cy=v.cy;
+      if(typeof v.sc==="number") sc=v.sc;
+      if(typeof clampScale==="function") clampScale();
+      if(typeof render==="function") render();
+      if(typeof drawMini==="function"){ try{ drawMini(); }catch(e){} }
+      return {ok:true};
+    }catch(e){ return {ok:false, err:String(e)}; }
   }
 
   /* ---- zone-aggregation handoff (Viewer ➜ Assignment) ---- */
@@ -4599,6 +4641,8 @@ __STEAM_ES__
         case "section":   out = section(m.text); break;
         case "getagg":    out = getAggregation(); break;
         case "aggod":     out = aggregateOD(m.pairs||[]); break;
+        case "getview":   out = getView(); break;
+        case "setview":   out = setView(m); break;
         case "key":   out = pressKey(m.key); break;
         default:      out = {ok:false, err:"unknown cmd "+m.cmd};
       }
@@ -4809,12 +4853,28 @@ async function resetZonesHandoff(){
 var MODEICON={viewer:"🗺️",assign:"🚦"}, MODENAME={viewer:"Network",assign:"Assignment"};
 function switchApp(key){
   if(!APPS[key]) return;
+  var prev=activeApp;
   activeApp=key;
   for(var k in APPS){ document.getElementById("wrap-"+k).classList.toggle("on",k===key); }
   document.getElementById("modename").textContent=MODENAME[key]||APPS[key].label;
   var mc=document.querySelector("#modechip .ic"); if(mc) mc.textContent=MODEICON[key]||"🗺️";
-  ensureFrame(key); waitReady(key);
+  ensureFrame(key);
+  if(prev && prev!==key) syncView(prev, key);   // carry the map zoom/centre across
+  waitReady(key);
   updateCtx();
+}
+/* copy the map centre+scale from the app we're leaving to the one we're entering,
+   so the network stays at the same place/zoom (both use the same world coords). */
+var _viewTok=0;
+async function syncView(prev, key){
+  var tok=++_viewTok;
+  if(!APPS[prev] || !APPS[prev].ready) return;
+  var v=await rpc(prev,{cmd:"getview"});
+  if(!v || !v.ok) return;
+  await waitReady(key);
+  await new Promise(function(r){ setTimeout(r,160); });   // let the shown iframe resize first
+  if(tok!==_viewTok) return;                              // superseded by a newer switch
+  await rpc(key,{cmd:"setview",cx:v.cx,cy:v.cy,sc:v.sc});
 }
 function updateCtx(){
   document.getElementById("ctxapp").textContent=APPS[activeApp].label;
@@ -4824,8 +4884,13 @@ function updateCtx(){
 /* ---------- left rail: tools reveal contextual panels, map-first by default ---------- */
 var TOOLS={
   net:{app:"viewer"}, zones:{app:"viewer"},
-  assign:{app:"assign",section:"run"}, rec:{app:"assign",section:"recommend"},
-  scn:{app:"assign",section:"scenario"}, ana:{app:"assign",section:"analysis"}
+  assign:{app:"assign",section:"run"},
+  demand:{app:"assign",section:"demand model"},
+  display:{app:"assign",section:"display"},
+  rec:{app:"assign",section:"recommend"},
+  scn:{app:"assign",section:"scenario"},
+  ana:{app:"assign",section:"analysis"},
+  settings:{app:"assign",section:"settings"}
 };
 var currentTool=null;
 function highlightRail(id){

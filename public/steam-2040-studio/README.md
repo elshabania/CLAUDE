@@ -46,12 +46,17 @@ chip.
 
 The two tools share a single shell:
 
-- A **left icon rail** replaces tabs — **View** (Network, Zones) and **Model**
-  (Assign, Solve, Scenario, Analysis), with the Copilot at the bottom.
+- A **left icon rail** replaces tabs, with **one tab per function** — **View**
+  (Network, Zones) and **Model** (Assign, Demand, Display, Solve, Scenario,
+  Analysis, Settings), plus the Copilot at the bottom.
 - The app opens **map-first**: a clean, clearly-rendered network with no panel
-  clutter. Clicking a rail icon switches to the owning tool and reveals just
-  that tool's panel (the Assignment's accordion opens only the relevant
-  section); clicking it again returns to the clean map.
+  clutter. Clicking a tab switches to the owning tool and shows **only that one
+  function's panel** — every other section is hidden, so there are no stacked
+  headers. Clicking the active tab again returns to the clean map.
+- **Zoom continuity**: switching between the Network Viewer and the Assignment
+  keeps the same map centre and zoom (both use the same world coordinates), so
+  the network stays put; each tool keeps its own visuals (coloured links / zone
+  shading).
 - A mode chip in the top bar shows which tool's map you're looking at.
 
 ## How it's built
