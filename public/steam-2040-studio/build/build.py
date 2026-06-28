@@ -29,8 +29,18 @@ OVERRIDE = {
   /* Studio: hide bulky panels until a rail tool is chosen */
   body.studio-hide-agg #agg{display:none!important}
   body.studio-hide-layers #chips,body.studio-hide-layers #dissctl{display:none!important}
-  /* keep the aggregation panel compact so it never covers the screen */
-  #agg{max-height:72vh!important;overflow-y:auto;overflow-x:hidden;max-width:min(440px,46vw)}
+  /* dock the aggregation panel to the left as a compact, scrollable side
+     panel so it never covers the network (desktop); mobile keeps its sheet */
+  @media(min-width:641px){
+    #agg{left:12px!important;right:auto!important;transform:none!important;
+      top:96px!important;bottom:auto!important;max-height:calc(100% - 124px)!important;
+      width:360px!important;max-width:44vw!important;overflow-y:auto;overflow-x:hidden;
+      align-items:stretch!important}
+    #agg #aggticks,#agg input[type=range]{width:auto!important}
+  }
+  /* remove the header/footer gradient wash over the map */
+  header{background:none!important}
+  footer{background:none!important}
  """,
  "assign": """
   /* Studio: the rail controls panels, so hide the in-app panel toggles */
@@ -38,6 +48,9 @@ OVERRIDE = {
   /* declutter: the rail labels the section; drop the verbose footer note */
   #note{display:none!important}
   details.sec{margin-bottom:0!important}
+  /* remove the header/footer gradient wash over the map */
+  header{background:none!important}
+  footer{background:none!important}
  """,
 }
 def _rep(src, old, new, label):

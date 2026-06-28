@@ -199,6 +199,22 @@
     try{ ev.source.postMessage({steam:1, resp:1, rid:m.rid, app:APP, out:out}, "*"); }catch(e){}
   });
 
+  /* Keep the canvas exactly matched to the iframe so click hit-testing stays
+     accurate: re-run the app's resize() whenever the iframe changes size
+     (dock toggle, tab switch, rail, window/orientation change). The apps key
+     selection off clientX/clientY vs W/H, so a stale W/H mis-selects. */
+  (function(){
+    function _fix(){ try{ if(typeof resize==="function") resize(); }catch(e){} }
+    try{
+      if(typeof ResizeObserver!=="undefined"){
+        var _ro=new ResizeObserver(function(){ _fix(); });
+        _ro.observe(document.documentElement);
+      }
+    }catch(e){}
+    window.addEventListener("focus", _fix);
+    window.addEventListener("pageshow", _fix);
+  })();
+
   function announce(){ try{ window.parent.postMessage({steam:1, resp:1, event:"ready", app:APP}, "*"); }catch(e){} }
   window.addEventListener("load", announce);
   if(document.readyState==="complete" || document.readyState==="interactive"){ setTimeout(announce, 50); }

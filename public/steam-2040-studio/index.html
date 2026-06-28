@@ -357,8 +357,18 @@
   /* Studio: hide bulky panels until a rail tool is chosen */
   body.studio-hide-agg #agg{display:none!important}
   body.studio-hide-layers #chips,body.studio-hide-layers #dissctl{display:none!important}
-  /* keep the aggregation panel compact so it never covers the screen */
-  #agg{max-height:72vh!important;overflow-y:auto;overflow-x:hidden;max-width:min(440px,46vw)}
+  /* dock the aggregation panel to the left as a compact, scrollable side
+     panel so it never covers the network (desktop); mobile keeps its sheet */
+  @media(min-width:641px){
+    #agg{left:12px!important;right:auto!important;transform:none!important;
+      top:96px!important;bottom:auto!important;max-height:calc(100% - 124px)!important;
+      width:360px!important;max-width:44vw!important;overflow-y:auto;overflow-x:hidden;
+      align-items:stretch!important}
+    #agg #aggticks,#agg input[type=range]{width:auto!important}
+  }
+  /* remove the header/footer gradient wash over the map */
+  header{background:none!important}
+  footer{background:none!important}
  </style>
 </head>
 <body class="studio-hide-agg studio-hide-layers">
@@ -3162,6 +3172,22 @@ __STEAM_ES__
     try{ ev.source.postMessage({steam:1, resp:1, rid:m.rid, app:APP, out:out}, "*"); }catch(e){}
   });
 
+  /* Keep the canvas exactly matched to the iframe so click hit-testing stays
+     accurate: re-run the app's resize() whenever the iframe changes size
+     (dock toggle, tab switch, rail, window/orientation change). The apps key
+     selection off clientX/clientY vs W/H, so a stale W/H mis-selects. */
+  (function(){
+    function _fix(){ try{ if(typeof resize==="function") resize(); }catch(e){} }
+    try{
+      if(typeof ResizeObserver!=="undefined"){
+        var _ro=new ResizeObserver(function(){ _fix(); });
+        _ro.observe(document.documentElement);
+      }
+    }catch(e){}
+    window.addEventListener("focus", _fix);
+    window.addEventListener("pageshow", _fix);
+  })();
+
   function announce(){ try{ window.parent.postMessage({steam:1, resp:1, event:"ready", app:APP}, "*"); }catch(e){} }
   window.addEventListener("load", announce);
   if(document.readyState==="complete" || document.readyState==="interactive"){ setTimeout(announce, 50); }
@@ -3322,6 +3348,9 @@ __STEAM_ES__
   /* declutter: the rail labels the section; drop the verbose footer note */
   #note{display:none!important}
   details.sec{margin-bottom:0!important}
+  /* remove the header/footer gradient wash over the map */
+  header{background:none!important}
+  footer{background:none!important}
  </style>
 </head>
 <body class="collapsed">
@@ -4800,6 +4829,22 @@ __STEAM_ES__
     }catch(err){ out = {ok:false, err:String(err && err.message || err)}; }
     try{ ev.source.postMessage({steam:1, resp:1, rid:m.rid, app:APP, out:out}, "*"); }catch(e){}
   });
+
+  /* Keep the canvas exactly matched to the iframe so click hit-testing stays
+     accurate: re-run the app's resize() whenever the iframe changes size
+     (dock toggle, tab switch, rail, window/orientation change). The apps key
+     selection off clientX/clientY vs W/H, so a stale W/H mis-selects. */
+  (function(){
+    function _fix(){ try{ if(typeof resize==="function") resize(); }catch(e){} }
+    try{
+      if(typeof ResizeObserver!=="undefined"){
+        var _ro=new ResizeObserver(function(){ _fix(); });
+        _ro.observe(document.documentElement);
+      }
+    }catch(e){}
+    window.addEventListener("focus", _fix);
+    window.addEventListener("pageshow", _fix);
+  })();
 
   function announce(){ try{ window.parent.postMessage({steam:1, resp:1, event:"ready", app:APP}, "*"); }catch(e){} }
   window.addEventListener("load", announce);
