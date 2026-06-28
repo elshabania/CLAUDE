@@ -126,19 +126,54 @@
     window.__FULLMET = (typeof baseMet!=="undefined") ? baseMet : null;
     return {ok:true, vht:(window.__FULLMET&&window.__FULLMET.vht)||0, links:baseVol.length};
   }
-  /* compare current assigned flows to the snapshot: %RMSE, correlation, VHT error */
+  /* restrict the error to a study area: a 1/0 mask over real links (g<GLINK.m)
+     whose midpoint or either endpoint falls in rect (world coords) expanded by
+     a buffer (metres). Links outside are ignored entirely in the comparison. */
+  function setAreaMask(rect, buffer){
+    if(typeof GLINK==="undefined" || !GLINK || !GLINK.ax){ window.__AREAMASK=null; return {ok:false, err:"no links"}; }
+    if(!rect){ window.__AREAMASK=null; window.__AREARECT=null; return {ok:true, n:0, all:true}; }
+    var b=(typeof buffer==="number")?buffer:0;
+    var vx0=Math.min(rect[0],rect[2])-b, vx1=Math.max(rect[0],rect[2])+b,
+        vy0=Math.min(rect[1],rect[3])-b, vy1=Math.max(rect[1],rect[3])+b;
+    var M=GLINK.m, mask=new Uint8Array(M), n=0, ax=GLINK.ax, ay=GLINK.ay, bx=GLINK.bx, by=GLINK.by;
+    for(var g=0; g<M; g++){
+      var mxp=(ax[g]+bx[g])*0.5, myp=(ay[g]+by[g])*0.5;
+      var hit=(mxp>=vx0&&mxp<=vx1&&myp>=vy0&&myp<=vy1)
+            ||(ax[g]>=vx0&&ax[g]<=vx1&&ay[g]>=vy0&&ay[g]<=vy1)
+            ||(bx[g]>=vx0&&bx[g]<=vx1&&by[g]>=vy0&&by[g]<=vy1);
+      if(hit){ mask[g]=1; n++; }
+    }
+    window.__AREAMASK=mask; window.__AREARECT=[vx0,vy0,vx1,vy1];
+    return {ok:true, n:n, total:M};
+  }
+  function clearAreaMask(){ window.__AREAMASK=null; window.__AREARECT=null; return {ok:true}; }
+  /* VHT (veh-hours) summed only over the given link indices — same formula as
+     metricsOf, but restricted to the study area. linkTime is a pure function of
+     the volume, so this is valid for any stored volume vector. */
+  function areaVHT(vol, idx){
+    if(typeof linkTime!=="function" || typeof GRAPH==="undefined") return 0;
+    var vht=0; for(var j=0;j<idx.length;j++){ var g=idx[j], v=vol[g]; if(!(v>0)) continue; vht+=v*linkTime(g,vol)/3600; }
+    return vht;
+  }
+  /* compare current assigned flows to the snapshot: %RMSE, correlation, VHT
+     error — over the study-area mask if one is set, otherwise all real links. */
   function cmpFull(){
     if(!window.__FULLVOL || typeof baseVol==="undefined" || !baseVol) return {ok:false};
-    var F=window.__FULLVOL, A=baseVol, n=Math.min(F.length,A.length);
-    var mf=0, ma=0; for(var i=0;i<n;i++){ mf+=F[i]; ma+=A[i]; } mf/=n; ma/=n;
+    var F=window.__FULLVOL, A=baseVol, mask=window.__AREAMASK;
+    var M=(typeof GLINK!=="undefined"&&GLINK.m)?GLINK.m:Math.min(F.length,A.length);
+    var lim=Math.min(M,F.length,A.length), idx=[];
+    for(var g=0; g<lim; g++){ if(!mask || mask[g]) idx.push(g); }
+    var n=idx.length; if(!n) return {ok:false, err:"no links in study area"};
+    var mf=0, ma=0, j, gg;
+    for(j=0;j<n;j++){ gg=idx[j]; mf+=F[gg]; ma+=A[gg]; } mf/=n; ma/=n;
     var sumSq=0, maxAbs=0, cov=0, va=0, vf=0;
-    for(var i=0;i<n;i++){ var d=A[i]-F[i]; sumSq+=d*d; if(Math.abs(d)>maxAbs)maxAbs=Math.abs(d);
-      var fa=A[i]-ma, ff=F[i]-mf; cov+=fa*ff; va+=fa*fa; vf+=ff*ff; }
+    for(j=0;j<n;j++){ gg=idx[j]; var d=A[gg]-F[gg]; sumSq+=d*d; if(Math.abs(d)>maxAbs)maxAbs=Math.abs(d);
+      var fa=A[gg]-ma, ff=F[gg]-mf; cov+=fa*ff; va+=fa*fa; vf+=ff*ff; }
     var rmse=Math.sqrt(sumSq/n), pctRmse= mf>0 ? 100*rmse/mf : 0;
     var corr=(va>0&&vf>0)? cov/Math.sqrt(va*vf) : 0;
-    var vhtF=(window.__FULLMET&&window.__FULLMET.vht)||0, vhtA=(typeof baseMet!=="undefined"&&baseMet)?baseMet.vht:0;
+    var vhtF=areaVHT(F,idx), vhtA=areaVHT(A,idx);
     var vhtErr= vhtF>0 ? 100*Math.abs(vhtA-vhtF)/vhtF : 0;
-    return {ok:true, pctRmse:pctRmse, corr:corr, vhtErr:vhtErr, vhtFull:vhtF, vhtNow:vhtA, maxAbs:maxAbs};
+    return {ok:true, pctRmse:pctRmse, corr:corr, vhtErr:vhtErr, vhtFull:vhtF, vhtNow:vhtA, maxAbs:maxAbs, nLinks:n, masked:!!mask};
   }
   /* render the difference plot: aggregated flows minus the full snapshot.
      srcVol lets us re-show ANY cached scenario's Δ (vs the same full baseline)
@@ -281,6 +316,8 @@
         case "scnsave":   out = scnSave(m.key); break;
         case "getrect":   out = getRect(); break;
         case "getaggsa":  out = getAggregationStudyArea(m); break;
+        case "setarea":   out = setAreaMask(m.rect, m.buffer); break;
+        case "cleararea": out = clearAreaMask(); break;
         case "key":   out = pressKey(m.key); break;
         case "resize": try{ if(typeof resize==="function") resize(); }catch(e){} out={ok:true}; break;
         default:      out = {ok:false, err:"unknown cmd "+m.cmd};

@@ -134,8 +134,11 @@
   .bub li{margin:2px 0}
   .bub .did{margin-top:7px;padding-top:6px;border-top:1px dashed var(--line);font-size:11px;color:var(--green)}
   .bub .did.warn{color:var(--gold)}
-  .bub .scnlink{display:block;color:#9fd0ff;text-decoration:none;cursor:pointer;padding:2px 4px;border-radius:5px;line-height:1.45}
+  .bub .scnrow{display:flex;align-items:center;gap:6px}
+  .bub .scnlink{flex:1;display:block;color:#9fd0ff;text-decoration:none;cursor:pointer;padding:2px 4px;border-radius:5px;line-height:1.45}
   .bub .scnlink:hover{background:#13243c;color:#cfe7ff;text-decoration:none}
+  .bub .scnapply{flex:none;cursor:pointer;font-size:10px;color:#cfe7ff;background:#16324f;border:1px solid var(--line);border-radius:999px;padding:2px 8px}
+  .bub .scnapply:hover{background:#1d4368}
   .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
   .sg{padding:5px 10px;border-radius:999px;border:1px solid var(--line);background:#0e1a2c;
     color:var(--cyan);font-size:11px;cursor:pointer;white-space:nowrap}
@@ -440,7 +443,8 @@ var AGGCONFIGS=[
 ];
 /* study-area rectangle (world coords) captured when a search starts, and a
    sequence for caching each tested scenario's flows for later inspection */
-var STUDY_RECT=null, SCN_SEQ=1;
+var STUDY_RECT=null, SCN_SEQ=1, AGG_BYKEY={}, ORIG_RT=null;
+function nowMs(){ return (window.performance&&performance.now)?performance.now():(+new Date()); }
 var GUARD_IDS=["gRegion","gSector","gUrban","gMetro","gMetroAcc","gFreight","gLuClass","m1Strict","m1Density"];
 var GUARD_DEFAULT={gRegion:true,gSector:true};
 function setBub(el,html){ try{ el.querySelector(".bub").innerHTML=html; log.scrollTop=log.scrollHeight; }catch(e){} }
@@ -500,23 +504,50 @@ async function evalAggConfig(cfg, prog, tag){
   if(!agg||!agg.ok||!agg.merged) return null;
   switchApp("assign"); await waitReady("assign");
   await rpc("assign",{cmd:"aggod",pairs:agg.pairs});
-  await runAggAssign();
+  var t0=nowMs(); await runAggAssign(); var runtime=(nowMs()-t0)/1000;   // assignment wall-clock
   var cmp=await rpc("assign",{cmd:"cmpfull"});
   if(!cmp||!cmp.ok) return null;
   var sid="scn"+(SCN_SEQ++);
   await rpc("assign",{cmd:"scnsave",key:sid});           // cache this scenario's flows
   await rpc("assign",{cmd:"showdiff"});                  // show THIS method's Δ
-  setBub(prog, "✦ "+tag+": <b>"+esc(cfg.name)+"</b> — "+agg.zones.toLocaleString()+" zones · flow RMSE "+cmp.pctRmse.toFixed(1)+"% · VHT err "+cmp.vhtErr.toFixed(1)+"% — <i>Δ plot shown</i>");
-  await aggSleep(1100);                                  // let the user see the Δ
-  return {name:cfg.name, cfg:cfg, key:sid, zones:agg.zones, merged:agg.merged, pctRmse:cmp.pctRmse, corr:cmp.corr, vhtErr:cmp.vhtErr};
+  var spd = (ORIG_RT&&runtime>0) ? " · "+(ORIG_RT/runtime).toFixed(1)+"× faster" : "";
+  setBub(prog, "✦ "+tag+": <b>"+esc(cfg.name)+"</b> — "+agg.zones.toLocaleString()+" zones · flow RMSE "+cmp.pctRmse.toFixed(1)+"% · VHT err "+cmp.vhtErr.toFixed(1)+"% · "+runtime.toFixed(1)+" s"+spd+" — <i>Δ plot shown</i>");
+  await aggSleep(900);                                   // let the user see the Δ
+  var r={name:cfg.name, cfg:cfg, key:sid, zones:agg.zones, merged:agg.merged, pctRmse:cmp.pctRmse, corr:cmp.corr, vhtErr:cmp.vhtErr, nLinks:cmp.nLinks, runtime:runtime};
+  AGG_BYKEY[sid]=r;
+  return r;
 }
-/* inline SVG bar chart (offline, D3-style) of a metric per method */
-function aggChart(results, metric, title){
-  var data=results.slice().sort(function(a,b){ return a[metric]-b[metric]; });
+/* apply (select) a previously-tested scenario as the live model state */
+async function applyScenario(key){
+  var r=AGG_BYKEY[key];
+  if(!r){ addMsg("cop","I no longer have that scenario's settings cached — re-run <b>find best aggregation</b> first."); return; }
+  var msg=addMsg("cop","Applying <b>"+esc(r.name)+"</b> to the model on all zones…");
+  switchApp("viewer"); await waitReady("viewer"); await applyAggConfig(r.cfg);
+  var agg = r.cfg.studyArea ? await rpc("viewer",{cmd:"getaggsa",rect:STUDY_RECT,pad:(r.cfg.pad||0)})
+                            : await rpc("viewer",{cmd:"getagg"});
+  if(!agg||!agg.ok){ setBub(msg,"Couldn't rebuild that aggregation — try again."); return; }
+  switchApp("assign"); await waitReady("assign");
+  await rpc("assign",{cmd:"set",id:"sampleSel",value:"0"});
+  await pollState("assign", function(s){ return s.odStats; }, 7000);
+  await rpc("assign",{cmd:"aggod",pairs:agg.pairs});
+  var t0=nowMs(); await runAggAssign(); var dt=(nowMs()-t0)/1000;
+  await rpc("assign",{cmd:"scnsave",key:key});
+  await rpc("assign",{cmd:"showdiff"}); highlightRail("assign");
+  setBub(msg,"Applied <b>"+esc(r.name)+"</b> — "+(agg.zones?agg.zones.toLocaleString()+" zones · ":"")+"assignment ran in "+dt.toFixed(1)+" s on all zones"+(ORIG_RT?" ("+(ORIG_RT/dt).toFixed(1)+"× vs the original "+ORIG_RT.toFixed(1)+" s)":"")+". The map shows its Δ plot — colour by V/C or rank corridors to dig in.");
+  addChips(msg,["Colour by V/C","Rank corridors","Reset to full zones"]);
+}
+/* inline SVG bar chart (offline, D3-style) of a metric per method. unit is
+   appended to each value label; refVal (optional) draws a dashed reference line
+   (e.g. the original full-zone runtime). */
+function aggChart(results, metric, title, unit, refVal, refLabel){
+  unit=(unit==null)?"%":unit;
+  var data=results.slice().filter(function(d){ return typeof d[metric]==="number"; }).sort(function(a,b){ return a[metric]-b[metric]; });
+  if(!data.length) return "";
   var n=data.length, barH=15, gap=5, padT=22, padB=4, padL=6, labelW=118, chartW=326;
   var plotW=chartW-labelW-50-padL;
   var h=padT+padB+n*(barH+gap);
   var max=Math.max(1, Math.max.apply(null, data.map(function(d){ return Math.max(0,d[metric]); })));
+  if(typeof refVal==="number") max=Math.max(max, refVal);
   var s='<svg width="'+chartW+'" height="'+h+'" viewBox="0 0 '+chartW+' '+h+'" style="max-width:100%;margin-top:6px">';
   s+='<text x="'+padL+'" y="13" fill="#d7e1f2" font-size="11" font-weight="700">'+esc(title)+'</text>';
   data.forEach(function(d,i){ var y=padT+i*(barH+gap), v=Math.max(0,d[metric]);
@@ -524,21 +555,35 @@ function aggChart(results, metric, title){
     var col= i===0 ? "#2ecc71" : (v/max>0.5?"#e74c3c":"#e6a93c");
     s+='<text x="'+padL+'" y="'+(y+barH-3)+'" fill="#9fb0c8" font-size="9.5">'+esc(d.name.slice(0,21))+'</text>';
     s+='<rect x="'+(padL+labelW)+'" y="'+y+'" width="'+bw.toFixed(1)+'" height="'+barH+'" rx="3" fill="'+col+'"/>';
-    s+='<text x="'+(padL+labelW+bw+4)+'" y="'+(y+barH-3)+'" fill="#cfe7ff" font-size="9.5">'+v.toFixed(1)+'%</text>';
+    s+='<text x="'+(padL+labelW+bw+4)+'" y="'+(y+barH-3)+'" fill="#cfe7ff" font-size="9.5">'+v.toFixed(1)+unit+'</text>';
   });
+  if(typeof refVal==="number"){ var rx=padL+labelW+plotW*Math.min(1,refVal/max);
+    s+='<line x1="'+rx.toFixed(1)+'" y1="'+(padT-3)+'" x2="'+rx.toFixed(1)+'" y2="'+(h-padB)+'" stroke="#ffd60a" stroke-width="1" stroke-dasharray="3,2"/>';
+    s+='<text x="'+Math.min(rx+3,chartW-60)+'" y="'+(padT+7)+'" fill="#ffd60a" font-size="8.5">'+esc(refLabel||("orig "+refVal.toFixed(1)+unit))+'</text>'; }
   return s+'</svg>';
 }
 async function findBestAggregation(){
   openDock();
-  var prog=addMsg("cop","✦ <b>Aggregation-method search</b> — assigning <b>all zones</b> for the full-zone baseline (thorough; this can take a few minutes)…");
+  AGG_BYKEY={}; ORIG_RT=null;
+  var prog=addMsg("cop","✦ <b>Aggregation-method search</b> — preparing…");
   // the current map view becomes the "study area" for the adaptive method
   var rr0=await rpc(activeApp,{cmd:"getrect"});
   STUDY_RECT=(rr0&&rr0.ok)?rr0.rect:null;
   switchApp("assign"); await waitReady("assign");
-  await rpc("assign",{cmd:"set",id:"sampleSel",value:"0"});
+  // restrict the error to the study area + a 5 km buffer; links outside are ignored
+  var AREA_BUFFER=5000;   // metres
+  var am=await rpc("assign",{cmd:"setarea",rect:STUDY_RECT,buffer:AREA_BUFFER});
+  var areaTxt = (STUDY_RECT && am && am.ok && am.n)
+    ? "Error is scored only inside your <b>study area + 5 km buffer</b> ("+am.n.toLocaleString()+" links)."
+    : "Couldn't read a study area, so error is scored over the whole network — zoom to your area of interest and run me again to focus it.";
+  // SPEED: rank every method on a demand-preserving origin SAMPLE (fast), then
+  // verify the single winner on all zones — far quicker than all-zones × N methods.
+  var SEARCH_SAMPLE="1000";
+  setBub(prog, "✦ <b>Aggregation-method search</b> — ranking methods on a fast "+SEARCH_SAMPLE+"-origin sample, then I verify the winner on all zones. "+areaTxt);
+  await rpc("assign",{cmd:"set",id:"sampleSel",value:SEARCH_SAMPLE});
   await pollState("assign", function(s){ return s.odStats && /matrix|trips|pairs/i.test(s.odStats); }, 7000);
-  await rpc("assign",{cmd:"aggod",pairs:[]});     // full zones
-  await runAggAssign();
+  await rpc("assign",{cmd:"aggod",pairs:[]});     // full zones (un-aggregated) on the sample
+  var tb=nowMs(); await runAggAssign(); ORIG_RT=(nowMs()-tb)/1000;   // original (un-aggregated) runtime
   var snap=await rpc("assign",{cmd:"snapfull"});
   if(!snap||!snap.ok){ setBub(prog,"I couldn't establish a full-zone baseline. Run an assignment first, then try again."); return {html:"",chips:["Run an assignment"]}; }
   // STAGE 1 — base methods
@@ -557,28 +602,43 @@ async function findBestAggregation(){
   }
   results.sort(function(a,b){ return a.pctRmse-b.pctRmse; });
   var best=results[0];
-  // apply the overall winner + show its before→after Δ plot
-  setBub(prog,"✦ Applying the winner (<b>"+esc(best.name)+"</b>) and building the Δ plot…");
+  // VERIFY the winner on ALL zones: fresh all-zones baseline + winner re-run, both timed
+  setBub(prog,"✦ Verifying the winner (<b>"+esc(best.name)+"</b>) on <b>all zones</b>…");
+  await rpc("assign",{cmd:"set",id:"sampleSel",value:"0"});
+  await pollState("assign", function(s){ return s.odStats && /matrix|trips|pairs/i.test(s.odStats); }, 7000);
+  await rpc("assign",{cmd:"aggod",pairs:[]});                         // all-zones original
+  var toa=nowMs(); await runAggAssign(); var origAllRT=(nowMs()-toa)/1000;
+  await rpc("assign",{cmd:"snapfull"});                               // all-zones reference
   switchApp("viewer"); await applyAggConfig(best.cfg);
   var bagg = best.cfg.studyArea ? await rpc("viewer",{cmd:"getaggsa",rect:STUDY_RECT,pad:(best.cfg.pad||0)})
                                 : await rpc("viewer",{cmd:"getagg"});
   switchApp("assign"); await waitReady("assign");
   await rpc("assign",{cmd:"aggod",pairs:bagg.pairs});
-  await runAggAssign();
-  await rpc("assign",{cmd:"scnsave",key:best.key});      // refresh the winner's cache
+  var twa=nowMs(); await runAggAssign(); var winAllRT=(nowMs()-twa)/1000;
+  var cmpAll=await rpc("assign",{cmd:"cmpfull"});
+  await rpc("assign",{cmd:"scnsave",key:best.key});      // refresh the winner's cache (all zones)
   await rpc("assign",{cmd:"showdiff"}); highlightRail("assign");
+  if(cmpAll&&cmpAll.ok){ best.pctRmse=cmpAll.pctRmse; best.corr=cmpAll.corr; best.vhtErr=cmpAll.vhtErr; best.nLinks=cmpAll.nLinks; best.allZones=true; }
+  best.runtimeAll=winAllRT;
   prog.remove();
   var rows=results.map(function(r,i){
-    return '<a href="#" class="scnlink" data-scn="'+esc(r.key||"")+'" data-name="'+esc(r.name)+'">'
+    var rt=(typeof r.runtime==="number")? r.runtime.toFixed(1)+" s"+(ORIG_RT?" ("+(ORIG_RT/r.runtime).toFixed(1)+"×)":"") : "";
+    return '<div class="scnrow">'
+      +'<a href="#" class="scnlink" data-scn="'+esc(r.key||"")+'" data-name="'+esc(r.name)+'">'
       + (i+1)+". "+(i===0?"<b>":"")+esc(r.name)+(i===0?"</b>":"")
-      +" — "+r.zones.toLocaleString()+" zones · RMSE "+r.pctRmse.toFixed(1)+"% · VHT "+r.vhtErr.toFixed(1)+"% · corr "+r.corr.toFixed(3)
-      +"</a>";
+      +" — "+r.zones.toLocaleString()+" zones · RMSE "+r.pctRmse.toFixed(1)+"% · VHT "+r.vhtErr.toFixed(1)+"% · "+rt
+      +"</a>"
+      +'<button class="scnapply" data-apply="'+esc(r.key||"")+'" title="Apply this aggregation to the model (all zones)">apply ▸</button>'
+      +'</div>';
   }).join("");
-  var html="<b>Best: "+esc(best.name)+"</b> at "+best.zones.toLocaleString()+" zones — preserves the assigned flows best (<b>"+best.pctRmse.toFixed(1)+"% flow RMSE</b>, VHT error "+best.vhtErr.toFixed(1)+"%, corr "+best.corr.toFixed(3)+"). The map shows the <b>before→after Δ plot</b>."
+  var scope = (STUDY_RECT && best.nLinks) ? " Error is measured only inside your <b>study area + 5 km buffer</b> ("+best.nLinks.toLocaleString()+" links)." : "";
+  var speed = origAllRT>0 ? " <b>Assignment runtime (all zones):</b> original "+origAllRT.toFixed(1)+" s → best aggregation "+winAllRT.toFixed(1)+" s ("+(origAllRT/Math.max(0.01,winAllRT)).toFixed(1)+"× faster)." : "";
+  var html="<b>Best: "+esc(best.name)+"</b> at "+best.zones.toLocaleString()+" zones — preserves the assigned flows best (<b>"+best.pctRmse.toFixed(1)+"% flow RMSE</b>, VHT error "+best.vhtErr.toFixed(1)+"%, corr "+best.corr.toFixed(3)+", verified on all zones)."+scope+speed+" The map shows the <b>before→after Δ plot</b>."
+    + aggChart(results,"runtime","Assignment runtime by method (vs original)"," s", ORIG_RT, "original "+(ORIG_RT?ORIG_RT.toFixed(1):"?")+" s")
     + aggChart(results,"vhtErr","VHT error by method (lower = better)")
     + aggChart(results,"pctRmse","Flow RMSE by method")
-    + "<div class='did' style='font-size:11px;color:#9fb0c8;margin-top:4px'>Click any scenario below to load <b>its</b> Δ plot on the map and inspect it.</div>"
-    + "<div class='did' style='max-height:160px;overflow:auto'>"+rows+"</div>";
+    + "<div class='did' style='font-size:11px;color:#9fb0c8;margin-top:4px'>Runtimes above are the fast ranking pass ("+SEARCH_SAMPLE+"-origin sample); the winner is verified on all zones. <b>Click a scenario</b> to load its Δ plot, or <b>apply ▸</b> to set it as the model.</div>"
+    + "<div class='did' style='max-height:180px;overflow:auto'>"+rows+"</div>";
   return {html:html, chips:["Colour by V/C","What are the current KPIs?","Reset to full zones"]};
 }
 /* reset the Assignment back to the full (un-aggregated) zone system */
@@ -775,9 +835,11 @@ async function inspectScenario(key, name){
   else addMsg("cop","That scenario's flows aren't cached anymore — re-run <b>find best aggregation</b> to refresh the comparison.");
 }
 log.addEventListener("click",function(e){
-  var a=e.target.closest?e.target.closest(".scnlink"):null; if(!a) return;
-  e.preventDefault();
-  inspectScenario(a.getAttribute("data-scn"), a.getAttribute("data-name"));
+  if(!e.target.closest) return;
+  var ap=e.target.closest(".scnapply");
+  if(ap){ e.preventDefault(); applyScenario(ap.getAttribute("data-apply")); return; }
+  var a=e.target.closest(".scnlink");
+  if(a){ e.preventDefault(); inspectScenario(a.getAttribute("data-scn"), a.getAttribute("data-name")); }
 });
 
 function addMsg(role, html){

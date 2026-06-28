@@ -245,6 +245,22 @@ def tweak(src, appid):
         assert 'return {origins,demandFor:()=>null};' in src
         src = src.replace('return {origins,demandFor:()=>null};',
                           'window.__ODSCALE=1; return {origins,demandFor:()=>null};', 1)
+        # HIGHLIGHT the inspected/selected link in BLUE (was white), and add a
+        # live blue highlight for the link under the cursor while reading volumes.
+        assert 'let RECS=null, RECSET=null, SELG=-1, RESULT="base";' in src
+        src = src.replace('let RECS=null, RECSET=null, SELG=-1, RESULT="base";',
+                          'let RECS=null, RECSET=null, SELG=-1, HOVG=-1, RESULT="base";', 1)
+        assert 'if(SELG>=0){ t.globalAlpha=1; strokeLink(SELG,"#ffffff",2.6); }' in src
+        src = src.replace('if(SELG>=0){ t.globalAlpha=1; strokeLink(SELG,"#ffffff",2.6); }',
+                          'if(HOVG>=0&&HOVG!==SELG){ t.globalAlpha=1; strokeLink(HOVG,"#0a1a2e",5.4); strokeLink(HOVG,"#2f9bff",2.6); }'
+                          ' if(SELG>=0){ t.globalAlpha=1; strokeLink(SELG,"#0a1a2e",6.4); strokeLink(SELG,"#3aa6ff",3.0); }', 1)
+        assert 'const hit=nearestLink(e.clientX,e.clientY); if(hit)showTip(hit,e.clientX,e.clientY); else hideTip(); return;' in src
+        src = src.replace('const hit=nearestLink(e.clientX,e.clientY); if(hit)showTip(hit,e.clientX,e.clientY); else hideTip(); return;',
+                          'const hit=nearestLink(e.clientX,e.clientY); const _hg=hit?GLINK.gindex[hit.c][hit.i]:-1;'
+                          ' if(_hg!==HOVG){ HOVG=_hg; render(); } if(hit)showTip(hit,e.clientX,e.clientY); else hideTip(); return;', 1)
+        assert 'function hideTip(){ zTip.style.display="none"; }' in src
+        src = src.replace('function hideTip(){ zTip.style.display="none"; }',
+                          'function hideTip(){ zTip.style.display="none"; if(HOVG!==-1){ HOVG=-1; if(typeof render==="function") render(); } }', 1)
     css = OVERRIDE.get(appid)
     if css:
         style = "<style>/* STEAM Studio overrides */" + css + "</style>\n</head>"
