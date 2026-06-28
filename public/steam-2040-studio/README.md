@@ -20,6 +20,24 @@ Served at `/steam-2040-studio/` on the deployed site (`index.html`).
   analysis / export.
 - ✦ **STEAM Copilot** — a natural-language assistant docked beside the apps.
 
+## Recommendation engine (benefit–cost prioritization)
+
+The Assignment's **Recommend & solve** ranks congested corridors by delay,
+generates upgrade options (add lanes, widen the bottleneck, parallel relief
+road), and reassigns each to measure the real VHT saved. It prioritises by
+**benefit–cost ratio**:
+
+- a **Budget** cap (lane-km) and a **Rank by** objective (benefit/cost or VHT
+  saved) in the Recommend section;
+- individual solutions are ranked by **BCR** (ΔVHT per lane-km);
+- **build program** assembles the best set of projects that fits the budget by
+  **marginal BCR** — the most congestion relief per lane-km, not just the
+  biggest absolute saving — and reports per-step and total cost + BCR.
+
+When the network is coloured by **Volume / V-C / LOS** after a run, the base
+class colours, centroids and the connector/walk/PnR/PT layers are dimmed away
+so the assignment results read clearly; they return for the base network view.
+
 ## The Copilot
 
 The copilot is wired into **both** apps and switches between them

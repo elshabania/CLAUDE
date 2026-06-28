@@ -3346,10 +3346,11 @@ __STEAM_ES__
       <div class="row"><button class="sbtn" id="recBtn">✨ Rank corridors</button>
         <span class="dim" style="font-size:10px">by congested delay</span></div>
       <div class="row"><button class="sbtn go" id="solveBtn">⚡ Find solutions</button>
-        <span class="dim" style="font-size:10px">reassigns &amp; measures VHT saved</span></div>
+        <span class="dim" style="font-size:10px">reassigns; ranks by benefit/cost</span></div>
       <div class="row"><label title="how hard to search">Search
         <select id="solveDepth"><option value="fast" selected>fast</option><option value="deep">deep</option></select></label>
         <label><input type="checkbox" id="solveGreedy"> build program (greedy)</label></div>
+      <div class="row"><label title="cap on total lane-km of upgrades (0 = no cap)">Budget <select id="budgetSel"><option value="0">none</option><option value="20">20</option><option value="50" selected>50</option><option value="100">100</option><option value="200">200</option><option value="500">500</option></select> lane-km</label> <label title="ranking / selection objective">Rank by <select id="rankBySel"><option value="bcr" selected>benefit/cost</option><option value="vht">VHT saved</option></select></label></div>
       <div id="reclist"></div>
     </details>
     <div id="prog2" style="display:none"></div>
@@ -3775,7 +3776,7 @@ function searchSolutions(){
   if(!baseVol){ toast("Run a baseline assignment first","warn"); return; }
   recommend(); if(!RECS||!RECS.length){ toast("No congested corridors found","warn"); return; }
   const S=evalSample(); if(!S){ toast("No demand to evaluate — build or load a matrix","warn"); return; }
-  const greedy=document.getElementById("solveGreedy").checked; let cands=candidatesFromRECS();
+  const greedy=document.getElementById("solveGreedy").checked; let cands=candidatesFromRECS(); const BUDGET=+((document.getElementById("budgetSel")||{}).value)||0; const RANKBY=((document.getElementById("rankBySel")||{}).value)||"bcr";
   // analytical pre-screen: rank the wide candidate set cheaply, then reassign only the most promising
   const deep=document.getElementById("solveDepth").value==="deep"; const EVALN=greedy?(deep?16:12):(deep?28:20);
   cands.forEach(c=>c._est=analyticalBenefit(c));
@@ -3790,32 +3791,32 @@ function searchSolutions(){
         const dv=baseQuick-vht, cost=candCost(c); SOLUTIONS.push(Object.assign({},c,{dvht:dv,pct:baseQuick>0?100*dv/baseQuick:0,cost,bcr:dv/cost})); ci++;
         document.getElementById("progbar").style.width=(100*ci/cands.length).toFixed(0)+"%"; setStatus("Evaluating candidate "+ci+"/"+cands.length+"…");
         if(ci<cands.length) setTimeout(tick,0);
-        else { document.getElementById("prog").classList.remove("show"); SOLUTIONS.sort((a,b)=>b.dvht-a.dvht); PROGRAM=null; renderSolutions(baseQuick);
+        else { document.getElementById("prog").classList.remove("show"); SOLUTIONS.sort((a,b)=>RANKBY==="bcr"?(b.bcr-a.bcr):(b.dvht-a.dvht)); PROGRAM=null; renderSolutions(baseQuick);
           setStatus("Search done · best saves "+fmtN(SOLUTIONS[0].dvht)+" veh-h ("+SOLUTIONS[0].pct.toFixed(1)+"%)"); toast("Evaluated "+SOLUTIONS.length+" solutions","ok"); } })();
     } else {
-      PROGRAM={picks:[], up:new Map(), extras:[]}; let prevVHT=baseQuick; const maxPicks=document.getElementById("solveDepth").value==="deep"?6:4; let remaining=cands.slice();
+      PROGRAM={picks:[], up:new Map(), extras:[], cost:0}; let prevVHT=baseQuick; const maxPicks=document.getElementById("solveDepth").value==="deep"?8:6; let remaining=cands.slice();
       (function round(){ if(!remaining.length||PROGRAM.picks.length>=maxPicks){ finishGreedy(baseQuick); return; }
-        let bi=-1,bv=-1,bvht=0,r=0;
+        let bi=-1,bScore=-1,bv=0,bvht=0,bcost=0,r=0;
         (function ev(){ const c=remaining[r]; const up=mergeUp(PROGRAM.up,c); const ex=PROGRAM.extras.concat(c.extras);
-          const vht=quickAssignVHT({upgrades:up,extras:ex,draft:null},S); const dv=prevVHT-vht; if(dv>bv){bv=dv;bi=r;bvht=vht;} r++;
+          const vht=quickAssignVHT({upgrades:up,extras:ex,draft:null},S); const dv=prevVHT-vht; const mc=candCost(c); const fits=(BUDGET<=0)||(PROGRAM.cost+mc<=BUDGET); const sc2=(RANKBY==="bcr")?(dv/Math.max(0.01,mc)):dv; if(fits&&dv>0&&sc2>bScore){bScore=sc2;bv=dv;bi=r;bvht=vht;bcost=mc;} r++;
           document.getElementById("progbar").style.width=(100*(PROGRAM.picks.length+r/remaining.length)/maxPicks).toFixed(0)+"%"; setStatus("Program step "+(PROGRAM.picks.length+1)+" · testing "+r+"/"+remaining.length);
           if(r<remaining.length) setTimeout(ev,0);
           else { if(bi<0||bv<=0){ finishGreedy(baseQuick); return; } const c=remaining[bi]; PROGRAM.up=mergeUp(PROGRAM.up,c); PROGRAM.extras=PROGRAM.extras.concat(c.extras);
-            PROGRAM.picks.push(Object.assign({},c,{stepSaved:bv})); prevVHT=bvht; remaining.splice(bi,1); setTimeout(round,0); } })();
+            PROGRAM.cost+=bcost; PROGRAM.picks.push(Object.assign({},c,{stepSaved:bv,stepCost:bcost})); prevVHT=bvht; remaining.splice(bi,1); setTimeout(round,0); } })();
       })();
     }
   },20);
 }
 function finishGreedy(baseQuick){ document.getElementById("prog").classList.remove("show"); const box=document.getElementById("reclist"); box.innerHTML="";
-  if(!PROGRAM.picks.length){ box.innerHTML="<div class='dim' style='font-size:10px'>No intervention reduced VHT under this demand.</div>"; return; }
-  let cum=0; const h=document.createElement("div"); h.className="dim"; h.style.fontSize="10px"; h.textContent="Greedy program · base VHT "+fmtN(baseQuick)+":"; box.appendChild(h);
+  if(!PROGRAM.picks.length){ box.innerHTML="<div class='dim' style='font-size:10px'>No intervention reduced VHT within the budget.</div>"; return; }
+  let cum=0; const h=document.createElement("div"); h.className="dim"; h.style.fontSize="10px"; var _bud=+((document.getElementById("budgetSel")||{}).value)||0; h.textContent="Budget-optimised program · base VHT "+fmtN(baseQuick)+(_bud>0?" · budget "+_bud+" lane-km":"")+":"; box.appendChild(h);
   PROGRAM.picks.forEach((p,i)=>{ cum+=p.stepSaved; const el=document.createElement("div"); el.className="recitem";
-    el.innerHTML="<b>Step "+(i+1)+": "+p.type+"</b> · corridor "+p.rank+"<br>+"+fmtN(p.stepSaved)+" veh-h (cum "+fmtN(cum)+", "+(baseQuick>0?(100*cum/baseQuick).toFixed(1):0)+"%)"; box.appendChild(el); });
-  const a=document.createElement("button"); a.className="sbtn go"; a.textContent="Load program into scenario"; a.style.marginTop="6px";
+    el.innerHTML="<b>Step "+(i+1)+": "+p.type+"</b> · corridor "+p.rank+"<br>+"+fmtN(p.stepSaved)+" veh-h (cum "+fmtN(cum)+", "+(baseQuick>0?(100*cum/baseQuick).toFixed(1):0)+"%) · "+(p.stepCost||0).toFixed(1)+" lane-km · BCR "+(p.stepCost>0?(p.stepSaved/p.stepCost).toFixed(0):"∞"); box.appendChild(el); });
+  const tot=document.createElement("div"); tot.className="dim"; tot.style.fontSize="10px"; tot.style.marginTop="4px"; tot.textContent="Total · "+fmtN(cum)+" veh-h saved · "+(PROGRAM.cost||0).toFixed(1)+" lane-km · program BCR "+((PROGRAM.cost>0)?(cum/PROGRAM.cost).toFixed(0):"∞"); box.appendChild(tot); const a=document.createElement("button"); a.className="sbtn go"; a.textContent="Load program into scenario"; a.style.marginTop="6px";
   a.onclick=()=>{ SCN.upgrades=new Map(PROGRAM.up); SCN.extras=PROGRAM.extras.map(e=>Object.assign({},e)); updateScnPanel(); render(); setStatus("Program loaded. Press Run scenario to confirm."); toast("Program loaded into scenario","ok"); };
   box.appendChild(a); }
 function renderSolutions(baseQuick){ const box=document.getElementById("reclist"); box.innerHTML="";
-  const h=document.createElement("div"); h.className="dim"; h.style.fontSize="10px"; h.textContent="Ranked by VHT saved (measured by reassignment) · base "+fmtN(baseQuick)+":"; box.appendChild(h);
+  const h=document.createElement("div"); h.className="dim"; h.style.fontSize="10px"; var _rb=((document.getElementById("rankBySel")||{}).value)||"bcr"; h.textContent=(_rb==="bcr"?"Ranked by benefit/cost (BCR)":"Ranked by VHT saved")+" · base "+fmtN(baseQuick)+":"; box.appendChild(h);
   SOLUTIONS.slice(0,15).forEach((s,i)=>{ const el=document.createElement("div"); el.className="recitem";
     const good=s.dvht>0;
     el.innerHTML="<b>#"+(i+1)+" "+s.type+"</b> · corridor "+s.rank+"<br><span style='color:"+(good?"#2ecc71":"#e67e22")+"'>"+(good?"saves ":"adds ")+fmtN(Math.abs(s.dvht))+" veh-h ("+s.pct.toFixed(1)+"%)</span> · "+s.cost.toFixed(1)+(s.extras.length?" road-km":" lane-km")+" · BCR "+s.bcr.toFixed(0);
@@ -3955,7 +3956,7 @@ function render(){
   const t=ctx; t.setTransform(DPR,0,0,DPR,0,0); t.fillStyle=THEME.mapBg; t.fillRect(0,0,W,H);
   const hw=W/2,hh=H/2; const vx0=cx-hw/sc,vx1=cx+hw/sc,vy0=cy-hh/sc,vy1=cy+hh/sc;
   t.lineCap="round"; t.lineJoin="round";
-  const diff=(MODE==="diff" && DIFF);
+  const diff=(MODE==="diff" && DIFF); var RESULTSVIEW=(assignDone&&(MODE==="vol"||MODE==="vc"||MODE==="los"));
   for(const c of DRAW_ORDER){
     const d=L[c], xy=d.xy, off=d.off, bb=d.bb, vol=VOL?VOL[c]:null, base=STYLE[c].w, gi=GLINK?GLINK.gindex[c]:null, cpc=PARAMS.cap[c];
     for(let i=0;i<d.n;i++){
@@ -3969,7 +3970,7 @@ function render(){
         if(MODE==="vol"){ const tt=Math.min(1,v/VMAX); col=ramp(tt); lw=WIDTHBY?(0.5+3.2*Math.sqrt(tt)):base*1.3; }
         else { const r=v/(Math.max(1,RD[c].ln[i])*cpc); col=vcColor(r); lw=WIDTHBY?(0.6+3.0*Math.min(1.5,r)):base*1.3; }
         t.globalAlpha=.95;
-      } else { var vs=VSTYLE[c]; if(vs&&sc<vs.minS) continue; col=vs?vs.col:THEME.baseLink; lw=vs?Math.min(Math.max(vs.b,vs.wm*sc),vs.mx):Math.max(.55,base*.7); t.globalAlpha=vs?vs.a:(assignDone?.5:.8); }
+      } else { if(RESULTSVIEW){ col=THEME.baseLink; lw=Math.max(.5,base*.6); t.globalAlpha=.32; } else { var vs=VSTYLE[c]; if(vs&&sc<vs.minS) continue; col=vs?vs.col:THEME.baseLink; lw=vs?Math.min(Math.max(vs.b,vs.wm*sc),vs.mx):Math.max(.55,base*.7); t.globalAlpha=vs?vs.a:.8; } }
       t.strokeStyle=col; t.lineWidth=lw;
       t.beginPath();
       let j=off[i],e=off[i+1];
@@ -4000,8 +4001,8 @@ function render(){
   if(SCN.draft && SCN.draft.length){ if(SCN.draft.length>1) drawPts(SCN.draft,"#ff47e0",2.0,[6,4]);
     for(const p of SCN.draft){ const s=worldToScreen(p[0],p[1]); t.fillStyle="#ff47e0"; t.beginPath(); t.arc(s[0],s[1],3,0,6.283); t.fill(); } }
   t.globalAlpha=1;
-  if(window.__XLAYERS){var _XC={walk:{c:"#45c07a",a:.7,wm:5,b:.3,mx:2.5,minS:.003,dash:[4,4]},pt:{c:"#a78bfa",a:.95,wm:14,b:.65,mx:5.5,minS:0},conn:{c:"#ff453a",a:.7,wm:5,b:.45,mx:3,minS:0},pnr:{c:"#f472b6",a:.95,wm:10,b:.7,mx:4,minS:0}};for(var _lk in _XC){var _ld=window.__XLAYERS[_lk],_lc=_XC[_lk];if(!_ld||sc<_lc.minS)continue;var _lxy=_ld.xy,_lof=_ld.off,_lbb=_ld.bb;t.strokeStyle=_lc.c;t.globalAlpha=_lc.a;t.lineWidth=Math.min(Math.max(_lc.b,_lc.wm*sc),_lc.mx);t.setLineDash(_lc.dash||[]);t.lineCap="round";t.lineJoin="round";t.beginPath();for(var _li=0;_li<_ld.n;_li++){var _lb=_li*4;if(_lbb[_lb+2]<vx0||_lbb[_lb]>vx1||_lbb[_lb+3]<vy0||_lbb[_lb+1]>vy1)continue;var _lj=_lof[_li],_le=_lof[_li+1];t.moveTo((_lxy[_lj*2]-cx)*sc+hw,hh-(_lxy[_lj*2+1]-cy)*sc);for(_lj++;_lj<_le;_lj++)t.lineTo((_lxy[_lj*2]-cx)*sc+hw,hh-(_lxy[_lj*2+1]-cy)*sc);}t.stroke();}t.setLineDash([]);t.globalAlpha=1;}
-  {var _cr=Math.min(Math.max(2.2,26*sc),6); t.globalAlpha=1; t.setLineDash([]);for(var _i=0;_i<N0;_i++){ var _x=(CENT[_i*2]-cx)*sc+hw, _y=hh-(CENT[_i*2+1]-cy)*sc; if(_x<-8||_x>W+8||_y<-8||_y>H+8) continue; t.beginPath(); t.arc(_x,_y,_cr,0,6.2832); t.fillStyle="#ffd60a"; t.fill(); t.lineWidth=Math.max(.8,_cr*.3); t.strokeStyle="#5c4a00"; t.stroke(); } t.globalAlpha=1;}
+  if(window.__XLAYERS&&!RESULTSVIEW){var _XC={walk:{c:"#45c07a",a:.7,wm:5,b:.3,mx:2.5,minS:.003,dash:[4,4]},pt:{c:"#a78bfa",a:.95,wm:14,b:.65,mx:5.5,minS:0},conn:{c:"#ff453a",a:.7,wm:5,b:.45,mx:3,minS:0},pnr:{c:"#f472b6",a:.95,wm:10,b:.7,mx:4,minS:0}};for(var _lk in _XC){var _ld=window.__XLAYERS[_lk],_lc=_XC[_lk];if(!_ld||sc<_lc.minS)continue;var _lxy=_ld.xy,_lof=_ld.off,_lbb=_ld.bb;t.strokeStyle=_lc.c;t.globalAlpha=_lc.a;t.lineWidth=Math.min(Math.max(_lc.b,_lc.wm*sc),_lc.mx);t.setLineDash(_lc.dash||[]);t.lineCap="round";t.lineJoin="round";t.beginPath();for(var _li=0;_li<_ld.n;_li++){var _lb=_li*4;if(_lbb[_lb+2]<vx0||_lbb[_lb]>vx1||_lbb[_lb+3]<vy0||_lbb[_lb+1]>vy1)continue;var _lj=_lof[_li],_le=_lof[_li+1];t.moveTo((_lxy[_lj*2]-cx)*sc+hw,hh-(_lxy[_lj*2+1]-cy)*sc);for(_lj++;_lj<_le;_lj++)t.lineTo((_lxy[_lj*2]-cx)*sc+hw,hh-(_lxy[_lj*2+1]-cy)*sc);}t.stroke();}t.setLineDash([]);t.globalAlpha=1;}
+  if(!RESULTSVIEW){var _cr=Math.min(Math.max(2.2,26*sc),6); t.globalAlpha=1; t.setLineDash([]);for(var _i=0;_i<N0;_i++){ var _x=(CENT[_i*2]-cx)*sc+hw, _y=hh-(CENT[_i*2+1]-cy)*sc; if(_x<-8||_x>W+8||_y<-8||_y>H+8) continue; t.beginPath(); t.arc(_x,_y,_cr,0,6.2832); t.fillStyle="#ffd60a"; t.fill(); t.lineWidth=Math.max(.8,_cr*.3); t.strokeStyle="#5c4a00"; t.stroke(); } t.globalAlpha=1;}
   drawSelScreen(t);
   drawLegend(t);
   updateScalebar();
@@ -5059,6 +5060,8 @@ var KB=[
   a:"<b>Select-link</b> analysis picks one link and shows all the O–D flows that use it — answering “where does the traffic on this road come from and go to?” Pick the <span class='k'>Select-link</span> tool, then tap a link."},
  {k:["capacity","lanes","speed","settings"],
   a:"Link <b>capacity</b> (veh/hr) and free-flow <b>speed</b> come from road class and lane count. Edit them — and the BPR α/β — under <span class='k'>Settings</span> in the Assignment app; re-run afterwards to apply."},
+ {k:["recommend","recommendation","rank corridors","find solutions","bcr","benefit cost","benefit-cost","budget","prioritise","prioritize","best value","cost effective"],
+  a:"<b>Recommend &amp; solve</b> ranks congested corridors by delay, generates upgrade options (add lanes, widen the bottleneck, parallel relief road), then <i>reassigns</i> each to measure the real VHT it saves. It now prioritises by <b>benefit–cost ratio</b>: set a <span class='k'>Budget</span> (lane-km) and <span class='k'>Rank by</span> benefit/cost, and the <b>build program</b> option assembles the best set of projects that fits the budget by marginal BCR — so you get the most congestion relief per lane-km, not just the biggest absolute saving."},
  {k:["scenario","upgrade","widen","add lane","new road","build road"],
   a:"In the Assignment app's <b>Scenario</b> section you can <span class='k'>Upgrade</span> a link (add lanes), <span class='k'>Draw road</span> (place a new road between two taps), then <span class='k'>Run scenario</span> to re-assign and measure VHT/VMT change versus the base case. Save named scenarios to compare."},
  {k:["pnr","park and ride","park-and-ride","pt","transit","walk"],

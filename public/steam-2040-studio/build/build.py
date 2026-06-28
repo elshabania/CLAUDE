@@ -38,8 +38,90 @@ OVERRIDE = {
   details.sec{margin-bottom:0!important}
  """,
 }
+def _rep(src, old, new, label):
+    assert old in src, "rec-engine anchor missing: " + label
+    return src.replace(old, new, 1)
+
+# Enhance the Assignment's recommendation engine: budget cap + benefit-cost
+# (BCR) prioritisation, including a budget-constrained marginal-BCR program
+# builder. Runs on the RAW source (anchors contain \uXXXX) before glyph fixup.
+def patch_recengine(src):
+    # 1) UI: budget + rank-by controls in the "Recommend & solve" section
+    src = _rep(src,
+      '<label><input type="checkbox" id="solveGreedy"> build program (greedy)</label></div>',
+      '<label><input type="checkbox" id="solveGreedy"> build program (greedy)</label></div>'
+      '\n      <div class="row"><label title="cap on total lane-km of upgrades (0 = no cap)">Budget '
+      '<select id="budgetSel"><option value="0">none</option><option value="20">20</option>'
+      '<option value="50" selected>50</option><option value="100">100</option>'
+      '<option value="200">200</option><option value="500">500</option></select> lane-km</label> '
+      '<label title="ranking / selection objective">Rank by <select id="rankBySel">'
+      '<option value="bcr" selected>benefit/cost</option><option value="vht">VHT saved</option></select></label></div>',
+      "UI budget row")
+    # subtitle
+    src = _rep(src, 'reassigns &amp; measures VHT saved',
+                    'reassigns; ranks by benefit/cost', "subtitle")
+    # 2) read BUDGET + RANKBY
+    src = _rep(src,
+      'const greedy=document.getElementById("solveGreedy").checked; let cands=candidatesFromRECS();',
+      'const greedy=document.getElementById("solveGreedy").checked; let cands=candidatesFromRECS();'
+      ' const BUDGET=+((document.getElementById("budgetSel")||{}).value)||0;'
+      ' const RANKBY=((document.getElementById("rankBySel")||{}).value)||"bcr";',
+      "budget read")
+    # 3) non-greedy: rank by chosen objective
+    src = _rep(src,
+      'SOLUTIONS.sort((a,b)=>b.dvht-a.dvht); PROGRAM=null; renderSolutions(baseQuick);',
+      'SOLUTIONS.sort((a,b)=>RANKBY==="bcr"?(b.bcr-a.bcr):(b.dvht-a.dvht)); PROGRAM=null; renderSolutions(baseQuick);',
+      "nongreedy sort")
+    # 4) greedy: track cost, allow more picks (budget caps depth)
+    src = _rep(src,
+      'PROGRAM={picks:[], up:new Map(), extras:[]}; let prevVHT=baseQuick; const maxPicks=document.getElementById("solveDepth").value==="deep"?6:4; let remaining=cands.slice();',
+      'PROGRAM={picks:[], up:new Map(), extras:[], cost:0}; let prevVHT=baseQuick; const maxPicks=document.getElementById("solveDepth").value==="deep"?8:6; let remaining=cands.slice();',
+      "greedy init")
+    src = _rep(src, 'let bi=-1,bv=-1,bvht=0,r=0;',
+                    'let bi=-1,bScore=-1,bv=0,bvht=0,bcost=0,r=0;', "greedy bestvars")
+    # 5) greedy pick: best marginal BCR (or VHT) among candidates that fit budget
+    src = _rep(src,
+      'const vht=quickAssignVHT({upgrades:up,extras:ex,draft:null},S); const dv=prevVHT-vht; if(dv>bv){bv=dv;bi=r;bvht=vht;} r++;',
+      'const vht=quickAssignVHT({upgrades:up,extras:ex,draft:null},S); const dv=prevVHT-vht;'
+      ' const mc=candCost(c); const fits=(BUDGET<=0)||(PROGRAM.cost+mc<=BUDGET);'
+      ' const sc2=(RANKBY==="bcr")?(dv/Math.max(0.01,mc)):dv;'
+      ' if(fits&&dv>0&&sc2>bScore){bScore=sc2;bv=dv;bi=r;bvht=vht;bcost=mc;} r++;',
+      "greedy pick")
+    # 6) greedy commit: accumulate cost
+    src = _rep(src,
+      'PROGRAM.picks.push(Object.assign({},c,{stepSaved:bv})); prevVHT=bvht;',
+      'PROGRAM.cost+=bcost; PROGRAM.picks.push(Object.assign({},c,{stepSaved:bv,stepCost:bcost})); prevVHT=bvht;',
+      "greedy commit")
+    # 7) finishGreedy: header, per-step BCR, total, neutral empty message
+    src = _rep(src, 'No intervention reduced VHT under this demand.',
+                    'No intervention reduced VHT within the budget.', "empty msg")
+    src = _rep(src,
+      'h.textContent="Greedy program \\u00b7 base VHT "+fmtN(baseQuick)+":";',
+      'var _bud=+((document.getElementById("budgetSel")||{}).value)||0;'
+      ' h.textContent="Budget-optimised program \\u00b7 base VHT "+fmtN(baseQuick)+(_bud>0?" \\u00b7 budget "+_bud+" lane-km":"")+":";',
+      "greedy header")
+    src = _rep(src,
+      'el.innerHTML="<b>Step "+(i+1)+": "+p.type+"</b> \\u00b7 corridor "+p.rank+"<br>+"+fmtN(p.stepSaved)+" veh-h (cum "+fmtN(cum)+", "+(baseQuick>0?(100*cum/baseQuick).toFixed(1):0)+"%)";',
+      'el.innerHTML="<b>Step "+(i+1)+": "+p.type+"</b> \\u00b7 corridor "+p.rank+"<br>+"+fmtN(p.stepSaved)+" veh-h (cum "+fmtN(cum)+", "+(baseQuick>0?(100*cum/baseQuick).toFixed(1):0)+"%) \\u00b7 "+(p.stepCost||0).toFixed(1)+" lane-km \\u00b7 BCR "+(p.stepCost>0?(p.stepSaved/p.stepCost).toFixed(0):"\\u221e");',
+      "greedy step line")
+    src = _rep(src,
+      'const a=document.createElement("button"); a.className="sbtn go"; a.textContent="Load program into scenario"; a.style.marginTop="6px";',
+      'const tot=document.createElement("div"); tot.className="dim"; tot.style.fontSize="10px"; tot.style.marginTop="4px";'
+      ' tot.textContent="Total \\u00b7 "+fmtN(cum)+" veh-h saved \\u00b7 "+(PROGRAM.cost||0).toFixed(1)+" lane-km \\u00b7 program BCR "+((PROGRAM.cost>0)?(cum/PROGRAM.cost).toFixed(0):"\\u221e"); box.appendChild(tot);'
+      ' const a=document.createElement("button"); a.className="sbtn go"; a.textContent="Load program into scenario"; a.style.marginTop="6px";',
+      "greedy total")
+    # 8) renderSolutions header reflects the objective
+    src = _rep(src,
+      'h.textContent="Ranked by VHT saved (measured by reassignment) \\u00b7 base "+fmtN(baseQuick)+":";',
+      'var _rb=((document.getElementById("rankBySel")||{}).value)||"bcr";'
+      ' h.textContent=(_rb==="bcr"?"Ranked by benefit/cost (BCR)":"Ranked by VHT saved")+" \\u00b7 base "+fmtN(baseQuick)+":";',
+      "rendersol header")
+    return src
+
 # Per-app source tweaks applied before embedding (clarity fixes + Studio hooks).
 def tweak(src, appid):
+    if appid == "assign":
+        src = patch_recengine(src)        # before glyph unescape (anchors have \uXXXX)
     src = unescape_glyphs(src)
     if appid == "assign":
         # brighten the faint base-network colour so the map reads clearly at rest
@@ -77,16 +159,22 @@ def tweak(src, appid):
           'fwy:{col:"#ffb454",a:.95,wm:26,b:.75,mx:7,minS:0}};\n')
         assert 'function render(){' in src
         src = src.replace('function render(){', VSTYLE + 'function render(){', 1)
-        # base link branch -> viewer per-class style + minS skip
+        # results view = assignment done AND viewing volume/V-C/LOS: de-emphasise
+        # the base classification + centroids + extra layers to read results.
+        assert 'const diff=(MODE==="diff" && DIFF);' in src
+        src = src.replace('const diff=(MODE==="diff" && DIFF);',
+            'const diff=(MODE==="diff" && DIFF); var RESULTSVIEW=(assignDone&&(MODE==="vol"||MODE==="vc"||MODE==="los"));', 1)
+        # base link branch -> faint when showing results, else viewer per-class style
         assert 'else { col=THEME.baseLink; lw=Math.max(.55,base*.7); t.globalAlpha=assignDone?.5:.8; }' in src
         src = src.replace(
             'else { col=THEME.baseLink; lw=Math.max(.55,base*.7); t.globalAlpha=assignDone?.5:.8; }',
+            'else { if(RESULTSVIEW){ col=THEME.baseLink; lw=Math.max(.5,base*.6); t.globalAlpha=.32; } '
             'else { var vs=VSTYLE[c]; if(vs&&sc<vs.minS) continue; '
             'col=vs?vs.col:THEME.baseLink; lw=vs?Math.min(Math.max(vs.b,vs.wm*sc),vs.mx):Math.max(.55,base*.7); '
-            't.globalAlpha=vs?vs.a:(assignDone?.5:.8); }', 1)
+            't.globalAlpha=vs?vs.a:.8; } }', 1)
         # draw the extra layers transferred from the Viewer (connectors / walk /
         # PnR / PT) with the Viewer's exact palette, then the centroids.
-        XLDRAW = ('if(window.__XLAYERS){var _XC={'
+        XLDRAW = ('if(window.__XLAYERS&&!RESULTSVIEW){var _XC={'
           'walk:{c:"#45c07a",a:.7,wm:5,b:.3,mx:2.5,minS:.003,dash:[4,4]},'
           'pt:{c:"#a78bfa",a:.95,wm:14,b:.65,mx:5.5,minS:0},'
           'conn:{c:"#ff453a",a:.7,wm:5,b:.45,mx:3,minS:0},'
@@ -101,7 +189,7 @@ def tweak(src, appid):
           'for(_lj++;_lj<_le;_lj++)t.lineTo((_lxy[_lj*2]-cx)*sc+hw,hh-(_lxy[_lj*2+1]-cy)*sc);}'
           't.stroke();}t.setLineDash([]);t.globalAlpha=1;}\n  ')
         # draw centroids (gold dots) exactly like the Viewer, before overlays/legend
-        CENTDRAW = (XLDRAW + '{var _cr=Math.min(Math.max(2.2,26*sc),6); t.globalAlpha=1; t.setLineDash([]);'
+        CENTDRAW = (XLDRAW + 'if(!RESULTSVIEW){var _cr=Math.min(Math.max(2.2,26*sc),6); t.globalAlpha=1; t.setLineDash([]);'
           'for(var _i=0;_i<N0;_i++){ var _x=(CENT[_i*2]-cx)*sc+hw, _y=hh-(CENT[_i*2+1]-cy)*sc;'
           ' if(_x<-8||_x>W+8||_y<-8||_y>H+8) continue;'
           ' t.beginPath(); t.arc(_x,_y,_cr,0,6.2832); t.fillStyle="#ffd60a"; t.fill();'
