@@ -26,6 +26,11 @@ def unescape_glyphs(s):
 # panels revealed contextually).
 OVERRIDE = {
  "viewer": """
+  /* Studio: full-bleed map, never a scrollbar. A scrollbar shrinks the client
+     width below window.innerWidth, which skews pointer hit-testing (the cursor
+     selects an offset link/zone). Keeping the page unscrollable guarantees
+     innerWidth === clientWidth === canvas width. */
+  html,body{overflow:hidden!important;margin:0!important}
   /* Studio: hide bulky panels until a rail tool is chosen */
   body.studio-hide-agg #agg{display:none!important}
   body.studio-hide-layers #chips,body.studio-hide-layers #dissctl{display:none!important}
@@ -43,6 +48,9 @@ OVERRIDE = {
   footer{background:none!important}
  """,
  "assign": """
+  /* Studio: full-bleed map, never a scrollbar (see viewer note) — a scrollbar
+     would shrink the client width vs window.innerWidth and offset selection. */
+  html,body{overflow:hidden!important;margin:0!important}
   /* Studio: the rail controls panels, so hide the in-app panel toggles */
   #panelOpen,#panelToggle{display:none!important}
   /* declutter: the rail labels the section; drop the verbose footer note */
@@ -261,6 +269,15 @@ def tweak(src, appid):
         assert 'function hideTip(){ zTip.style.display="none"; }' in src
         src = src.replace('function hideTip(){ zTip.style.display="none"; }',
                           'function hideTip(){ zTip.style.display="none"; if(HOVG!==-1){ HOVG=-1; if(typeof render==="function") render(); } }', 1)
+    # SELECTION ACCURACY (both apps): size the canvas to the document CLIENT box,
+    # which excludes any scrollbar. window.innerWidth includes the scrollbar, so
+    # using it makes W wider than the painted canvas and skews hit-testing — the
+    # cursor then selects an offset link/zone. clientWidth matches the canvas.
+    if 'W=window.innerWidth||document.documentElement.clientWidth;' in src:
+        src = src.replace('W=window.innerWidth||document.documentElement.clientWidth;',
+                          'W=document.documentElement.clientWidth||window.innerWidth;', 1)
+        src = src.replace('H=window.innerHeight||document.documentElement.clientHeight;',
+                          'H=document.documentElement.clientHeight||window.innerHeight;', 1)
     css = OVERRIDE.get(appid)
     if css:
         style = "<style>/* STEAM Studio overrides */" + css + "</style>\n</head>"

@@ -201,7 +201,7 @@
   /* the current map viewport as a world-coordinate rectangle — used as the
      "study area" for study-area-adaptive aggregation. */
   function getRect(){
-    try{ var W=window.innerWidth, H=window.innerHeight, hwm=(W/2)/sc, hhm=(H/2)/sc;
+    try{ var W=document.documentElement.clientWidth||window.innerWidth, H=document.documentElement.clientHeight||window.innerHeight, hwm=(W/2)/sc, hhm=(H/2)/sc;
       return {ok:true, rect:[cx-hwm, cy-hhm, cx+hwm, cy+hhm], cx:cx, cy:cy, sc:sc}; }
     catch(e){ return {ok:false, err:String(e)}; }
   }
@@ -218,7 +218,7 @@
       return {ok:false, err:"need a base aggregation + zone centroids"};
     var rid=ACT.rid, N=rid.length;
     var rect=opts&&opts.rect;
-    if(!rect){ var W=window.innerWidth,H=window.innerHeight,hwm=(W/2)/sc,hhm=(H/2)/sc; rect=[cx-hwm,cy-hhm,cx+hwm,cy+hhm]; }
+    if(!rect){ var W=document.documentElement.clientWidth||window.innerWidth,H=document.documentElement.clientHeight||window.innerHeight,hwm=(W/2)/sc,hhm=(H/2)/sc; rect=[cx-hwm,cy-hhm,cx+hwm,cy+hhm]; }
     var pad=(opts&&typeof opts.pad==="number")?opts.pad:0;
     var mx=(rect[2]-rect[0]), my=(rect[3]-rect[1]);
     var vx0=rect[0]-mx*pad, vx1=rect[2]+mx*pad, vy0=rect[1]-my*pad, vy1=rect[3]+my*pad;

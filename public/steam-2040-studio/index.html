@@ -360,6 +360,11 @@
   }
 </style>
 <style>/* STEAM Studio overrides */
+  /* Studio: full-bleed map, never a scrollbar. A scrollbar shrinks the client
+     width below window.innerWidth, which skews pointer hit-testing (the cursor
+     selects an offset link/zone). Keeping the page unscrollable guarantees
+     innerWidth === clientWidth === canvas width. */
+  html,body{overflow:hidden!important;margin:0!important}
   /* Studio: hide bulky panels until a rail tool is chosen */
   body.studio-hide-agg #agg{display:none!important}
   body.studio-hide-layers #chips,body.studio-hide-layers #dissctl{display:none!important}
@@ -1477,8 +1482,8 @@ let cx=0, cy=0, sc=1;           // world center (m), px per m
 
 function resize(){
   DPR=Math.min(window.devicePixelRatio||1,2.5);
-  W=window.innerWidth||document.documentElement.clientWidth;
-  H=window.innerHeight||document.documentElement.clientHeight;
+  W=document.documentElement.clientWidth||window.innerWidth;
+  H=document.documentElement.clientHeight||window.innerHeight;
   if(W<10||H<10){requestAnimationFrame(resize);return}
   cv.width=Math.round(W*DPR); cv.height=Math.round(H*DPR);
   render();
@@ -3180,7 +3185,7 @@ __STEAM_ES__
   /* the current map viewport as a world-coordinate rectangle — used as the
      "study area" for study-area-adaptive aggregation. */
   function getRect(){
-    try{ var W=window.innerWidth, H=window.innerHeight, hwm=(W/2)/sc, hhm=(H/2)/sc;
+    try{ var W=document.documentElement.clientWidth||window.innerWidth, H=document.documentElement.clientHeight||window.innerHeight, hwm=(W/2)/sc, hhm=(H/2)/sc;
       return {ok:true, rect:[cx-hwm, cy-hhm, cx+hwm, cy+hhm], cx:cx, cy:cy, sc:sc}; }
     catch(e){ return {ok:false, err:String(e)}; }
   }
@@ -3197,7 +3202,7 @@ __STEAM_ES__
       return {ok:false, err:"need a base aggregation + zone centroids"};
     var rid=ACT.rid, N=rid.length;
     var rect=opts&&opts.rect;
-    if(!rect){ var W=window.innerWidth,H=window.innerHeight,hwm=(W/2)/sc,hhm=(H/2)/sc; rect=[cx-hwm,cy-hhm,cx+hwm,cy+hhm]; }
+    if(!rect){ var W=document.documentElement.clientWidth||window.innerWidth,H=document.documentElement.clientHeight||window.innerHeight,hwm=(W/2)/sc,hhm=(H/2)/sc; rect=[cx-hwm,cy-hhm,cx+hwm,cy+hhm]; }
     var pad=(opts&&typeof opts.pad==="number")?opts.pad:0;
     var mx=(rect[2]-rect[0]), my=(rect[3]-rect[1]);
     var vx0=rect[0]-mx*pad, vx1=rect[2]+mx*pad, vy0=rect[1]-my*pad, vy1=rect[3]+my*pad;
@@ -3479,6 +3484,9 @@ __STEAM_ES__
   #coords{color:var(--txt);text-align:right}
 </style>
 <style>/* STEAM Studio overrides */
+  /* Studio: full-bleed map, never a scrollbar (see viewer note) — a scrollbar
+     would shrink the client width vs window.innerWidth and offset selection. */
+  html,body{overflow:hidden!important;margin:0!important}
   /* Studio: the rail controls panels, so hide the in-app panel toggles */
   #panelOpen,#panelToggle{display:none!important}
   /* declutter: the rail labels the section; drop the verbose footer note */
@@ -4170,7 +4178,7 @@ for(const c of CLS){ const b=L[c].bb; for(let i=0;i<L[c].n;i++){
   if(b[i*4]<WORLD.mnx)WORLD.mnx=b[i*4]; if(b[i*4+1]<WORLD.mny)WORLD.mny=b[i*4+1];
   if(b[i*4+2]>WORLD.mxx)WORLD.mxx=b[i*4+2]; if(b[i*4+3]>WORLD.mxy)WORLD.mxy=b[i*4+3]; } }
 function resize(){ DPR=Math.min(window.devicePixelRatio||1,2.5);
-  W=window.innerWidth||document.documentElement.clientWidth; H=window.innerHeight||document.documentElement.clientHeight;
+  W=document.documentElement.clientWidth||window.innerWidth; H=document.documentElement.clientHeight||window.innerHeight;
   if(W<10||H<10){requestAnimationFrame(resize);return;}
   cv.width=Math.round(W*DPR); cv.height=Math.round(H*DPR); render(); }
 const SCMIN=()=>Math.min(W/(WORLD.mxx-WORLD.mnx),H/(WORLD.mxy-WORLD.mny))*.5;
@@ -4968,7 +4976,7 @@ __STEAM_ES__
   /* the current map viewport as a world-coordinate rectangle — used as the
      "study area" for study-area-adaptive aggregation. */
   function getRect(){
-    try{ var W=window.innerWidth, H=window.innerHeight, hwm=(W/2)/sc, hhm=(H/2)/sc;
+    try{ var W=document.documentElement.clientWidth||window.innerWidth, H=document.documentElement.clientHeight||window.innerHeight, hwm=(W/2)/sc, hhm=(H/2)/sc;
       return {ok:true, rect:[cx-hwm, cy-hhm, cx+hwm, cy+hhm], cx:cx, cy:cy, sc:sc}; }
     catch(e){ return {ok:false, err:String(e)}; }
   }
@@ -4985,7 +4993,7 @@ __STEAM_ES__
       return {ok:false, err:"need a base aggregation + zone centroids"};
     var rid=ACT.rid, N=rid.length;
     var rect=opts&&opts.rect;
-    if(!rect){ var W=window.innerWidth,H=window.innerHeight,hwm=(W/2)/sc,hhm=(H/2)/sc; rect=[cx-hwm,cy-hhm,cx+hwm,cy+hhm]; }
+    if(!rect){ var W=document.documentElement.clientWidth||window.innerWidth,H=document.documentElement.clientHeight||window.innerHeight,hwm=(W/2)/sc,hhm=(H/2)/sc; rect=[cx-hwm,cy-hhm,cx+hwm,cy+hhm]; }
     var pad=(opts&&typeof opts.pad==="number")?opts.pad:0;
     var mx=(rect[2]-rect[0]), my=(rect[3]-rect[1]);
     var vx0=rect[0]-mx*pad, vx1=rect[2]+mx*pad, vy0=rect[1]-my*pad, vy1=rect[3]+my*pad;
