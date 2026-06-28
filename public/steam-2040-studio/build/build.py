@@ -63,6 +63,15 @@ def tweak(src, appid):
         src = src.replace(
             'const r=buildODfromArrays(O,D,V,cnt,true);',
             'try{ window.__ODRAW={O:O,D:D,V:V,cnt:cnt}; }catch(_){} const r=buildODfromArrays(O,D,V,cnt,true);', 1)
+        # UNIFIED VISUALISATION: colour the base (un-assigned) network by road
+        # class using the Network Viewer's exact palette, so the two tools show
+        # the same classified network. Assigned links still get volume/V-C/LOS.
+        assert 'function render(){' in src
+        src = src.replace('function render(){',
+            'const CLASSCOL={fwy:"#ffb454",ramp:"#d98e4a",art:"#8fc1e3",coll:"#5e7ca3",rural:"#4d7d5f",local:"#3f5170",junc:"#6b5a35"};\nfunction render(){', 1)
+        assert 'col=THEME.baseLink; lw=Math.max(.55,base*.7);' in src
+        src = src.replace('col=THEME.baseLink; lw=Math.max(.55,base*.7);',
+                          'col=CLASSCOL[c]||THEME.baseLink; lw=Math.max(.7,base*1.05);', 1)
     css = OVERRIDE.get(appid)
     if css:
         style = "<style>/* STEAM Studio overrides */" + css + "</style>\n</head>"
