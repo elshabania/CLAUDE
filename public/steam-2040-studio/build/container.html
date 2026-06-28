@@ -205,6 +205,7 @@
     <div id="zoneBar">
       <span class="zb-lbl">Aggregate zones, then test the assignment on them →</span>
       <button id="zbAssign" class="zb-go">▶ Assign on these zones</button>
+      <button id="zbBest" class="zb-alt">✦ Find best method</button>
       <button id="zbFull" class="zb-alt">↺ Full zones</button>
     </div>
     <div id="progPanel" aria-label="Solution program">
@@ -418,6 +419,78 @@ async function applyAggregationHandoff(){
     "After aggregation: "+res.pairs.toLocaleString()+" OD pairs, "+res.trips.toLocaleString()+" inter-zonal trips (intrazonal trips dropped).");
   return run;
 }
+/* ===== AGGREGATION OPTIMISER: try many aggregation methods to the target
+   zone count, score each by how well it preserves the assigned flows, pick the
+   best, and show the before→after difference plot. ===== */
+var AGGCONFIGS=[
+  {name:"M1 · land use + distance", method:"m1"},
+  {name:"M1 · strict area type", method:"m1", guards:{m1Strict:true}},
+  {name:"M2 · districts", method:"m2"},
+  {name:"M3 · low OD", method:"m3"},
+  {name:"M4 · hybrid", method:"m4"},
+  {name:"M5 · size / density", method:"m5"},
+  {name:"Distance change (geometry)", method:"distance"},
+  {name:"Intrazonal demand", method:"demand"},
+  {name:"M4 · + freight guard", method:"m4", guards:{gFreight:true}},
+  {name:"M2 · + land-use guard", method:"m2", guards:{gLuClass:true}}
+];
+var GUARD_IDS=["gRegion","gSector","gUrban","gMetro","gMetroAcc","gFreight","gLuClass","m1Strict","m1Density"];
+var GUARD_DEFAULT={gRegion:true,gSector:true};
+function setBub(el,html){ try{ el.querySelector(".bub").innerHTML=html; log.scrollTop=log.scrollHeight; }catch(e){} }
+async function applyAggConfig(cfg){
+  for(var k=0;k<GUARD_IDS.length;k++){ var id=GUARD_IDS[k];
+    var want=(cfg.guards&&cfg.guards[id]!==undefined)?cfg.guards[id]:!!GUARD_DEFAULT[id];
+    await rpc("viewer",{cmd:"check",id:id,value:want});
+  }
+  await rpc("viewer",{cmd:"set",id:"methodSel",value:cfg.method});
+  await new Promise(function(r){ setTimeout(r,1500); });   // let the aggregation compute
+}
+async function runAggAssign(){    // run the assignment and wait for it to finish
+  await rpc("assign",{cmd:"click",id:"runBtn"});
+  return pollState("assign", function(x){ return x.kpi && x.kpi.length>2; }, 35000);
+}
+async function findBestAggregation(){
+  openDock();
+  var prog=addMsg("cop","✦ <b>Aggregation-method search</b> — establishing the full-zone baseline…");
+  // keep it tractable: sample origins for speed (respects the user's chosen method)
+  switchApp("assign"); await waitReady("assign");
+  await rpc("assign",{cmd:"set",id:"sampleSel",value:"250"});
+  await pollState("assign", function(s){ return s.odStats && /matrix|trips|pairs/i.test(s.odStats); }, 7000);
+  await rpc("assign",{cmd:"aggod",pairs:[]});     // full zones
+  await runAggAssign();
+  var snap=await rpc("assign",{cmd:"snapfull"});
+  if(!snap||!snap.ok){ setBub(prog,"I couldn't establish a full-zone baseline. Run an assignment first, then try again."); return {html:"",chips:["Run an assignment"]}; }
+  var results=[];
+  for(var i=0;i<AGGCONFIGS.length;i++){
+    var cfg=AGGCONFIGS[i];
+    setBub(prog,"✦ <b>Aggregation-method search</b> — testing "+(i+1)+"/"+AGGCONFIGS.length+": "+esc(cfg.name)+"…");
+    switchApp("viewer"); await waitReady("viewer");
+    await applyAggConfig(cfg);
+    var agg=await rpc("viewer",{cmd:"getagg"});
+    if(!agg||!agg.ok||!agg.merged){ results.push({name:cfg.name,skip:true}); continue; }
+    switchApp("assign"); await waitReady("assign");
+    await rpc("assign",{cmd:"aggod",pairs:agg.pairs});
+    await runAggAssign();
+    var cmp=await rpc("assign",{cmd:"cmpfull"});
+    if(cmp&&cmp.ok) results.push({name:cfg.name,cfg:cfg,zones:agg.zones,merged:agg.merged,pctRmse:cmp.pctRmse,corr:cmp.corr,vhtErr:cmp.vhtErr});
+  }
+  var scored=results.filter(function(r){ return !r.skip; });
+  if(!scored.length){ setBub(prog,"No aggregation produced a comparable assignment — make sure a real OD matrix is loaded."); return {html:"",chips:["Run an assignment"]}; }
+  scored.sort(function(a,b){ return a.pctRmse-b.pctRmse; });
+  var best=scored[0];
+  // apply the winner and show the before→after difference plot
+  setBub(prog,"✦ Applying the winner (<b>"+esc(best.name)+"</b>) and building the difference plot…");
+  switchApp("viewer"); await applyAggConfig(best.cfg);
+  var bagg=await rpc("viewer",{cmd:"getagg"});
+  switchApp("assign"); await waitReady("assign");
+  await rpc("assign",{cmd:"aggod",pairs:bagg.pairs});
+  await runAggAssign();
+  await rpc("assign",{cmd:"showdiff"}); highlightRail("assign");
+  prog.remove();
+  var rows=scored.map(function(r,i){ return (i+1)+". "+(i===0?"<b>":"")+esc(r.name)+(i===0?"</b>":"")+" — "+r.zones.toLocaleString()+" zones · flow RMSE "+r.pctRmse.toFixed(1)+"% · VHT err "+r.vhtErr.toFixed(1)+"% · corr "+r.corr.toFixed(3); }).join("<br>");
+  var html="<b>Best: "+esc(best.name)+"</b> at "+best.zones.toLocaleString()+" zones — it preserves the assigned flows best (<b>"+best.pctRmse.toFixed(1)+"% flow RMSE</b>, VHT error "+best.vhtErr.toFixed(1)+"%, correlation "+best.corr.toFixed(3)+"). The map shows the <b>before→after Δ plot</b> (aggregated − full).<div class='did'>"+rows+"</div>";
+  return {html:html, chips:["Colour by V/C","What are the current KPIs?","Reset to full zones"]};
+}
 /* reset the Assignment back to the full (un-aggregated) zone system */
 async function resetZonesHandoff(){
   switchApp("assign"); await waitReady("assign");
@@ -512,6 +585,7 @@ document.getElementById("railCop").addEventListener("click",function(){
 });
 document.getElementById("zbAssign").addEventListener("click",function(){ openDock(); submit("assign on the aggregated zones"); });
 document.getElementById("zbFull").addEventListener("click",function(){ openDock(); submit("reset to full zones"); });
+document.getElementById("zbBest").addEventListener("click",function(){ openDock(); submit("find best aggregation"); });
 
 /* ---------- draggable / reorderable solution program ---------- */
 var PROG=[], dragI=null, progP=document.getElementById("progPanel");
@@ -669,6 +743,8 @@ var ACTIONS=[
  /* cross-app handoff: aggregate zones in the Viewer, assign on them */
  A({app:null, keys:["apply aggregation to assignment","assign on aggregated zones","assign on the aggregated zones","use aggregated zones","aggregated zones in assignment","run on aggregated zones","run on the aggregated zones","send zones to assignment","push zones to assignment","assign aggregated zones","use the aggregated zones"],
     run:applyAggregationHandoff}),
+ A({app:null, keys:["find best aggregation","best aggregation","best aggregation method","optimise aggregation","optimize aggregation","try aggregation methods","compare aggregation methods","which aggregation is best","best way to aggregate","best aggregation for"],
+    run:findBestAggregation}),
  A({app:null, keys:["full zone system","reset zones","restore zones","un-aggregate","full zones","original zones","reset zone system"],
     run:resetZonesHandoff}),
  A({app:"viewer", keys:["open the zones tool","open zones","zones tool","show aggregation","aggregation panel","open aggregation"],

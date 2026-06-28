@@ -118,6 +118,41 @@
       return {ok:true, n:(picks||[]).length};
     }catch(e){ return {ok:false, err:String(e)}; }
   }
+  /* ---- aggregation optimiser (Assignment side) ---- */
+  /* snapshot the current (full-zone) assigned flows as the reference */
+  function snapFull(){
+    if(typeof baseVol==="undefined" || !baseVol) return {ok:false, err:"run a full assignment first"};
+    window.__FULLVOL = baseVol.slice();
+    window.__FULLMET = (typeof baseMet!=="undefined") ? baseMet : null;
+    return {ok:true, vht:(window.__FULLMET&&window.__FULLMET.vht)||0, links:baseVol.length};
+  }
+  /* compare current assigned flows to the snapshot: %RMSE, correlation, VHT error */
+  function cmpFull(){
+    if(!window.__FULLVOL || typeof baseVol==="undefined" || !baseVol) return {ok:false};
+    var F=window.__FULLVOL, A=baseVol, n=Math.min(F.length,A.length);
+    var mf=0, ma=0; for(var i=0;i<n;i++){ mf+=F[i]; ma+=A[i]; } mf/=n; ma/=n;
+    var sumSq=0, maxAbs=0, cov=0, va=0, vf=0;
+    for(var i=0;i<n;i++){ var d=A[i]-F[i]; sumSq+=d*d; if(Math.abs(d)>maxAbs)maxAbs=Math.abs(d);
+      var fa=A[i]-ma, ff=F[i]-mf; cov+=fa*ff; va+=fa*fa; vf+=ff*ff; }
+    var rmse=Math.sqrt(sumSq/n), pctRmse= mf>0 ? 100*rmse/mf : 0;
+    var corr=(va>0&&vf>0)? cov/Math.sqrt(va*vf) : 0;
+    var vhtF=(window.__FULLMET&&window.__FULLMET.vht)||0, vhtA=(typeof baseMet!=="undefined"&&baseMet)?baseMet.vht:0;
+    var vhtErr= vhtF>0 ? 100*Math.abs(vhtA-vhtF)/vhtF : 0;
+    return {ok:true, pctRmse:pctRmse, corr:corr, vhtErr:vhtErr, vhtFull:vhtF, vhtNow:vhtA, maxAbs:maxAbs};
+  }
+  /* render the difference plot: current (aggregated) flows minus the full snapshot */
+  function showDiff(){
+    if(!window.__FULLVOL || typeof baseVol==="undefined" || !baseVol || typeof GLINK==="undefined") return {ok:false};
+    DIFF=new Float64Array(GLINK.m); var ad=[];
+    for(var g=0; g<GLINK.m; g++){ var d=(baseVol[g]||0)-(window.__FULLVOL[g]||0); DIFF[g]=d; if(d) ad.push(Math.abs(d)); }
+    ad.sort(function(a,b){return a-b;});
+    DIFFMAX = ad.length ? Math.max(1, ad[Math.floor(ad.length*0.95)]) : 1;
+    scnVol = baseVol.slice(); if(typeof RESULT!=="undefined") RESULT="scenario";
+    MODE="diff";
+    try{ document.querySelectorAll("#modeSeg button,#miniMode button").forEach(function(x){ x.classList.toggle("on", x.dataset.m==="diff"); }); }catch(e){}
+    if(typeof render==="function") render();
+    return {ok:true};
+  }
   /* shared map view (both apps use cx,cy world-centre + sc px/m) for zoom sync */
   function getView(){ try{ return {ok:true, cx:cx, cy:cy, sc:sc}; }catch(e){ return {ok:false}; } }
   function setView(v){
@@ -192,6 +227,9 @@
         case "setxl":     out = setXlayers(m.layers); break;
         case "getprog":   out = getProgram(); break;
         case "applyprog": out = applyProgram(m.picks||[]); break;
+        case "snapfull":  out = snapFull(); break;
+        case "cmpfull":   out = cmpFull(); break;
+        case "showdiff":  out = showDiff(); break;
         case "key":   out = pressKey(m.key); break;
         default:      out = {ok:false, err:"unknown cmd "+m.cmd};
       }
