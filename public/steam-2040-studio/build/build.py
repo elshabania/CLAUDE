@@ -41,6 +41,20 @@ def tweak(src, appid):
     if appid == "assign":
         # brighten the faint base-network colour so the map reads clearly at rest
         src = src.replace('baseLink:"#46587e"', 'baseLink:"#8298cd"')
+        # the embedded OD matrix is gzip but the app ships no pako decompressor,
+        # so it always fell back to the all-ones test. Decode with the browser's
+        # native DecompressionStream instead (same approach the Viewer uses) so
+        # the real OD demand loads — fully offline, no external library.
+        assert 'function loadEmbeddedOD(){' in src
+        src = src.replace('function loadEmbeddedOD(){',
+                          'async function loadEmbeddedOD(){', 1)
+        src = src.replace(
+            '  if(typeof pako==="undefined"){ setStatus("Embedded OD present but decompressor missing."); return; }',
+            '  if(typeof DecompressionStream==="undefined"){ setStatus("Embedded OD present but this browser can\'t gunzip."); return; }', 1)
+        assert 'const bytes=pako.ungzip(raw); const buf=bytes.slice().buffer;' in src
+        src = src.replace(
+            'const bytes=pako.ungzip(raw); const buf=bytes.slice().buffer;',
+            'const _ds=new DecompressionStream("gzip"); const _ab=await new Response(new Blob([raw]).stream().pipeThrough(_ds)).arrayBuffer(); const bytes=new Uint8Array(_ab); const buf=bytes.slice().buffer;', 1)
     css = OVERRIDE.get(appid)
     if css:
         style = "<style>/* STEAM Studio overrides */" + css + "</style>\n</head>"

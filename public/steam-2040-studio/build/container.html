@@ -291,10 +291,12 @@ async function pollState(key, ok, timeout){
 async function runAssign(method, label){
   switchApp("assign"); await waitReady("assign");
   if(method) await rpc("assign",{cmd:"set",id:"methodSel",value:method});
+  // let the embedded OD finish decompressing so we assign real demand, not the fallback
+  await pollState("assign", function(s){ return s.odStats && /matrix|trips|pairs/i.test(s.odStats); }, 6000);
   await rpc("assign",{cmd:"click",id:"runBtn"});
   var noOD=function(s){ return /no od|switch demand|load a/i.test(s.status||""); };
   var done=function(s){ return (s.kpi&&s.kpi.length>2) || noOD(s); };
-  var s=await pollState("assign", done, 11000), fell=false;
+  var s=await pollState("assign", done, 14000), fell=false;
   if((!s.kpi||s.kpi.length<3) && noOD(s)){
     fell=true;
     await rpc("assign",{cmd:"set",id:"demandSel",value:"ones"});
@@ -308,8 +310,12 @@ async function runAssign(method, label){
   if(s.kpi)    bits.push("<span class='k'>KPIs:</span> "+esc(s.kpi.slice(0,260)));
   if(s.gapOut) bits.push("<span class='k'>Gap:</span> "+esc(s.gapOut.slice(0,90)));
   if(bits.length) html+="<div class='did"+(fell?" warn":"")+"'>"+bits.join("<br>")+"</div>";
-  else if(s.status) html+="<div class='did warn'>"+esc(s.status.slice(0,200))+"</div>";
-  return {html:html, chips:["Colour by V/C","Rank corridors","Top links","Find solutions"]};
+  else if(s.status){
+    var running=/assign|baseline|iter|\d+\/\d+/i.test(s.status);
+    html+=(running?" Still computing on the full OD matrix (3,030 origins) — the map is updating live; ask me for the <b>KPIs</b> in a moment.":"")
+        + "<div class='did warn'>"+esc(s.status.slice(0,200))+"</div>";
+  }
+  return {html:html, chips:["What are the current KPIs?","Colour by V/C","Rank corridors","Find solutions"]};
 }
 /* rank corridors / find solutions need a completed assignment first */
 async function rankOrSolve(btn, label){
