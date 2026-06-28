@@ -84,8 +84,24 @@ def tweak(src, appid):
             'else { var vs=VSTYLE[c]; if(vs&&sc<vs.minS) continue; '
             'col=vs?vs.col:THEME.baseLink; lw=vs?Math.min(Math.max(vs.b,vs.wm*sc),vs.mx):Math.max(.55,base*.7); '
             't.globalAlpha=vs?vs.a:(assignDone?.5:.8); }', 1)
+        # draw the extra layers transferred from the Viewer (connectors / walk /
+        # PnR / PT) with the Viewer's exact palette, then the centroids.
+        XLDRAW = ('if(window.__XLAYERS){var _XC={'
+          'walk:{c:"#45c07a",a:.7,wm:5,b:.3,mx:2.5,minS:.003,dash:[4,4]},'
+          'pt:{c:"#a78bfa",a:.95,wm:14,b:.65,mx:5.5,minS:0},'
+          'conn:{c:"#ff453a",a:.7,wm:5,b:.45,mx:3,minS:0},'
+          'pnr:{c:"#f472b6",a:.95,wm:10,b:.7,mx:4,minS:0}};'
+          'for(var _lk in _XC){var _ld=window.__XLAYERS[_lk],_lc=_XC[_lk];if(!_ld||sc<_lc.minS)continue;'
+          'var _lxy=_ld.xy,_lof=_ld.off,_lbb=_ld.bb;t.strokeStyle=_lc.c;t.globalAlpha=_lc.a;'
+          't.lineWidth=Math.min(Math.max(_lc.b,_lc.wm*sc),_lc.mx);t.setLineDash(_lc.dash||[]);'
+          't.lineCap="round";t.lineJoin="round";t.beginPath();'
+          'for(var _li=0;_li<_ld.n;_li++){var _lb=_li*4;'
+          'if(_lbb[_lb+2]<vx0||_lbb[_lb]>vx1||_lbb[_lb+3]<vy0||_lbb[_lb+1]>vy1)continue;'
+          'var _lj=_lof[_li],_le=_lof[_li+1];t.moveTo((_lxy[_lj*2]-cx)*sc+hw,hh-(_lxy[_lj*2+1]-cy)*sc);'
+          'for(_lj++;_lj<_le;_lj++)t.lineTo((_lxy[_lj*2]-cx)*sc+hw,hh-(_lxy[_lj*2+1]-cy)*sc);}'
+          't.stroke();}t.setLineDash([]);t.globalAlpha=1;}\n  ')
         # draw centroids (gold dots) exactly like the Viewer, before overlays/legend
-        CENTDRAW = ('{var _cr=Math.min(Math.max(2.2,26*sc),6); t.globalAlpha=1; t.setLineDash([]);'
+        CENTDRAW = (XLDRAW + '{var _cr=Math.min(Math.max(2.2,26*sc),6); t.globalAlpha=1; t.setLineDash([]);'
           'for(var _i=0;_i<N0;_i++){ var _x=(CENT[_i*2]-cx)*sc+hw, _y=hh-(CENT[_i*2+1]-cy)*sc;'
           ' if(_x<-8||_x>W+8||_y<-8||_y>H+8) continue;'
           ' t.beginPath(); t.arc(_x,_y,_cr,0,6.2832); t.fillStyle="#ffd60a"; t.fill();'

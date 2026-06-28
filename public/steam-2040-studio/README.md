@@ -56,8 +56,10 @@ The two tools share a single shell:
 - **Shared network visualization**: the Assignment draws its base network and
   centroids *identically* to the Network Viewer — same per-class colours, alpha
   and zoom-scaled widths (`min(max(b, wm·sc), mx)`) and the same gold centroid
-  dots — so the two read as one network. Assigned links render volume / V-C /
-  LOS on top.
+  dots. The Viewer-only layers it doesn't embed (connectors, walk, PnR and
+  public transport) are transferred from the Viewer at runtime and drawn with
+  the same palette, so the two read as one network. Assigned links render
+  volume / V-C / LOS on top.
 - **Zoom continuity**: switching between the Network Viewer and the Assignment
   keeps the same map centre and zoom (both use the same world coordinates), so
   the network stays put.

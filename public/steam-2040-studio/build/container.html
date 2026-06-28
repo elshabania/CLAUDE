@@ -400,8 +400,18 @@ function switchApp(key){
   var mc=document.querySelector("#modechip .ic"); if(mc) mc.textContent=MODEICON[key]||"🗺️";
   ensureFrame(key);
   if(prev && prev!==key) syncView(prev, key);   // carry the map zoom/centre across
+  if(key==="assign") syncXlayers();             // share the Viewer's extra layers
   waitReady(key);
   updateCtx();
+}
+/* transfer the Viewer-only layers (connectors / walk / PnR / PT) into the
+   Assignment once, so both draw the same full network. */
+var _xlDone=false;
+async function syncXlayers(){
+  if(_xlDone) return;
+  await waitReady("viewer"); await waitReady("assign");
+  var r=await rpc("viewer",{cmd:"getxl"});
+  if(r && r.ok && r.layers){ await rpc("assign",{cmd:"setxl",layers:r.layers}); _xlDone=true; }
 }
 /* copy the map centre+scale from the app we're leaving to the one we're entering,
    so the network stays at the same place/zoom (both use the same world coords). */

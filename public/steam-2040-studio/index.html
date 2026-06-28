@@ -2999,6 +2999,22 @@ __STEAM_ES__
     }
     return {ok:found};
   }
+  /* VIEWER: hand the extra layer geometry (connectors / walk / PnR / PT) to the
+     Assignment, which doesn't embed them, so it can draw the same full network. */
+  function getXlayers(){
+    try{
+      function pick(d){ return d && d.xy ? {xy:d.xy, off:d.off, bb:d.bb, n:d.n} : null; }
+      var out={};
+      if(typeof ACT!=="undefined" && ACT){ out.conn=pick(ACT.conn); out.walk=pick(ACT.walk); out.pnr=pick(ACT.pnr); }
+      if(typeof L!=="undefined" && L){ out.pt=pick(L.pt); }
+      return {ok:true, layers:out};
+    }catch(e){ return {ok:false, err:String(e)}; }
+  }
+  /* ASSIGNMENT: store transferred layers and repaint */
+  function setXlayers(layers){
+    try{ window.__XLAYERS=layers; if(typeof render==="function") render(); return {ok:true}; }
+    catch(e){ return {ok:false, err:String(e)}; }
+  }
   /* shared map view (both apps use cx,cy world-centre + sc px/m) for zoom sync */
   function getView(){ try{ return {ok:true, cx:cx, cy:cy, sc:sc}; }catch(e){ return {ok:false}; } }
   function setView(v){
@@ -3069,6 +3085,8 @@ __STEAM_ES__
         case "aggod":     out = aggregateOD(m.pairs||[]); break;
         case "getview":   out = getView(); break;
         case "setview":   out = setView(m); break;
+        case "getxl":     out = getXlayers(); break;
+        case "setxl":     out = setXlayers(m.layers); break;
         case "key":   out = pressKey(m.key); break;
         default:      out = {ok:false, err:"unknown cmd "+m.cmd};
       }
@@ -3982,6 +4000,7 @@ function render(){
   if(SCN.draft && SCN.draft.length){ if(SCN.draft.length>1) drawPts(SCN.draft,"#ff47e0",2.0,[6,4]);
     for(const p of SCN.draft){ const s=worldToScreen(p[0],p[1]); t.fillStyle="#ff47e0"; t.beginPath(); t.arc(s[0],s[1],3,0,6.283); t.fill(); } }
   t.globalAlpha=1;
+  if(window.__XLAYERS){var _XC={walk:{c:"#45c07a",a:.7,wm:5,b:.3,mx:2.5,minS:.003,dash:[4,4]},pt:{c:"#a78bfa",a:.95,wm:14,b:.65,mx:5.5,minS:0},conn:{c:"#ff453a",a:.7,wm:5,b:.45,mx:3,minS:0},pnr:{c:"#f472b6",a:.95,wm:10,b:.7,mx:4,minS:0}};for(var _lk in _XC){var _ld=window.__XLAYERS[_lk],_lc=_XC[_lk];if(!_ld||sc<_lc.minS)continue;var _lxy=_ld.xy,_lof=_ld.off,_lbb=_ld.bb;t.strokeStyle=_lc.c;t.globalAlpha=_lc.a;t.lineWidth=Math.min(Math.max(_lc.b,_lc.wm*sc),_lc.mx);t.setLineDash(_lc.dash||[]);t.lineCap="round";t.lineJoin="round";t.beginPath();for(var _li=0;_li<_ld.n;_li++){var _lb=_li*4;if(_lbb[_lb+2]<vx0||_lbb[_lb]>vx1||_lbb[_lb+3]<vy0||_lbb[_lb+1]>vy1)continue;var _lj=_lof[_li],_le=_lof[_li+1];t.moveTo((_lxy[_lj*2]-cx)*sc+hw,hh-(_lxy[_lj*2+1]-cy)*sc);for(_lj++;_lj<_le;_lj++)t.lineTo((_lxy[_lj*2]-cx)*sc+hw,hh-(_lxy[_lj*2+1]-cy)*sc);}t.stroke();}t.setLineDash([]);t.globalAlpha=1;}
   {var _cr=Math.min(Math.max(2.2,26*sc),6); t.globalAlpha=1; t.setLineDash([]);for(var _i=0;_i<N0;_i++){ var _x=(CENT[_i*2]-cx)*sc+hw, _y=hh-(CENT[_i*2+1]-cy)*sc; if(_x<-8||_x>W+8||_y<-8||_y>H+8) continue; t.beginPath(); t.arc(_x,_y,_cr,0,6.2832); t.fillStyle="#ffd60a"; t.fill(); t.lineWidth=Math.max(.8,_cr*.3); t.strokeStyle="#5c4a00"; t.stroke(); } t.globalAlpha=1;}
   drawSelScreen(t);
   drawLegend(t);
@@ -4589,6 +4608,22 @@ __STEAM_ES__
     }
     return {ok:found};
   }
+  /* VIEWER: hand the extra layer geometry (connectors / walk / PnR / PT) to the
+     Assignment, which doesn't embed them, so it can draw the same full network. */
+  function getXlayers(){
+    try{
+      function pick(d){ return d && d.xy ? {xy:d.xy, off:d.off, bb:d.bb, n:d.n} : null; }
+      var out={};
+      if(typeof ACT!=="undefined" && ACT){ out.conn=pick(ACT.conn); out.walk=pick(ACT.walk); out.pnr=pick(ACT.pnr); }
+      if(typeof L!=="undefined" && L){ out.pt=pick(L.pt); }
+      return {ok:true, layers:out};
+    }catch(e){ return {ok:false, err:String(e)}; }
+  }
+  /* ASSIGNMENT: store transferred layers and repaint */
+  function setXlayers(layers){
+    try{ window.__XLAYERS=layers; if(typeof render==="function") render(); return {ok:true}; }
+    catch(e){ return {ok:false, err:String(e)}; }
+  }
   /* shared map view (both apps use cx,cy world-centre + sc px/m) for zoom sync */
   function getView(){ try{ return {ok:true, cx:cx, cy:cy, sc:sc}; }catch(e){ return {ok:false}; } }
   function setView(v){
@@ -4659,6 +4694,8 @@ __STEAM_ES__
         case "aggod":     out = aggregateOD(m.pairs||[]); break;
         case "getview":   out = getView(); break;
         case "setview":   out = setView(m); break;
+        case "getxl":     out = getXlayers(); break;
+        case "setxl":     out = setXlayers(m.layers); break;
         case "key":   out = pressKey(m.key); break;
         default:      out = {ok:false, err:"unknown cmd "+m.cmd};
       }
@@ -4876,8 +4913,18 @@ function switchApp(key){
   var mc=document.querySelector("#modechip .ic"); if(mc) mc.textContent=MODEICON[key]||"🗺️";
   ensureFrame(key);
   if(prev && prev!==key) syncView(prev, key);   // carry the map zoom/centre across
+  if(key==="assign") syncXlayers();             // share the Viewer's extra layers
   waitReady(key);
   updateCtx();
+}
+/* transfer the Viewer-only layers (connectors / walk / PnR / PT) into the
+   Assignment once, so both draw the same full network. */
+var _xlDone=false;
+async function syncXlayers(){
+  if(_xlDone) return;
+  await waitReady("viewer"); await waitReady("assign");
+  var r=await rpc("viewer",{cmd:"getxl"});
+  if(r && r.ok && r.layers){ await rpc("assign",{cmd:"setxl",layers:r.layers}); _xlDone=true; }
 }
 /* copy the map centre+scale from the app we're leaving to the one we're entering,
    so the network stays at the same place/zoom (both use the same world coords). */

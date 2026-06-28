@@ -75,6 +75,22 @@
     }
     return {ok:found};
   }
+  /* VIEWER: hand the extra layer geometry (connectors / walk / PnR / PT) to the
+     Assignment, which doesn't embed them, so it can draw the same full network. */
+  function getXlayers(){
+    try{
+      function pick(d){ return d && d.xy ? {xy:d.xy, off:d.off, bb:d.bb, n:d.n} : null; }
+      var out={};
+      if(typeof ACT!=="undefined" && ACT){ out.conn=pick(ACT.conn); out.walk=pick(ACT.walk); out.pnr=pick(ACT.pnr); }
+      if(typeof L!=="undefined" && L){ out.pt=pick(L.pt); }
+      return {ok:true, layers:out};
+    }catch(e){ return {ok:false, err:String(e)}; }
+  }
+  /* ASSIGNMENT: store transferred layers and repaint */
+  function setXlayers(layers){
+    try{ window.__XLAYERS=layers; if(typeof render==="function") render(); return {ok:true}; }
+    catch(e){ return {ok:false, err:String(e)}; }
+  }
   /* shared map view (both apps use cx,cy world-centre + sc px/m) for zoom sync */
   function getView(){ try{ return {ok:true, cx:cx, cy:cy, sc:sc}; }catch(e){ return {ok:false}; } }
   function setView(v){
@@ -145,6 +161,8 @@
         case "aggod":     out = aggregateOD(m.pairs||[]); break;
         case "getview":   out = getView(); break;
         case "setview":   out = setView(m); break;
+        case "getxl":     out = getXlayers(); break;
+        case "setxl":     out = setXlayers(m.layers); break;
         case "key":   out = pressKey(m.key); break;
         default:      out = {ok:false, err:"unknown cmd "+m.cmd};
       }
