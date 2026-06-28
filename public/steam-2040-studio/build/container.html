@@ -306,14 +306,14 @@ async function runAssign(method, label){
   }
   var html=label||"Assignment complete.";
   if(fell) html+=" <i>No OD matrix is loaded, so I ran the built-in <b>all-ones</b> engine test — magnitudes are illustrative; load an O,D,trips CSV for decision-grade numbers.</i>";
-  var bits=[];
-  if(s.kpi)    bits.push("<span class='k'>KPIs:</span> "+esc(s.kpi.slice(0,260)));
-  if(s.gapOut) bits.push("<span class='k'>Gap:</span> "+esc(s.gapOut.slice(0,90)));
-  if(bits.length) html+="<div class='did"+(fell?" warn":"")+"'>"+bits.join("<br>")+"</div>";
-  else if(s.status){
-    var running=/assign|baseline|iter|\d+\/\d+/i.test(s.status);
-    html+=(running?" Still computing on the full OD matrix (3,030 origins) — the map is updating live; ask me for the <b>KPIs</b> in a moment.":"")
-        + "<div class='did warn'>"+esc(s.status.slice(0,200))+"</div>";
+  var statusDone=/origins\s*·.*links/i.test(s.status||"");   // final summary line
+  if(s.kpi && statusDone){
+    var bits=["<span class='k'>KPIs:</span> "+esc(s.kpi.slice(0,260))];
+    if(s.gapOut) bits.push("<span class='k'>Gap:</span> "+esc(s.gapOut.slice(0,90)));
+    html+="<div class='did"+(fell?" warn":"")+"'>"+bits.join("<br>")+"</div>";
+  } else {
+    html+=" Still computing — the map is updating live; ask me for the <b>KPIs</b> in a moment.";
+    if(s.status) html+="<div class='did warn'>"+esc(s.status.slice(0,200))+"</div>";
   }
   return {html:html, chips:["What are the current KPIs?","Colour by V/C","Rank corridors","Find solutions"]};
 }
@@ -333,6 +333,41 @@ async function rankOrSolve(btn, label){
   if(s.reclist) html+="<div class='did'>"+esc(s.reclist.slice(0,420))+"</div>";
   else if(s.status) html+="<div class='did warn'>"+esc(s.status.slice(0,180))+"</div>";
   return {html:html, chips:["Colour by V/C","Find solutions","Top links","Colour by LOS"]};
+}
+/* HANDOFF: take the Viewer's zone aggregation, re-aggregate the Assignment's
+   OD onto those merged zones, and re-run — "assign on the aggregated zones". */
+async function applyAggregationHandoff(){
+  await waitReady("viewer");
+  var agg=await rpc("viewer",{cmd:"getagg"});
+  if(!agg||!agg.ok){
+    return {html:"I couldn't read a zone aggregation yet. Open <b>Zones</b>, choose a method (e.g. Distance change or Districts) so the model merges zones, then ask me again.",
+            chips:["Open the zones tool","Colour by district"]};
+  }
+  if(!agg.merged){
+    return {html:"Right now no zones are merged — the current setting keeps all "+ (agg.total||0).toLocaleString() +" zones, so the assignment would be unchanged. Increase aggregation in <b>Zones</b> first (lower the confidence, raise the tolerance, or pick a coarser method).",
+            chips:["Open the zones tool"]};
+  }
+  switchApp("assign"); await waitReady("assign");
+  await pollState("assign", function(s){ return s.odStats && /matrix|trips|pairs/i.test(s.odStats); }, 7000);
+  var res=await rpc("assign",{cmd:"aggod",pairs:agg.pairs});
+  if(!res||!res.ok){
+    return {html:"The OD matrix isn't loaded yet, so I can't aggregate it ("+esc((res&&res.err)||"no OD")+"). Run an assignment once so the matrix loads, then try again.",
+            chips:["Run an assignment"]};
+  }
+  highlightRail("assign");
+  var run=await runAssign(null,
+    "Re-ran the assignment on your <b>aggregated zones</b> — "+agg.zones.toLocaleString()+" zones ("+agg.merged.toLocaleString()+" merged). "+
+    "After aggregation: "+res.pairs.toLocaleString()+" OD pairs, "+res.trips.toLocaleString()+" inter-zonal trips (intrazonal trips dropped).");
+  return run;
+}
+/* reset the Assignment back to the full (un-aggregated) zone system */
+async function resetZonesHandoff(){
+  switchApp("assign"); await waitReady("assign");
+  await pollState("assign", function(s){ return s.odStats; }, 7000);
+  var res=await rpc("assign",{cmd:"aggod",pairs:[]});
+  if(!res||!res.ok) return {html:"Couldn't reset — run an assignment first so the OD loads.", chips:["Run an assignment"]};
+  var run=await runAssign(null,"Restored the <b>full</b> zone system ("+res.origins.toLocaleString()+" origins) and re-ran.");
+  return run;
 }
 
 /* ---------- app switch + mode chip ---------- */
@@ -467,6 +502,13 @@ var KB=[
 /* ---- action intents: each maps language → app + bridge ops ---- */
 function A(o){ return o; }
 var ACTIONS=[
+ /* cross-app handoff: aggregate zones in the Viewer, assign on them */
+ A({app:null, keys:["apply aggregation to assignment","assign on aggregated zones","assign on the aggregated zones","use aggregated zones","aggregated zones in assignment","run on aggregated zones","run on the aggregated zones","send zones to assignment","push zones to assignment","assign aggregated zones","use the aggregated zones"],
+    run:applyAggregationHandoff}),
+ A({app:null, keys:["full zone system","reset zones","restore zones","un-aggregate","full zones","original zones","reset zone system"],
+    run:resetZonesHandoff}),
+ A({app:"viewer", keys:["open the zones tool","open zones","zones tool","show aggregation","aggregation panel","open aggregation"],
+    say:"Opened the <b>Zones</b> aggregation tool.", run:function(){ selectTool("zones"); return Promise.resolve(true); }}),
  /* navigation */
  A({app:null, keys:["network viewer","viewer","the map","zone tool","aggregation app","first app","left tab"],
     imp:true, say:"Switched to the <b>Network Viewer</b>.", run:function(){ switchApp("viewer"); return Promise.resolve(true); }}),
@@ -625,10 +667,11 @@ function helpReply(){
    "<ul>"+
    "<li><span class='k'>Drive the Assignment app</span> — run free-flow / BPR / Frank-Wolfe / MSA, colour by volume·V/C·LOS·Δ, rank corridors, find solutions, run scenarios, analysis &amp; export.</li>"+
    "<li><span class='k'>Drive the Network Viewer</span> — zoom to Metro / Al Ain, set aggregation methods M1–M5, colour zones, OD desire lines, lasso a study area, OD Δ stats.</li>"+
+   "<li><span class='k'>Connect the two</span> — aggregate zones in the Viewer, then say “assign on the aggregated zones” and I'll re-aggregate the OD onto your merged zones and re-run.</li>"+
    "<li><span class='k'>Read live results</span> — ask “what are the current KPIs?” and I'll report VHT, VMT, speed, over-capacity links.</li>"+
    "<li><span class='k'>Explain the modelling</span> — BPR, equilibrium, V/C, LOS, gravity model, TAZ aggregation, screenlines, and more.</li>"+
    "</ul>Just tell me what you want in plain English.",
-   chips:["Run a Frank-Wolfe assignment","Rank corridors","Zoom to the Metro area","Explain BPR","What are the current KPIs?"]});
+   chips:["Run a Frank-Wolfe assignment","Assign on the aggregated zones","Rank corridors","Explain BPR","What are the current KPIs?"]});
 }
 function overviewReply(){
   return Promise.resolve({html:

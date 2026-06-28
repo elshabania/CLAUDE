@@ -65,14 +65,23 @@ visibility. The build also brightens the faint base-network colour and converts
 literal `\uXXXX` escapes (a quirk of the originals) to real glyphs. The whole
 thing is one `index.html` with no build step at runtime.
 
-### Integration depth
+### Aggregate → assign handoff
 
-The rail makes the two tools feel like one app over one map, and the Copilot
-moves between them automatically. What is **not yet** wired is a single shared
-zone model — i.e. aggregating zones in the Viewer does not yet re-derive the
-Assignment on the merged zones. That requires merging the two engines onto one
-shared network/zone structure (and an OD decompressor the base apps don't ship)
-and is the natural next phase.
+The two tools are connected end-to-end. Aggregate the 3,692-zone system in the
+Viewer (any method), then tell the Copilot **"assign on the aggregated zones"**:
+
+1. The Copilot reads the Viewer's current aggregation (`ACT.rid`) as an
+   `origZone → representativeZone` map.
+2. It re-aggregates the Assignment's embedded OD matrix onto those merged zones
+   — summing trips to the representative centroids and dropping trips that are
+   now intrazonal — and rebuilds the demand in place (`buildODfromArrays`).
+3. It re-runs the assignment, so volumes/V-C/KPIs reflect the coarser zone
+   system. "Reset to full zones" restores the original 3,692-zone demand.
+
+Both apps key their OD on the same real zone ids (`CIDS`), so the handoff is
+robust without merging the engines. The embedded OD itself is decompressed with
+the browser-native `DecompressionStream` (the base apps shipped no gzip
+decoder), so the Assignment runs on real demand — 2.2M OD pairs / 12.6M trips.
 
 ## Run
 

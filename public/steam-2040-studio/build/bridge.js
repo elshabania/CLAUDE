@@ -73,6 +73,42 @@
     return {ok:found};
   }
 
+  /* ---- zone-aggregation handoff (Viewer ➜ Assignment) ---- */
+  /* VIEWER: read the current aggregation as origZoneId ➜ representativeZoneId pairs.
+     ACT.rid[i] is zone i's cluster root (may be a synthetic merged node), so we
+     pick the lowest-index ORIGINAL zone in each cluster as its representative. */
+  function getAggregation(){
+    if(typeof ACT==="undefined" || !ACT || !ACT.rid || typeof CIDS==="undefined")
+      return {ok:false, err:"no aggregation yet"};
+    var rid=ACT.rid, N=rid.length, repIdx={};
+    for(var i=0;i<N;i++){ var r=rid[i]; if(repIdx[r]===undefined || i<repIdx[r]) repIdx[r]=i; }
+    var pairs=[], merged=0, roots={};
+    for(var k=0;k<N;k++){ var rr=rid[k]; roots[rr]=1;
+      if(repIdx[rr]!==k){ pairs.push([CIDS[k]>>>0, CIDS[repIdx[rr]]>>>0]); merged++; } }
+    return {ok:true, pairs:pairs, merged:merged, zones:Object.keys(roots).length, total:N};
+  }
+  /* ASSIGNMENT: re-aggregate the embedded OD by a zoneId➜representative map,
+     drop now-intrazonal trips, rebuild ODMAT, ready for a re-run. */
+  function aggregateOD(pairs){
+    if(typeof buildODfromArrays!=="function" || !window.__ODRAW) return {ok:false, err:"OD not loaded yet"};
+    var O=window.__ODRAW.O, D=window.__ODRAW.D, V=window.__ODRAW.V, cnt=window.__ODRAW.cnt;
+    var rep={}; for(var k=0;k<pairs.length;k++) rep[pairs[k][0]]=pairs[k][1];
+    var BIG=1000000, agg=new Map();
+    for(var i=0;i<cnt;i++){
+      var o=O[i]>>>0, d=D[i]>>>0, ro=rep[o], rd=rep[d];
+      if(ro!==undefined) o=ro; if(rd!==undefined) d=rd;
+      if(o===d) continue;                                   // intrazonal after merge
+      var v=(typeof h2f==="function")?h2f(V[i]):V[i]; if(!(v>0)) continue;
+      var key=o*BIG+d; agg.set(key,(agg.get(key)||0)+v);
+    }
+    var m=agg.size, O2=new Float64Array(m), D2=new Float64Array(m), V2=new Float64Array(m), j=0;
+    agg.forEach(function(v,key){ O2[j]=Math.floor(key/BIG); D2[j]=key%BIG; V2[j]=v; j++; });
+    var r=buildODfromArrays(O2,D2,V2,m,false);
+    try{ var ds=document.getElementById("demandSel"); if(ds) ds.value="od"; }catch(e){}
+    try{ var os=document.getElementById("odStats"); if(os) os.textContent="Aggregated zones · "+r.cells.toLocaleString()+" OD pairs · "+Math.round(r.grand).toLocaleString()+" trips · "+r.origins.toLocaleString()+" origins"; }catch(e){}
+    return {ok:true, pairs:r.cells, trips:Math.round(r.grand), origins:r.origins};
+  }
+
   window.addEventListener("message", function(ev){
     var m = ev.data;
     if(!m || m.steam !== 1 || m.resp) return;
@@ -89,6 +125,8 @@
         case "open":  out = openDetails(m.text); break;
         case "bodyclass": out = bodyClass(m.name, m.on); break;
         case "section":   out = section(m.text); break;
+        case "getagg":    out = getAggregation(); break;
+        case "aggod":     out = aggregateOD(m.pairs||[]); break;
         case "key":   out = pressKey(m.key); break;
         default:      out = {ok:false, err:"unknown cmd "+m.cmd};
       }

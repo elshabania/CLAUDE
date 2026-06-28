@@ -55,6 +55,11 @@ def tweak(src, appid):
         src = src.replace(
             'const bytes=pako.ungzip(raw); const buf=bytes.slice().buffer;',
             'const _ds=new DecompressionStream("gzip"); const _ab=await new Response(new Blob([raw]).stream().pipeThrough(_ds)).arrayBuffer(); const bytes=new Uint8Array(_ab); const buf=bytes.slice().buffer;', 1)
+        # keep the decoded O,D,V arrays so the zone-aggregation handoff can
+        # re-aggregate the matrix in place (Studio feature)
+        src = src.replace(
+            'const r=buildODfromArrays(O,D,V,cnt,true);',
+            'try{ window.__ODRAW={O:O,D:D,V:V,cnt:cnt}; }catch(_){} const r=buildODfromArrays(O,D,V,cnt,true);', 1)
     css = OVERRIDE.get(appid)
     if css:
         style = "<style>/* STEAM Studio overrides */" + css + "</style>\n</head>"
