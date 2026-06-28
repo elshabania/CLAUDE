@@ -63,15 +63,35 @@ def tweak(src, appid):
         src = src.replace(
             'const r=buildODfromArrays(O,D,V,cnt,true);',
             'try{ window.__ODRAW={O:O,D:D,V:V,cnt:cnt}; }catch(_){} const r=buildODfromArrays(O,D,V,cnt,true);', 1)
-        # UNIFIED VISUALISATION: colour the base (un-assigned) network by road
-        # class using the Network Viewer's exact palette, so the two tools show
-        # the same classified network. Assigned links still get volume/V-C/LOS.
+        # UNIFIED VISUALISATION: draw the base (un-assigned) network and the
+        # centroids EXACTLY like the Network Viewer — same per-class colour,
+        # alpha, zoom-scaled width (min(max(b,wm*sc),mx)) and the gold centroid
+        # dots. Assigned links still render volume/V-C/LOS on top.
+        VSTYLE = ('const VSTYLE={'
+          'local:{col:"#3f5170",a:.55,wm:7,b:.28,mx:3.5,minS:.004},'
+          'junc:{col:"#6b5a35",a:.6,wm:6,b:.3,mx:3,minS:.006},'
+          'rural:{col:"#4d7d5f",a:.75,wm:9,b:.35,mx:4,minS:0},'
+          'coll:{col:"#5e7ca3",a:.75,wm:10,b:.38,mx:4,minS:.002},'
+          'art:{col:"#8fc1e3",a:.85,wm:16,b:.5,mx:5,minS:0},'
+          'ramp:{col:"#d98e4a",a:.85,wm:12,b:.42,mx:4.5,minS:0},'
+          'fwy:{col:"#ffb454",a:.95,wm:26,b:.75,mx:7,minS:0}};\n')
         assert 'function render(){' in src
-        src = src.replace('function render(){',
-            'const CLASSCOL={fwy:"#ffb454",ramp:"#d98e4a",art:"#8fc1e3",coll:"#5e7ca3",rural:"#4d7d5f",local:"#3f5170",junc:"#6b5a35"};\nfunction render(){', 1)
-        assert 'col=THEME.baseLink; lw=Math.max(.55,base*.7);' in src
-        src = src.replace('col=THEME.baseLink; lw=Math.max(.55,base*.7);',
-                          'col=CLASSCOL[c]||THEME.baseLink; lw=Math.max(.7,base*1.05);', 1)
+        src = src.replace('function render(){', VSTYLE + 'function render(){', 1)
+        # base link branch -> viewer per-class style + minS skip
+        assert 'else { col=THEME.baseLink; lw=Math.max(.55,base*.7); t.globalAlpha=assignDone?.5:.8; }' in src
+        src = src.replace(
+            'else { col=THEME.baseLink; lw=Math.max(.55,base*.7); t.globalAlpha=assignDone?.5:.8; }',
+            'else { var vs=VSTYLE[c]; if(vs&&sc<vs.minS) continue; '
+            'col=vs?vs.col:THEME.baseLink; lw=vs?Math.min(Math.max(vs.b,vs.wm*sc),vs.mx):Math.max(.55,base*.7); '
+            't.globalAlpha=vs?vs.a:(assignDone?.5:.8); }', 1)
+        # draw centroids (gold dots) exactly like the Viewer, before overlays/legend
+        CENTDRAW = ('{var _cr=Math.min(Math.max(2.2,26*sc),6); t.globalAlpha=1; t.setLineDash([]);'
+          'for(var _i=0;_i<N0;_i++){ var _x=(CENT[_i*2]-cx)*sc+hw, _y=hh-(CENT[_i*2+1]-cy)*sc;'
+          ' if(_x<-8||_x>W+8||_y<-8||_y>H+8) continue;'
+          ' t.beginPath(); t.arc(_x,_y,_cr,0,6.2832); t.fillStyle="#ffd60a"; t.fill();'
+          ' t.lineWidth=Math.max(.8,_cr*.3); t.strokeStyle="#5c4a00"; t.stroke(); } t.globalAlpha=1;}\n  ')
+        assert src.count('drawSelScreen(t);') >= 1
+        src = src.replace('drawSelScreen(t);', CENTDRAW + 'drawSelScreen(t);', 1)
     css = OVERRIDE.get(appid)
     if css:
         style = "<style>/* STEAM Studio overrides */" + css + "</style>\n</head>"

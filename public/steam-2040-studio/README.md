@@ -53,10 +53,14 @@ The two tools share a single shell:
   clutter. Clicking a tab switches to the owning tool and shows **only that one
   function's panel** — every other section is hidden, so there are no stacked
   headers. Clicking the active tab again returns to the clean map.
+- **Shared network visualization**: the Assignment draws its base network and
+  centroids *identically* to the Network Viewer — same per-class colours, alpha
+  and zoom-scaled widths (`min(max(b, wm·sc), mx)`) and the same gold centroid
+  dots — so the two read as one network. Assigned links render volume / V-C /
+  LOS on top.
 - **Zoom continuity**: switching between the Network Viewer and the Assignment
   keeps the same map centre and zoom (both use the same world coordinates), so
-  the network stays put; each tool keeps its own visuals (coloured links / zone
-  shading).
+  the network stays put.
 - A mode chip in the top bar shows which tool's map you're looking at.
 
 ## How it's built
