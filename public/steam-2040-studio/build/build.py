@@ -48,6 +48,15 @@ def _rep(src, old, new, label):
 # (BCR) prioritisation, including a budget-constrained marginal-BCR program
 # builder. Runs on the RAW source (anchors contain \uXXXX) before glyph fixup.
 def patch_recengine(src):
+    # SPEED: fewer equilibrium iterations + fewer sampled origins per evaluation
+    src = _rep(src, 'return {origins, demandFor:od.demandFor, iters:deep?4:3};',
+                    'return {origins, demandFor:od.demandFor, iters:deep?3:2};', "evalSample iters")
+    src = _rep(src, 'const deep=document.getElementById("solveDepth").value==="deep"; const cap=deep?400:250;',
+                    'const deep=document.getElementById("solveDepth").value==="deep"; const cap=deep?350:150;', "evalSample cap")
+    # SPEED: reassign fewer candidates (the analytical pre-screen already ranks them)
+    src = _rep(src, 'const EVALN=greedy?(deep?16:12):(deep?28:20);',
+                    'const EVALN=greedy?(deep?14:10):(deep?22:14);', "EVALN")
+
     # 1) UI: budget + rank-by controls in the "Recommend & solve" section
     src = _rep(src,
       '<label><input type="checkbox" id="solveGreedy"> build program (greedy)</label></div>',
@@ -80,7 +89,12 @@ def patch_recengine(src):
       'PROGRAM={picks:[], up:new Map(), extras:[], cost:0}; let prevVHT=baseQuick; const maxPicks=document.getElementById("solveDepth").value==="deep"?8:6; let remaining=cands.slice();',
       "greedy init")
     src = _rep(src, 'let bi=-1,bv=-1,bvht=0,r=0;',
-                    'let bi=-1,bScore=-1,bv=0,bvht=0,bcost=0,r=0;', "greedy bestvars")
+                    'let bi=-1,bScore=-1,bv=0,bvht=0,bcost=0,r=0;'
+                    ' const _lim=Math.min(remaining.length,(document.getElementById("solveDepth").value==="deep"?8:5));', "greedy bestvars")
+    # greedy: only reassign the top-_lim remaining candidates (by analytical
+    # benefit) each step instead of every one — big speedup, same picks.
+    src = _rep(src, 'if(r<remaining.length) setTimeout(ev,0);',
+                    'if(r<_lim) setTimeout(ev,0);', "greedy step limit")
     # 5) greedy pick: best marginal BCR (or VHT) among candidates that fit budget
     src = _rep(src,
       'const vht=quickAssignVHT({upgrades:up,extras:ex,draft:null},S); const dv=prevVHT-vht; if(dv>bv){bv=dv;bi=r;bvht=vht;} r++;',

@@ -3812,9 +3812,9 @@ function setStatus(t){ const s=document.getElementById("status"); if(s)s.textCon
 let SOLUTIONS=null, PROGRAM=null;
 function evalSample(){ GROWTH=Math.max(0,(+document.getElementById("growthIn").value||1))*((+document.getElementById("periodSel").value)||1);
   const od=originsAndDemand(); if(!od) return null; let origins=od.origins;
-  const deep=document.getElementById("solveDepth").value==="deep"; const cap=deep?400:250;
+  const deep=document.getElementById("solveDepth").value==="deep"; const cap=deep?350:150;
   if(origins.length>cap){ const step=Math.ceil(origins.length/cap); origins=origins.filter((_,i)=>i%step===0); }
-  return {origins, demandFor:od.demandFor, iters:deep?4:3}; }
+  return {origins, demandFor:od.demandFor, iters:deep?3:2}; }
 function quickAssignVHT(scn,S){ buildGraph(scn); const me=GRAPH.me; const st=makeState(); let vol=new Float64Array(me); resetEw(); recompTimes(vol);
   for(let it=0;it<S.iters;it++){ const aux=new Float64Array(me); for(let k=0;k<S.origins.length;k++) dijkstraLoad(st,S.origins[k],S.demandFor(S.origins[k]),aux);
     if(it===0) vol.set(aux); else { const a=1/(it+1); for(let g=0;g<me;g++) vol[g]+=a*(aux[g]-vol[g]); } recompTimes(vol); }
@@ -3846,7 +3846,7 @@ function searchSolutions(){
   const S=evalSample(); if(!S){ toast("No demand to evaluate — build or load a matrix","warn"); return; }
   const greedy=document.getElementById("solveGreedy").checked; let cands=candidatesFromRECS(); const BUDGET=+((document.getElementById("budgetSel")||{}).value)||0; const RANKBY=((document.getElementById("rankBySel")||{}).value)||"bcr";
   // analytical pre-screen: rank the wide candidate set cheaply, then reassign only the most promising
-  const deep=document.getElementById("solveDepth").value==="deep"; const EVALN=greedy?(deep?16:12):(deep?28:20);
+  const deep=document.getElementById("solveDepth").value==="deep"; const EVALN=greedy?(deep?14:10):(deep?22:14);
   cands.forEach(c=>c._est=analyticalBenefit(c));
   cands.sort((a,b)=>b._est-a._est);
   if(cands.length>EVALN) cands=cands.slice(0,EVALN);
@@ -3864,11 +3864,11 @@ function searchSolutions(){
     } else {
       PROGRAM={picks:[], up:new Map(), extras:[], cost:0}; let prevVHT=baseQuick; const maxPicks=document.getElementById("solveDepth").value==="deep"?8:6; let remaining=cands.slice();
       (function round(){ if(!remaining.length||PROGRAM.picks.length>=maxPicks){ finishGreedy(baseQuick); return; }
-        let bi=-1,bScore=-1,bv=0,bvht=0,bcost=0,r=0;
+        let bi=-1,bScore=-1,bv=0,bvht=0,bcost=0,r=0; const _lim=Math.min(remaining.length,(document.getElementById("solveDepth").value==="deep"?8:5));
         (function ev(){ const c=remaining[r]; const up=mergeUp(PROGRAM.up,c); const ex=PROGRAM.extras.concat(c.extras);
           const vht=quickAssignVHT({upgrades:up,extras:ex,draft:null},S); const dv=prevVHT-vht; const mc=candCost(c); const fits=(BUDGET<=0)||(PROGRAM.cost+mc<=BUDGET); const sc2=(RANKBY==="bcr")?(dv/Math.max(0.01,mc)):dv; if(fits&&dv>0&&sc2>bScore){bScore=sc2;bv=dv;bi=r;bvht=vht;bcost=mc;} r++;
           document.getElementById("progbar").style.width=(100*(PROGRAM.picks.length+r/remaining.length)/maxPicks).toFixed(0)+"%"; setStatus("Program step "+(PROGRAM.picks.length+1)+" · testing "+r+"/"+remaining.length);
-          if(r<remaining.length) setTimeout(ev,0);
+          if(r<_lim) setTimeout(ev,0);
           else { if(bi<0||bv<=0){ finishGreedy(baseQuick); return; } const c=remaining[bi]; PROGRAM.up=mergeUp(PROGRAM.up,c); PROGRAM.extras=PROGRAM.extras.concat(c.extras);
             PROGRAM.cost+=bcost; PROGRAM.picks.push(Object.assign({},c,{stepSaved:bv,stepCost:bcost})); prevVHT=bvht; remaining.splice(bi,1); setTimeout(round,0); } })();
       })();
