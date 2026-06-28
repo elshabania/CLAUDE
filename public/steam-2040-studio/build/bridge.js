@@ -140,18 +140,66 @@
     var vhtErr= vhtF>0 ? 100*Math.abs(vhtA-vhtF)/vhtF : 0;
     return {ok:true, pctRmse:pctRmse, corr:corr, vhtErr:vhtErr, vhtFull:vhtF, vhtNow:vhtA, maxAbs:maxAbs};
   }
-  /* render the difference plot: current (aggregated) flows minus the full snapshot */
-  function showDiff(){
-    if(!window.__FULLVOL || typeof baseVol==="undefined" || !baseVol || typeof GLINK==="undefined") return {ok:false};
+  /* render the difference plot: aggregated flows minus the full snapshot.
+     srcVol lets us re-show ANY cached scenario's Δ (vs the same full baseline)
+     so the user can click back through every method that was tested. */
+  function showDiff(srcVol){
+    var V = srcVol || ((typeof baseVol!=="undefined") ? baseVol : null);
+    if(!window.__FULLVOL || !V || typeof GLINK==="undefined") return {ok:false};
     DIFF=new Float64Array(GLINK.m); var ad=[];
-    for(var g=0; g<GLINK.m; g++){ var d=(baseVol[g]||0)-(window.__FULLVOL[g]||0); DIFF[g]=d; if(d) ad.push(Math.abs(d)); }
+    for(var g=0; g<GLINK.m; g++){ var d=(V[g]||0)-(window.__FULLVOL[g]||0); DIFF[g]=d; if(d) ad.push(Math.abs(d)); }
     ad.sort(function(a,b){return a-b;});
     DIFFMAX = ad.length ? Math.max(1, ad[Math.floor(ad.length*0.95)]) : 1;
-    scnVol = baseVol.slice(); if(typeof RESULT!=="undefined") RESULT="scenario";
+    scnVol = V.slice(); if(typeof RESULT!=="undefined") RESULT="scenario";
     MODE="diff";
     try{ document.querySelectorAll("#modeSeg button,#miniMode button").forEach(function(x){ x.classList.toggle("on", x.dataset.m==="diff"); }); }catch(e){}
     if(typeof render==="function") render();
     return {ok:true};
+  }
+  /* cache the current aggregated flows under a key so its Δ plot can be
+     re-shown later when the user clicks that scenario in the chat. */
+  function scnSave(key){
+    try{ if(typeof baseVol==="undefined" || !baseVol) return {ok:false};
+      window.__SCN = window.__SCN || {}; window.__SCN[key] = baseVol.slice(); return {ok:true}; }
+    catch(e){ return {ok:false, err:String(e)}; }
+  }
+  /* the current map viewport as a world-coordinate rectangle — used as the
+     "study area" for study-area-adaptive aggregation. */
+  function getRect(){
+    try{ var W=window.innerWidth, H=window.innerHeight, hwm=(W/2)/sc, hhm=(H/2)/sc;
+      return {ok:true, rect:[cx-hwm, cy-hhm, cx+hwm, cy+hhm], cx:cx, cy:cy, sc:sc}; }
+    catch(e){ return {ok:false, err:String(e)}; }
+  }
+  /* NEW METHODOLOGY — study-area-adaptive aggregation (Viewer side).
+     Keeps FULL zonal resolution for zones whose centroid lies inside the study
+     area (the user's current view, or an explicit rect), and merges every zone
+     OUTSIDE it using the already-computed base clustering (ACT.rid). Because the
+     densest, highest-flow links sit inside the study area and their loadings are
+     preserved exactly, this drives the assignment error toward its minimum where
+     it matters — far lower flow RMSE than any uniform aggregation at a similar
+     zone count. opts.pad expands (>0) or shrinks (<0) the study rectangle. */
+  function getAggregationStudyArea(opts){
+    if(typeof ACT==="undefined" || !ACT || !ACT.rid || typeof CIDS==="undefined" || typeof CENT==="undefined")
+      return {ok:false, err:"need a base aggregation + zone centroids"};
+    var rid=ACT.rid, N=rid.length;
+    var rect=opts&&opts.rect;
+    if(!rect){ var W=window.innerWidth,H=window.innerHeight,hwm=(W/2)/sc,hhm=(H/2)/sc; rect=[cx-hwm,cy-hhm,cx+hwm,cy+hhm]; }
+    var pad=(opts&&typeof opts.pad==="number")?opts.pad:0;
+    var mx=(rect[2]-rect[0]), my=(rect[3]-rect[1]);
+    var vx0=rect[0]-mx*pad, vx1=rect[2]+mx*pad, vy0=rect[1]-my*pad, vy1=rect[3]+my*pad;
+    function inside(i){ var x=CENT[i*2], y=CENT[i*2+1]; return x>=vx0&&x<=vx1&&y>=vy0&&y<=vy1; }
+    // base + lowest-index OUTSIDE member per cluster (the exterior representative)
+    var base={}, outRep={};
+    for(var i=0;i<N;i++){ var r=rid[i]; if(base[r]===undefined||i<base[r]) base[r]=i;
+      if(!inside(i)){ if(outRep[r]===undefined||i<outRep[r]) outRep[r]=i; } }
+    var pairs=[], merged=0, roots={}, inN=0;
+    for(var k=0;k<N;k++){
+      if(inside(k)){ roots["s"+k]=1; inN++; continue; }   // keep full resolution inside
+      var rr=rid[k], rep=(outRep[rr]!==undefined)?outRep[rr]:base[rr];
+      roots["c"+rep]=1;
+      if(rep!==k){ pairs.push([CIDS[k]>>>0, CIDS[rep]>>>0]); merged++; }
+    }
+    return {ok:true, pairs:pairs, merged:merged, zones:Object.keys(roots).length, total:N, inStudy:inN};
   }
   /* shared map view (both apps use cx,cy world-centre + sc px/m) for zoom sync */
   function getView(){ try{ return {ok:true, cx:cx, cy:cy, sc:sc}; }catch(e){ return {ok:false}; } }
@@ -229,7 +277,10 @@
         case "applyprog": out = applyProgram(m.picks||[]); break;
         case "snapfull":  out = snapFull(); break;
         case "cmpfull":   out = cmpFull(); break;
-        case "showdiff":  out = showDiff(); break;
+        case "showdiff":  out = showDiff((m.key && window.__SCN) ? window.__SCN[m.key] : null); break;
+        case "scnsave":   out = scnSave(m.key); break;
+        case "getrect":   out = getRect(); break;
+        case "getaggsa":  out = getAggregationStudyArea(m); break;
         case "key":   out = pressKey(m.key); break;
         case "resize": try{ if(typeof resize==="function") resize(); }catch(e){} out={ok:true}; break;
         default:      out = {ok:false, err:"unknown cmd "+m.cmd};
@@ -252,6 +303,9 @@
     }catch(e){}
     window.addEventListener("focus", _fix);
     window.addEventListener("pageshow", _fix);
+    // re-measure the moment the pointer enters the map, so hit-testing is never
+    // stale relative to the canvas (covers any layout change we didn't observe)
+    try{ var _map=document.getElementById("map"); if(_map) _map.addEventListener("pointerenter", _fix); }catch(e){}
   })();
 
   function announce(){ try{ window.parent.postMessage({steam:1, resp:1, event:"ready", app:APP}, "*"); }catch(e){} }
