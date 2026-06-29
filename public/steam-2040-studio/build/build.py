@@ -10,6 +10,7 @@ ASSIGN = UP / "5e3e8081-STEAM_2040_Assignment_1.html"
 ENDTOK = "__STEAM_ES__"
 
 bridge = (SCRATCH / "bridge.js").read_text(encoding="utf-8")
+evo = (SCRATCH / "evo.js").read_text(encoding="utf-8")
 container = (SCRATCH / "container.html").read_text(encoding="utf-8")
 
 ENDRE = re.compile(r"</script\s*>", re.IGNORECASE)
@@ -278,6 +279,12 @@ def tweak(src, appid):
                           'W=document.documentElement.clientWidth||window.innerWidth;', 1)
         src = src.replace('H=window.innerHeight||document.documentElement.clientHeight;',
                           'H=document.documentElement.clientHeight||window.innerHeight;', 1)
+    # NETWORK EVOLUTION (viewer): stash the uploaded shapefile buffers so the
+    # evolution module can rebuild a second horizon year and diff it.
+    if 'const year=+(document.getElementById("loadYear").value||2040);' in src:
+        src = src.replace('const year=+(document.getElementById("loadYear").value||2040);',
+                          'window.__NETBUF={shp:shpB,dbf:dbfB,prj:prjT};'
+                          ' const year=+(document.getElementById("loadYear").value||2040);', 1)
     css = OVERRIDE.get(appid)
     if css:
         style = "<style>/* STEAM Studio overrides */" + css + "</style>\n</head>"
@@ -298,6 +305,10 @@ def prep(path, appid):
     n = len(ENDRE.findall(src))
     # inject the bridge just before the LAST </body>
     inj = "<script>\n" + bridge.replace("__APPID__", appid) + "\n</script>\n"
+    # the Network Evolution module is viewer-only (reuses the shapefile parsers
+    # and the live map transform); inject it after the bridge
+    if appid == "viewer":
+        inj += "<script>\n" + evo + "\n</script>\n"
     matches = list(re.finditer(r"</body\s*>", src, re.IGNORECASE))
     if not matches:
         raise SystemExit(f"no </body> in {path.name}")

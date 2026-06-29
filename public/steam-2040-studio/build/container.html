@@ -139,6 +139,8 @@
   .bub .scnlink:hover{background:#13243c;color:#cfe7ff;text-decoration:none}
   .bub .scnapply{flex:none;cursor:pointer;font-size:10px;color:#cfe7ff;background:#16324f;border:1px solid var(--line);border-radius:999px;padding:2px 8px}
   .bub .scnapply:hover{background:#1d4368}
+  .bub .evolink{flex:1;display:block;color:#cfe1ff;text-decoration:none;cursor:pointer;padding:2px 4px;border-radius:5px;line-height:1.45}
+  .bub .evolink:hover{background:#13243c;color:#fff}
   .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
   .sg{padding:5px 10px;border-radius:999px;border:1px solid var(--line);background:#0e1a2c;
     color:var(--cyan);font-size:11px;cursor:pointer;white-space:nowrap}
@@ -313,7 +315,7 @@ function rpc(key,cmd){
     var done=false;
     pending[id]=function(out){ done=true; res(out||{}); };
     try{ a.win.postMessage(cmd,"*"); }catch(e){ res({ok:false,err:String(e)}); }
-    setTimeout(function(){ if(!done && pending[id]){ delete pending[id]; res({ok:false,err:"timeout"}); } },5000);
+    setTimeout(function(){ if(!done && pending[id]){ delete pending[id]; res({ok:false,err:"timeout"}); } }, cmd.timeoutMs||5000);
   });
 }
 /* run a list of ops on an app, ensuring it is loaded+ready first */
@@ -651,6 +653,70 @@ async function resetZonesHandoff(){
   return run;
 }
 
+/* ===== NETWORK EVOLUTION (2025 → 2040): open either horizon network, diff the
+   upgrades, group them into corridors and highlight them on one map. Runs in
+   the Viewer (which owns the year-aware shapefile importer). ===== */
+async function evoEnsureLoaded(){
+  switchApp("viewer"); await waitReady("viewer");
+  var st=await rpc("viewer",{cmd:"evoloaded"});
+  if(st && st.loaded) return true;
+  // reveal the in-map Load panel so the user can pick their shapefile locally
+  await rpc("viewer",{cmd:"bodyclass",name:"studio-hide-layers",on:false});
+  await rpc("viewer",{cmd:"click",id:"loadToggle"});
+  return false;
+}
+async function networkEvolution(){
+  openDock();
+  if(!(await evoEnsureLoaded())){
+    return {html:"To compare the <b>2025</b> and <b>2040</b> networks I need your shapefile. I've opened the <b>Load network</b> panel on the map — pick your <code>.zip</code> (or .shp + .dbf + .prj) and press <b>Build</b>. It must carry the year fields <code>LINK_2025 / LTYPE_2025 / LANE_2025</code> and <code>LINK_2040 / …</code>. Then say <b>“compare 2025 and 2040”</b> again.",
+            chips:["Compare 2025 and 2040","Open 2040 network"]};
+  }
+  var prog=addMsg("cop","✦ <b>Network evolution</b> — comparing the 2025 and 2040 networks and finding the upgrades (large file — a few moments)…");
+  var res=await rpc("viewer",{cmd:"evoanalyze",yearA:2025,yearB:2040,timeoutMs:300000});
+  if(!res||!res.ok){ prog.remove(); return {html:"I couldn't analyse the networks: "+esc((res&&res.err)||"unknown error")+".", chips:["Compare 2025 and 2040"]}; }
+  var s=res.stats;
+  var list=await rpc("viewer",{cmd:"evolist",limit:25});
+  prog.remove(); highlightRail("viewer");
+  var rows="";
+  if(list&&list.ok){ rows=list.top.map(function(c){
+    var col=c.kind==="new"?"#39d353":(c.kind==="widen"?"#38bdf8":"#fbbf24");
+    return '<div class="scnrow"><a href="#" class="evolink" data-evo="'+c.id+'" data-name="'+esc(c.kindLbl+" · "+c.cls)+'">'
+      +'<span style="color:'+col+'">●</span> '+(c.id+1)+". "+esc(c.kindLbl)+" · "+esc(c.cls)
+      +" — "+c.n+" links · "+c.lenKm.toFixed(1)+" km · "+c.laneKm.toFixed(1)+" lane-km</a></div>"; }).join(""); }
+  var html="<b>2025 → 2040 upgrades.</b> The 2040 plan adds <b>"+s.nUp.toLocaleString()+" upgrade links</b> over the 2025 network — "
+    +"<span style='color:#39d353'>"+s.nNew.toLocaleString()+" new roads</span>, "
+    +"<span style='color:#38bdf8'>"+s.nWiden.toLocaleString()+" widenings</span>, "
+    +"<span style='color:#fbbf24'>"+s.nType.toLocaleString()+" type upgrades</span>. "
+    +"Grouped into <b>"+s.nCorr.toLocaleString()+" corridors</b> (contiguous links of the same kind + road class), now highlighted on the map "
+    +"(<span style='color:#39d353'>green</span>=new, <span style='color:#38bdf8'>cyan</span>=widen, <span style='color:#fbbf24'>amber</span>=type-up)."
+    +"<div class='did' style='font-size:11px;color:#9fb0c8;margin-top:4px'>Biggest schemes by lane-km — click one to zoom & highlight it:</div>"
+    +"<div class='did' style='max-height:200px;overflow:auto'>"+rows+"</div>";
+  return {html:html, chips:["Open 2025 network","Open 2040 network","Assess corridor benefits","Clear highlights"]};
+}
+async function openYearAction(y){
+  if(!(await evoEnsureLoaded()))
+    return {html:"Load your network shapefile first — I've opened the <b>Load network</b> panel on the map. Pick the file and press <b>Build</b>, then ask me to open a year.", chips:["Compare 2025 and 2040"]};
+  var r=await rpc("viewer",{cmd:"evoyear",year:y,timeoutMs:300000});
+  highlightRail("viewer");
+  if(r&&r.ok) return {html:"Opened the <b>"+y+"</b> network — "+r.roads.toLocaleString()+" road links.", chips:y===2025?["Open 2040 network","Compare 2025 and 2040"]:["Open 2025 network","Compare 2025 and 2040"]};
+  return {html:"Couldn't open the "+y+" network: "+esc((r&&r.err)||"error")+".", chips:["Compare 2025 and 2040"]};
+}
+async function inspectCorridor(id,name){
+  switchApp("viewer"); await waitReady("viewer");
+  await rpc("viewer",{cmd:"evoshow",id:id,zoom:true});
+  highlightRail("viewer");
+  addMsg("cop","Highlighted corridor <b>"+(id+1)+"</b> ("+esc(name||"")+") and zoomed to it — the white-haloed links are the scheme.");
+}
+async function evoClearAction(){
+  switchApp("viewer"); await waitReady("viewer");
+  await rpc("viewer",{cmd:"evoclear"});
+  return {html:"Cleared the upgrade highlights.", chips:["Compare 2025 and 2040"]};
+}
+function assessCorridors(){
+  return Promise.resolve({html:"<b>Corridor benefit appraisal</b> is the next step. The plan (do-something vs do-minimum, as you chose): I take the <b>2025 base</b>, add <b>one corridor at a time</b>, assign the 2040 demand, and measure the <b>VHT/VMT saved</b> versus 2025-only — then rank every scheme by benefit and benefit-cost ratio and highlight the priorities. The upgrade/corridor data is already computed and the link sets are exposed to the Assignment engine; I'm wiring the per-corridor assignment runs next so the numbers are real (not a proxy). For now you can open either year and inspect the corridors.",
+    chips:["Compare 2025 and 2040","Open 2025 network","Open 2040 network"]});
+}
+
 /* ---------- app switch + mode chip ---------- */
 var MODEICON={viewer:"🗺️",assign:"🚦"}, MODENAME={viewer:"Network",assign:"Assignment"};
 function switchApp(key){
@@ -838,6 +904,8 @@ log.addEventListener("click",function(e){
   if(!e.target.closest) return;
   var ap=e.target.closest(".scnapply");
   if(ap){ e.preventDefault(); applyScenario(ap.getAttribute("data-apply")); return; }
+  var ev=e.target.closest(".evolink");
+  if(ev){ e.preventDefault(); inspectCorridor(+ev.getAttribute("data-evo"), ev.getAttribute("data-name")); return; }
   var a=e.target.closest(".scnlink");
   if(a){ e.preventDefault(); inspectScenario(a.getAttribute("data-scn"), a.getAttribute("data-name")); }
 });
@@ -891,6 +959,8 @@ var KB=[
   a:"The Network Viewer's <b>zone aggregation</b> tools merge fine TAZs (Traffic Analysis Zones) into a coarser system while protecting model accuracy. Methods M1–M5 use land use, districts, low-OD pairing, hybrids and size/density; <span class='k'>Distance change</span> and <span class='k'>Intrazonal demand</span> bound the error introduced. Guardrails stop merges across regions, sectors, freeways, etc. Ask me to <span class='k'>find the best aggregation</span> and I'll test every method against a full-zone assignment and pick the one with the lowest flow error."},
  {k:["study area","study-area","adaptive aggregation","ax method","focus area","area of interest","local detail"],
   a:"<b>AX · study-area adaptive</b> is a method I add to the search: it keeps <b>full zonal resolution inside your current map view</b> (the study area) and merges only the zones outside it. Because the densest, highest-flow links sit in the study area and their centroid loadings are preserved exactly, it drives the assignment error to its minimum where you care — usually the lowest flow RMSE of any method at a comparable zone count. Zoom to the area you're studying, then ask me to <span class='k'>find the best aggregation</span>."},
+ {k:["network evolution","2025","2040","upgrades","corridor","corridors","horizon","scheme","schemes","new roads","widening","appraisal","do-something","do-minimum"],
+  a:"<b>Network evolution</b> compares two horizon-year networks from one uploaded shapefile (fields <code>LINK_/LTYPE_/LANE_</code> per year). I find every <b>upgrade</b> 2025→2040 — <span style='color:#39d353'>new roads</span>, <span style='color:#38bdf8'>widenings</span> and <span style='color:#fbbf24'>type upgrades</span> — group them into <b>corridors</b> (contiguous links of the same kind &amp; road class), and highlight them on one map. Next I appraise each corridor <b>do-something vs do-minimum</b>: add it to the 2025 base, assign 2040 demand, and measure the VHT/VMT saved, then rank the schemes by benefit and BCR. Say <span class='k'>compare 2025 and 2040</span> to start (load your shapefile first)."},
  {k:["taz","traffic analysis zone","centroid","centroids"],
   a:"A <b>TAZ</b> (Traffic Analysis Zone) is the spatial unit of travel demand; its <b>centroid</b> is the point where all of a zone's trips load onto the network through connectors. This model has 3,692 centroids."},
  {k:["od","o-d","origin-destination","matrix","demand matrix","trip table"],
@@ -923,6 +993,17 @@ var ACTIONS=[
     run:findBestAggregation}),
  A({app:null, keys:["full zone system","reset zones","restore zones","un-aggregate","full zones","original zones","reset zone system"],
     run:resetZonesHandoff}),
+ /* network evolution 2025 → 2040 */
+ A({app:null, keys:["compare 2025 and 2040","network evolution","compare networks","2025 vs 2040","2025 versus 2040","show upgrades","find upgrades","check upgrades","upgrades 2025 2040","network upgrades","show corridors","group corridors","upgrade corridors","compare 2025 2040","evolution"],
+    run:networkEvolution}),
+ A({app:null, keys:["open 2025 network","open the 2025 network","2025 network","show 2025","load 2025","view 2025","open 2025"],
+    run:function(){ return openYearAction(2025); }}),
+ A({app:null, keys:["open 2040 network","open the 2040 network","2040 network","show 2040","load 2040","view 2040","open 2040"],
+    run:function(){ return openYearAction(2040); }}),
+ A({app:null, keys:["assess corridor benefits","appraise corridors","benefit of each project","assess the benefits","project priorities","prioritise projects","prioritize projects","rank projects","scheme benefits","appraise upgrades","assess upgrades"],
+    run:assessCorridors}),
+ A({app:null, keys:["clear highlights","clear corridors","hide upgrades","clear upgrades","remove highlights"],
+    run:evoClearAction}),
  A({app:"viewer", keys:["open the zones tool","open zones","zones tool","show aggregation","aggregation panel","open aggregation"],
     say:"Opened the <b>Zones</b> aggregation tool.", run:function(){ selectTool("zones"); return Promise.resolve(true); }}),
  /* navigation */

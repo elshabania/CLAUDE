@@ -139,6 +139,8 @@
   .bub .scnlink:hover{background:#13243c;color:#cfe7ff;text-decoration:none}
   .bub .scnapply{flex:none;cursor:pointer;font-size:10px;color:#cfe7ff;background:#16324f;border:1px solid var(--line);border-radius:999px;padding:2px 8px}
   .bub .scnapply:hover{background:#1d4368}
+  .bub .evolink{flex:1;display:block;color:#cfe1ff;text-decoration:none;cursor:pointer;padding:2px 4px;border-radius:5px;line-height:1.45}
+  .bub .evolink:hover{background:#13243c;color:#fff}
   .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
   .sg{padding:5px 10px;border-radius:999px;border:1px solid var(--line);background:#0e1a2c;
     color:var(--cyan);font-size:11px;cursor:pointer;white-space:nowrap}
@@ -2943,7 +2945,7 @@ async function handleNetworkFiles(fileList){
       dbfB=new Uint8Array(await fdbf.arrayBuffer());
       if(fprj) prjT=await fprj.text();
     }
-    const year=+(document.getElementById("loadYear").value||2040);
+    window.__NETBUF={shp:shpB,dbf:dbfB,prj:prjT}; const year=+(document.getElementById("loadYear").value||2040);
     const cmid=+(document.getElementById("loadCmid").value||6000);
     st.textContent="Processing network… (this can take a moment)";
     await new Promise(r=>setTimeout(r,30));
@@ -3302,6 +3304,12 @@ __STEAM_ES__
         case "getaggsa":  out = getAggregationStudyArea(m); break;
         case "setarea":   out = setAreaMask(m.rect, m.buffer); break;
         case "cleararea": out = clearAreaMask(); break;
+        case "evoanalyze": out = window.STEAMEvo ? STEAMEvo.analyze(m.yearA, m.yearB) : {ok:false, err:"evolution module not loaded"}; break;
+        case "evoyear":    out = window.STEAMEvo ? STEAMEvo.openYear(m.year) : {ok:false, err:"evolution module not loaded"}; break;
+        case "evolist":    out = window.STEAMEvo ? STEAMEvo.summary(m.limit) : {ok:false}; break;
+        case "evoshow":    out = window.STEAMEvo ? STEAMEvo.show(m.id, m.zoom) : {ok:false}; break;
+        case "evoclear":   out = window.STEAMEvo ? STEAMEvo.clear() : {ok:false}; break;
+        case "evoloaded":  out = {ok:true, loaded:!!window.__NETBUF, analyzed:!!(window.STEAMEvo&&STEAMEvo.data)}; break;
         case "key":   out = pressKey(m.key); break;
         case "resize": try{ if(typeof resize==="function") resize(); }catch(e){} out={ok:true}; break;
         default:      out = {ok:false, err:"unknown cmd "+m.cmd};
@@ -3332,6 +3340,201 @@ __STEAM_ES__
   function announce(){ try{ window.parent.postMessage({steam:1, resp:1, event:"ready", app:APP}, "*"); }catch(e){} }
   window.addEventListener("load", announce);
   if(document.readyState==="complete" || document.readyState==="interactive"){ setTimeout(announce, 50); }
+})();
+
+__STEAM_ES__
+<script>
+/* STEAM 2040 Studio — Network Evolution (2025 → 2040) analysis, injected into
+   the Viewer so it can reuse the shapefile parsers (dbfHeader/fieldBytes/
+   parseShp/toNum) and the live map transform (cx,cy,sc,W,H,DPR). It compares
+   two horizon-year networks from ONE uploaded shapefile, finds the upgrades
+   (new roads + widenings + type upgrades), groups them into corridors, and
+   draws them as a coloured overlay over the map. Benefit appraisal lives in
+   the Assignment app and consumes STEAMEvo.corridorLinks(). */
+(function(){
+  "use strict";
+  var KINDCOL={ new:"#39d353", widen:"#38bdf8", typeup:"#fbbf24" };
+  var KINDLBL={ new:"new road", widen:"widening", typeup:"type upgrade" };
+  var CLSN=["fwy/expr","arterial","collector","local/rural"];
+  function clsOf(t){ if(t<10)return 0; if(t<20)return 1; if(t<30)return 2; return 3; }
+  var E={ data:null, sel:-1, overlay:null, octx:null, raf:0, _lastKey:"" };
+
+  // the shapefile parsers are private to NetBuild — use its public handles
+  function num(buf,base,fld){ var s=NetBuild.fieldBytes(buf,base,fld); return NetBuild.toNum(s); }
+
+  /* parse one shapefile (already in window.__NETBUF) into per-link year attrs +
+     geometry, then diff yearA→yearB. Road links only (LTYPE in [0,45)). */
+  E.analyze=function(yearA,yearB,onProg){
+    yearA=yearA||2025; yearB=yearB||2040;
+    if(!window.__NETBUF || !window.__NETBUF.dbf || !window.__NETBUF.shp)
+      return {ok:false, err:"Load the network shapefile first (Load panel), then run me again."};
+    try{
+      var dbf=window.__NETBUF.dbf, shpBuf=window.__NETBUF.shp;
+      var hd=NetBuild.dbfHeader(dbf), byName={}; for(var fi=0;fi<hd.fields.length;fi++) byName[hd.fields[fi].name]=hd.fields[fi];
+      function F(n){ return byName[n]; }
+      var need=["A","B","LINK_"+yearA,"LTYPE_"+yearA,"LANE_"+yearA,"LINK_"+yearB,"LTYPE_"+yearB,"LANE_"+yearB];
+      for(var ni=0;ni<need.length;ni++) if(!F(need[ni])) return {ok:false, err:"Shapefile is missing field "+need[ni]+" — needs LINK_/LTYPE_/LANE_ for "+yearA+" and "+yearB+"."};
+      var shapes=NetBuild.parseShp(shpBuf);
+      var N=Math.min(shapes.length, hd.nRec);
+      var ups=[];                      // upgrade links {A,B,kind,cls,pts,lenM,laneAdd}
+      var nNew=0,nWiden=0,nType=0, in25=0,in40=0;
+      var aF=F("A"),bF=F("B"), lA=F("LINK_"+yearA),tA=F("LTYPE_"+yearA),nA=F("LANE_"+yearA),
+          lB=F("LINK_"+yearB),tB=F("LTYPE_"+yearB),nB=F("LANE_"+yearB);
+      for(var i=0;i<N;i++){
+        var base=hd.hdrLen+i*hd.recLen;
+        var li_B = num(dbf,base,lB)===1, t_B=num(dbf,base,tB);
+        if(t_B===null) t_B=99;
+        var isRoadB = li_B && t_B>=0 && t_B<45;
+        var li_A = num(dbf,base,lA)===1, t_A=num(dbf,base,tA); if(t_A===null) t_A=99;
+        var isRoadA = li_A && t_A>=0 && t_A<45;
+        if(isRoadA) in25++;
+        if(!isRoadB) continue; in40++;
+        var n_A=num(dbf,base,nA)||0, n_B=num(dbf,base,nB)||0;
+        var kind=null;
+        if(!isRoadA) kind="new";
+        else if(n_B>n_A) kind="widen";
+        else if(t_B<t_A) kind="typeup";
+        else continue;
+        if(kind==="new")nNew++; else if(kind==="widen")nWiden++; else nType++;
+        var a=num(dbf,base,aF)|0, b=num(dbf,base,bF)|0;
+        var pts=shapes[i]||[];
+        // length in world units (metres) from the polyline
+        var lenM=0; for(var p=2;p<pts.length;p+=2){ var ddx=pts[p]-pts[p-2], ddy=pts[p+1]-pts[p-1]; lenM+=Math.sqrt(ddx*ddx+ddy*ddy); }
+        var laneAdd = kind==="widen" ? (n_B-n_A) : (kind==="new" ? n_B : 1);
+        ups.push({A:a,B:b,kind:kind,cls:clsOf(t_B),pts:pts,lenM:lenM,laneAdd:laneAdd});
+        if(onProg && (i&8191)===0) onProg(i,N);
+      }
+      // group into corridors: union upgrade links that share a node AND have the
+      // same kind AND same class (so distinct schemes don't merge at junctions)
+      var parent=new Int32Array(ups.length); for(var u=0;u<ups.length;u++) parent[u]=u;
+      function find(x){ var r=x; while(parent[r]!==r)r=parent[r]; while(parent[x]!==r){ var nx=parent[x]; parent[x]=r; x=nx; } return r; }
+      function uni(p,q){ var rp=find(p),rq=find(q); if(rp!==rq)parent[rp]=rq; }
+      var nodeMap=new Map();
+      for(var k=0;k<ups.length;k++){ var L=ups[k];
+        for(var e=0;e<2;e++){ var nd=e?L.B:L.A; var arr=nodeMap.get(nd); if(!arr){arr=[];nodeMap.set(nd,arr);} arr.push(k); } }
+      for(var k2=0;k2<ups.length;k2++){ var L2=ups[k2];
+        for(var e2=0;e2<2;e2++){ var nd2=e2?L2.B:L2.A; var arr2=nodeMap.get(nd2);
+          for(var z=0;z<arr2.length;z++){ var j=arr2[z];
+            if(j>k2 && ups[j].kind===L2.kind && ups[j].cls===L2.cls) uni(k2,j); } } }
+      var groups=new Map();
+      for(var g=0;g<ups.length;g++){ var root=find(g); var arr3=groups.get(root); if(!arr3){arr3=[];groups.set(root,arr3);} arr3.push(g); }
+      var corridors=[];
+      groups.forEach(function(idxs){
+        var first=ups[idxs[0]], lenM=0, laneKm=0, nodes={};
+        var mnx=1e18,mny=1e18,mxx=-1e18,mxy=-1e18;
+        for(var c=0;c<idxs.length;c++){ var L=ups[idxs[c]]; lenM+=L.lenM; laneKm+=(L.lenM/1000)*Math.max(1,L.laneAdd);
+          nodes[L.A]=1; nodes[L.B]=1;
+          for(var pp=0;pp<L.pts.length;pp+=2){ var x=L.pts[pp],y=L.pts[pp+1];
+            if(x<mnx)mnx=x; if(x>mxx)mxx=x; if(y<mny)mny=y; if(y>mxy)mxy=y; } }
+        corridors.push({ links:idxs, kind:first.kind, cls:first.cls, n:idxs.length,
+          lenKm:lenM/1000, laneKm:laneKm, bb:[mnx,mny,mxx,mxy],
+          cx:(mnx+mxx)/2, cy:(mny+mxy)/2 });
+      });
+      // rank corridors by lane-km (scheme size) so the biggest schemes lead
+      corridors.sort(function(a,b){ return b.laneKm-a.laneKm; });
+      E.data={ ups:ups, corridors:corridors, yearA:yearA, yearB:yearB,
+        stats:{ in25:in25, in40:in40, nUp:ups.length, nNew:nNew, nWiden:nWiden, nType:nType, nCorr:corridors.length } };
+      E.sel=-1; E._ensureOverlay(); E._start();
+      return {ok:true, stats:E.data.stats};
+    }catch(err){ return {ok:false, err:String(err&&err.message||err)}; }
+  };
+
+  /* rebuild the displayed base network for a horizon year (reuses the importer) */
+  E.openYear=function(year){
+    if(!window.__NETBUF) return {ok:false, err:"Load the shapefile first."};
+    try{
+      var cmid=+((document.getElementById("loadCmid")||{}).value)||6000;
+      var res=NetBuild.buildNetwork(window.__NETBUF.shp, window.__NETBUF.dbf, window.__NETBUF.prj||"", {year:year, cmid:cmid});
+      applyNetwork(res); reinit();
+      var sub=document.querySelector("h1 small"); if(sub) sub.textContent=year+" network · "+res.stats.roads.toLocaleString()+" road links";
+      if(typeof render==="function") render();
+      return {ok:true, roads:res.stats.roads, year:year};
+    }catch(err){ return {ok:false, err:String(err&&err.message||err)}; }
+  };
+
+  E.summary=function(limit){
+    if(!E.data) return {ok:false};
+    limit=limit||20;
+    var cs=E.data.corridors.slice(0,limit).map(function(c,i){
+      return { id:i, kind:c.kind, kindLbl:KINDLBL[c.kind], cls:CLSN[c.cls], n:c.n,
+        lenKm:+c.lenKm.toFixed(2), laneKm:+c.laneKm.toFixed(2) }; });
+    return { ok:true, stats:E.data.stats, top:cs, total:E.data.corridors.length };
+  };
+
+  /* link endpoints (A,B node pairs) for a corridor — consumed by the Assignment
+     app's benefit appraisal to add the scheme onto the 2025 base. */
+  E.corridorLinks=function(id){
+    if(!E.data||!E.data.corridors[id]) return null;
+    var c=E.data.corridors[id], out=[];
+    for(var i=0;i<c.links.length;i++){ var L=E.data.ups[c.links[i]]; out.push([L.A,L.B,L.kind,L.laneAdd]); }
+    return out;
+  };
+  /* ALL upgrade link node-pairs grouped — used to synthesise the 2025 base
+     (remove/downgrade every upgrade) in the assignment graph. */
+  E.allUpgradeLinks=function(){
+    if(!E.data) return null;
+    return E.data.ups.map(function(L){ return [L.A,L.B,L.kind,L.laneAdd]; });
+  };
+
+  E.show=function(id, zoom){
+    if(!E.data) return {ok:false};
+    E.sel=(id==null?-1:id|0);
+    if(zoom!==false && E.sel>=0 && E.data.corridors[E.sel]){
+      var c=E.data.corridors[E.sel], b=c.bb, pad=0.18;
+      var bw=Math.max(400,(b[2]-b[0])), bh=Math.max(400,(b[3]-b[1]));
+      try{ cx=c.cx; cy=c.cy; sc=Math.min(W/(bw*(1+pad)), H/(bh*(1+pad))); if(typeof clampScale==="function")clampScale(); if(typeof render==="function")render(); }catch(e){}
+    }
+    return {ok:true, sel:E.sel};
+  };
+  E.clear=function(){ E.sel=-1; E._stop(); if(E.overlay){ E.overlay.style.display="none"; } return {ok:true}; };
+
+  /* ---------- overlay canvas (decoupled from the app's own render) ---------- */
+  E._ensureOverlay=function(){
+    if(E.overlay) { E.overlay.style.display="block"; return; }
+    var cv=document.createElement("canvas");
+    cv.id="evoOverlay";
+    cv.style.cssText="position:fixed;left:0;top:0;pointer-events:none;z-index:6";
+    document.body.appendChild(cv);
+    E.overlay=cv; E.octx=cv.getContext("2d");
+  };
+  E._start=function(){ if(E.raf) return; var loop=function(){ E.raf=requestAnimationFrame(loop); E._draw(); }; E.raf=requestAnimationFrame(loop); };
+  E._stop=function(){ if(E.raf){ cancelAnimationFrame(E.raf); E.raf=0; } };
+  E._draw=function(){
+    if(!E.data||!E.overlay) return;
+    var dpr=(typeof DPR!=="undefined"?DPR:1), w=W, h=H;
+    if(E.overlay.width!==Math.round(w*dpr)||E.overlay.height!==Math.round(h*dpr)){
+      E.overlay.width=Math.round(w*dpr); E.overlay.height=Math.round(h*dpr);
+      E.overlay.style.width=w+"px"; E.overlay.style.height=h+"px";
+    }
+    var key=cx+"|"+cy+"|"+sc+"|"+w+"|"+h+"|"+E.sel;
+    if(key===E._lastKey) return;            // nothing moved — skip redraw
+    E._lastKey=key;
+    var t=E.octx; t.setTransform(dpr,0,0,dpr,0,0); t.clearRect(0,0,w,h);
+    var hw=w/2,hh=h/2, ups=E.data.ups, cors=E.data.corridors;
+    var vx0=cx-hw/sc, vx1=cx+hw/sc, vy0=cy-hh/sc, vy1=cy+hh/sc;
+    t.lineCap="round"; t.lineJoin="round";
+    function drawLink(L,wd){ var pts=L.pts; if(pts.length<4) return;
+      t.beginPath(); t.moveTo((pts[0]-cx)*sc+hw, hh-(pts[1]-cy)*sc);
+      for(var p=2;p<pts.length;p+=2) t.lineTo((pts[p]-cx)*sc+hw, hh-(pts[p+1]-cy)*sc);
+      t.lineWidth=wd; t.stroke(); }
+    // 1) all upgrades, faint, coloured by kind (cull by corridor bbox)
+    t.globalAlpha=0.55;
+    for(var ci=0;ci<cors.length;ci++){ var c=cors[ci], b=c.bb;
+      if(b[2]<vx0||b[0]>vx1||b[3]<vy0||b[1]>vy1) continue;
+      if(ci===E.sel) continue;
+      t.strokeStyle=KINDCOL[c.kind]||"#9aa";
+      for(var k=0;k<c.links.length;k++) drawLink(ups[c.links[k]], Math.min(Math.max(1.1, sc*8), 4));
+    }
+    // 2) selected corridor, bright with a halo
+    if(E.sel>=0 && cors[E.sel]){ var sc2=cors[E.sel];
+      t.globalAlpha=1;
+      t.strokeStyle="#ffffff"; for(var s1=0;s1<sc2.links.length;s1++) drawLink(ups[sc2.links[s1]], Math.min(Math.max(3.4,sc*14),9));
+      t.strokeStyle=KINDCOL[sc2.kind]||"#fff"; for(var s2=0;s2<sc2.links.length;s2++) drawLink(ups[sc2.links[s2]], Math.min(Math.max(1.8,sc*9),5));
+    }
+    t.globalAlpha=1;
+  };
+
+  window.STEAMEvo=E;
 })();
 
 __STEAM_ES__
@@ -5093,6 +5296,12 @@ __STEAM_ES__
         case "getaggsa":  out = getAggregationStudyArea(m); break;
         case "setarea":   out = setAreaMask(m.rect, m.buffer); break;
         case "cleararea": out = clearAreaMask(); break;
+        case "evoanalyze": out = window.STEAMEvo ? STEAMEvo.analyze(m.yearA, m.yearB) : {ok:false, err:"evolution module not loaded"}; break;
+        case "evoyear":    out = window.STEAMEvo ? STEAMEvo.openYear(m.year) : {ok:false, err:"evolution module not loaded"}; break;
+        case "evolist":    out = window.STEAMEvo ? STEAMEvo.summary(m.limit) : {ok:false}; break;
+        case "evoshow":    out = window.STEAMEvo ? STEAMEvo.show(m.id, m.zoom) : {ok:false}; break;
+        case "evoclear":   out = window.STEAMEvo ? STEAMEvo.clear() : {ok:false}; break;
+        case "evoloaded":  out = {ok:true, loaded:!!window.__NETBUF, analyzed:!!(window.STEAMEvo&&STEAMEvo.data)}; break;
         case "key":   out = pressKey(m.key); break;
         case "resize": try{ if(typeof resize==="function") resize(); }catch(e){} out={ok:true}; break;
         default:      out = {ok:false, err:"unknown cmd "+m.cmd};
@@ -5200,7 +5409,7 @@ function rpc(key,cmd){
     var done=false;
     pending[id]=function(out){ done=true; res(out||{}); };
     try{ a.win.postMessage(cmd,"*"); }catch(e){ res({ok:false,err:String(e)}); }
-    setTimeout(function(){ if(!done && pending[id]){ delete pending[id]; res({ok:false,err:"timeout"}); } },5000);
+    setTimeout(function(){ if(!done && pending[id]){ delete pending[id]; res({ok:false,err:"timeout"}); } }, cmd.timeoutMs||5000);
   });
 }
 /* run a list of ops on an app, ensuring it is loaded+ready first */
@@ -5538,6 +5747,70 @@ async function resetZonesHandoff(){
   return run;
 }
 
+/* ===== NETWORK EVOLUTION (2025 → 2040): open either horizon network, diff the
+   upgrades, group them into corridors and highlight them on one map. Runs in
+   the Viewer (which owns the year-aware shapefile importer). ===== */
+async function evoEnsureLoaded(){
+  switchApp("viewer"); await waitReady("viewer");
+  var st=await rpc("viewer",{cmd:"evoloaded"});
+  if(st && st.loaded) return true;
+  // reveal the in-map Load panel so the user can pick their shapefile locally
+  await rpc("viewer",{cmd:"bodyclass",name:"studio-hide-layers",on:false});
+  await rpc("viewer",{cmd:"click",id:"loadToggle"});
+  return false;
+}
+async function networkEvolution(){
+  openDock();
+  if(!(await evoEnsureLoaded())){
+    return {html:"To compare the <b>2025</b> and <b>2040</b> networks I need your shapefile. I've opened the <b>Load network</b> panel on the map — pick your <code>.zip</code> (or .shp + .dbf + .prj) and press <b>Build</b>. It must carry the year fields <code>LINK_2025 / LTYPE_2025 / LANE_2025</code> and <code>LINK_2040 / …</code>. Then say <b>“compare 2025 and 2040”</b> again.",
+            chips:["Compare 2025 and 2040","Open 2040 network"]};
+  }
+  var prog=addMsg("cop","✦ <b>Network evolution</b> — comparing the 2025 and 2040 networks and finding the upgrades (large file — a few moments)…");
+  var res=await rpc("viewer",{cmd:"evoanalyze",yearA:2025,yearB:2040,timeoutMs:300000});
+  if(!res||!res.ok){ prog.remove(); return {html:"I couldn't analyse the networks: "+esc((res&&res.err)||"unknown error")+".", chips:["Compare 2025 and 2040"]}; }
+  var s=res.stats;
+  var list=await rpc("viewer",{cmd:"evolist",limit:25});
+  prog.remove(); highlightRail("viewer");
+  var rows="";
+  if(list&&list.ok){ rows=list.top.map(function(c){
+    var col=c.kind==="new"?"#39d353":(c.kind==="widen"?"#38bdf8":"#fbbf24");
+    return '<div class="scnrow"><a href="#" class="evolink" data-evo="'+c.id+'" data-name="'+esc(c.kindLbl+" · "+c.cls)+'">'
+      +'<span style="color:'+col+'">●</span> '+(c.id+1)+". "+esc(c.kindLbl)+" · "+esc(c.cls)
+      +" — "+c.n+" links · "+c.lenKm.toFixed(1)+" km · "+c.laneKm.toFixed(1)+" lane-km</a></div>"; }).join(""); }
+  var html="<b>2025 → 2040 upgrades.</b> The 2040 plan adds <b>"+s.nUp.toLocaleString()+" upgrade links</b> over the 2025 network — "
+    +"<span style='color:#39d353'>"+s.nNew.toLocaleString()+" new roads</span>, "
+    +"<span style='color:#38bdf8'>"+s.nWiden.toLocaleString()+" widenings</span>, "
+    +"<span style='color:#fbbf24'>"+s.nType.toLocaleString()+" type upgrades</span>. "
+    +"Grouped into <b>"+s.nCorr.toLocaleString()+" corridors</b> (contiguous links of the same kind + road class), now highlighted on the map "
+    +"(<span style='color:#39d353'>green</span>=new, <span style='color:#38bdf8'>cyan</span>=widen, <span style='color:#fbbf24'>amber</span>=type-up)."
+    +"<div class='did' style='font-size:11px;color:#9fb0c8;margin-top:4px'>Biggest schemes by lane-km — click one to zoom & highlight it:</div>"
+    +"<div class='did' style='max-height:200px;overflow:auto'>"+rows+"</div>";
+  return {html:html, chips:["Open 2025 network","Open 2040 network","Assess corridor benefits","Clear highlights"]};
+}
+async function openYearAction(y){
+  if(!(await evoEnsureLoaded()))
+    return {html:"Load your network shapefile first — I've opened the <b>Load network</b> panel on the map. Pick the file and press <b>Build</b>, then ask me to open a year.", chips:["Compare 2025 and 2040"]};
+  var r=await rpc("viewer",{cmd:"evoyear",year:y,timeoutMs:300000});
+  highlightRail("viewer");
+  if(r&&r.ok) return {html:"Opened the <b>"+y+"</b> network — "+r.roads.toLocaleString()+" road links.", chips:y===2025?["Open 2040 network","Compare 2025 and 2040"]:["Open 2025 network","Compare 2025 and 2040"]};
+  return {html:"Couldn't open the "+y+" network: "+esc((r&&r.err)||"error")+".", chips:["Compare 2025 and 2040"]};
+}
+async function inspectCorridor(id,name){
+  switchApp("viewer"); await waitReady("viewer");
+  await rpc("viewer",{cmd:"evoshow",id:id,zoom:true});
+  highlightRail("viewer");
+  addMsg("cop","Highlighted corridor <b>"+(id+1)+"</b> ("+esc(name||"")+") and zoomed to it — the white-haloed links are the scheme.");
+}
+async function evoClearAction(){
+  switchApp("viewer"); await waitReady("viewer");
+  await rpc("viewer",{cmd:"evoclear"});
+  return {html:"Cleared the upgrade highlights.", chips:["Compare 2025 and 2040"]};
+}
+function assessCorridors(){
+  return Promise.resolve({html:"<b>Corridor benefit appraisal</b> is the next step. The plan (do-something vs do-minimum, as you chose): I take the <b>2025 base</b>, add <b>one corridor at a time</b>, assign the 2040 demand, and measure the <b>VHT/VMT saved</b> versus 2025-only — then rank every scheme by benefit and benefit-cost ratio and highlight the priorities. The upgrade/corridor data is already computed and the link sets are exposed to the Assignment engine; I'm wiring the per-corridor assignment runs next so the numbers are real (not a proxy). For now you can open either year and inspect the corridors.",
+    chips:["Compare 2025 and 2040","Open 2025 network","Open 2040 network"]});
+}
+
 /* ---------- app switch + mode chip ---------- */
 var MODEICON={viewer:"🗺️",assign:"🚦"}, MODENAME={viewer:"Network",assign:"Assignment"};
 function switchApp(key){
@@ -5725,6 +5998,8 @@ log.addEventListener("click",function(e){
   if(!e.target.closest) return;
   var ap=e.target.closest(".scnapply");
   if(ap){ e.preventDefault(); applyScenario(ap.getAttribute("data-apply")); return; }
+  var ev=e.target.closest(".evolink");
+  if(ev){ e.preventDefault(); inspectCorridor(+ev.getAttribute("data-evo"), ev.getAttribute("data-name")); return; }
   var a=e.target.closest(".scnlink");
   if(a){ e.preventDefault(); inspectScenario(a.getAttribute("data-scn"), a.getAttribute("data-name")); }
 });
@@ -5778,6 +6053,8 @@ var KB=[
   a:"The Network Viewer's <b>zone aggregation</b> tools merge fine TAZs (Traffic Analysis Zones) into a coarser system while protecting model accuracy. Methods M1–M5 use land use, districts, low-OD pairing, hybrids and size/density; <span class='k'>Distance change</span> and <span class='k'>Intrazonal demand</span> bound the error introduced. Guardrails stop merges across regions, sectors, freeways, etc. Ask me to <span class='k'>find the best aggregation</span> and I'll test every method against a full-zone assignment and pick the one with the lowest flow error."},
  {k:["study area","study-area","adaptive aggregation","ax method","focus area","area of interest","local detail"],
   a:"<b>AX · study-area adaptive</b> is a method I add to the search: it keeps <b>full zonal resolution inside your current map view</b> (the study area) and merges only the zones outside it. Because the densest, highest-flow links sit in the study area and their centroid loadings are preserved exactly, it drives the assignment error to its minimum where you care — usually the lowest flow RMSE of any method at a comparable zone count. Zoom to the area you're studying, then ask me to <span class='k'>find the best aggregation</span>."},
+ {k:["network evolution","2025","2040","upgrades","corridor","corridors","horizon","scheme","schemes","new roads","widening","appraisal","do-something","do-minimum"],
+  a:"<b>Network evolution</b> compares two horizon-year networks from one uploaded shapefile (fields <code>LINK_/LTYPE_/LANE_</code> per year). I find every <b>upgrade</b> 2025→2040 — <span style='color:#39d353'>new roads</span>, <span style='color:#38bdf8'>widenings</span> and <span style='color:#fbbf24'>type upgrades</span> — group them into <b>corridors</b> (contiguous links of the same kind &amp; road class), and highlight them on one map. Next I appraise each corridor <b>do-something vs do-minimum</b>: add it to the 2025 base, assign 2040 demand, and measure the VHT/VMT saved, then rank the schemes by benefit and BCR. Say <span class='k'>compare 2025 and 2040</span> to start (load your shapefile first)."},
  {k:["taz","traffic analysis zone","centroid","centroids"],
   a:"A <b>TAZ</b> (Traffic Analysis Zone) is the spatial unit of travel demand; its <b>centroid</b> is the point where all of a zone's trips load onto the network through connectors. This model has 3,692 centroids."},
  {k:["od","o-d","origin-destination","matrix","demand matrix","trip table"],
@@ -5810,6 +6087,17 @@ var ACTIONS=[
     run:findBestAggregation}),
  A({app:null, keys:["full zone system","reset zones","restore zones","un-aggregate","full zones","original zones","reset zone system"],
     run:resetZonesHandoff}),
+ /* network evolution 2025 → 2040 */
+ A({app:null, keys:["compare 2025 and 2040","network evolution","compare networks","2025 vs 2040","2025 versus 2040","show upgrades","find upgrades","check upgrades","upgrades 2025 2040","network upgrades","show corridors","group corridors","upgrade corridors","compare 2025 2040","evolution"],
+    run:networkEvolution}),
+ A({app:null, keys:["open 2025 network","open the 2025 network","2025 network","show 2025","load 2025","view 2025","open 2025"],
+    run:function(){ return openYearAction(2025); }}),
+ A({app:null, keys:["open 2040 network","open the 2040 network","2040 network","show 2040","load 2040","view 2040","open 2040"],
+    run:function(){ return openYearAction(2040); }}),
+ A({app:null, keys:["assess corridor benefits","appraise corridors","benefit of each project","assess the benefits","project priorities","prioritise projects","prioritize projects","rank projects","scheme benefits","appraise upgrades","assess upgrades"],
+    run:assessCorridors}),
+ A({app:null, keys:["clear highlights","clear corridors","hide upgrades","clear upgrades","remove highlights"],
+    run:evoClearAction}),
  A({app:"viewer", keys:["open the zones tool","open zones","zones tool","show aggregation","aggregation panel","open aggregation"],
     say:"Opened the <b>Zones</b> aggregation tool.", run:function(){ selectTool("zones"); return Promise.resolve(true); }}),
  /* navigation */

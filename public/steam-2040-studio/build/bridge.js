@@ -318,6 +318,12 @@
         case "getaggsa":  out = getAggregationStudyArea(m); break;
         case "setarea":   out = setAreaMask(m.rect, m.buffer); break;
         case "cleararea": out = clearAreaMask(); break;
+        case "evoanalyze": out = window.STEAMEvo ? STEAMEvo.analyze(m.yearA, m.yearB) : {ok:false, err:"evolution module not loaded"}; break;
+        case "evoyear":    out = window.STEAMEvo ? STEAMEvo.openYear(m.year) : {ok:false, err:"evolution module not loaded"}; break;
+        case "evolist":    out = window.STEAMEvo ? STEAMEvo.summary(m.limit) : {ok:false}; break;
+        case "evoshow":    out = window.STEAMEvo ? STEAMEvo.show(m.id, m.zoom) : {ok:false}; break;
+        case "evoclear":   out = window.STEAMEvo ? STEAMEvo.clear() : {ok:false}; break;
+        case "evoloaded":  out = {ok:true, loaded:!!window.__NETBUF, analyzed:!!(window.STEAMEvo&&STEAMEvo.data)}; break;
         case "key":   out = pressKey(m.key); break;
         case "resize": try{ if(typeof resize==="function") resize(); }catch(e){} out={ok:true}; break;
         default:      out = {ok:false, err:"unknown cmd "+m.cmd};
