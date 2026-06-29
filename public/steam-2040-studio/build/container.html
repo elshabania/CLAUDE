@@ -694,9 +694,74 @@ async function inspectCorridor(id,name){
   highlightRail("viewer");
   addMsg("cop","Highlighted corridor <b>"+(id+1)+"</b> ("+esc(name||"")+") and zoomed to it — the white-haloed links are the scheme.");
 }
-function assessCorridors(){
-  return Promise.resolve({html:"<b>Corridor benefit appraisal</b> is the next step. The plan (do-something vs do-minimum, as you chose): I take the <b>2025 base</b>, add <b>one corridor at a time</b>, assign the 2040 demand, and measure the <b>VHT/VMT saved</b> versus 2025-only — then rank every scheme by benefit and benefit-cost ratio and highlight the priorities. The upgrade/corridor data is already computed and the link sets are exposed to the Assignment engine; I'm wiring the per-corridor assignment runs next so the numbers are real (not a proxy). For now you can open either year and inspect the corridors.",
-    chips:["Compare 2025 and 2040","Open 2025 network","Open 2040 network"]});
+/* horizontal "higher = better" bar chart for appraisal benefits */
+function apprChart(rows, title){
+  var data=rows.slice().sort(function(a,b){ return b.v-a.v; }), n=data.length;
+  if(!n) return "";
+  var barH=15,gap=5,padT=22,padL=6,labelW=120,chartW=326,plotW=chartW-labelW-58-padL;
+  var h=padT+4+n*(barH+gap), max=Math.max(1,Math.max.apply(null,data.map(function(d){return Math.max(0,d.v);})));
+  var s='<svg width="'+chartW+'" height="'+h+'" viewBox="0 0 '+chartW+' '+h+'" style="max-width:100%;margin-top:6px">';
+  s+='<text x="'+padL+'" y="13" fill="#d7e1f2" font-size="11" font-weight="700">'+esc(title)+'</text>';
+  data.forEach(function(d,i){ var y=padT+i*(barH+gap), v=Math.max(0,d.v), bw=Math.max(2,plotW*Math.min(1,v/max));
+    var col=i===0?"#2ecc71":(v/max>0.4?"#54b9e8":"#7d8aa0");
+    s+='<text x="'+padL+'" y="'+(y+barH-3)+'" fill="#9fb0c8" font-size="9.5">'+esc(d.name.slice(0,22))+'</text>';
+    s+='<rect x="'+(padL+labelW)+'" y="'+y+'" width="'+bw.toFixed(1)+'" height="'+barH+'" rx="3" fill="'+col+'"/>';
+    s+='<text x="'+(padL+labelW+bw+4)+'" y="'+(y+barH-3)+'" fill="#cfe7ff" font-size="9.5">'+d.lbl+'</text>'; });
+  return s+'</svg>';
+}
+/* benefit appraisal: 2025 do-minimum baseline, then add each major corridor and
+   measure the VHT/VMT saved on the 2040 demand; rank by BCR (per lane-km). */
+async function assessCorridors(){
+  openDock();
+  switchApp("viewer"); await waitReady("viewer");
+  var ana=await rpc("viewer",{cmd:"evoanalyze",timeoutMs:120000});
+  if(!ana||!ana.ok) return {html:"I need the network decoded first — say <b>“compare 2025 and 2040”</b>.", chips:["Show differences"]};
+  var upsR=await rpc("viewer",{cmd:"evoups",timeoutMs:60000});
+  var list=await rpc("viewer",{cmd:"evolist",limit:200});
+  if(!upsR||!upsR.ok||!upsR.ups||!list||!list.ok) return {html:"Couldn't read the upgrade corridors.", chips:["Show differences"]};
+  var N=Math.min(12, list.top.length), top=list.top.slice(0,N), corLinks=[];
+  for(var ci=0;ci<top.length;ci++){ var cl=await rpc("viewer",{cmd:"evocorlinks",id:top[ci].id}); corLinks.push((cl&&cl.ok&&cl.links)?cl.links:[]); }
+  var prog=addMsg("cop","✦ <b>Corridor benefit appraisal</b> — building the <b>2025 base</b> and assigning the 2040 demand (do-something vs do-minimum, top "+N+" schemes on a fast sample; a few minutes)…");
+  switchApp("assign"); await waitReady("assign");
+  await rpc("assign",{cmd:"set",id:"sampleSel",value:"500"});
+  // BPR (4-increment) so demand reroutes around removed/reduced links — free-flow
+  // can't reroute and blows up on the cut-down 2025 network; full equilibrium is
+  // too slow for a dozen runs. BPR is the fast, stable middle ground.
+  await rpc("assign",{cmd:"set",id:"methodSel",value:"bpr"});
+  await pollState("assign", function(s){ return s.odStats && /matrix|trips|pairs/i.test(s.odStats); }, 8000);
+  await rpc("assign",{cmd:"aggod",pairs:[]});
+  var ini=await rpc("assign",{cmd:"apprinit",ups:upsR.ups,timeoutMs:60000});
+  if(!ini||!ini.ok){ prog.remove(); return {html:"Couldn't initialise the appraisal: "+esc((ini&&ini.err)||"no network")+".", chips:["Show differences"]}; }
+  await rpc("assign",{cmd:"apprset",restore:[]});      // 2025 do-minimum
+  await runAggAssign();
+  var base=await rpc("assign",{cmd:"metrics"});
+  if(!base||!base.ok||!(base.vht>0)){ prog.remove(); return {html:"The 2025-base assignment didn't produce metrics — run an assignment first, then retry.", chips:["Run a Frank-Wolfe assignment"]}; }
+  var results=[];
+  for(var i=0;i<top.length;i++){
+    setBub(prog,"✦ <b>Corridor benefit appraisal</b> — "+esc(top[i].kindLbl)+" · "+esc(top[i].cls)+" ("+(i+1)+"/"+N+")…");
+    await rpc("assign",{cmd:"apprset",restore:corLinks[i]});
+    await runAggAssign();
+    var mt=await rpc("assign",{cmd:"metrics"});
+    var dVHT=base.vht-((mt&&mt.vht)||base.vht), cost=Math.max(0.1, top[i].laneKm||1);
+    results.push({ id:top[i].id, name:top[i].kindLbl+" · "+top[i].cls, laneKm:top[i].laneKm, lenKm:top[i].lenKm,
+      vhtSaved:dVHT, bcr:dVHT/cost });
+  }
+  await rpc("assign",{cmd:"apprclear"});
+  results.sort(function(a,b){ return b.bcr-a.bcr; });
+  prog.remove(); highlightRail("assign");
+  var best=results[0];
+  var rows=results.map(function(r,i){
+    return '<div class="scnrow"><a href="#" class="evolink" data-evo="'+r.id+'" data-name="'+esc(r.name)+'">'
+      +(i+1)+". "+(i===0?"<b>":"")+esc(r.name)+(i===0?"</b>":"")
+      +" — "+Math.round(r.vhtSaved).toLocaleString()+" veh-h saved · "+r.laneKm.toFixed(1)+" lane-km · BCR "+r.bcr.toFixed(1)
+      +"</a></div>"; }).join("");
+  var chart=apprChart(results.map(function(r){ return {name:r.name, v:Math.max(0,r.vhtSaved), lbl:Math.round(r.vhtSaved).toLocaleString()}; }), "VHT saved by corridor (veh-h, higher = better)");
+  var html="<b>Corridor benefit appraisal</b> — each major scheme added to the <b>2025 base</b>, 2040 demand assigned, ranked by <b>benefit-cost ratio</b> (VHT saved per lane-km). "
+    +"Top priority: <b>"+esc(best.name)+"</b> — saves <b>"+Math.round(best.vhtSaved).toLocaleString()+" veh-hours</b> for "+best.laneKm.toFixed(1)+" lane-km (BCR "+best.bcr.toFixed(1)+")."
+    +chart
+    +"<div class='did' style='font-size:11px;color:#9fb0c8;margin-top:4px'>Ranked by BCR — click a corridor to highlight it on the map. (Fast 1,000-origin sample; type-upgrade speed effects approximated.)</div>"
+    +"<div class='did' style='max-height:200px;overflow:auto'>"+rows+"</div>";
+  return {html:html, chips:["Show differences","Show 2040 network","What are the current KPIs?"]};
 }
 
 /* ---------- app switch + mode chip ---------- */

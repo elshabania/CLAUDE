@@ -96,6 +96,10 @@
       top:E.corridors.slice(0,limit).map(function(c,i){ return { id:i, kind:c.kind, kindLbl:KINDLBL[c.kind], cls:CLSN[c.cls]||c.cls, n:c.n, lenKm:+c.lenKm.toFixed(2), laneKm:+c.laneKm.toFixed(2) }; }) }; };
   E.corridorLinks=function(id){ if(!E.corridors||!E.corridors[id])return null;
     return E.corridors[id].links.map(function(k){ var U=E.ups[k]; return [U.A,U.B,U.kind,U.laneAdd]; }); };
+  /* all major upgrade links [A,B,kind,lanes2025,lanes2040,ltype2025] — feeds the
+     Assignment app's do-something-vs-2025 benefit appraisal */
+  E.upgradeLinks=function(){ if(!E.ups||!E.links)return null; var L=E.links;
+    return E.ups.map(function(U){ return [U.A,U.B,U.kind,L.N25[U.i],L.N40[U.i],L.T25[U.i]]; }); };
   E.show=function(id, zoom){ if(!E.corridors)return {ok:false}; E.sel=(id==null?-1:id|0); if(E.mode==="off")E.setMode("diff");
     if(zoom!==false && E.sel>=0 && E.corridors[E.sel]){ var c=E.corridors[E.sel], b=c.bb;
       var bw=Math.max(400,b[2]-b[0]), bh=Math.max(400,b[3]-b[1]);

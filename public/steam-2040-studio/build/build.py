@@ -275,6 +275,19 @@ def tweak(src, appid):
         assert 'function hideTip(){ zTip.style.display="none"; }' in src
         src = src.replace('function hideTip(){ zTip.style.display="none"; }',
                           'function hideTip(){ zTip.style.display="none"; if(HOVG!==-1){ HOVG=-1; if(typeof render==="function") render(); } }', 1)
+        # BENEFIT APPRAISAL: clamp v/c in the BPR curve while appraising, so the
+        # heavily-cut 2025 base (2040 demand on missing freeways) stays bounded
+        # instead of exploding through v/c^4. Off (null) for normal assignments.
+        assert 'function linkTime(g,vol){ const x=vol[g]/GRAPH.ECAP[g]; return GRAPH.EFF[g]*(1+PARAMS.alpha*Math.pow(x,PARAMS.beta)); }' in src
+        src = src.replace('function linkTime(g,vol){ const x=vol[g]/GRAPH.ECAP[g]; return GRAPH.EFF[g]*(1+PARAMS.alpha*Math.pow(x,PARAMS.beta)); }',
+                          'function linkTime(g,vol){ var x=vol[g]/GRAPH.ECAP[g]; if(window.__APPRCLAMP&&x>window.__APPRCLAMP)x=window.__APPRCLAMP; return GRAPH.EFF[g]*(1+PARAMS.alpha*Math.pow(x,PARAMS.beta)); }', 1)
+        # BENEFIT APPRAISAL: let a per-link year-capacity factor (window.__YEARCAPF)
+        # scale link capacity, so the engine can assign a 2025-base / do-something
+        # network without rebuilding GLINK (factor ~0 = link absent that year).
+        assert 'ELN[g]=Math.min(255,lanes); ECAP[g]=Math.max(1,lanes)*classCap(GLINK.cls[g]); }' in src
+        src = src.replace('ELN[g]=Math.min(255,lanes); ECAP[g]=Math.max(1,lanes)*classCap(GLINK.cls[g]); }',
+                          'ELN[g]=Math.min(255,lanes); ECAP[g]=Math.max(1,lanes)*classCap(GLINK.cls[g]);'
+                          ' if(window.__YEARCAPF){ var _yf=window.__YEARCAPF[g]; if(_yf!==undefined) ECAP[g]=Math.max(0.5, ECAP[g]*_yf); } }', 1)
     # SELECTION ACCURACY (both apps): size the canvas to the document CLIENT box,
     # which excludes any scrollbar. window.innerWidth includes the scrollbar, so
     # using it makes W wider than the painted canvas and skews hit-testing — the

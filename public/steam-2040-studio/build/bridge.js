@@ -286,6 +286,43 @@
     return {ok:true, pairs:r.cells, trips:Math.round(r.grand), origins:r.origins};
   }
 
+  /* ---- corridor benefit appraisal (Assignment side) ----
+     Build a per-link 2025-base capacity factor over the 2040 GLINK:
+       factor = (lanes25 * cap(class25)) / (lanes40 * cap(class40))
+     so a NEW link (lanes25=0) ≈ absent, a WIDENING / TYPE-UPGRADE drops to its
+     2025 capacity. apprSet then restores one corridor to 2040 (factor 1) for the
+     "do-something" run; the difference in VHT is that corridor's benefit. */
+  function apprInit(ups){
+    if(typeof GLINK==="undefined" || !GLINK) return {ok:false, err:"network not built"};
+    var m=GLINK.m, A=GLINK.A, B=GLINK.B, BIG=1e9;
+    var ab=new Map(); for(var g=0; g<m; g++){ ab.set(A[g]*BIG+B[g], g); ab.set(B[g]*BIG+A[g], g); }
+    var fac=new Float32Array(m); for(var i=0;i<m;i++) fac[i]=1;
+    var matched=0, miss=0;
+    function cap25(t){ try{ return classCap(ltClass(t)); }catch(e){ return null; } }
+    for(var k=0;k<ups.length;k++){ var u=ups[k]; var key=u[0]*BIG+u[1]; var g=ab.get(key);
+      if(g===undefined){ miss++; continue; } matched++;
+      var n25=u[3]||0, n40=u[4]||0, t25=u[5];
+      // new road absent in 2025 → very low capacity (the v/c clamp keeps it from
+      // exploding while still strongly deterring use); widening/type-upgrade →
+      // its 2025 capacity = (lanes25*cap(class25)) / (lanes40*cap(class40))
+      if(n25<=0){ fac[g]=0.03; continue; }
+      var c25=cap25(t25), c40; try{ c40=classCap(GLINK.cls[g]); }catch(e){ c40=null; }
+      var f=(c25&&c40&&n40>0) ? (n25*c25)/(n40*c40) : (n40>0? n25/n40 : 1);
+      if(!(f>0)) f=0.05; if(f>1) f=1; fac[g]=f;
+    }
+    window.__APPRBASE=fac; window.__APPRAB=ab;
+    window.__APPRCLAMP=4;                                     // bound v/c during appraisal
+    return {ok:true, matched:matched, missing:miss, links:ups.length};
+  }
+  function apprSet(restore){
+    if(!window.__APPRBASE) return {ok:false, err:"appraisal not initialised"};
+    var fac=window.__APPRBASE.slice(), ab=window.__APPRAB, BIG=1e9, n=0;
+    if(restore){ for(var i=0;i<restore.length;i++){ var g=ab.get(restore[i][0]*BIG+restore[i][1]); if(g!==undefined){ fac[g]=1; n++; } } }
+    window.__YEARCAPF=fac; return {ok:true, restored:n};
+  }
+  function apprClear(){ window.__YEARCAPF=null; window.__APPRCLAMP=null; return {ok:true}; }
+  function apprMetrics(){ var bm=(typeof baseMet!=="undefined")?baseMet:null; return {ok:!!bm, vht:bm?bm.vht:0, vmt:bm?bm.vmt:0, over:bm?bm.over:0}; }
+
   window.addEventListener("message", function(ev){
     var m = ev.data;
     if(!m || m.steam !== 1 || m.resp) return;
@@ -323,6 +360,12 @@
         case "evomode":    out = window.STEAMEvo ? STEAMEvo.setMode(m.mode) : {ok:false, err:"evolution module not loaded"}; break;
         case "evolist":    out = window.STEAMEvo ? STEAMEvo.summary(m.limit) : {ok:false}; break;
         case "evoshow":    out = window.STEAMEvo ? STEAMEvo.show(m.id, m.zoom) : {ok:false}; break;
+        case "evoups":     out = window.STEAMEvo ? {ok:true, ups:STEAMEvo.upgradeLinks()} : {ok:false}; break;
+        case "evocorlinks":out = window.STEAMEvo ? {ok:true, links:STEAMEvo.corridorLinks(m.id)} : {ok:false}; break;
+        case "apprinit":   out = apprInit(m.ups||[]); break;
+        case "apprset":    out = apprSet(m.restore||[]); break;
+        case "apprclear":  out = apprClear(); break;
+        case "metrics":    out = apprMetrics(); break;
         case "key":   out = pressKey(m.key); break;
         case "resize": try{ if(typeof resize==="function") resize(); }catch(e){} out={ok:true}; break;
         default:      out = {ok:false, err:"unknown cmd "+m.cmd};
