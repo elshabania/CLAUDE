@@ -9,8 +9,13 @@ VIEWER = UP / "d499b594-STEAM_2040_Network_Viewer_1.html"
 ASSIGN = UP / "5e3e8081-STEAM_2040_Assignment_1.html"
 ENDTOK = "__STEAM_ES__"
 
+import base64
 bridge = (SCRATCH / "bridge.js").read_text(encoding="utf-8")
 evo = (SCRATCH / "evo.js").read_text(encoding="utf-8")
+# baked 2025+2040 road network (gzipped binary), embedded so the Viewer can
+# render the year toggle + differences with no upload
+_evogz = SCRATCH / "evo-data.gz"
+evodata_b64 = base64.b64encode(_evogz.read_bytes()).decode("ascii") if _evogz.exists() else ""
 container = (SCRATCH / "container.html").read_text(encoding="utf-8")
 
 ENDRE = re.compile(r"</script\s*>", re.IGNORECASE)
@@ -306,8 +311,10 @@ def prep(path, appid):
     # inject the bridge just before the LAST </body>
     inj = "<script>\n" + bridge.replace("__APPID__", appid) + "\n</script>\n"
     # the Network Evolution module is viewer-only (reuses the shapefile parsers
-    # and the live map transform); inject it after the bridge
+    # and the live map transform); inject the baked dual-year network + module
     if appid == "viewer":
+        if evodata_b64:
+            inj += '<script type="application/octet-stream" id="evo-data">' + evodata_b64 + "</script>\n"
         inj += "<script>\n" + evo + "\n</script>\n"
     matches = list(re.finditer(r"</body\s*>", src, re.IGNORECASE))
     if not matches:

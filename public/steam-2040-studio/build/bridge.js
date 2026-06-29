@@ -318,18 +318,20 @@
         case "getaggsa":  out = getAggregationStudyArea(m); break;
         case "setarea":   out = setAreaMask(m.rect, m.buffer); break;
         case "cleararea": out = clearAreaMask(); break;
-        case "evoanalyze": out = window.STEAMEvo ? STEAMEvo.analyze(m.yearA, m.yearB) : {ok:false, err:"evolution module not loaded"}; break;
-        case "evoyear":    out = window.STEAMEvo ? STEAMEvo.openYear(m.year) : {ok:false, err:"evolution module not loaded"}; break;
+        case "evoready":   out = window.STEAMEvo ? STEAMEvo.ready() : {ok:false, err:"evolution module not loaded"}; break;
+        case "evoanalyze": out = window.STEAMEvo ? STEAMEvo.analyze() : {ok:false, err:"evolution module not loaded"}; break;
+        case "evomode":    out = window.STEAMEvo ? STEAMEvo.setMode(m.mode) : {ok:false, err:"evolution module not loaded"}; break;
         case "evolist":    out = window.STEAMEvo ? STEAMEvo.summary(m.limit) : {ok:false}; break;
         case "evoshow":    out = window.STEAMEvo ? STEAMEvo.show(m.id, m.zoom) : {ok:false}; break;
-        case "evoclear":   out = window.STEAMEvo ? STEAMEvo.clear() : {ok:false}; break;
-        case "evoloaded":  out = {ok:true, loaded:!!window.__NETBUF, analyzed:!!(window.STEAMEvo&&STEAMEvo.data)}; break;
         case "key":   out = pressKey(m.key); break;
         case "resize": try{ if(typeof resize==="function") resize(); }catch(e){} out={ok:true}; break;
         default:      out = {ok:false, err:"unknown cmd "+m.cmd};
       }
     }catch(err){ out = {ok:false, err:String(err && err.message || err)}; }
-    try{ ev.source.postMessage({steam:1, resp:1, rid:m.rid, app:APP, out:out}, "*"); }catch(e){}
+    // out may be a Promise (async evolution commands) — resolve before replying
+    Promise.resolve(out).then(function(o){
+      try{ ev.source.postMessage({steam:1, resp:1, rid:m.rid, app:APP, out:o}, "*"); }catch(e){}
+    }, function(e){ try{ ev.source.postMessage({steam:1, resp:1, rid:m.rid, app:APP, out:{ok:false, err:String(e)}}, "*"); }catch(_){} });
   });
 
   /* Keep the canvas exactly matched to the iframe so click hit-testing stays
