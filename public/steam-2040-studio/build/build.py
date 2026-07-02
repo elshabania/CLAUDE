@@ -402,6 +402,23 @@ if "<!--APP_SOURCES-->" not in container:
     raise SystemExit("container missing <!--APP_SOURCES--> marker")
 out = container.replace("<!--APP_SOURCES-->", blocks)
 
+# bake the preloaded whole-network aggregation comparison (if generated)
+PRELOAD_TOKEN = "var PRELOAD_AGG=null; /*__PRELOAD_AGG__*/"
+if PRELOAD_TOKEN not in out:
+    raise SystemExit("container missing PRELOAD_AGG token")
+pre_file = SCRATCH / "preload-agg.json"
+if pre_file.exists():
+    import json as _json
+    pre = _json.loads(pre_file.read_text(encoding="utf-8"))
+    for r in pre.get("results", []):          # trim generator-only noise
+        r.pop("merged", None)
+    pre_js = _json.dumps(pre, separators=(",", ":"))
+    assert "</" not in pre_js.replace("<\\/", ""), "preload JSON must not close the script tag"
+    out = out.replace(PRELOAD_TOKEN, "var PRELOAD_AGG=" + pre_js + ";")
+    print(f"  baked preload-agg.json: {len(pre.get('results', []))} configs, {len(pre_js):,} chars")
+else:
+    print("  (no preload-agg.json — PRELOAD_AGG stays null)")
+
 # final guard: the only literal </script> left must be the container's own
 # closing tags (octet-stream payloads are tokenised). Just write it.
 OUT.parent.mkdir(parents=True, exist_ok=True)

@@ -713,6 +713,85 @@ async function resetZonesHandoff(){
   return run;
 }
 
+/* ===== PRELOADED UNIFIED COMPARISON: aggregation-method scores computed
+   offline over the WHOLE network (no study-area mask) at several zone targets
+   with the exact optimiser protocol — demand-matched baseline, identical
+   pre-sampled trips, BPR rerouting — and baked into the build so the results
+   can be read instantly without running the live search. ===== */
+var PRELOAD_AGG=null; /*__PRELOAD_AGG__*/
+function preShort(r){ var c=r.cfg||{}; return c.custom ? c.custom.toUpperCase()+(c.target?" @"+c.target:"") : (c.method||"?").toUpperCase(); }
+function preBestIdx(){
+  var P=PRELOAD_AGG; if(!P||!P.results||!P.results.length) return -1;
+  var bi=0; P.results.forEach(function(r,i){ if(r.vhtErr<P.results[bi].vhtErr) bi=i; });
+  return bi;
+}
+function preRow(r, idx, rank, isBest){
+  var spd=(r.baseRt>0&&r.rt>0)?" · "+r.rt.toFixed(1)+" s ("+(r.baseRt/Math.max(0.01,r.rt)).toFixed(1)+"×)":"";
+  return '<div class="scnrow">'
+    +'<span class="scnlink" style="cursor:default">'
+    +rank+". "+(isBest?"<b>":"")+esc(r.name)+(isBest?"</b>":"")
+    +" — "+r.zones.toLocaleString()+" zones · VHT "+r.vhtErr.toFixed(2)+"% · RMSE "+r.pctRmse.toFixed(1)+"% · corr "+r.corr.toFixed(3)
+    +" · intern "+r.internPct.toFixed(1)+"%"+spd+"</span>"
+    +'<button class="scnapply" data-preapply="'+idx+'" title="Rebuild this aggregation live and apply it to the model (all zones, full demand)">apply ▸</button>'
+    +'</div>';
+}
+async function showPreloadedComparison(){
+  openDock();
+  var P=PRELOAD_AGG;
+  if(!P||!P.results||!P.results.length)
+    return {html:"No preloaded comparison is baked into this build — I can run the live search instead.", chips:["Find best aggregation"]};
+  var best=preBestIdx();
+  // group the results by target zone count (app methods have their own natural counts)
+  var groups={}, order=[];
+  P.results.forEach(function(r,i){
+    var g=(r.cfg&&r.cfg.target)? r.cfg.target+"-zone target" : "App methods (natural zone counts)";
+    if(!groups[g]){ groups[g]=[]; order.push(g); }
+    groups[g].push({r:r,i:i});
+  });
+  var html="<b>Preloaded aggregation comparison — unified (whole network).</b> Precomputed with the optimiser's exact protocol: for every method the <b>identical "+(P.sampleN||800)+"-origin pre-sampled trips</b> are assigned on full zones (demand-matched baseline) and on the aggregated zones, BPR rerouting, and the error is measured over the <b>entire network</b> — no study-area mask. <b>VHT error</b> is the headline metric: whole-network flow RMSE % is dominated by thousands of low-volume links where tiny absolute shifts read as huge percentages, while VHT error tells you how much total travel time the aggregated model gets wrong.";
+  order.forEach(function(g){
+    var arr=groups[g].slice().sort(function(a,b){ return a.r.vhtErr-b.r.vhtErr; });
+    html+="<div class='did' style='margin-top:7px;font-weight:700;color:#d7e1f2'>"+esc(g)+"</div>"
+        +"<div class='did'>"+arr.map(function(e,k){ return preRow(e.r, e.i, k+1, e.i===best); }).join("")+"</div>";
+  });
+  var chartData=P.results.map(function(r){ return {name:preShort(r), vhtErr:r.vhtErr, rt:r.rt}; });
+  html+=aggChart(chartData,"vhtErr","VHT error — all preloaded configs (lower = better)")
+      +"<div class='did' style='font-size:11px;color:#9fb0c8;margin-top:4px'>intern % = demand internalised (becomes intrazonal and leaves the network by design); runtimes are the aggregated run vs its matched baseline. <b>apply ▸</b> rebuilds that aggregation live, assigns the full demand on all zones and shows its Δ plot.</div>";
+  return {html:html, chips:["Apply the best preloaded","Find best aggregation","Reset to full zones"]};
+}
+/* rebuild a preloaded configuration live and set it as the model (all zones,
+   full demand, matched-baseline verified — same as the optimiser's winner) */
+async function applyPreloaded(idx){
+  var P=PRELOAD_AGG, r=P&&P.results&&P.results[idx];
+  if(!r){ addMsg("cop","I can't find that preloaded configuration — say <b>preloaded comparison</b> to list them."); return; }
+  var msg=addMsg("cop","Rebuilding <b>"+esc(r.name)+"</b> and applying it to the model on all zones…");
+  switchApp("viewer"); await waitReady("viewer");
+  if(!r.cfg.custom) await applyAggConfig(r.cfg);
+  var agg=await fetchAgg(r.cfg);
+  if(!agg||!agg.ok||!agg.merged){ setBub(msg,"Couldn't rebuild that aggregation — open the Viewer and try again."); return; }
+  switchApp("assign"); await waitReady("assign");
+  await rpc("assign",{cmd:"set",id:"methodSel",value:"bpr"});   // same rerouting the scores used
+  await rpc("assign",{cmd:"set",id:"sampleSel",value:"0"});
+  await pollState("assign", function(s){ return s.odStats && /matrix|trips|pairs/i.test(s.odStats); }, 7000);
+  await rpc("assign",{cmd:"setarea",rect:null});                // verify over the whole network
+  await rpc("assign",{cmd:"aggod",pairs:agg.pairs});            // full demand, both matrices
+  setBub(msg,"Applying <b>"+esc(r.name)+"</b> — running the demand-matched baseline on all zones…");
+  await rpc("assign",{cmd:"odbase",which:"filt"});
+  var t0=nowMs(); await runAggAssign(); var baseRt=(nowMs()-t0)/1000;
+  await rpc("assign",{cmd:"snapfull"});
+  await rpc("assign",{cmd:"odbase",which:"agg"});
+  setBub(msg,"Applying <b>"+esc(r.name)+"</b> — baseline done ("+baseRt.toFixed(1)+" s), running the aggregated assignment…");
+  var t1=nowMs(); await runAggAssign(); var rt=(nowMs()-t1)/1000;
+  var cmp=await rpc("assign",{cmd:"cmpfull"});
+  var key="pre"+idx;
+  await rpc("assign",{cmd:"scnsave",key:key});
+  await rpc("assign",{cmd:"showdiff"}); highlightRail("assign");
+  AGG_BYKEY[key]={name:r.name, cfg:r.cfg, key:key, zones:agg.zones};
+  var err=(cmp&&cmp.ok)?" Verified on all zones with full demand: <b>VHT error "+cmp.vhtErr.toFixed(2)+"%</b> · flow RMSE "+cmp.pctRmse.toFixed(1)+"% · corr "+cmp.corr.toFixed(3)+".":"";
+  setBub(msg,"Applied <b>"+esc(r.name)+"</b> — "+agg.zones.toLocaleString()+" zones. Assignment "+rt.toFixed(1)+" s vs "+baseRt.toFixed(1)+" s matched baseline ("+(baseRt/Math.max(0.01,rt)).toFixed(1)+"× faster)."+err+" The map shows the before→after Δ plot.");
+  addChips(msg,["Colour by V/C","Rank corridors","Reset to full zones"]);
+}
+
 /* ===== NETWORK EVOLUTION (2025 → 2040): the dual-year road network is baked
    into the Viewer, so the copilot just flips view modes (2040 full / 2040 roads
    / 2025 roads / Differences) and reads the upgrade-corridor list. ===== */
@@ -1062,7 +1141,10 @@ async function inspectScenario(key, name){
 log.addEventListener("click",function(e){
   if(!e.target.closest) return;
   var ap=e.target.closest(".scnapply");
-  if(ap){ e.preventDefault(); applyScenario(ap.getAttribute("data-apply")); return; }
+  if(ap){ e.preventDefault();
+    if(ap.hasAttribute("data-preapply")) applyPreloaded(+ap.getAttribute("data-preapply"));
+    else applyScenario(ap.getAttribute("data-apply"));
+    return; }
   var ev=e.target.closest(".evolink");
   if(ev){ e.preventDefault(); inspectCorridor(+ev.getAttribute("data-evo"), ev.getAttribute("data-name")); return; }
   var a=e.target.closest(".scnlink");
@@ -1094,6 +1176,8 @@ function thinking(){
 
 /* ---- knowledge base (concept Q&A) ---- */
 var KB=[
+ {k:["preloaded","precomputed","baked results","what is the preloaded comparison"],
+  a:"The <b>preloaded comparison</b> is a set of aggregation-method scores computed offline over the <b>whole network</b> (no study-area mask) and baked into this build: several spatial methods (NN, WARD, K-means, HEX, quadtree, size-balanced) each at zone targets like 3150 / 2600 / 2050 / 1500, plus the app's M1 and M2. Every score uses the optimiser's exact protocol — identical pre-sampled trips, demand-matched full-zone baseline, BPR rerouting — so you can read the results instantly (say <span class='k'>preloaded comparison</span>) and <b>apply ▸</b> any configuration live."},
  {k:["bpr","bureau of public roads","volume delay","congestion function"],
   a:"<b>BPR</b> is the Bureau of Public Roads volume–delay function: <code>t = t0 · (1 + α·(v/c)^β)</code>, usually α=0.15, β=4. Travel time stays near free-flow until volume approaches capacity, then rises sharply. In the Assignment app, the <span class='k'>BPR (4 inc)</span> method loads demand in four increments using this curve; <span class='k'>Frank-Wolfe</span> and <span class='k'>MSA</span> use it inside an equilibrium loop."},
  {k:["frank-wolfe","frank wolfe","fw","convex combination"],
@@ -1152,6 +1236,10 @@ var ACTIONS=[
     run:applyAggregationHandoff}),
  A({app:null, keys:["find best aggregation","best aggregation","best aggregation method","optimise aggregation","optimize aggregation","try aggregation methods","compare aggregation methods","which aggregation is best","best way to aggregate","best aggregation for"],
     run:findBestAggregation}),
+ A({app:null, keys:["preloaded comparison","preloaded results","preloaded aggregation","show preloaded comparison","show comparison results","comparison results","precomputed comparison","precomputed results","aggregation comparison results","unified comparison","aggregation results","baked comparison","preloaded comparison results"],
+    run:showPreloadedComparison}),
+ A({app:null, keys:["apply the best preloaded","apply best preloaded","apply the best preloaded aggregation","use the best preloaded"],
+    run:function(){ var bi=preBestIdx(); if(bi<0) return Promise.resolve({html:"No preloaded comparison is baked into this build.", chips:["Find best aggregation"]}); return applyPreloaded(bi).then(function(){ return {html:"That's the best preloaded configuration applied — details above."}; }); }}),
  A({app:null, keys:["full zone system","reset zones","restore zones","un-aggregate","full zones","original zones","reset zone system"],
     run:resetZonesHandoff}),
  /* network evolution 2025 → 2040 (baked dual-year network) */
@@ -1416,7 +1504,7 @@ qEl.addEventListener("keydown",function(e){ if(e.key==="Enter"&&!e.shiftKey){ e.
 document.getElementById("send").addEventListener("click",function(){ var v=qEl.value; qEl.value=""; autosize(); submit(v); });
 
 /* quick chips */
-var QUICK=["What can you do?","Run a Frank-Wolfe assignment","Rank corridors","Zoom to the Metro area","Explain BPR"];
+var QUICK=["What can you do?","Run a Frank-Wolfe assignment","Preloaded comparison","Rank corridors","Zoom to the Metro area","Explain BPR"];
 var qbox=document.getElementById("quick");
 QUICK.forEach(function(c){ var b=document.createElement("button"); b.className="sg"; b.textContent=c; b.addEventListener("click",function(){ submit(c); }); qbox.appendChild(b); });
 
@@ -1427,6 +1515,10 @@ addChips(log.lastChild,["What can you do?","Run an assignment","Zoom to the Metr
 /* boot: load the default viewer frame, open dock after a beat */
 ensureFrame("viewer"); waitReady("viewer").then(updateCtx);
 setTimeout(openDock, 650);
+
+/* harness hooks for offline testing / preload generation (no user-facing use) */
+window.__STEAM={ rpc:rpc, waitReady:waitReady, switchApp:switchApp, pollState:pollState,
+  runAggAssign:runAggAssign, fetchAgg:fetchAgg, applyAggConfig:applyAggConfig, submit:submit };
 
 })();
 </script>
