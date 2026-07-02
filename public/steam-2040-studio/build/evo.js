@@ -344,12 +344,13 @@
       +"#evoBar button.rank:hover{background:#3a3110;color:#ffe14d}";
       document.head.appendChild(st); }catch(e){}
     var bar=document.createElement("div"); bar.id="evoBar";
-    var defs=[["off","2040 (full)"],["b2040","2040 roads"],["b2025","2025 roads"],["diff","Differences"]];
+    var defs=[["off","2040 (full)"],["b2040","2040 roads"],["b2025","2025 (base)"],["diff","Differences"]];
     bar._btns={};
     defs.forEach(function(d){ var b=document.createElement("button"); b.textContent=d[1];
       b.title = d[0]==="off" ? "The full 2040 model view (native styling, all layers)"
               : d[0]==="diff" ? "2025→2040 upgrades coloured by kind over a faint 2040 base"
-              : "The "+(d[0]==="b2025"?"2025":"2040")+" road network, class-coloured for a like-for-like compare";
+              : d[0]==="b2025" ? "The 2025 BASE network — the do-minimum the improvements are measured against"
+              : "The 2040 road network, class-coloured for a like-for-like compare";
       b.onclick=function(){ E.setMode(d[0]); }; bar.appendChild(b); bar._btns[d[0]]=b; });
     // rank the 2040 improvements: hands off to the copilot's corridor appraisal
     var sep=document.createElement("div"); sep.className="sep"; bar.appendChild(sep);
