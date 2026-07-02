@@ -282,6 +282,18 @@ def tweak(src, appid):
         assert 'function hideTip(){ zTip.style.display="none"; }' in src
         src = src.replace('function hideTip(){ zTip.style.display="none"; }',
                           'function hideTip(){ zTip.style.display="none"; if(HOVG!==-1){ HOVG=-1; if(typeof render==="function") render(); } }', 1)
+        # DIFFERENCE-PLOT FILTER: hide links whose |delta| falls below a
+        # user-chosen threshold (absolute veh, or % of the baseline flow via
+        # window.__DIFFDEN) so big differences stand out. The slider UI lives
+        # in the injected bridge; filtered links draw like the near-zero case.
+        # (anchor is the Δ-clarity-restyled dim branch produced by the earlier patch)
+        assert 'if(diff){ const dv=gi?DIFF[gi[i]]:0; if(Math.abs(dv)<1e-6){ col=THEME.baseLink; lw=Math.max(.35,base*.45); t.globalAlpha=.10; }' in src
+        src = src.replace('if(diff){ const dv=gi?DIFF[gi[i]]:0; if(Math.abs(dv)<1e-6){ col=THEME.baseLink; lw=Math.max(.35,base*.45); t.globalAlpha=.10; }',
+            'if(diff){ const dv=gi?DIFF[gi[i]]:0; var _fm=window.__DIFFMIN, _adv=Math.abs(dv), _hide=false;'
+            ' if(_fm&&_fm.v>0&&_adv>=1e-6){ if(_fm.m==="pct"){'
+            ' var _dn=(window.__DIFFDEN&&gi)?Math.abs(window.__DIFFDEN[gi[i]]):((typeof baseVol!=="undefined"&&baseVol&&gi)?Math.abs(baseVol[gi[i]]):0);'
+            ' _hide=(100*_adv/Math.max(1,_dn))<_fm.v; } else { _hide=_adv<_fm.v; } }'
+            ' if(_adv<1e-6||_hide){ col=THEME.baseLink; lw=Math.max(.35,base*.45); t.globalAlpha=.10; }', 1)
         # BENEFIT APPRAISAL: clamp v/c in the BPR curve while appraising, so the
         # heavily-cut 2025 base (2040 demand on missing freeways) stays bounded
         # instead of exploding through v/c^4. Off (null) for normal assignments.

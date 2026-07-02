@@ -185,6 +185,7 @@
     for(var g=0; g<GLINK.m; g++){ var d=(V[g]||0)-(window.__FULLVOL[g]||0); DIFF[g]=d; if(d) ad.push(Math.abs(d)); }
     ad.sort(function(a,b){return a-b;});
     DIFFMAX = ad.length ? Math.max(1, ad[Math.floor(ad.length*0.95)]) : 1;
+    window.__DIFFDEN = window.__FULLVOL;        // %-filter denominator = baseline flows
     scnVol = V.slice(); if(typeof RESULT!=="undefined") RESULT="scenario";
     MODE="diff";
     try{ document.querySelectorAll("#modeSeg button,#miniMode button").forEach(function(x){ x.classList.toggle("on", x.dataset.m==="diff"); }); }catch(e){}
@@ -595,6 +596,54 @@
     // re-measure the moment the pointer enters the map, so hit-testing is never
     // stale relative to the canvas (covers any layout change we didn't observe)
     try{ var _map=document.getElementById("map"); if(_map) _map.addEventListener("pointerenter", _fix); }catch(e){}
+  })();
+
+  /* Δ-plot filter bar (Assignment only): hide differences below a chosen
+     threshold — absolute vehicles or % of the baseline flow — via a slider.
+     Visible only while the map is in difference mode. */
+  if(APP==="assign") (function(){
+    var bar=null, slider=null, valEl=null, modeSel=null;
+    function fmtV(v){ return v>=1000 ? (v/1000).toFixed(1)+"k" : String(Math.round(v)); }
+    function apply(){
+      var m=modeSel.value, v=+slider.value;
+      window.__DIFFMIN = v>0 ? {m:m, v:v} : null;
+      valEl.textContent = v>0 ? (m==="pct" ? "≥ "+v+"%" : "≥ "+fmtV(v)+" veh") : "off";
+      try{ if(typeof render==="function") render(); }catch(e){}
+    }
+    function configSlider(){
+      if(modeSel.value==="pct"){ slider.max=100; slider.step=1; }
+      else { var mx=Math.max(10, Math.ceil((typeof DIFFMAX!=="undefined"?DIFFMAX:1000)*1.5));
+        slider.max=mx; slider.step=Math.max(1, Math.round(mx/200)); }
+      slider.value=0; apply();
+    }
+    function build(){
+      if(bar) return;
+      var st=document.createElement("style"); st.textContent=
+        "#diffFilter{position:fixed;bottom:46px;left:50%;transform:translateX(-50%);z-index:8;display:none;"
+        +"align-items:center;gap:8px;background:rgba(13,20,34,.94);border:1px solid #2d4a74;border-radius:999px;"
+        +"padding:6px 14px;font:12px system-ui,sans-serif;color:#c9d7ee;box-shadow:0 6px 20px rgba(0,0,0,.45)}"
+        +"#diffFilter select{background:#0e1626;color:#c9d7ee;border:1px solid #2d4a74;border-radius:6px;padding:2px 4px;font:inherit}"
+        +"#diffFilter input[type=range]{width:150px;accent-color:#7df9ff}"
+        +"#diffFilter .dfv{min-width:64px;color:#7df9ff;font-weight:700}";
+      document.head.appendChild(st);
+      bar=document.createElement("div"); bar.id="diffFilter";
+      bar.innerHTML='<span>Hide Δ below</span>'
+        +'<select id="dfMode"><option value="abs">veh</option><option value="pct">% of base</option></select>'
+        +'<input id="dfRange" type="range" min="0" max="1000" step="1" value="0">'
+        +'<span class="dfv" id="dfVal">off</span>';
+      document.body.appendChild(bar);
+      slider=bar.querySelector("#dfRange"); valEl=bar.querySelector("#dfVal"); modeSel=bar.querySelector("#dfMode");
+      slider.addEventListener("input",apply);
+      modeSel.addEventListener("change",configSlider);
+    }
+    var wasDiff=false;
+    setInterval(function(){
+      var isDiff = (typeof MODE!=="undefined" && MODE==="diff");
+      if(isDiff && !bar) build();
+      if(bar) bar.style.display = isDiff ? "flex" : "none";
+      if(isDiff && !wasDiff && bar) configSlider();     // re-scale to this Δ's range
+      wasDiff=isDiff;
+    }, 350);
   })();
 
   function announce(){ try{ window.parent.postMessage({steam:1, resp:1, event:"ready", app:APP}, "*"); }catch(e){} }
