@@ -65,40 +65,78 @@
       // ATTACH to a nearby major scheme — they never form corridors themselves
       if(ck==="fwy"||ck==="ramp"||ck==="junc") cand.push(rec); else minor.push(rec);
     }
-    // union rule among majors: same-kind+class chains form the mainlines, and
-    // any touching ramp / junction / signal element glues onto its improvement
-    var parent=new Int32Array(cand.length); for(var u=0;u<cand.length;u++)parent[u]=u;
-    function find(x){ var r=x; while(parent[r]!==r)r=parent[r]; while(parent[x]!==r){var nx=parent[x];parent[x]=r;x=nx;} return r; }
-    function uni(a,b){ var ra=find(a),rb=find(b); if(ra!==rb)parent[ra]=rb; }
-    var nm=new Map();
-    for(var k=0;k<cand.length;k++){ for(var e=0;e<2;e++){ var nd=e?cand[k].B:cand[k].A; var a=nm.get(nd); if(!a){a=[];nm.set(nd,a);} a.push(k); } }
-    for(var k2=0;k2<cand.length;k2++){ for(var e2=0;e2<2;e2++){ var a2=nm.get(e2?cand[k2].B:cand[k2].A);
-      for(var z=0;z<a2.length;z++){ var j=a2[z]; if(j<=k2) continue;
-        var glue = (cand[j].kind===cand[k2].kind && cand[j].cls===cand[k2].cls)
-                || cand[j].cls==="ramp"||cand[j].cls==="junc"||cand[k2].cls==="ramp"||cand[k2].cls==="junc";
-        if(glue) uni(k2,j); } } }
-    // corridors = major groups that contain mainline/ramp content
-    var grp=new Map();
-    for(var g=0;g<cand.length;g++){ var rt=find(g); var a3=grp.get(rt); if(!a3){a3=[];grp.set(rt,a3);} a3.push(g); }
-    var groups=[];
-    grp.forEach(function(idxs){
-      for(var c0=0;c0<idxs.length;c0++){ var cl0=cand[idxs[c0]].cls;
-        if(cl0==="fwy"||cl0==="ramp"){ groups.push(idxs.map(function(x){ return cand[x]; })); return; } }
+    /* SMART PROJECT AGGREGATION
+       Mainlines: contiguous freeway/expressway changes of the same kind form
+       a corridor scheme (a new alignment vs a widening stay distinct).
+       Connector webs: everything else that changed (ramps, junctions/signals,
+       slip roads, approaches) is clustered by connectivity. A web of
+       INTERCHANGE scale (≤4 km extent) is treated as ONE unit: the whole web
+       joins the mainline scheme it contacts most, so a grade-separated
+       interchange is never fragmented across projects (mainlines that only
+       meet through the web remain separate schemes — different projects, one
+       coherent interchange). Larger webs (long parallel works) attach only
+       within 2 connections, so arterial chains don't swallow corridors. A web
+       touching no mainline stands alone if it contains ramp content. */
+    var mains=[], conns=[];
+    for(var s0=0;s0<cand.length;s0++){ (cand[s0].cls==="fwy"?mains:conns).push(cand[s0]); }
+    for(var s1=0;s1<minor.length;s1++) conns.push(minor[s1]);
+    function makeUF(n){ var par=new Int32Array(n); for(var q=0;q<n;q++)par[q]=q;
+      function find(x){ var r=x; while(par[r]!==r)r=par[r]; while(par[x]!==r){var nx=par[x];par[x]=r;x=nx;} return r; }
+      return {find:find, uni:function(a,b){ var ra=find(a),rb=find(b); if(ra!==rb)par[ra]=rb; }}; }
+    function nodeMapOf(list){ var nm=new Map();
+      for(var q=0;q<list.length;q++){ for(var e=0;e<2;e++){ var nd=e?list[q].B:list[q].A;
+        var a=nm.get(nd); if(!a){a=[];nm.set(nd,a);} a.push(q); } } return nm; }
+    // 1) mainline corridors: same-kind freeway chains
+    var mu=makeUF(mains.length), mnm=nodeMapOf(mains);
+    mnm.forEach(function(list){ for(var q=1;q<list.length;q++){
+      if(mains[list[q]].kind===mains[list[0]].kind) mu.uni(list[0],list[q]); } });
+    var mg2=new Map();
+    for(var g=0;g<mains.length;g++){ var rt=mu.find(g); var a3=mg2.get(rt); if(!a3){a3=[];mg2.set(rt,a3);} a3.push(g); }
+    var groups=[];                      // each: array of link records
+    var nodeOwner=new Map();            // node -> project index
+    mg2.forEach(function(idxs){
+      var gi=groups.length, G=idxs.map(function(x){ return mains[x]; });
+      groups.push(G);
+      for(var q=0;q<G.length;q++){ nodeOwner.set(G[q].A,gi); nodeOwner.set(G[q].B,gi); }
     });
-    // attach minor-class changed links within 2 connections of a corridor —
-    // this pulls in the interchange's slip roads and turning loops without
-    // chaining whole arterial/collector corridors into the scheme
-    var owner=new Map();
-    for(var gi=0;gi<groups.length;gi++){ var G=groups[gi];
-      for(var m0=0;m0<G.length;m0++){ owner.set(G[m0].A,gi); owner.set(G[m0].B,gi); } }
-    var HOPS=2, attached=new Int32Array(minor.length); for(i=0;i<minor.length;i++) attached[i]=-1;
-    for(var hop=0;hop<HOPS;hop++){
-      var added=false;
-      for(var mi=0;mi<minor.length;mi++){ if(attached[mi]>=0) continue; var M=minor[mi];
-        var o=owner.get(M.A); if(o===undefined) o=owner.get(M.B);
-        if(o!==undefined){ attached[mi]=o; groups[o].push(M); owner.set(M.A,o); owner.set(M.B,o); added=true; } }
-      if(!added) break;
-    }
+    // 2) connector webs: connectivity components over ALL non-mainline changes
+    var cu=makeUF(conns.length), cnm=nodeMapOf(conns);
+    cnm.forEach(function(list){ for(var q=1;q<list.length;q++) cu.uni(list[0],list[q]); });
+    var comps=new Map();
+    for(var g2=0;g2<conns.length;g2++){ var rt2=cu.find(g2); var a4=comps.get(rt2); if(!a4){a4=[];comps.set(rt2,a4);} a4.push(g2); }
+    var CAP=4000;   // interchange-scale extent (m)
+    comps.forEach(function(idxs){
+      var links=idxs.map(function(x){ return conns[x]; });
+      var mnx2=1e18,mny2=1e18,mxx2=-1e18,mxy2=-1e18, hasRamp=false;
+      var contact=new Map();
+      for(var q=0;q<links.length;q++){ var Lk=links[q];
+        if(Lk.cls==="ramp") hasRamp=true;
+        var b2=L.bb, li2=Lk.i*4;
+        if(b2[li2]<mnx2)mnx2=b2[li2]; if(b2[li2+1]<mny2)mny2=b2[li2+1];
+        if(b2[li2+2]>mxx2)mxx2=b2[li2+2]; if(b2[li2+3]>mxy2)mxy2=b2[li2+3];
+        var oA=nodeOwner.get(Lk.A), oB=nodeOwner.get(Lk.B);
+        if(oA!==undefined) contact.set(oA,(contact.get(oA)||0)+1);
+        if(oB!==undefined && oB!==oA) contact.set(oB,(contact.get(oB)||0)+1);
+      }
+      var diag=Math.hypot(mxx2-mnx2,mxy2-mny2);
+      if(diag<=CAP){
+        if(contact.size){                       // whole interchange web → best-contact scheme
+          var bestGi=-1,bestC=-1; contact.forEach(function(cnt,giX){ if(cnt>bestC){bestC=cnt;bestGi=giX;} });
+          for(var q2=0;q2<links.length;q2++) groups[bestGi].push(links[q2]);
+        } else if(hasRamp){                     // interchange-only scheme, no mainline change
+          var giN=groups.length; groups.push(links.slice());
+          for(var q3=0;q3<links.length;q3++){ nodeOwner.set(links[q3].A,giN); nodeOwner.set(links[q3].B,giN); }
+        }                                       // pure minor/junction works: not a major scheme
+      } else {
+        // long web (parallel arterial works etc.): attach only within 2 hops
+        var att=new Int32Array(links.length); for(var q4=0;q4<links.length;q4++) att[q4]=-1;
+        for(var hop=0;hop<2;hop++){ var added=false;
+          for(var q5=0;q5<links.length;q5++){ if(att[q5]>=0) continue; var Mk=links[q5];
+            var o2=nodeOwner.get(Mk.A); if(o2===undefined) o2=nodeOwner.get(Mk.B);
+            if(o2!==undefined){ att[q5]=o2; groups[o2].push(Mk); nodeOwner.set(Mk.A,o2); nodeOwner.set(Mk.B,o2); added=true; } }
+          if(!added) break; }
+      }
+    });
     // finalise corridors + the kept upgrade-link list
     var ups=[], cors=[], nNew=0,nWiden=0,nType=0;
     for(var gi2=0;gi2<groups.length;gi2++){ var idur=groups[gi2];
