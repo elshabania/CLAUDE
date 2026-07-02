@@ -304,6 +304,36 @@ def tweak(src, appid):
                           'W=document.documentElement.clientWidth||window.innerWidth;', 1)
         src = src.replace('H=window.innerHeight||document.documentElement.clientHeight;',
                           'H=document.documentElement.clientHeight||window.innerHeight;', 1)
+    # CUSTOM AGGREGATION METHODS (viewer): nine proximity-first spatial methods
+    # become first-class in the Zones method dropdown. The algorithms live in
+    # the injected bridge (window.__CUSTAGG); the app dispatches to them from
+    # applyAggregation and shows the "keep at most N zones" target control.
+    if appid == "viewer":
+        assert '<option value="demand">Intrazonal demand</option>' in src
+        src = src.replace('<option value="demand">Intrazonal demand</option>',
+            '<option value="demand">Intrazonal demand</option>\n'
+            '      <option value="nn">NN · Adjacent-first (nearest pairs)</option>\n'
+            '      <option value="ward">WARD · Variance-minimising</option>\n'
+            '      <option value="kmeans">KM · K-means compact</option>\n'
+            '      <option value="kcenter">KC · K-center coverage</option>\n'
+            '      <option value="grid">GRID · Square cells</option>\n'
+            '      <option value="hex">HEX · Hexagonal cells</option>\n'
+            '      <option value="quad">QT · Quadtree adaptive</option>\n'
+            '      <option value="bal">BAL · Size-balanced</option>\n'
+            '      <option value="ring">RING · Rings × sectors</option>', 1)
+        assert 'function applyAggregation(){' in src
+        src = src.replace('function applyAggregation(){',
+            'function applyAggregation(){\n'
+            '  if(window.__CUSTAGG && window.__CUSTAGG.modes[METHOD]){ window.__CUSTAGG.run(METHOD); return; }', 1)
+        assert 'const M=METHOD, isM=(M==="m1"||M==="m2"||M==="m3"||M==="m4"||M==="m5");' in src
+        src = src.replace('const M=METHOD, isM=(M==="m1"||M==="m2"||M==="m3"||M==="m4"||M==="m5");',
+            'const M=METHOD, isCust=!!(window.__CUSTAGG&&window.__CUSTAGG.modes[M]), isM=(M==="m1"||M==="m2"||M==="m3"||M==="m4"||M==="m5");', 1)
+        assert 'document.getElementById("methodparams").style.display=isM?"flex":"none";' in src
+        src = src.replace('document.getElementById("methodparams").style.display=isM?"flex":"none";',
+            'document.getElementById("methodparams").style.display=(isM||isCust)?"flex":"none";', 1)
+        assert 'document.getElementById("zonetgtwrap").style.display=(isM&&!odMethod)?"":"none";' in src
+        src = src.replace('document.getElementById("zonetgtwrap").style.display=(isM&&!odMethod)?"":"none";',
+            'document.getElementById("zonetgtwrap").style.display=((isM||isCust)&&!odMethod)?"":"none";', 1)
     # NETWORK EVOLUTION (viewer): stash the uploaded shapefile buffers so the
     # evolution module can rebuild a second horizon year and diff it.
     if 'const year=+(document.getElementById("loadYear").value||2040);' in src:

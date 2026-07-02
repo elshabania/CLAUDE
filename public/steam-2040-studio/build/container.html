@@ -443,8 +443,14 @@ var AGGCONFIGS=[
   {name:"AX · study-area + districts", method:"m2", studyArea:true},
   /* proximity-first spatial methods (aggregate zones next to each other first) */
   {name:"NN · adjacent-first", custom:"nn"},
-  {name:"GRID · square cells", custom:"grid"},
+  {name:"WARD · variance-min", custom:"ward"},
   {name:"KM · compact k-means", custom:"kmeans"},
+  {name:"KC · k-center coverage", custom:"kcenter"},
+  {name:"GRID · square cells", custom:"grid"},
+  {name:"HEX · hex cells", custom:"hex"},
+  {name:"QT · quadtree adaptive", custom:"quad"},
+  {name:"BAL · size-balanced", custom:"bal"},
+  {name:"RING · rings × sectors", custom:"ring"},
   {name:"M1 · land use + distance", method:"m1"},
   {name:"M1 · strict area type", method:"m1", guards:{m1Strict:true}},
   {name:"M2 · districts", method:"m2"},
@@ -495,7 +501,7 @@ async function runAggAssign(){    // run the assignment and wait for it to finis
 /* parameter variants to refine the winning method (stage 2) */
 function expandConfig(cfg){
   var method=(typeof cfg==="string")?cfg:cfg.method;
-  if(cfg&&cfg.custom){ var M=cfg.custom, NM={nn:"NN",grid:"GRID",kmeans:"KM"}[M]||M.toUpperCase();
+  if(cfg&&cfg.custom){ var M=cfg.custom, NM={nn:"NN",grid:"GRID",kmeans:"KM",ward:"WARD",kcenter:"KC",hex:"HEX",quad:"QT",bal:"BAL",ring:"RING"}[M]||M.toUpperCase();
     return [
       {name:NM+" · finer ("+Math.round(AGG_TARGET*1.3)+" zones)", custom:M, target:Math.round(AGG_TARGET*1.3)},
       {name:NM+" · coarser ("+Math.round(AGG_TARGET*0.7)+" zones)", custom:M, target:Math.round(AGG_TARGET*0.7)},
@@ -1044,8 +1050,8 @@ var KB=[
   a:"<b>VMT/VKT</b> = Vehicle-Miles (or Kilometres) Travelled, the sum of (volume × length). It tracks total travel demand served and pairs with VHT to give average network speed (VMT ÷ VHT)."},
  {k:["aggregation","aggregate zones","merge zones","taz","zone system","zoning"],
   a:"The Network Viewer's <b>zone aggregation</b> tools merge fine TAZs (Traffic Analysis Zones) into a coarser system while protecting model accuracy. Methods M1–M5 use land use, districts, low-OD pairing, hybrids and size/density; <span class='k'>Distance change</span> and <span class='k'>Intrazonal demand</span> bound the error introduced. Guardrails stop merges across regions, sectors, freeways, etc. Ask me to <span class='k'>find the best aggregation</span> and I'll test every method against a full-zone assignment and pick the one with the lowest flow error."},
- {k:["adjacent","adjacent-first","nearest neighbour","nearest neighbor","nn method","single linkage","kruskal","k-means","kmeans","grid cells","spatial aggregation","proximity","contiguous zones","next to each other"],
-  a:"Three <b>proximity-first</b> aggregation methods merge zones <b>next to each other first</b>: <span class='k'>NN · adjacent-first</span> (single-linkage clustering — the two closest zones merge first, then the next closest, until the target count), <span class='k'>GRID · square cells</span> (only zones in the same spatial cell can merge; the cell size is solved to hit the target), and <span class='k'>KM · compact k-means</span> (k spatially compact clusters). They join M1–M5 in the <span class='k'>find best aggregation</span> search, and when one wins, its target zone count is refined (finer / coarser variants)."},
+ {k:["adjacent","adjacent-first","nearest neighbour","nearest neighbor","nn method","single linkage","kruskal","k-means","kmeans","grid cells","hex","hexagonal","quadtree","ward","k-center","kcenter","balanced zones","rings","sectors","spatial aggregation","proximity","contiguous zones","next to each other","new methods","custom methods"],
+  a:"Nine <b>proximity-first</b> aggregation methods merge zones <b>next to each other first</b>, all selectable in the Zones <span class='k'>Method</span> dropdown with a <span class='k'>keep at most N zones</span> target: <span class='k'>NN · adjacent-first</span> (closest pair merges first, then the next closest), <span class='k'>WARD</span> (merges the pair with the least variance increase — compact and balanced), <span class='k'>KM · k-means</span> (compact clusters), <span class='k'>KC · k-center</span> (farthest-point seeds — even coverage, bounds the worst-case zone radius), <span class='k'>GRID</span> / <span class='k'>HEX</span> (square / hexagonal spatial cells sized to hit the target), <span class='k'>QT · quadtree</span> (adaptive cells — fine where zones are dense, coarse in the desert), <span class='k'>BAL</span> (size-balanced merging), and <span class='k'>RING · rings × sectors</span> (classic radial sketch-planning around the activity centre). All join the <span class='k'>find best aggregation</span> search and are scored by flow RMSE / VHT error against the full-zone assignment."},
  {k:["study area","study-area","adaptive aggregation","ax method","focus area","area of interest","local detail"],
   a:"<b>AX · study-area adaptive</b> is a method I add to the search: it keeps <b>full zonal resolution inside your current map view</b> (the study area) and merges only the zones outside it. Because the densest, highest-flow links sit in the study area and their centroid loadings are preserved exactly, it drives the assignment error to its minimum where you care — usually the lowest flow RMSE of any method at a comparable zone count. Zoom to the area you're studying, then ask me to <span class='k'>find the best aggregation</span>."},
  {k:["network evolution","2025","2040","upgrades","corridor","corridors","horizon","scheme","schemes","new roads","widening","appraisal","do-something","do-minimum"],
@@ -1115,6 +1121,15 @@ var ACTIONS=[
  A({app:"viewer", keys:["method m5","m5","size","density"], say:"Aggregation method set to <b>M5 · Size / density</b>.", ops:[["set","methodSel","m5"]]}),
  A({app:"viewer", keys:["distance change","geometry method","by distance"], say:"Aggregation method set to <b>Distance change (geometry)</b>.", ops:[["set","methodSel","distance"]]}),
  A({app:"viewer", keys:["intrazonal demand","demand method"], say:"Aggregation method set to <b>Intrazonal demand</b>.", ops:[["set","methodSel","demand"]]}),
+ A({app:"viewer", keys:["adjacent first method","nearest neighbour method","nn aggregation","adjacent zones method"], say:"Aggregation method set to <b>NN · Adjacent-first</b> — closest zones merge first.", ops:[["set","methodSel","nn"]]}),
+ A({app:"viewer", keys:["ward method","variance method"], say:"Aggregation method set to <b>WARD · Variance-minimising</b>.", ops:[["set","methodSel","ward"]]}),
+ A({app:"viewer", keys:["k-means method","kmeans method","compact clusters"], say:"Aggregation method set to <b>KM · K-means compact</b>.", ops:[["set","methodSel","kmeans"]]}),
+ A({app:"viewer", keys:["k-center method","kcenter method","coverage method"], say:"Aggregation method set to <b>KC · K-center coverage</b>.", ops:[["set","methodSel","kcenter"]]}),
+ A({app:"viewer", keys:["grid method","square cells method"], say:"Aggregation method set to <b>GRID · Square cells</b>.", ops:[["set","methodSel","grid"]]}),
+ A({app:"viewer", keys:["hex method","hexagonal method","hex cells"], say:"Aggregation method set to <b>HEX · Hexagonal cells</b>.", ops:[["set","methodSel","hex"]]}),
+ A({app:"viewer", keys:["quadtree method","adaptive cells method","quad method"], say:"Aggregation method set to <b>QT · Quadtree adaptive</b>.", ops:[["set","methodSel","quad"]]}),
+ A({app:"viewer", keys:["balanced method","size balanced method"], say:"Aggregation method set to <b>BAL · Size-balanced</b>.", ops:[["set","methodSel","bal"]]}),
+ A({app:"viewer", keys:["rings method","sectors method","ring sector method","radial method"], say:"Aggregation method set to <b>RING · Rings × sectors</b>.", ops:[["set","methodSel","ring"]]}),
  A({app:"viewer", keys:["colour by district","color by district","shade district"], say:"Colouring zones by <b>district</b>.", ops:[["set","shadeSel","district"]]}),
  A({app:"viewer", keys:["colour by land use","color by land use","shade land use","colour landuse"], say:"Colouring zones by <b>land use</b>.", ops:[["set","shadeSel","landuse"]]}),
  A({app:"viewer", keys:["colour by productions","color by productions","productions"], say:"Colouring zones by <b>productions</b>.", ops:[["set","shadeSel","prod"]]}),

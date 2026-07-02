@@ -245,11 +245,11 @@
                 size is solved so the occupied-cell count hits the target.
        kmeans — Lloyd's k-means on centroids: k compact, convex-ish clusters.
      Returns the same pairs format as getAggregation ([zoneId, repId]). */
-  function aggCustom(opts){
-    if(typeof CENT==="undefined" || typeof CIDS==="undefined" || !CIDS.length)
-      return {ok:false, err:"no zone centroids"};
-    var N=CIDS.length, mode=(opts&&opts.mode)||"nn";
-    var target=Math.max(50, Math.min(N, ((opts&&opts.target)|0) || Math.round(N*0.55)));
+  /* the shared spatial-clustering engine: every mode fills a union-find over
+     the N zones. All operate on centroids only, so they need no app UI state. */
+  function spatialCluster(mode, target){
+    var N=CIDS.length;
+    target=Math.max(50, Math.min(N, (target|0) || Math.round(N*0.55)));
     // normalised positive coords so grid keys stay valid for negative eastings
     var xs=new Float64Array(N), ys=new Float64Array(N), mnx=Infinity, mny=Infinity;
     for(var i=0;i<N;i++){ var x=CENT[i*2], y=CENT[i*2+1]; if(x<mnx)mnx=x; if(y<mny)mny=y; }
@@ -258,18 +258,74 @@
     function find(p){ var r=p; while(comp[r]!==r)r=comp[r]; while(comp[p]!==r){ var nx=comp[p]; comp[p]=r; p=nx; } return r; }
     var clusters=N;
     function uni(a,b){ var ra=find(a), rb=find(b); if(ra!==rb){ comp[ra]=rb; clusters--; return true; } return false; }
-    var KEY=1<<20;   // grid key packing (cell counts stay far below this)
+    var KEY=1<<20, c, i2;
+    function mergeByCell(keyOf){          // all zones in a cell merge together
+      var firstIn=new Map();
+      for(var q=0;q<N;q++){ var key=keyOf(q); var f0=firstIn.get(key);
+        if(f0===undefined) firstIn.set(key,q); else uni(q,f0); } }
+    function bisectCell(occOf){           // solve cell size so occupied ≈ target
+      var mxx=0,mxy=0; for(var q=0;q<N;q++){ if(xs[q]>mxx)mxx=xs[q]; if(ys[q]>mxy)mxy=ys[q]; }
+      var lo=100, hi=Math.max(mxx,mxy)||1;
+      for(var bi=0;bi<32;bi++){ var mid=Math.sqrt(lo*hi); if(occOf(mid)>target) lo=mid; else hi=mid; }
+      return hi; }
+    function occCount(keyAt){ return function(s){ var st=new Set(); for(var q=0;q<N;q++) st.add(keyAt(q,s)); return st.size; }; }
+    /* cluster-level greedy rounds shared by nn / ward / bal */
+    function clusterRounds(pickEdges){
+      var rad=2500;
+      while(clusters>target && rad<800000){
+        // current cluster reps, centroids (member means) and sizes
+        var roots=new Map();
+        for(var q=0;q<N;q++){ var r=find(q); var o=roots.get(r);
+          if(!o){ o={sx:0,sy:0,n:0,rep:r}; roots.set(r,o); } o.sx+=xs[q]; o.sy+=ys[q]; o.n++; }
+        var reps=[], RX=[], RY=[], RN=[];
+        roots.forEach(function(o){ reps.push(o.rep); RX.push(o.sx/o.n); RY.push(o.sy/o.n); RN.push(o.n); });
+        var g=new Map(), cell=rad;
+        for(i2=0;i2<reps.length;i2++){ var kk=Math.floor(RX[i2]/cell)*KEY+Math.floor(RY[i2]/cell);
+          var a0=g.get(kk); if(!a0){a0=[];g.set(kk,a0);} a0.push(i2); }
+        var r2=rad*rad, edges=[];
+        for(i2=0;i2<reps.length;i2++){
+          var gx=Math.floor(RX[i2]/cell), gy=Math.floor(RY[i2]/cell);
+          for(var ox=-1;ox<=1;ox++) for(var oy=-1;oy<=1;oy++){
+            var lst=g.get((gx+ox)*KEY+(gy+oy)); if(!lst) continue;
+            for(var w=0;w<lst.length;w++){ var j=lst[w]; if(j<=i2) continue;
+              var ddx=RX[i2]-RX[j], ddy=RY[i2]-RY[j], dd=ddx*ddx+ddy*ddy;
+              if(dd<=r2) edges.push([pickEdges(dd,RN[i2],RN[j]), i2, j]); } }
+        }
+        edges.sort(function(a,b){ return a[0]-b[0]; });
+        var didMerge=false;
+        for(var e2=0;e2<edges.length && clusters>target;e2++){
+          if(uni(reps[edges[e2][1]], reps[edges[e2][2]])) didMerge=true; }
+        if(!didMerge || clusters>target) rad*=2;   // widen the neighbourhood
+      }
+    }
     if(mode==="grid"){
-      var mxx=0,mxy=0; for(i=0;i<N;i++){ if(xs[i]>mxx)mxx=xs[i]; if(ys[i]>mxy)mxy=ys[i]; }
-      function occupied(s){ var st=new Set(); for(var q=0;q<N;q++) st.add(Math.floor(xs[q]/s)*KEY+Math.floor(ys[q]/s)); return st.size; }
-      var lo=100, hi=Math.max(mxx,mxy)||1;      // cell size bounds (m)
-      for(var bi=0;bi<32;bi++){ var mid=Math.sqrt(lo*hi); if(occupied(mid)>target) lo=mid; else hi=mid; }
-      var s=hi, firstIn=new Map();
-      for(i=0;i<N;i++){ var key=Math.floor(xs[i]/s)*KEY+Math.floor(ys[i]/s);
-        var f0=firstIn.get(key); if(f0===undefined) firstIn.set(key,i); else uni(i,f0); }
+      var sG=bisectCell(occCount(function(q,s){ return Math.floor(xs[q]/s)*KEY+Math.floor(ys[q]/s); }));
+      mergeByCell(function(q){ return Math.floor(xs[q]/sG)*KEY+Math.floor(ys[q]/sG); });
+    } else if(mode==="hex"){
+      // pointy-top hex binning: offset every other row by half a cell
+      function hexKey(q,s){ var row=Math.floor(ys[q]/(0.866*s)); var xo=xs[q]-(row&1)*(s/2); return row*KEY+Math.floor(xo/s); }
+      var sH=bisectCell(occCount(hexKey));
+      mergeByCell(function(q){ return hexKey(q,sH); });
+    } else if(mode==="quad"){
+      // quadtree: keep splitting the fullest cell until ~target non-empty leaves
+      var mxq=0,myq=0; for(i=0;i<N;i++){ if(xs[i]>mxq)mxq=xs[i]; if(ys[i]>myq)myq=ys[i]; }
+      var all=[]; for(i=0;i<N;i++) all.push(i);
+      var leaves=[{x0:0,y0:0,x1:mxq+1,y1:myq+1,z:all}];
+      while(leaves.length<target){
+        var bi2=-1,bn=1; for(i2=0;i2<leaves.length;i2++){ if(!leaves[i2].done && leaves[i2].z.length>bn){bn=leaves[i2].z.length;bi2=i2;} }
+        if(bi2<0) break;                              // nothing splittable left
+        var Lf=leaves[bi2], mx2=(Lf.x0+Lf.x1)/2, my2=(Lf.y0+Lf.y1)/2, subs=[[],[],[],[]];
+        for(var w2=0;w2<Lf.z.length;w2++){ var zz=Lf.z[w2];
+          subs[(xs[zz]>=mx2?1:0)+(ys[zz]>=my2?2:0)].push(zz); }
+        var news=[]; for(var s4=0;s4<4;s4++){ if(!subs[s4].length) continue;
+          news.push({ x0:(s4&1)?mx2:Lf.x0, x1:(s4&1)?Lf.x1:mx2, y0:(s4&2)?my2:Lf.y0, y1:(s4&2)?Lf.y1:my2, z:subs[s4] }); }
+        if(news.length<=1){ Lf.done=true; continue; }     // co-located points: unsplittable
+        leaves.splice(bi2,1); leaves.push.apply(leaves,news);
+      }
+      for(i2=0;i2<leaves.length;i2++){ var zl=leaves[i2].z; for(var w3=1;w3<zl.length;w3++) uni(zl[w3],zl[0]); }
     } else if(mode==="kmeans"){
       var k=target, cxs=new Float64Array(k), cys=new Float64Array(k), asg=new Int32Array(N);
-      var stride=N/k; for(var c=0;c<k;c++){ var z=Math.min(N-1,Math.floor(c*stride)); cxs[c]=xs[z]; cys[c]=ys[z]; }
+      var stride=N/k; for(c=0;c<k;c++){ var z0=Math.min(N-1,Math.floor(c*stride)); cxs[c]=xs[z0]; cys[c]=ys[z0]; }
       for(var itr=0;itr<8;itr++){
         for(i=0;i<N;i++){ var bd=Infinity,bc=0; for(c=0;c<k;c++){ var dx=xs[i]-cxs[c],dy=ys[i]-cys[c],d=dx*dx+dy*dy; if(d<bd){bd=d;bc=c;} } asg[i]=bc; }
         var sx=new Float64Array(k), sy=new Float64Array(k), cnt=new Int32Array(k);
@@ -278,33 +334,103 @@
       }
       var rep0=new Int32Array(k); for(c=0;c<k;c++) rep0[c]=-1;
       for(i=0;i<N;i++){ var cc=asg[i]; if(rep0[cc]<0) rep0[cc]=i; else uni(i,rep0[cc]); }
-    } else {   // nn — closest pairs merge first (single-linkage, adjacency-first)
-      var rad=2500;
-      while(clusters>target && rad<400000){
-        var cell=rad, g=new Map();
-        for(var q2=0;q2<N;q2++){ var k2=Math.floor(xs[q2]/cell)*KEY+Math.floor(ys[q2]/cell);
-          var a2=g.get(k2); if(!a2){a2=[];g.set(k2,a2);} a2.push(q2); }
-        var r2=rad*rad, edges=[];
-        for(i=0;i<N;i++){
-          var gx=Math.floor(xs[i]/cell), gy=Math.floor(ys[i]/cell);
-          for(var ox=-1;ox<=1;ox++) for(var oy=-1;oy<=1;oy++){
-            var lst=g.get((gx+ox)*KEY+(gy+oy)); if(!lst) continue;
-            for(var w=0;w<lst.length;w++){ var j=lst[w]; if(j<=i) continue;
-              var ddx=xs[i]-xs[j], ddy=ys[i]-ys[j], dd=ddx*ddx+ddy*ddy;
-              if(dd<=r2) edges.push([dd,i,j]); } }
-        }
-        edges.sort(function(a,b){ return a[0]-b[0]; });
-        for(var e2=0;e2<edges.length && clusters>target;e2++) uni(edges[e2][1],edges[e2][2]);
-        rad*=2;   // not enough close pairs — widen the neighbourhood and continue
+    } else if(mode==="kcenter"){
+      // farthest-point sampling: seeds guarantee even COVERAGE (minimax radius),
+      // then every zone joins its nearest seed
+      var k2t=target, dmin=new Float64Array(N), near=new Int32Array(N);
+      // start at the zone nearest the mean centre
+      var mx3=0,my3=0; for(i=0;i<N;i++){ mx3+=xs[i]; my3+=ys[i]; } mx3/=N; my3/=N;
+      var s0=0,bd0=Infinity; for(i=0;i<N;i++){ var dx0=xs[i]-mx3,dy0=ys[i]-my3,d0=dx0*dx0+dy0*dy0; if(d0<bd0){bd0=d0;s0=i;} }
+      for(i=0;i<N;i++){ var dxs=xs[i]-xs[s0],dys=ys[i]-ys[s0]; dmin[i]=dxs*dxs+dys*dys; near[i]=s0; }
+      for(var sIdx=1;sIdx<k2t;sIdx++){
+        var far=0,fd=-1; for(i=0;i<N;i++){ if(dmin[i]>fd){fd=dmin[i];far=i;} }
+        if(fd<=0) break;
+        for(i=0;i<N;i++){ var dxf=xs[i]-xs[far],dyf=ys[i]-ys[far],df=dxf*dxf+dyf*dyf; if(df<dmin[i]){ dmin[i]=df; near[i]=far; } }
       }
+      for(i=0;i<N;i++) if(near[i]!==i) uni(i,near[i]);
+    } else if(mode==="ring"){
+      // classic sketch-planning: distance rings around the activity centre ×
+      // angular sectors; ring breaks at equal-count quantiles. Because zones
+      // concentrate in the city, many cells are empty — adapt R,S upward until
+      // the OCCUPIED cell count reaches the target.
+      var mx4=0,my4=0; for(i=0;i<N;i++){ mx4+=xs[i]; my4+=ys[i]; } mx4/=N; my4/=N;
+      var rr=new Float64Array(N), order2=[];
+      for(i=0;i<N;i++){ var dx4=xs[i]-mx4,dy4=ys[i]-my4; rr[i]=Math.sqrt(dx4*dx4+dy4*dy4); order2.push(i); }
+      order2.sort(function(a,b){ return rr[a]-rr[b]; });
+      var R=Math.max(2,Math.round(Math.sqrt(target/6))), S=Math.max(4,Math.ceil(target/R));
+      var ringOf=new Int32Array(N);
+      function ringKey(q){ var ang=Math.atan2(ys[q]-my4,xs[q]-mx4);
+        var sec=Math.min(S-1,Math.floor((ang+Math.PI)/(2*Math.PI)*S)); return ringOf[q]*KEY+sec; }
+      for(var ad=0;ad<6;ad++){
+        for(i=0;i<N;i++) ringOf[order2[i]]=Math.min(R-1,Math.floor(i*R/N));
+        var occ2=new Set(); for(i=0;i<N;i++) occ2.add(ringKey(i));
+        if(occ2.size>=target*0.97 || R>=N) break;
+        var f2=Math.sqrt(target/Math.max(1,occ2.size));
+        R=Math.max(R+1,Math.round(R*f2)); S=Math.max(S+1,Math.round(S*f2));
+      }
+      mergeByCell(ringKey);
+    } else if(mode==="ward"){
+      // variance-minimising greedy: merge the pair with the smallest Ward cost
+      // d^2 * (na*nb)/(na+nb) — compact AND size-balanced clusters
+      clusterRounds(function(dd,na,nb){ return dd*na*nb/(na+nb); });
+    } else if(mode==="bal"){
+      // size-balancing: distance scaled UP by the joint size, so small clusters
+      // pair with small/near neighbours first and zone sizes stay even
+      clusterRounds(function(dd,na,nb){ return dd*(na+nb); });
+    } else {   // "nn" — closest pairs merge first (single-linkage, adjacency-first)
+      clusterRounds(function(dd){ return dd; });
     }
+    return { N:N, find:find, clusters:clusters };
+  }
+  function aggCustom(opts){
+    if(typeof CENT==="undefined" || typeof CIDS==="undefined" || !CIDS.length)
+      return {ok:false, err:"no zone centroids"};
+    var mode=(opts&&opts.mode)||"nn", target=(opts&&opts.target)|0;
+    var scr=spatialCluster(mode,target);
+    var N=scr.N, find=scr.find;
     // emit [zoneId ➜ representative] pairs, lowest-index member as the rep
     var repIdx={}, pairs=[], merged=0, roots={};
-    for(i=0;i<N;i++){ var r3=find(i); if(repIdx[r3]===undefined || i<repIdx[r3]) repIdx[r3]=i; }
+    for(var i=0;i<N;i++){ var r3=find(i); if(repIdx[r3]===undefined || i<repIdx[r3]) repIdx[r3]=i; }
     for(i=0;i<N;i++){ var r4=find(i); roots[r4]=1;
       if(repIdx[r4]!==i){ pairs.push([CIDS[i]>>>0, CIDS[repIdx[r4]]>>>0]); merged++; } }
     return {ok:true, pairs:pairs, merged:merged, zones:Object.keys(roots).length, total:N, mode:mode, target:target};
   }
+  /* run a custom method as a FIRST-CLASS viewer aggregation: build the same
+     merge forest the app's own methods produce and finalise through assemble(),
+     so zone drawing, stats, exports and the assignment handoff all work. */
+  var CUSTLBL={ nn:"NN · adjacent-first", ward:"WARD · variance-minimising", kmeans:"KM · k-means compact",
+                kcenter:"KC · k-center coverage", grid:"GRID · square cells", hex:"HEX · hexagonal cells",
+                quad:"QT · quadtree adaptive", bal:"BAL · size-balanced", ring:"RING · rings × sectors" };
+  function runCustomAgg(mode){
+    try{
+      if(typeof assemble!=="function" || typeof CENT==="undefined") return {ok:false, err:"viewer not ready"};
+      var N=CIDS.length;
+      var target=+(((document.getElementById("maxZoneSel")||{}).value))||Math.round(N*0.55);
+      var scr=spatialCluster(mode,target), find=scr.find;
+      // assemble()'s forest convention: par[i] < 0 marks a root
+      var MAXT=N*2, px=new Float64Array(MAXT), py=new Float64Array(MAXT), par=new Int32Array(MAXT);
+      par.fill(-1);
+      var i;
+      for(i=0;i<N;i++){ px[i]=CENT[i*2]; py[i]=CENT[i*2+1]; }
+      var T=N, groups=new Map();
+      for(i=0;i<N;i++){ var r=find(i); var g=groups.get(r); if(!g){g=[];groups.set(r,g);} g.push(i); }
+      groups.forEach(function(g){
+        if(g.length<2) return;
+        var cur=g[0], sx=px[g[0]], sy=py[g[0]], n=1;
+        for(var q=1;q<g.length;q++){ var c=T++; sx+=px[g[q]]; sy+=py[g[q]]; n++;
+          par[cur]=c; par[g[q]]=c; px[c]=sx/n; py[c]=sy/n; cur=c; }
+      });
+      ACT=assemble(px,py,par,T);
+      var mg=0, MG=ACT.centMerged; if(MG) for(var m2=0;m2<MG.length;m2++) mg+=MG[m2];
+      try{ agglbl.textContent="whole model · "+ACT.zones.toLocaleString()+" zones ("+mg.toLocaleString()+" merged) · "+(CUSTLBL[mode]||mode);
+           netstatsEl.textContent=ACT.zones.toLocaleString()+" centroids · "+ACT.nconn.toLocaleString()+" connections"; }catch(e){}
+      try{ shadeCache.key=null; }catch(e){}
+      if(typeof render==="function") render();
+      return {ok:true, zones:ACT.zones, merged:mg};
+    }catch(err){ return {ok:false, err:String(err&&err.message||err)}; }
+  }
+  // registry the app's applyAggregation() dispatches through
+  try{ window.__CUSTAGG={ modes:CUSTLBL, run:runCustomAgg }; }catch(e){}
 
   /* shared map view (both apps use cx,cy world-centre + sc px/m) for zoom sync */
   function getView(){ try{ return {ok:true, cx:cx, cy:cy, sc:sc}; }catch(e){ return {ok:false}; } }
