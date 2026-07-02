@@ -390,20 +390,33 @@
     function stroke(i,wd){ var p=L.pts[i]; if(p.length<4)return; t.beginPath(); t.moveTo((p[0]-cx)*sc+hw, hh-(p[1]-cy)*sc);
       for(var q=2;q<p.length;q+=2) t.lineTo((p[q]-cx)*sc+hw, hh-(p[q+1]-cy)*sc); t.lineWidth=wd; t.stroke(); }
     var diff=(E.mode==="diff"), yearBit=(E.mode==="b2025")?1:2, useT25=(E.mode==="b2025");
-    // base network for the chosen year (or faint full-2040 under the diff)
+    var hasSel=diff && E.sel>=0 && E.corridors && !!E.corridors[E.sel];
+    // with a project selected, cache its node set so the 2025 roads that TIE IN
+    // to the scheme can be shown brighter than the rest of the base
+    if(hasSel && E._selNodesFor!==E.sel){ E._selNodesFor=E.sel;
+      var snS=new Set(), cS=E.corridors[E.sel];
+      for(var zS=0;zS<cS.links.length;zS++){ var US=E.ups[cS.links[zS]]; snS.add(US.A); snS.add(US.B); }
+      E._selNodes=snS; }
+    var selNodes=hasSel?E._selNodes:null;
+    // base context: normally the faint 2040 base; with a project SELECTED it
+    // becomes the 2025 BASE network, so you see the scheme against what exists
+    // before it is built — its 2025 tie-in roads drawn brighter
+    var baseBit=hasSel?1:2, wdB=Math.min(Math.max(.5,sc*7),3);
     for(var i=0;i<L.n;i++){ var lb=i*4; if(bb[lb+2]<vx0||bb[lb]>vx1||bb[lb+3]<vy0||bb[lb+1]>vy1) continue;
-      if(diff){ if(!(L.FL[i]&2))continue; t.strokeStyle="#33415c"; t.globalAlpha=.5; stroke(i, Math.min(Math.max(.5,sc*7),3)); }
+      if(diff){ if(!(L.FL[i]&baseBit))continue;
+        if(selNodes && (selNodes.has(L.A[i])||selNodes.has(L.B[i]))){
+          t.strokeStyle="#93a9c9"; t.globalAlpha=.95; stroke(i, Math.min(Math.max(.9,sc*8),3.6)); }
+        else { t.strokeStyle="#33415c"; t.globalAlpha=.5; stroke(i, wdB); } }
       else { if(!(L.FL[i]&yearBit))continue; var st=CLS[classKey(useT25?L.T25[i]:L.T40[i])]||CLS.local;
         t.strokeStyle=st.c; t.globalAlpha=st.a; stroke(i, Math.min(Math.max(st.b, st.wm*sc), st.mx)); } }
     // diff: with NO selection, colour each upgrade link by ITS kind. With a
     // project selected, everything goes GREY and the selected project draws in
     // BLUE, so the scheme reads instantly against the base network.
     if(diff && E.corridors){ t.globalAlpha=.9;
-      var hasSel=(E.sel>=0 && !!E.corridors[E.sel]);
       var wd0=Math.min(Math.max(1.1,sc*8),4);
       for(var ci=0;ci<E.corridors.length;ci++){ var c=E.corridors[ci], cb=c.bb;
         if(cb[2]<vx0||cb[0]>vx1||cb[3]<vy0||cb[1]>vy1) continue; if(ci===E.sel)continue;
-        if(hasSel){ t.strokeStyle="#4a5c76"; t.globalAlpha=.55;
+        if(hasSel){ t.strokeStyle="#3a4a63"; t.globalAlpha=.35;    // other schemes: very dim
           for(var z0=0;z0<c.links.length;z0++) stroke(E.ups[c.links[z0]].i, wd0); }
         else { t.globalAlpha=.9;
           for(var z=0;z<c.links.length;z++){ var U0=E.ups[c.links[z]];
