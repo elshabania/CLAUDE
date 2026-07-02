@@ -240,7 +240,7 @@
   /* ---- project selection on the map (Differences view) ---- */
   E.pick=function(px0,py0){
     if(!E.corridors) return -1;
-    var wx=cx+(px0-W/2)/sc, wy=cy-(py0-H/2)/sc, tol=12/sc, t2=tol*tol;
+    var wx=cx+(px0-W/2)/sc, wy=cy-(py0-H/2)/sc, tol=16/sc, t2=tol*tol;   // finger-friendly
     var best=-1, bd=t2;
     for(var ci=0;ci<E.corridors.length;ci++){ var c=E.corridors[ci], b=c.bb;
       if(wx<b[0]-tol||wx>b[2]+tol||wy<b[1]-tol||wy>b[3]+tol) continue;
@@ -279,15 +279,25 @@
     document.getElementById("evoCardX").onclick=function(){ E.sel=-1; E._lastKey=""; E._hideCard(); };
   };
   (function(){
-    var downX=0, downY=0;
+    /* select on POINTERUP, not click: the app preventDefault()s touch events,
+       which suppresses synthesized clicks on phones/tablets — a tap would do
+       nothing. A short single-pointer tap (≤6 px movement, <700 ms, no pinch)
+       picks the project on mouse AND touch. */
+    var downX=0, downY=0, downT=0, active=0, multi=false;
     function arm(){
       var map=document.getElementById("map"); if(!map) return;
-      map.addEventListener("pointerdown",function(e){ downX=e.clientX; downY=e.clientY; },true);
-      map.addEventListener("click",function(e){
-        if(E.mode!=="diff") return;
-        if(Math.hypot(e.clientX-downX,e.clientY-downY)>5) return;   // that was a pan
+      map.addEventListener("pointerdown",function(e){
+        active++; if(active>1) multi=true;
+        if(active===1){ multi=false; downX=e.clientX; downY=e.clientY; downT=Date.now(); }
+      },true);
+      map.addEventListener("pointercancel",function(){ active=Math.max(0,active-1); },true);
+      map.addEventListener("pointerup",function(e){
+        active=Math.max(0,active-1);
+        if(E.mode!=="diff" || multi || active>0) return;
+        if(Date.now()-downT>700) return;                              // long press / hold
+        if(Math.hypot(e.clientX-downX,e.clientY-downY)>6) return;     // that was a pan
         var id=E.pick(e.clientX,e.clientY);
-        if(id>=0){ E.sel=id; E._lastKey=""; E._showCard(id); e.stopImmediatePropagation(); e.preventDefault(); }
+        if(id>=0){ E.sel=id; E._lastKey=""; E._showCard(id); }
         else { E.sel=-1; E._lastKey=""; E._hideCard(); }
       },true);
     }
