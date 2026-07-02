@@ -282,7 +282,8 @@
     agg.forEach(function(v,key){ O2[j]=Math.floor(key/BIG); D2[j]=key%BIG; V2[j]=v; j++; });
     var r=buildODfromArrays(O2,D2,V2,m,false);
     try{ var ds=document.getElementById("demandSel"); if(ds) ds.value="od"; }catch(e){}
-    try{ var os=document.getElementById("odStats"); if(os) os.textContent="Aggregated zones · "+r.cells.toLocaleString()+" OD pairs · "+Math.round(r.grand).toLocaleString()+" trips · "+r.origins.toLocaleString()+" origins"; }catch(e){}
+    var lbl = pairs.length ? "Aggregated zones" : "Full zones";
+    try{ var os=document.getElementById("odStats"); if(os) os.textContent=lbl+" · "+r.cells.toLocaleString()+" OD pairs · "+Math.round(r.grand).toLocaleString()+" trips · "+r.origins.toLocaleString()+" origins"; }catch(e){}
     return {ok:true, pairs:r.cells, trips:Math.round(r.grand), origins:r.origins};
   }
 
@@ -294,6 +295,8 @@
      "do-something" run; the difference in VHT is that corridor's benefit. */
   function apprInit(ups){
     if(typeof GLINK==="undefined" || !GLINK) return {ok:false, err:"network not built"};
+    // key = A*1e9+B: exact while node ids ≤ 9e6 (this network's max is ~6.3e6,
+    // so the key stays below 2^53 and decodes uniquely — no collisions)
     var m=GLINK.m, A=GLINK.A, B=GLINK.B, BIG=1e9;
     var ab=new Map(); for(var g=0; g<m; g++){ ab.set(A[g]*BIG+B[g], g); ab.set(B[g]*BIG+A[g], g); }
     var fac=new Float32Array(m); for(var i=0;i<m;i++) fac[i]=1;

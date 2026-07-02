@@ -13,6 +13,12 @@
   *{margin:0;padding:0;box-sizing:border-box}
   html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--txt);
     font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;overscroll-behavior:none}
+  /* thin, theme-matched scrollbars everywhere (chat log, result lists, program) */
+  *{scrollbar-width:thin;scrollbar-color:#2d4a74 transparent}
+  *::-webkit-scrollbar{width:8px;height:8px}
+  *::-webkit-scrollbar-track{background:transparent}
+  *::-webkit-scrollbar-thumb{background:#22304a;border-radius:99px;border:2px solid var(--bg)}
+  *::-webkit-scrollbar-thumb:hover{background:#2d4a74}
   body{position:fixed;inset:0;display:flex;flex-direction:column}
   .mono{font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace}
   button{font-family:inherit}
@@ -40,7 +46,7 @@
   .rgrp{font-size:8px;letter-spacing:.07em;color:#4a5a78;text-transform:uppercase;margin:6px 0 1px;font-weight:700}
   .ritem{width:54px;padding:6px 0 4px;border-radius:10px;border:1px solid transparent;background:none;
     color:var(--dim);cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:2px;
-    font-size:9px;font-weight:600;line-height:1;flex:none}
+    font-size:9px;font-weight:600;line-height:1;flex:none;transition:background .15s,color .15s,border-color .15s}
   .ritem .ic{font-size:16px;line-height:1}
   .ritem:hover{background:#101a2c;color:var(--txt)}
   .ritem.on{background:#13233c;border-color:#2d4a74;color:var(--gold)}
@@ -143,8 +149,9 @@
   .bub .evolink:hover{background:#13243c;color:#fff}
   .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
   .sg{padding:5px 10px;border-radius:999px;border:1px solid var(--line);background:#0e1a2c;
-    color:var(--cyan);font-size:11px;cursor:pointer;white-space:nowrap}
-  .sg:hover{border-color:var(--cyan)}
+    color:var(--cyan);font-size:11px;cursor:pointer;white-space:nowrap;transition:border-color .15s,background .15s}
+  .sg:hover{border-color:var(--cyan);background:#13243c}
+  .bub .scnapply{transition:background .15s}
   .typing .bub{color:var(--dim)}
   .dots span{display:inline-block;width:5px;height:5px;border-radius:50%;background:var(--dim);margin:0 1px;
     animation:bl 1.2s infinite}
@@ -267,7 +274,7 @@ var APPS = {
   viewer:{ srcId:"src-viewer", label:"Network Viewer", frame:null, win:null, ready:false, url:null,
     snapIds:["netstats","agglbl","odout","selinfo","loadStatus","dataStatus"] },
   assign:{ srcId:"src-assign", label:"Assignment",     frame:null, win:null, ready:false, url:null,
-    snapIds:["kpi","status","gapOut","odStats","scnstats","analysisOut","demStats"] }
+    snapIds:["kpi","status","gapOut","odStats","scnstats","analysisOut","demStats","reclist"] }
 };
 var activeApp="viewer";
 
@@ -449,6 +456,10 @@ var STUDY_RECT=null, SCN_SEQ=1, AGG_BYKEY={}, ORIG_RT=null;
 function nowMs(){ return (window.performance&&performance.now)?performance.now():(+new Date()); }
 var GUARD_IDS=["gRegion","gSector","gUrban","gMetro","gMetroAcc","gFreight","gLuClass","m1Strict","m1Density"];
 var GUARD_DEFAULT={gRegion:true,gSector:true};
+/* the tuning selects a config may override — always reset to the app defaults
+   first, so one variant's setting can't leak into the configs tested after it */
+var SETS_DEFAULT={confSel:"0.99", tolSel:"1", budgetSel:"1", barLevelSel:"coll"};
+var LAST_SETS={};   // what we last pushed, so we only fire real changes
 function setBub(el,html){ try{ el.querySelector(".bub").innerHTML=html; log.scrollTop=log.scrollHeight; }catch(e){} }
 function aggSleep(ms){ return new Promise(function(r){ setTimeout(r,ms); }); }
 async function applyAggConfig(cfg){
@@ -456,7 +467,10 @@ async function applyAggConfig(cfg){
     var want=(cfg.guards&&cfg.guards[id]!==undefined)?cfg.guards[id]:!!GUARD_DEFAULT[id];
     await rpc("viewer",{cmd:"check",id:id,value:want});
   }
-  if(cfg.sets){ for(var sid in cfg.sets){ await rpc("viewer",{cmd:"set",id:sid,value:cfg.sets[sid]}); } }
+  for(var did in SETS_DEFAULT){
+    var v=(cfg.sets&&cfg.sets[did]!==undefined)?cfg.sets[did]:SETS_DEFAULT[did];
+    if(LAST_SETS[did]!==v){ await rpc("viewer",{cmd:"set",id:did,value:v}); LAST_SETS[did]=v; }
+  }
   await rpc("viewer",{cmd:"set",id:"methodSel",value:cfg.method});
   await aggSleep(1500);   // let the aggregation compute
 }
@@ -721,9 +735,10 @@ async function assessCorridors(){
   if(!upsR||!upsR.ok||!upsR.ups||!list||!list.ok) return {html:"Couldn't read the upgrade corridors.", chips:["Show differences"]};
   var N=Math.min(12, list.top.length), top=list.top.slice(0,N), corLinks=[];
   for(var ci=0;ci<top.length;ci++){ var cl=await rpc("viewer",{cmd:"evocorlinks",id:top[ci].id}); corLinks.push((cl&&cl.ok&&cl.links)?cl.links:[]); }
+  var APPR_SAMPLE="500";
   var prog=addMsg("cop","✦ <b>Corridor benefit appraisal</b> — building the <b>2025 base</b> and assigning the 2040 demand (do-something vs do-minimum, top "+N+" schemes on a fast sample; a few minutes)…");
   switchApp("assign"); await waitReady("assign");
-  await rpc("assign",{cmd:"set",id:"sampleSel",value:"500"});
+  await rpc("assign",{cmd:"set",id:"sampleSel",value:APPR_SAMPLE});
   // BPR (4-increment) so demand reroutes around removed/reduced links — free-flow
   // can't reroute and blows up on the cut-down 2025 network; full equilibrium is
   // too slow for a dozen runs. BPR is the fast, stable middle ground.
@@ -759,7 +774,7 @@ async function assessCorridors(){
   var html="<b>Corridor benefit appraisal</b> — each major scheme added to the <b>2025 base</b>, 2040 demand assigned, ranked by <b>benefit-cost ratio</b> (VHT saved per lane-km). "
     +"Top priority: <b>"+esc(best.name)+"</b> — saves <b>"+Math.round(best.vhtSaved).toLocaleString()+" veh-hours</b> for "+best.laneKm.toFixed(1)+" lane-km (BCR "+best.bcr.toFixed(1)+")."
     +chart
-    +"<div class='did' style='font-size:11px;color:#9fb0c8;margin-top:4px'>Ranked by BCR — click a corridor to highlight it on the map. (Fast 1,000-origin sample; type-upgrade speed effects approximated.)</div>"
+    +"<div class='did' style='font-size:11px;color:#9fb0c8;margin-top:4px'>Ranked by BCR — click a corridor to highlight it on the map. (Fast "+APPR_SAMPLE+"-origin demand-preserving sample, BPR rerouting; type-upgrade speed effects approximated via capacity.)</div>"
     +"<div class='did' style='max-height:200px;overflow:auto'>"+rows+"</div>";
   return {html:html, chips:["Show differences","Show 2040 network","What are the current KPIs?"]};
 }

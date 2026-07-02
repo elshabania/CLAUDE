@@ -118,19 +118,30 @@
 
   /* ---- toggle UI (in the Viewer) ---- */
   E._ensureUI=function(){
-    if(E.ui) return; var bar=document.createElement("div"); bar.id="evoBar";
-    bar.style.cssText="position:fixed;top:12px;left:50%;transform:translateX(-50%);z-index:9;display:flex;gap:4px;"
-      +"background:rgba(13,20,34,.92);border:1px solid #2d4a74;border-radius:999px;padding:4px;backdrop-filter:blur(6px);"
-      +"box-shadow:0 6px 20px rgba(0,0,0,.45);font:600 12px system-ui,sans-serif";
+    if(E.ui) return;
+    // hover/active styling can't be done inline — inject a tiny stylesheet
+    try{ var st=document.createElement("style"); st.textContent=
+      "#evoBar{position:fixed;top:54px;left:50%;transform:translateX(-50%);z-index:9;display:flex;gap:3px;"
+      +"background:rgba(13,20,34,.92);border:1px solid #2d4a74;border-radius:999px;padding:4px;"
+      +"backdrop-filter:blur(6px);box-shadow:0 6px 20px rgba(0,0,0,.45);font:600 12px system-ui,sans-serif}"
+      +"#evoBar button{cursor:pointer;border:0;border-radius:999px;padding:5px 12px;color:#cfe0f5;"
+      +"background:transparent;font:inherit;transition:background .15s,color .15s}"
+      +"#evoBar button:hover{background:#16324f;color:#fff}"
+      +"#evoBar button.on{background:#1d4368;color:#fff}"
+      +"#evoBar button.on:hover{background:#255480}";
+      document.head.appendChild(st); }catch(e){}
+    var bar=document.createElement("div"); bar.id="evoBar";
     var defs=[["off","2040 (full)"],["b2040","2040 roads"],["b2025","2025 roads"],["diff","Differences"]];
     bar._btns={};
     defs.forEach(function(d){ var b=document.createElement("button"); b.textContent=d[1];
-      b.style.cssText="cursor:pointer;border:0;border-radius:999px;padding:5px 11px;color:#cfe0f5;background:transparent;font:inherit";
+      b.title = d[0]==="off" ? "The full 2040 model view (native styling, all layers)"
+              : d[0]==="diff" ? "2025→2040 upgrades coloured by kind over a faint 2040 base"
+              : "The "+(d[0]==="b2025"?"2025":"2040")+" road network, class-coloured for a like-for-like compare";
       b.onclick=function(){ E.setMode(d[0]); }; bar.appendChild(b); bar._btns[d[0]]=b; });
     document.body.appendChild(bar); E.ui=bar; E._syncUI();
   };
-  E._syncUI=function(){ if(!E.ui)return; var m=E.mode; for(var k in E.ui._btns){ var on=(k===m);
-    E.ui._btns[k].style.background=on?"#1d4368":"transparent"; E.ui._btns[k].style.color=on?"#fff":"#cfe0f5"; } };
+  E._syncUI=function(){ if(!E.ui)return; var m=E.mode;
+    for(var k in E.ui._btns) E.ui._btns[k].classList.toggle("on", k===m); };
 
   /* ---- overlay rendering ---- */
   E._ensureOverlay=function(){ if(E.overlay){ E.overlay.style.display="block"; return; }
@@ -157,7 +168,7 @@
     for(var i=0;i<L.n;i++){ var lb=i*4; if(bb[lb+2]<vx0||bb[lb]>vx1||bb[lb+3]<vy0||bb[lb+1]>vy1) continue;
       if(diff){ if(!(L.FL[i]&2))continue; t.strokeStyle="#33415c"; t.globalAlpha=.5; stroke(i, Math.min(Math.max(.5,sc*7),3)); }
       else { if(!(L.FL[i]&yearBit))continue; var st=CLS[classKey(useT25?L.T25[i]:L.T40[i])]||CLS.local;
-        t.strokeStyle=st.c; t.globalAlpha=st.a; if(sc<st.minS)continue; stroke(i, Math.min(Math.max(st.b, st.wm*sc), st.mx)); } }
+        t.strokeStyle=st.c; t.globalAlpha=st.a; stroke(i, Math.min(Math.max(st.b, st.wm*sc), st.mx)); } }
     // diff: colour the upgrades by kind, selected corridor haloed
     if(diff && E.corridors){ t.globalAlpha=.9;
       for(var ci=0;ci<E.corridors.length;ci++){ var c=E.corridors[ci], cb=c.bb;

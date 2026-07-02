@@ -242,11 +242,18 @@ def tweak(src, appid):
           ' t.lineWidth=Math.max(.8,_cr*.3); t.strokeStyle="#5c4a00"; t.stroke(); } t.globalAlpha=1;}\n  ')
         assert src.count('drawSelScreen(t);') >= 1
         src = src.replace('drawSelScreen(t);', CENTDRAW + 'drawSelScreen(t);', 1)
-        # SPEED: make the Origins sample apply to the loaded OD too (sample
-        # origins + scale demand), so runs/solves can be far faster.
-        assert '(demandMap ? (demandMap.get(u)||0) : destw[u])*GROWTH;' in src
-        src = src.replace('(demandMap ? (demandMap.get(u)||0) : destw[u])*GROWTH;',
-                          '(demandMap ? (demandMap.get(u)||0) : destw[u])*GROWTH*(window.__ODSCALE||1);', 1)
+        # SPEED (exact): the original acc-init queries demandMap.get(u) for EVERY
+        # settled node (~120k per origin) although only ~3.4k carry demand. Zero
+        # the array with a memset and write just the demand entries instead. The
+        # per-entry arithmetic keeps the original left-to-right op order
+        # (v*GROWTH*scale), so assigned flows are bit-identical. Also folds in
+        # the demand-preserving origin-sample scale (window.__ODSCALE).
+        assert 'for(let k=0;k<no;k++){ const u=order[k]; acc[u]= (demandMap ? (demandMap.get(u)||0) : destw[u])*GROWTH; }' in src
+        src = src.replace('for(let k=0;k<no;k++){ const u=order[k]; acc[u]= (demandMap ? (demandMap.get(u)||0) : destw[u])*GROWTH; }',
+            'const _ods=(window.__ODSCALE||1); acc.fill(0);\n'
+            '  if(demandMap){ demandMap.forEach((v,nd)=>{ if(nd<acc.length) acc[nd]=v*GROWTH*_ods; }); }\n'
+            '  else { if(!S.destList){ const _dl=[]; for(let _n=0;_n<destw.length;_n++) if(destw[_n]>0) _dl.push(_n); S.destList=_dl; }\n'
+            '    const _dl=S.destList; for(let _q=0;_q<_dl.length;_q++){ const _nd=_dl[_q]; acc[_nd]=destw[_nd]*GROWTH*_ods; } }', 1)
         assert 'return {origins:[...ODMAT.byOrigNode.keys()], demandFor:nd=>ODMAT.byOrigNode.get(nd)}; }' in src
         src = src.replace(
             'return {origins:[...ODMAT.byOrigNode.keys()], demandFor:nd=>ODMAT.byOrigNode.get(nd)}; }',
