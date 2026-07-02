@@ -99,34 +99,83 @@
       groups.push(G);
       for(var q=0;q<G.length;q++){ nodeOwner.set(G[q].A,gi); nodeOwner.set(G[q].B,gi); }
     });
-    // 2) connector webs: connectivity components over ALL non-mainline changes
-    var cu=makeUF(conns.length), cnm=nodeMapOf(conns);
-    cnm.forEach(function(list){ for(var q=1;q<list.length;q++) cu.uni(list[0],list[q]); });
-    var comps=new Map();
-    for(var g2=0;g2<conns.length;g2++){ var rt2=cu.find(g2); var a4=comps.get(rt2); if(!a4){a4=[];comps.set(rt2,a4);} a4.push(g2); }
-    var CAP=4000;   // interchange-scale extent (m)
-    comps.forEach(function(idxs){
+    // 2) JUNCTION ZONES: cluster connector links by SPATIAL PROXIMITY, not just
+    // connectivity — at a grade-separated interchange the four quadrant webs
+    // only connect through the mainlines, so pure connectivity splits them.
+    // Links whose geometry comes within R of each other share a zone.
+    var R=700, KEYZ=1<<20;
+    var zu=makeUF(conns.length);
+    (function(){
+      var g3=new Map();
+      function put(k5,q){ var a=g3.get(k5); if(!a){a=[];g3.set(k5,a);} a.push(q); }
+      function ptsOf(Lk){ var p=L.pts[Lk.i], n=p.length;
+        return [p[0],p[1], p[n-2],p[n-1], p[(n>>2)*2],p[(n>>2)*2+1]]; }   // ends + mid vertex
+      var allPts=[];
+      for(var q=0;q<conns.length;q++){ var pp=ptsOf(conns[q]); allPts.push(pp);
+        for(var w=0;w<pp.length;w+=2) put((Math.floor(pp[w]/R)+4096)*KEYZ+Math.floor(pp[w+1]/R)+4096, q); }
+      var r2=R*R;
+      g3.forEach(function(list,k5){
+        var kx=Math.floor(k5/KEYZ), ky=k5-kx*KEYZ;
+        for(var ox=0;ox<=1;ox++) for(var oy=(ox?-1:0);oy<=1;oy++){
+          var nb=(ox||oy)?g3.get((kx+ox)*KEYZ+(ky+oy)):list; if(!nb) continue;
+          for(var a1=0;a1<list.length;a1++) for(var b1=0;b1<nb.length;b1++){
+            var i5=list[a1], j5=nb[b1]; if(i5===j5||zu.find(i5)===zu.find(j5)) continue;
+            var P1=allPts[i5], P2=allPts[j5], hit=false;
+            for(var w1=0;w1<P1.length&&!hit;w1+=2) for(var w2=0;w2<P2.length;w2+=2){
+              var dxp=P1[w1]-P2[w2], dyp=P1[w1+1]-P2[w2+1];
+              if(dxp*dxp+dyp*dyp<=r2){ hit=true; break; } }
+            if(hit) zu.uni(i5,j5); } }
+      });
+    })();
+    var zones=new Map();
+    for(var g2=0;g2<conns.length;g2++){ var rt2=zu.find(g2); var a4=zones.get(rt2); if(!a4){a4=[];zones.set(rt2,a4);} a4.push(g2); }
+    // zone records with footprints
+    var zoneRecs=[];
+    zones.forEach(function(idxs){
       var links=idxs.map(function(x){ return conns[x]; });
-      var mnx2=1e18,mny2=1e18,mxx2=-1e18,mxy2=-1e18, hasRamp=false;
-      var contact=new Map();
-      for(var q=0;q<links.length;q++){ var Lk=links[q];
-        if(Lk.cls==="ramp") hasRamp=true;
-        var b2=L.bb, li2=Lk.i*4;
+      var mnx2=1e18,mny2=1e18,mxx2=-1e18,mxy2=-1e18;
+      for(var q=0;q<links.length;q++){ var b2=L.bb, li2=links[q].i*4;
         if(b2[li2]<mnx2)mnx2=b2[li2]; if(b2[li2+1]<mny2)mny2=b2[li2+1];
-        if(b2[li2+2]>mxx2)mxx2=b2[li2+2]; if(b2[li2+3]>mxy2)mxy2=b2[li2+3];
-        var oA=nodeOwner.get(Lk.A), oB=nodeOwner.get(Lk.B);
-        if(oA!==undefined) contact.set(oA,(contact.get(oA)||0)+1);
-        if(oB!==undefined && oB!==oA) contact.set(oB,(contact.get(oB)||0)+1);
-      }
+        if(b2[li2+2]>mxx2)mxx2=b2[li2+2]; if(b2[li2+3]>mxy2)mxy2=b2[li2+3]; }
+      zoneRecs.push({links:links, bb:[mnx2,mny2,mxx2,mxy2]});
+    });
+    // SECOND-STAGE clustering: quadrant webs of one grade-separated junction can
+    // sit >R apart (they only meet through the mainlines). Merge zones whose
+    // FOOTPRINTS come within 1 km — the 4 km extent cap below still stops long
+    // corridor-works from chaining into a fake mega-junction.
+    var GAP=1000;
+    function rectGap(a,b){ var dx=Math.max(0, Math.max(a[0],b[0])-Math.min(a[2],b[2]));
+      var dy=Math.max(0, Math.max(a[1],b[1])-Math.min(a[3],b[3])); return Math.hypot(dx,dy); }
+    var zc=makeUF(zoneRecs.length);
+    for(var za=0;za<zoneRecs.length;za++) for(var zb2=za+1;zb2<zoneRecs.length;zb2++){
+      if(rectGap(zoneRecs[za].bb,zoneRecs[zb2].bb)<=GAP) zc.uni(za,zb2); }
+    var zclusters=new Map();
+    for(var z2=0;z2<zoneRecs.length;z2++){ var zr=zc.find(z2); var a5=zclusters.get(zr); if(!a5){a5=[];zclusters.set(zr,a5);} a5.push(z2); }
+    var CAP=4000;                      // interchange-scale extent (m)
+    var standaloneZones=[];            // group indices created as interchange projects
+    zclusters.forEach(function(zidx){
+      var links=[]; var mnx2=1e18,mny2=1e18,mxx2=-1e18,mxy2=-1e18, hasRamp=false;
+      var contact=new Map();
+      for(var zi=0;zi<zidx.length;zi++){ var ZR=zoneRecs[zidx[zi]];
+        if(ZR.bb[0]<mnx2)mnx2=ZR.bb[0]; if(ZR.bb[1]<mny2)mny2=ZR.bb[1];
+        if(ZR.bb[2]>mxx2)mxx2=ZR.bb[2]; if(ZR.bb[3]>mxy2)mxy2=ZR.bb[3];
+        for(var q=0;q<ZR.links.length;q++){ var Lk=ZR.links[q]; links.push(Lk);
+          if(Lk.cls==="ramp") hasRamp=true;
+          var oA=nodeOwner.get(Lk.A), oB=nodeOwner.get(Lk.B);
+          if(oA!==undefined) contact.set(oA,(contact.get(oA)||0)+1);
+          if(oB!==undefined && oB!==oA) contact.set(oB,(contact.get(oB)||0)+1); } }
       var diag=Math.hypot(mxx2-mnx2,mxy2-mny2);
       if(diag<=CAP){
-        if(contact.size){                       // whole interchange web → best-contact scheme
+        if(hasRamp && contact.size!==1){
+          // a system interchange (serves 2+ schemes, or none): ONE standalone project
+          var giN=groups.length; groups.push(links.slice());
+          standaloneZones.push({gi:giN, bb:[mnx2,mny2,mxx2,mxy2]});
+          for(var q3=0;q3<links.length;q3++){ nodeOwner.set(links[q3].A,giN); nodeOwner.set(links[q3].B,giN); }
+        } else if(contact.size){
+          // serves exactly one scheme (or rampless approach works): join it whole
           var bestGi=-1,bestC=-1; contact.forEach(function(cnt,giX){ if(cnt>bestC){bestC=cnt;bestGi=giX;} });
           for(var q2=0;q2<links.length;q2++) groups[bestGi].push(links[q2]);
-        } else if(hasRamp){                     // interchange-only scheme, no mainline change
-          var giN=groups.length; groups.push(links.slice());
-          for(var q3=0;q3<links.length;q3++){ nodeOwner.set(links[q3].A,giN); nodeOwner.set(links[q3].B,giN); }
-        }                                       // pure minor/junction works: not a major scheme
+        }                                       // rampless + touching nothing: not a major scheme
       } else {
         // long web (parallel arterial works etc.): attach only within 2 hops
         var att=new Int32Array(links.length); for(var q4=0;q4<links.length;q4++) att[q4]=-1;
@@ -137,9 +186,28 @@
           if(!added) break; }
       }
     });
+    // 3) absorb short freeway-coded stubs (directional connectors are often
+    // coded as freeway class) that sit ENTIRELY inside an interchange zone —
+    // they are part of the junction, not corridors of their own
+    var absorbed={};
+    for(var az=0;az<standaloneZones.length;az++){ var Z=standaloneZones[az], zb=Z.bb, pad=500;
+      for(var gi3=0;gi3<groups.length;gi3++){
+        if(gi3===Z.gi || absorbed[gi3]) continue;
+        var G3=groups[gi3]; if(!G3.length || G3[0].cls!=="fwy") continue;
+        var totLen=0, inside=true;
+        for(var q6=0;q6<G3.length && inside;q6++){ var U6=G3[q6]; totLen+=U6.lenM;
+          var b6=L.bb, l6=U6.i*4;
+          if(b6[l6]<zb[0]-pad||b6[l6+1]<zb[1]-pad||b6[l6+2]>zb[2]+pad||b6[l6+3]>zb[3]+pad) inside=false; }
+        if(inside && totLen<=3000){
+          for(var q7=0;q7<G3.length;q7++) groups[Z.gi].push(G3[q7]);
+          absorbed[gi3]=true;
+        }
+      }
+    }
     // finalise corridors + the kept upgrade-link list
     var ups=[], cors=[], nNew=0,nWiden=0,nType=0;
     for(var gi2=0;gi2<groups.length;gi2++){ var idur=groups[gi2];
+      if(absorbed[gi2] || !idur.length) continue;
       var links=[], lenM2=0,laneKm=0,mnx=1e18,mny=1e18,mxx=-1e18,mxy=-1e18;
       var nRamp=0,nJunc=0,nMinor=0, kindKm={}, fwyKm=0, rampKm=0;
       for(var c=0;c<idur.length;c++){ var U=idur[c];
