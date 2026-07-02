@@ -690,9 +690,10 @@ async function networkEvolution(){
   var rows="";
   if(list&&list.ok){ rows=list.top.map(function(c){
     var col=c.kind==="new"?"#39d353":(c.kind==="widen"?"#38bdf8":"#fbbf24");
+    var extra=(c.nRamp||c.nJunc)?(" · incl. "+(c.nRamp?c.nRamp+" ramp":"")+(c.nRamp&&c.nJunc?" + ":"")+(c.nJunc?c.nJunc+" signal/junction":"")+" links"):"";
     return '<div class="scnrow"><a href="#" class="evolink" data-evo="'+c.id+'" data-name="'+esc(c.kindLbl+" · "+c.cls)+'">'
       +'<span style="color:'+col+'">●</span> '+(c.id+1)+". "+esc(c.kindLbl)+" · "+esc(c.cls)
-      +" — "+c.n+" links · "+c.lenKm.toFixed(1)+" km · "+c.laneKm.toFixed(1)+" lane-km</a></div>"; }).join(""); }
+      +" — "+c.n+" links · "+c.lenKm.toFixed(1)+" km · "+c.laneKm.toFixed(1)+" lane-km"+extra+"</a></div>"; }).join(""); }
   var html="<b>2025 → 2040 upgrades.</b> The 2040 plan adds <b>"+s.nUp.toLocaleString()+" upgrade links</b> over the 2025 network — "
     +"<span style='color:#39d353'>"+s.nNew.toLocaleString()+" new roads</span>, "
     +"<span style='color:#38bdf8'>"+s.nWiden.toLocaleString()+" widenings</span>, "
@@ -766,17 +767,22 @@ async function assessCorridors(){
   results.sort(function(a,b){ return b.bcr-a.bcr; });
   prog.remove(); highlightRail("assign");
   var best=results[0];
+  // implementation priority program: ranked by cost-effectiveness, with the
+  // cumulative benefit and lane-km build-out as each priority is delivered
+  var cumV=0, cumC=0;
   var rows=results.map(function(r,i){
+    cumV+=Math.max(0,r.vhtSaved); cumC+=r.laneKm;
     return '<div class="scnrow"><a href="#" class="evolink" data-evo="'+r.id+'" data-name="'+esc(r.name)+'">'
-      +(i+1)+". "+(i===0?"<b>":"")+esc(r.name)+(i===0?"</b>":"")
-      +" — "+Math.round(r.vhtSaved).toLocaleString()+" veh-h saved · "+r.laneKm.toFixed(1)+" lane-km · "+r.bcr.toFixed(1)+" veh-h/ln-km"
+      +'<b style="color:#ffd60a">P'+(i+1)+'</b> '+(i===0?"<b>":"")+esc(r.name)+(i===0?"</b>":"")
+      +" — "+Math.round(r.vhtSaved).toLocaleString()+" veh-h · "+r.laneKm.toFixed(1)+" ln-km · "+r.bcr.toFixed(1)+" veh-h/ln-km"
+      +'<br><span style="color:#7e90b5;font-size:10px">cumulative: '+Math.round(cumV).toLocaleString()+" veh-h saved for "+cumC.toFixed(1)+" lane-km built</span>"
       +"</a></div>"; }).join("");
   var chart=apprChart(results.map(function(r){ return {name:r.name, v:Math.max(0,r.vhtSaved), lbl:Math.round(r.vhtSaved).toLocaleString()}; }), "VHT saved by corridor (veh-h, higher = better)");
-  var html="<b>Corridor benefit appraisal</b> — each major scheme added to the <b>2025 base</b>, 2040 demand assigned, ranked by <b>cost-effectiveness</b> (veh-h saved per lane-km — a BCR proxy: it matches a true benefit-cost ranking when cost scales with lane-km and one value of time applies). "
-    +"Top priority: <b>"+esc(best.name)+"</b> — saves <b>"+Math.round(best.vhtSaved).toLocaleString()+" veh-hours</b> for "+best.laneKm.toFixed(1)+" lane-km ("+best.bcr.toFixed(1)+" veh-h per lane-km)."
+  var html="<b>Priority program — 2040 improvements.</b> Each scheme (mainline + its attached ramps/interchange/signal links) was added <b>alone</b> to the <b>2025 base</b> and the 2040 demand assigned; schemes are ranked into priorities P1…P"+results.length+" by <b>cost-effectiveness</b> (veh-h saved per lane-km — a BCR proxy: it matches a benefit-cost ranking when cost scales with lane-km and one value of time applies). "
+    +"<b>P1: "+esc(best.name)+"</b> — saves <b>"+Math.round(best.vhtSaved).toLocaleString()+" veh-hours</b> for "+best.laneKm.toFixed(1)+" lane-km ("+best.bcr.toFixed(1)+" veh-h per lane-km)."
     +chart
-    +"<div class='did' style='font-size:11px;color:#9fb0c8;margin-top:4px'>Click a corridor to highlight it on the map. Method notes: "+APPR_SAMPLE+"-origin demand-preserving sample; BPR incremental rerouting (not full equilibrium); v/c capped at 4 in the delay curve so the constrained 2025 base stays bounded; 2040-only roads are modelled as near-zero capacity rather than deleted; type-upgrade speed effects approximated via capacity. Use the numbers for ranking, not absolute appraisal.</div>"
-    +"<div class='did' style='max-height:200px;overflow:auto'>"+rows+"</div>";
+    +"<div class='did' style='font-size:11px;color:#9fb0c8;margin-top:4px'>Click a priority to highlight its corridor on the map. Method notes: standalone impacts — scheme interactions are not captured, so re-appraise after committing the early priorities for a sequenced program. "+APPR_SAMPLE+"-origin demand-preserving sample; BPR incremental rerouting (not full equilibrium); v/c capped at 4; 2040-only roads modelled as near-zero capacity; type-upgrade speeds approximated via capacity. Use for ranking, not absolute appraisal.</div>"
+    +"<div class='did' style='max-height:220px;overflow:auto'>"+rows+"</div>";
   return {html:html, chips:["Show differences","Show 2040 network","What are the current KPIs?"]};
 }
 
