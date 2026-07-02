@@ -53,20 +53,20 @@
 
   /* ---- upgrade diff + corridor grouping (works on the baked link table) ---- */
   E.computeDiff=function(){
-    if(!E.links) return null; var L=E.links, cand=[];
-    var in25=0,in40=0;
+    if(!E.links) return null; var L=E.links;
+    var in25=0,in40=0, cand=[], minor=[];
     for(var i=0;i<L.n;i++){ var r25=(L.FL[i]&1), r40=(L.FL[i]&2); if(r25)in25++; if(!r40)continue; in40++;
-      // MAJOR corridor improvements + their attached elements: freeways/
-      // expressways, ramps AND junction/signal links. Arterials, collectors and
-      // local roads stay excluded.
-      var ck=classKey(L.T40[i]); if(ck!=="fwy"&&ck!=="ramp"&&ck!=="junc") continue;
       var kind=null; if(!r25)kind="new"; else if(L.N40[i]>L.N25[i])kind="widen"; else if(L.T40[i]<L.T25[i])kind="typeup"; else continue;
       var pts=L.pts[i], lenM=0; for(var q=2;q<pts.length;q+=2){ var dx=pts[q]-pts[q-2],dy=pts[q+1]-pts[q-1]; lenM+=Math.sqrt(dx*dx+dy*dy); }
-      cand.push({i:i, A:L.A[i], B:L.B[i], kind:kind, cls:ck, lenM:lenM, laneAdd:(kind==="widen"?(L.N40[i]-L.N25[i]):(kind==="new"?L.N40[i]:1))});
+      var ck=classKey(L.T40[i]);
+      var rec={i:i, A:L.A[i], B:L.B[i], kind:kind, cls:ck, lenM:lenM, laneAdd:(kind==="widen"?(L.N40[i]-L.N25[i]):(kind==="new"?L.N40[i]:1))};
+      // majors seed corridors; changed links of the other classes (interchange
+      // slip roads / turning loops are often coded collector or local) can only
+      // ATTACH to a nearby major scheme — they never form corridors themselves
+      if(ck==="fwy"||ck==="ramp"||ck==="junc") cand.push(rec); else minor.push(rec);
     }
-    // union rule: same-kind+class chains form the mainlines, and ANY touching
-    // ramp / junction / signal element glues onto the improvement it connects
-    // to — so interchanges and slip roads are part of their corridor's scheme.
+    // union rule among majors: same-kind+class chains form the mainlines, and
+    // any touching ramp / junction / signal element glues onto its improvement
     var parent=new Int32Array(cand.length); for(var u=0;u<cand.length;u++)parent[u]=u;
     function find(x){ var r=x; while(parent[r]!==r)r=parent[r]; while(parent[x]!==r){var nx=parent[x];parent[x]=r;x=nx;} return r; }
     function uni(a,b){ var ra=find(a),rb=find(b); if(ra!==rb)parent[ra]=rb; }
@@ -77,27 +77,45 @@
         var glue = (cand[j].kind===cand[k2].kind && cand[j].cls===cand[k2].cls)
                 || cand[j].cls==="ramp"||cand[j].cls==="junc"||cand[k2].cls==="ramp"||cand[k2].cls==="junc";
         if(glue) uni(k2,j); } } }
+    // corridors = major groups that contain mainline/ramp content
     var grp=new Map();
     for(var g=0;g<cand.length;g++){ var rt=find(g); var a3=grp.get(rt); if(!a3){a3=[];grp.set(rt,a3);} a3.push(g); }
-    // keep only groups with mainline/ramp content (pure signal tweaks are not
-    // corridor schemes) and rebuild the kept upgrade-link list
-    var ups=[], cors=[], nNew=0,nWiden=0,nType=0;
+    var groups=[];
     grp.forEach(function(idxs){
-      var hasMain=false; for(var c0=0;c0<idxs.length;c0++){ var cl0=cand[idxs[c0]].cls; if(cl0==="fwy"||cl0==="ramp"){hasMain=true;break;} }
-      if(!hasMain) return;
-      var links=[], lenM=0,laneKm=0,mnx=1e18,mny=1e18,mxx=-1e18,mxy=-1e18;
-      var nRamp=0,nJunc=0, kindKm={}, fwyKm=0, rampKm=0;
-      for(var c=0;c<idxs.length;c++){ var U=cand[idxs[c]];
+      for(var c0=0;c0<idxs.length;c0++){ var cl0=cand[idxs[c0]].cls;
+        if(cl0==="fwy"||cl0==="ramp"){ groups.push(idxs.map(function(x){ return cand[x]; })); return; } }
+    });
+    // attach minor-class changed links within 2 connections of a corridor —
+    // this pulls in the interchange's slip roads and turning loops without
+    // chaining whole arterial/collector corridors into the scheme
+    var owner=new Map();
+    for(var gi=0;gi<groups.length;gi++){ var G=groups[gi];
+      for(var m0=0;m0<G.length;m0++){ owner.set(G[m0].A,gi); owner.set(G[m0].B,gi); } }
+    var HOPS=2, attached=new Int32Array(minor.length); for(i=0;i<minor.length;i++) attached[i]=-1;
+    for(var hop=0;hop<HOPS;hop++){
+      var added=false;
+      for(var mi=0;mi<minor.length;mi++){ if(attached[mi]>=0) continue; var M=minor[mi];
+        var o=owner.get(M.A); if(o===undefined) o=owner.get(M.B);
+        if(o!==undefined){ attached[mi]=o; groups[o].push(M); owner.set(M.A,o); owner.set(M.B,o); added=true; } }
+      if(!added) break;
+    }
+    // finalise corridors + the kept upgrade-link list
+    var ups=[], cors=[], nNew=0,nWiden=0,nType=0;
+    for(var gi2=0;gi2<groups.length;gi2++){ var idur=groups[gi2];
+      var links=[], lenM2=0,laneKm=0,mnx=1e18,mny=1e18,mxx=-1e18,mxy=-1e18;
+      var nRamp=0,nJunc=0,nMinor=0, kindKm={}, fwyKm=0, rampKm=0;
+      for(var c=0;c<idur.length;c++){ var U=idur[c];
         links.push(ups.length); ups.push(U);
         if(U.kind==="new")nNew++; else if(U.kind==="widen")nWiden++; else nType++;
-        lenM+=U.lenM; var lk=(U.lenM/1000)*Math.max(1,U.laneAdd); laneKm+=lk;
+        lenM2+=U.lenM; var lk=(U.lenM/1000)*Math.max(1,U.laneAdd); laneKm+=lk;
         kindKm[U.kind]=(kindKm[U.kind]||0)+lk;
-        if(U.cls==="fwy") fwyKm+=lk; else if(U.cls==="ramp"){ rampKm+=lk; nRamp++; } else nJunc++;
+        if(U.cls==="fwy") fwyKm+=lk; else if(U.cls==="ramp"){ rampKm+=lk; nRamp++; }
+        else if(U.cls==="junc") nJunc++; else nMinor++;
         var b=L.bb, li=U.i*4; if(b[li]<mnx)mnx=b[li]; if(b[li+1]<mny)mny=b[li+1]; if(b[li+2]>mxx)mxx=b[li+2]; if(b[li+3]>mxy)mxy=b[li+3]; }
       var kind="new",bestKm=-1; for(var kk in kindKm){ if(kindKm[kk]>bestKm){bestKm=kindKm[kk];kind=kk;} }
-      cors.push({ links:links, kind:kind, cls:(fwyKm>=rampKm?"fwy":"ramp"), n:links.length, nRamp:nRamp, nJunc:nJunc,
-        lenKm:lenM/1000, laneKm:laneKm, bb:[mnx,mny,mxx,mxy], cx:(mnx+mxx)/2, cy:(mny+mxy)/2 });
-    });
+      cors.push({ links:links, kind:kind, cls:(fwyKm>=rampKm?"fwy":"ramp"), n:links.length, nRamp:nRamp, nJunc:nJunc, nMinor:nMinor,
+        lenKm:lenM2/1000, laneKm:laneKm, bb:[mnx,mny,mxx,mxy], cx:(mnx+mxx)/2, cy:(mny+mxy)/2 });
+    }
     cors.sort(function(a,b){ return b.laneKm-a.laneKm; });
     E.ups=ups; E.corridors=cors;
     E.data={ corridors:cors, stats:{ in25:in25, in40:in40, nUp:ups.length, nNew:nNew, nWiden:nWiden, nType:nType, nCorr:cors.length } };
@@ -111,7 +129,7 @@
   E.summary=function(limit){ if(!E.data) return {ok:false}; limit=limit||25;
     var CLSN={fwy:"freeway/expressway", ramp:"ramp/interchange"};
     return { ok:true, stats:E.data.stats, total:E.corridors.length,
-      top:E.corridors.slice(0,limit).map(function(c,i){ return { id:i, kind:c.kind, kindLbl:KINDLBL[c.kind], cls:CLSN[c.cls]||c.cls, n:c.n, nRamp:c.nRamp||0, nJunc:c.nJunc||0, lenKm:+c.lenKm.toFixed(2), laneKm:+c.laneKm.toFixed(2) }; }) }; };
+      top:E.corridors.slice(0,limit).map(function(c,i){ return { id:i, kind:c.kind, kindLbl:KINDLBL[c.kind], cls:CLSN[c.cls]||c.cls, n:c.n, nRamp:c.nRamp||0, nJunc:c.nJunc||0, nMinor:c.nMinor||0, lenKm:+c.lenKm.toFixed(2), laneKm:+c.laneKm.toFixed(2) }; }) }; };
   E.corridorLinks=function(id){ if(!E.corridors||!E.corridors[id])return null;
     return E.corridors[id].links.map(function(k){ var U=E.ups[k]; return [U.A,U.B,U.kind,U.laneAdd]; }); };
   /* all major upgrade links [A,B,kind,lanes2025,lanes2040,ltype2025] — feeds the

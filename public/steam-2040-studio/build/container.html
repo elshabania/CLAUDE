@@ -707,7 +707,8 @@ async function networkEvolution(){
   var rows="";
   if(list&&list.ok){ rows=list.top.map(function(c){
     var col=c.kind==="new"?"#39d353":(c.kind==="widen"?"#38bdf8":"#fbbf24");
-    var extra=(c.nRamp||c.nJunc)?(" · incl. "+(c.nRamp?c.nRamp+" ramp":"")+(c.nRamp&&c.nJunc?" + ":"")+(c.nJunc?c.nJunc+" signal/junction":"")+" links"):"";
+    var bits=[]; if(c.nRamp)bits.push(c.nRamp+" ramp"); if(c.nJunc)bits.push(c.nJunc+" signal/junction"); if(c.nMinor)bits.push(c.nMinor+" slip/approach");
+    var extra=bits.length?(" · incl. "+bits.join(" + ")+" links"):"";
     return '<div class="scnrow"><a href="#" class="evolink" data-evo="'+c.id+'" data-name="'+esc(c.kindLbl+" · "+c.cls)+'">'
       +'<span style="color:'+col+'">●</span> '+(c.id+1)+". "+esc(c.kindLbl)+" · "+esc(c.cls)
       +" — "+c.n+" links · "+c.lenKm.toFixed(1)+" km · "+c.laneKm.toFixed(1)+" lane-km"+extra+"</a></div>"; }).join(""); }
