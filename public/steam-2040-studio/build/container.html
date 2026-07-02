@@ -300,6 +300,7 @@ window.addEventListener("message",function(ev){
     for(var k in APPS){ if(APPS[k].label && m.app===k){ APPS[k].ready=true; updateCtx(); } }
     return;
   }
+  if(m.event==="evorank"){ openDock(); submit("rank 2040 improvements"); return; }   // ★ button in the viewer's toggle bar
   if(m.rid && pending[m.rid]){ pending[m.rid](m.out); delete pending[m.rid]; }
 });
 
@@ -1064,7 +1065,7 @@ var ACTIONS=[
     run:function(){ return evoMode("b2040","Showing the <b>2040</b> road network (same style as 2025 for a like-for-like compare)."); }}),
  A({app:null, keys:["open 2040 network","open the 2040 network","2040 network","view 2040","open 2040","full 2040 view","full network view","normal view","back to normal","exit evolution","full model view"],
     run:function(){ return evoMode("off","Back to the <b>full 2040</b> model view."); }}),
- A({app:null, keys:["assess corridor benefits","appraise corridors","benefit of each project","assess the benefits","project priorities","prioritise projects","prioritize projects","rank projects","scheme benefits","appraise upgrades","assess upgrades"],
+ A({app:null, keys:["assess corridor benefits","appraise corridors","benefit of each project","assess the benefits","project priorities","prioritise projects","prioritize projects","rank projects","scheme benefits","appraise upgrades","assess upgrades","rank 2040 improvements","rank improvements","rank the improvements","rank schemes"],
     run:assessCorridors}),
  A({app:"viewer", keys:["open the zones tool","open zones","zones tool","show aggregation","aggregation panel","open aggregation"],
     say:"Opened the <b>Zones</b> aggregation tool.", run:function(){ selectTool("zones"); return Promise.resolve(true); }}),

@@ -128,7 +128,10 @@
       +"background:transparent;font:inherit;transition:background .15s,color .15s}"
       +"#evoBar button:hover{background:#16324f;color:#fff}"
       +"#evoBar button.on{background:#1d4368;color:#fff}"
-      +"#evoBar button.on:hover{background:#255480}";
+      +"#evoBar button.on:hover{background:#255480}"
+      +"#evoBar .sep{width:1px;background:#2d4a74;margin:3px 2px}"
+      +"#evoBar button.rank{color:#ffd60a}"
+      +"#evoBar button.rank:hover{background:#3a3110;color:#ffe14d}";
       document.head.appendChild(st); }catch(e){}
     var bar=document.createElement("div"); bar.id="evoBar";
     var defs=[["off","2040 (full)"],["b2040","2040 roads"],["b2025","2025 roads"],["diff","Differences"]];
@@ -138,6 +141,12 @@
               : d[0]==="diff" ? "2025→2040 upgrades coloured by kind over a faint 2040 base"
               : "The "+(d[0]==="b2025"?"2025":"2040")+" road network, class-coloured for a like-for-like compare";
       b.onclick=function(){ E.setMode(d[0]); }; bar.appendChild(b); bar._btns[d[0]]=b; });
+    // rank the 2040 improvements: hands off to the copilot's corridor appraisal
+    var sep=document.createElement("div"); sep.className="sep"; bar.appendChild(sep);
+    var rb=document.createElement("button"); rb.className="rank"; rb.textContent="★ Rank improvements";
+    rb.title="Appraise the top 2025→2040 corridors: add each to the 2025 base, assign the 2040 demand, and rank by veh-h saved per lane-km";
+    rb.onclick=function(){ try{ window.parent.postMessage({steam:1, resp:1, event:"evorank", app:"viewer"}, "*"); }catch(e){} };
+    bar.appendChild(rb);
     document.body.appendChild(bar); E.ui=bar; E._syncUI();
   };
   E._syncUI=function(){ if(!E.ui)return; var m=E.mode;
