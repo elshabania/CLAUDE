@@ -437,9 +437,14 @@ async function applyAggregationHandoff(){
 /* ===== AGGREGATION OPTIMISER: try many aggregation methods to the target
    zone count, score each by how well it preserves the assigned flows, pick the
    best, and show the before→after difference plot. ===== */
+var AGG_TARGET=2050;   // custom methods' target zone count (comparable to M1's typical result)
 var AGGCONFIGS=[
   {name:"AX · study-area adaptive", method:"m1", studyArea:true},
   {name:"AX · study-area + districts", method:"m2", studyArea:true},
+  /* proximity-first spatial methods (aggregate zones next to each other first) */
+  {name:"NN · adjacent-first", custom:"nn"},
+  {name:"GRID · square cells", custom:"grid"},
+  {name:"KM · compact k-means", custom:"kmeans"},
   {name:"M1 · land use + distance", method:"m1"},
   {name:"M1 · strict area type", method:"m1", guards:{m1Strict:true}},
   {name:"M2 · districts", method:"m2"},
@@ -451,6 +456,13 @@ var AGGCONFIGS=[
   {name:"M4 · + freight guard", method:"m4", guards:{gFreight:true}},
   {name:"M2 · + land-use guard", method:"m2", guards:{gLuClass:true}}
 ];
+/* fetch a config's zone aggregation from the Viewer, whatever family it is:
+   custom spatial (nn/grid/kmeans), study-area adaptive, or a built-in method */
+async function fetchAgg(cfg){
+  if(cfg.custom) return rpc("viewer",{cmd:"getaggcustom",mode:cfg.custom,target:cfg.target||AGG_TARGET,timeoutMs:60000});
+  if(cfg.studyArea) return rpc("viewer",{cmd:"getaggsa",rect:STUDY_RECT,pad:(cfg.pad||0)});
+  return rpc("viewer",{cmd:"getagg"});
+}
 /* study-area rectangle (world coords) captured when a search starts, and a
    sequence for caching each tested scenario's flows for later inspection */
 var STUDY_RECT=null, SCN_SEQ=1, AGG_BYKEY={}, ORIG_RT=null;
@@ -483,6 +495,13 @@ async function runAggAssign(){    // run the assignment and wait for it to finis
 /* parameter variants to refine the winning method (stage 2) */
 function expandConfig(cfg){
   var method=(typeof cfg==="string")?cfg:cfg.method;
+  if(cfg&&cfg.custom){ var M=cfg.custom, NM={nn:"NN",grid:"GRID",kmeans:"KM"}[M]||M.toUpperCase();
+    return [
+      {name:NM+" · finer ("+Math.round(AGG_TARGET*1.3)+" zones)", custom:M, target:Math.round(AGG_TARGET*1.3)},
+      {name:NM+" · coarser ("+Math.round(AGG_TARGET*0.7)+" zones)", custom:M, target:Math.round(AGG_TARGET*0.7)},
+      {name:NM+" · much coarser ("+Math.round(AGG_TARGET*0.45)+" zones)", custom:M, target:Math.round(AGG_TARGET*0.45)},
+      {name:(M==="nn"?"KM · compact k-means":"NN · adjacent-first")+" (alt)", custom:(M==="nn"?"kmeans":"nn")}];
+  }
   if(cfg&&cfg.studyArea) return [
     {name:"AX · study-area (tighter)", method:method, studyArea:true, pad:-0.2},
     {name:"AX · study-area (wider)", method:method, studyArea:true, pad:0.3},
@@ -514,10 +533,8 @@ function expandConfig(cfg){
 async function evalAggConfig(cfg, prog, tag){
   setBub(prog, "✦ <b>Aggregation search</b> — "+tag+": "+esc(cfg.name)+" — aggregating…");
   switchApp("viewer"); await waitReady("viewer");
-  await applyAggConfig(cfg);
-  // study-area-adaptive method keeps the in-view zones whole and merges only the exterior
-  var agg = cfg.studyArea ? await rpc("viewer",{cmd:"getaggsa",rect:STUDY_RECT,pad:(cfg.pad||0)})
-                          : await rpc("viewer",{cmd:"getagg"});
+  if(!cfg.custom) await applyAggConfig(cfg);     // custom spatial methods need no viewer UI state
+  var agg=await fetchAgg(cfg);
   if(!agg||!agg.ok||!agg.merged) return null;
   switchApp("assign"); await waitReady("assign");
   await rpc("assign",{cmd:"aggod",pairs:agg.pairs});
@@ -539,9 +556,9 @@ async function applyScenario(key){
   var r=AGG_BYKEY[key];
   if(!r){ addMsg("cop","I no longer have that scenario's settings cached — re-run <b>find best aggregation</b> first."); return; }
   var msg=addMsg("cop","Applying <b>"+esc(r.name)+"</b> to the model on all zones…");
-  switchApp("viewer"); await waitReady("viewer"); await applyAggConfig(r.cfg);
-  var agg = r.cfg.studyArea ? await rpc("viewer",{cmd:"getaggsa",rect:STUDY_RECT,pad:(r.cfg.pad||0)})
-                            : await rpc("viewer",{cmd:"getagg"});
+  switchApp("viewer"); await waitReady("viewer");
+  if(!r.cfg.custom) await applyAggConfig(r.cfg);
+  var agg=await fetchAgg(r.cfg);
   if(!agg||!agg.ok){ setBub(msg,"Couldn't rebuild that aggregation — try again."); return; }
   switchApp("assign"); await waitReady("assign");
   await rpc("assign",{cmd:"set",id:"sampleSel",value:"0"});
@@ -626,9 +643,9 @@ async function findBestAggregation(){
   await rpc("assign",{cmd:"aggod",pairs:[]});                         // all-zones original
   var toa=nowMs(); await runAggAssign(); var origAllRT=(nowMs()-toa)/1000;
   await rpc("assign",{cmd:"snapfull"});                               // all-zones reference
-  switchApp("viewer"); await applyAggConfig(best.cfg);
-  var bagg = best.cfg.studyArea ? await rpc("viewer",{cmd:"getaggsa",rect:STUDY_RECT,pad:(best.cfg.pad||0)})
-                                : await rpc("viewer",{cmd:"getagg"});
+  switchApp("viewer"); await waitReady("viewer");
+  if(!best.cfg.custom) await applyAggConfig(best.cfg);
+  var bagg=await fetchAgg(best.cfg);
   switchApp("assign"); await waitReady("assign");
   await rpc("assign",{cmd:"aggod",pairs:bagg.pairs});
   var twa=nowMs(); await runAggAssign(); var winAllRT=(nowMs()-twa)/1000;
@@ -1026,6 +1043,8 @@ var KB=[
   a:"<b>VMT/VKT</b> = Vehicle-Miles (or Kilometres) Travelled, the sum of (volume × length). It tracks total travel demand served and pairs with VHT to give average network speed (VMT ÷ VHT)."},
  {k:["aggregation","aggregate zones","merge zones","taz","zone system","zoning"],
   a:"The Network Viewer's <b>zone aggregation</b> tools merge fine TAZs (Traffic Analysis Zones) into a coarser system while protecting model accuracy. Methods M1–M5 use land use, districts, low-OD pairing, hybrids and size/density; <span class='k'>Distance change</span> and <span class='k'>Intrazonal demand</span> bound the error introduced. Guardrails stop merges across regions, sectors, freeways, etc. Ask me to <span class='k'>find the best aggregation</span> and I'll test every method against a full-zone assignment and pick the one with the lowest flow error."},
+ {k:["adjacent","adjacent-first","nearest neighbour","nearest neighbor","nn method","single linkage","kruskal","k-means","kmeans","grid cells","spatial aggregation","proximity","contiguous zones","next to each other"],
+  a:"Three <b>proximity-first</b> aggregation methods merge zones <b>next to each other first</b>: <span class='k'>NN · adjacent-first</span> (single-linkage clustering — the two closest zones merge first, then the next closest, until the target count), <span class='k'>GRID · square cells</span> (only zones in the same spatial cell can merge; the cell size is solved to hit the target), and <span class='k'>KM · compact k-means</span> (k spatially compact clusters). They join M1–M5 in the <span class='k'>find best aggregation</span> search, and when one wins, its target zone count is refined (finer / coarser variants)."},
  {k:["study area","study-area","adaptive aggregation","ax method","focus area","area of interest","local detail"],
   a:"<b>AX · study-area adaptive</b> is a method I add to the search: it keeps <b>full zonal resolution inside your current map view</b> (the study area) and merges only the zones outside it. Because the densest, highest-flow links sit in the study area and their centroid loadings are preserved exactly, it drives the assignment error to its minimum where you care — usually the lowest flow RMSE of any method at a comparable zone count. Zoom to the area you're studying, then ask me to <span class='k'>find the best aggregation</span>."},
  {k:["network evolution","2025","2040","upgrades","corridor","corridors","horizon","scheme","schemes","new roads","widening","appraisal","do-something","do-minimum"],
