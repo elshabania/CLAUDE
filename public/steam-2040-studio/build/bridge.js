@@ -562,6 +562,7 @@
         case "evoshow":    out = window.STEAMEvo ? STEAMEvo.show(m.id, m.zoom) : {ok:false}; break;
         case "evoups":     out = window.STEAMEvo ? {ok:true, ups:STEAMEvo.upgradeLinks()} : {ok:false}; break;
         case "evocorlinks":out = window.STEAMEvo ? {ok:true, links:STEAMEvo.corridorLinks(m.id)} : {ok:false}; break;
+        case "evosel":     out = window.STEAMEvo ? {ok:true, sel:STEAMEvo.sel} : {ok:false}; break;
         case "apprinit":   out = apprInit(m.ups||[]); break;
         case "apprset":    out = apprSet(m.restore||[]); break;
         case "apprclear":  out = apprClear(); break;

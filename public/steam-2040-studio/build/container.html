@@ -301,6 +301,11 @@ window.addEventListener("message",function(ev){
     return;
   }
   if(m.event==="evorank"){ openDock(); submit("rank 2040 improvements"); return; }   // ★ button in the viewer's toggle bar
+  if(m.event==="evoeval"){ openDock();                                               // Evaluate button on a map-selected project
+    (async function(){ var t=thinking(); var r;
+      try{ r=await assessOneCorridor(m.id); }catch(e){ r={html:"Evaluation failed: "+esc(String(e&&e.message||e))}; }
+      t.remove(); var mm=addMsg("cop", r.html||"Done."); addChips(mm, r.chips); })();
+    return; }
   if(m.rid && pending[m.rid]){ pending[m.rid](m.out); delete pending[m.rid]; }
 });
 
@@ -732,7 +737,51 @@ async function inspectCorridor(id,name){
   switchApp("viewer"); await waitReady("viewer");
   await rpc("viewer",{cmd:"evoshow",id:id,zoom:true});
   highlightRail("viewer");
-  addMsg("cop","Highlighted corridor <b>"+(id+1)+"</b> ("+esc(name||"")+") and zoomed to it — the white-haloed links are the scheme.");
+  var m=addMsg("cop","Highlighted project <b>"+(id+1)+"</b> ("+esc(name||"")+") and zoomed to it — the white-haloed links are the scheme.");
+  addChips(m,["Evaluate this project"]);
+}
+/* evaluate ONE selected project: 2025 do-minimum vs 2025+this scheme on the
+   2040 demand — the standalone benefit of just that project. */
+async function assessOneCorridor(id){
+  openDock();
+  switchApp("viewer"); await waitReady("viewer");
+  var ana=await rpc("viewer",{cmd:"evoanalyze",timeoutMs:120000});
+  if(!ana||!ana.ok) return {html:"I couldn't load the evolution data.", chips:["Show differences"]};
+  if(id==null||id<0){ var selR=await rpc("viewer",{cmd:"evosel"}); id=(selR&&selR.ok)?selR.sel:-1; }
+  if(id==null||id<0) return {html:"No project is selected — open <b>Differences</b> and click a coloured scheme on the map first (or pick one from the corridor list).", chips:["Show differences"]};
+  var list=await rpc("viewer",{cmd:"evolist",limit:id+1});
+  var info=(list&&list.ok&&list.top[id])?list.top[id]:null;
+  var cl=await rpc("viewer",{cmd:"evocorlinks",id:id});
+  var upsR=await rpc("viewer",{cmd:"evoups",timeoutMs:60000});
+  if(!info||!cl||!cl.ok||!upsR||!upsR.ok) return {html:"Couldn't read that project's links.", chips:["Show differences"]};
+  await rpc("viewer",{cmd:"evoshow",id:id,zoom:false});
+  var name=info.kindLbl+" · "+info.cls;
+  var prog=addMsg("cop","✦ <b>Evaluating project "+(id+1)+"</b> ("+esc(name)+", "+info.laneKm.toFixed(1)+" lane-km) — assigning the 2040 demand on the <b>2025 base</b>, then with <b>this scheme added</b>…");
+  switchApp("assign"); await waitReady("assign");
+  await rpc("assign",{cmd:"set",id:"sampleSel",value:"500"});
+  await rpc("assign",{cmd:"set",id:"methodSel",value:"bpr"});
+  await pollState("assign", function(s){ return s.odStats && /matrix|trips|pairs/i.test(s.odStats); }, 8000);
+  await rpc("assign",{cmd:"aggod",pairs:[]});
+  var ini=await rpc("assign",{cmd:"apprinit",ups:upsR.ups,timeoutMs:60000});
+  if(!ini||!ini.ok){ prog.remove(); return {html:"Couldn't initialise the appraisal: "+esc((ini&&ini.err)||"no network")+".", chips:["Show differences"]}; }
+  await rpc("assign",{cmd:"apprset",restore:[]});
+  await runAggAssign();
+  var base=await rpc("assign",{cmd:"metrics"});
+  setBub(prog,"✦ <b>Evaluating project "+(id+1)+"</b> — do-minimum done, now adding the scheme…");
+  await rpc("assign",{cmd:"apprset",restore:cl.links});
+  await runAggAssign();
+  var withIt=await rpc("assign",{cmd:"metrics"});
+  await rpc("assign",{cmd:"apprclear"});
+  prog.remove(); highlightRail("assign");
+  if(!base||!base.ok||!(base.vht>0)||!withIt||!withIt.ok)
+    return {html:"The evaluation runs didn't produce metrics — run an assignment once and try again.", chips:["Run a BPR assignment"]};
+  var saved=base.vht-withIt.vht, pct=100*saved/base.vht, ce=saved/Math.max(0.1,info.laneKm);
+  var html="<b>Project "+(id+1)+" — "+esc(name)+"</b> ("+info.n+" links · "+info.lenKm.toFixed(1)+" km · "+info.laneKm.toFixed(1)+" lane-km)."
+    +"<div class='did'>Do-minimum (2025 base, 2040 demand): <b>"+Math.round(base.vht).toLocaleString()+"</b> veh-h"
+    +"<br>With this scheme: <b>"+Math.round(withIt.vht).toLocaleString()+"</b> veh-h"
+    +"<br>Standalone benefit: <b>"+Math.round(saved).toLocaleString()+" veh-h saved</b> ("+pct.toFixed(2)+"% of network VHT) · "+ce.toFixed(1)+" veh-h per lane-km</div>"
+    +"<div class='did' style='font-size:11px;color:#9fb0c8'>500-origin sample, BPR rerouting, v/c capped — use for ranking and screening, not absolute appraisal. The scheme stays highlighted on the map.</div>";
+  return {html:html, chips:["Rank 2040 improvements","Show differences","What are the current KPIs?"]};
 }
 /* horizontal "higher = better" bar chart for appraisal benefits */
 function apprChart(rows, title){
@@ -1099,6 +1148,8 @@ var ACTIONS=[
     run:function(){ return evoMode("off","Back to the <b>full 2040</b> model view."); }}),
  A({app:null, keys:["assess corridor benefits","appraise corridors","benefit of each project","assess the benefits","project priorities","prioritise projects","prioritize projects","rank projects","scheme benefits","appraise upgrades","assess upgrades","rank 2040 improvements","rank improvements","rank the improvements","rank schemes"],
     run:assessCorridors}),
+ A({app:null, keys:["evaluate this project","evaluate this corridor","evaluate selected","evaluate the selected project","evaluate project","evaluate corridor","evaluate this scheme","evaluate scheme","test this project","benefit of this project"],
+    run:function(){ return assessOneCorridor(-1); }}),
  A({app:"viewer", keys:["open the zones tool","open zones","zones tool","show aggregation","aggregation panel","open aggregation"],
     say:"Opened the <b>Zones</b> aggregation tool.", run:function(){ selectTool("zones"); return Promise.resolve(true); }}),
  /* navigation */

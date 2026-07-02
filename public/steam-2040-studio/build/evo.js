@@ -145,6 +145,7 @@
   E.setMode=async function(mode){
     if(mode!=="off"){ var r=await E.ready(); if(!r.ok) return r; }
     E.mode=mode; E._lastKey="";
+    if(mode!=="diff") E._hideCard&&E._hideCard();
     if(mode==="off"){ if(E.overlay)E.overlay.style.display="none"; E._stop(); }
     else { E._ensureOverlay(); E.overlay.style.display="block"; E._start(); }
     E._syncUI();
@@ -235,6 +236,63 @@
           t.strokeStyle=KINDCOL[U1.kind]||"#fff"; stroke(U1.i, wd1); } } }
     t.globalAlpha=1;
   };
+
+  /* ---- project selection on the map (Differences view) ---- */
+  E.pick=function(px0,py0){
+    if(!E.corridors) return -1;
+    var wx=cx+(px0-W/2)/sc, wy=cy-(py0-H/2)/sc, tol=12/sc, t2=tol*tol;
+    var best=-1, bd=t2;
+    for(var ci=0;ci<E.corridors.length;ci++){ var c=E.corridors[ci], b=c.bb;
+      if(wx<b[0]-tol||wx>b[2]+tol||wy<b[1]-tol||wy>b[3]+tol) continue;
+      for(var z=0;z<c.links.length;z++){ var p=E.links.pts[E.ups[c.links[z]].i];
+        for(var q=2;q<p.length;q+=2){
+          var x1=p[q-2],y1=p[q-1],x2=p[q],y2=p[q+1], dx=x2-x1,dy=y2-y1;
+          var L2=dx*dx+dy*dy, t=L2>0?Math.max(0,Math.min(1,((wx-x1)*dx+(wy-y1)*dy)/L2)):0;
+          var qx=x1+t*dx-wx, qy=y1+t*dy-wy, dd=qx*qx+qy*qy;
+          if(dd<bd){ bd=dd; best=ci; } } } }
+    return best;
+  };
+  E._card=null;
+  E._hideCard=function(){ if(E._card) E._card.style.display="none"; };
+  E._showCard=function(id){
+    var c=E.corridors[id]; if(!c) return;
+    if(!E._card){
+      var d=document.createElement("div"); d.id="evoCard";
+      d.style.cssText="position:fixed;top:104px;left:50%;transform:translateX(-50%);z-index:9;"
+        +"background:rgba(13,20,34,.95);border:1px solid #2d4a74;border-radius:12px;padding:10px 12px;"
+        +"box-shadow:0 8px 26px rgba(0,0,0,.5);font:12px system-ui,sans-serif;color:#d7e1f2;max-width:430px";
+      document.body.appendChild(d); E._card=d;
+    }
+    var lbl={new:"new road",widen:"widening",typeup:"type upgrade"}[c.kind]||c.kind;
+    var cls=c.cls==="fwy"?"freeway/expressway":"ramp/interchange";
+    var bits=[]; if(c.nRamp)bits.push(c.nRamp+" ramp"); if(c.nJunc)bits.push(c.nJunc+" signal");
+    if(c.nMinor)bits.push(c.nMinor+" slip/approach");
+    E._card.innerHTML='<b style="color:#ffd60a">Project '+(id+1)+'</b> · '+lbl+' · '+cls
+      +'<br><span style="color:#9fb0c8">'+c.n+' links · '+c.lenKm.toFixed(1)+' km · '
+      +c.laneKm.toFixed(1)+' lane-km'+(bits.length?' · incl. '+bits.join(" + "):"")+'</span>'
+      +'<div style="margin-top:8px;display:flex;gap:6px">'
+      +'<button id="evoEvalBtn" style="cursor:pointer;border:0;border-radius:8px;padding:6px 12px;background:#ffd60a;color:#0b1018;font-weight:700;font:inherit">★ Evaluate benefits</button>'
+      +'<button id="evoCardX" style="cursor:pointer;border:1px solid #2d4a74;border-radius:8px;padding:6px 10px;background:#0e1626;color:#9fb0c8;font:inherit">✕</button></div>';
+    E._card.style.display="block";
+    document.getElementById("evoEvalBtn").onclick=function(){
+      try{ window.parent.postMessage({steam:1, resp:1, event:"evoeval", id:id, app:"viewer"}, "*"); }catch(e){} };
+    document.getElementById("evoCardX").onclick=function(){ E.sel=-1; E._lastKey=""; E._hideCard(); };
+  };
+  (function(){
+    var downX=0, downY=0;
+    function arm(){
+      var map=document.getElementById("map"); if(!map) return;
+      map.addEventListener("pointerdown",function(e){ downX=e.clientX; downY=e.clientY; },true);
+      map.addEventListener("click",function(e){
+        if(E.mode!=="diff") return;
+        if(Math.hypot(e.clientX-downX,e.clientY-downY)>5) return;   // that was a pan
+        var id=E.pick(e.clientX,e.clientY);
+        if(id>=0){ E.sel=id; E._lastKey=""; E._showCard(id); e.stopImmediatePropagation(); e.preventDefault(); }
+        else { E.sel=-1; E._lastKey=""; E._hideCard(); }
+      },true);
+    }
+    if(document.readyState!=="loading") arm(); else document.addEventListener("DOMContentLoaded",arm);
+  })();
 
   window.STEAMEvo=E;
   // show the view toggle as soon as the Viewer is ready (data decodes lazily on
