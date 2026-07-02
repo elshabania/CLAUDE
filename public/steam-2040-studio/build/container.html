@@ -443,6 +443,7 @@ async function applyAggregationHandoff(){
    zone count, score each by how well it preserves the assigned flows, pick the
    best, and show the before→after difference plot. ===== */
 var AGG_TARGET=2050;   // custom methods' target zone count (comparable to M1's typical result)
+var AGG_SEARCH_N=800;  // origin pre-sample shared by baseline+aggregated scoring runs
 var AGGCONFIGS=[
   {name:"AX · study-area adaptive", method:"m1", studyArea:true},
   {name:"AX · study-area + districts", method:"m2", studyArea:true},
@@ -508,9 +509,9 @@ function expandConfig(cfg){
   var method=(typeof cfg==="string")?cfg:cfg.method;
   if(cfg&&cfg.custom){ var M=cfg.custom, NM={nn:"NN",grid:"GRID",kmeans:"KM",ward:"WARD",kcenter:"KC",hex:"HEX",quad:"QT",bal:"BAL",ring:"RING"}[M]||M.toUpperCase();
     return [
+      {name:NM+" · very fine ("+Math.round(AGG_TARGET*1.7)+" zones)", custom:M, target:Math.round(AGG_TARGET*1.7)},
       {name:NM+" · finer ("+Math.round(AGG_TARGET*1.3)+" zones)", custom:M, target:Math.round(AGG_TARGET*1.3)},
       {name:NM+" · coarser ("+Math.round(AGG_TARGET*0.7)+" zones)", custom:M, target:Math.round(AGG_TARGET*0.7)},
-      {name:NM+" · much coarser ("+Math.round(AGG_TARGET*0.45)+" zones)", custom:M, target:Math.round(AGG_TARGET*0.45)},
       {name:(M==="nn"?"KM · compact k-means":"NN · adjacent-first")+" (alt)", custom:(M==="nn"?"kmeans":"nn")}];
   }
   if(cfg&&cfg.studyArea) return [
@@ -548,7 +549,17 @@ async function evalAggConfig(cfg, prog, tag){
   var agg=await fetchAgg(cfg);
   if(!agg||!agg.ok||!agg.merged) return null;
   switchApp("assign"); await waitReady("assign");
-  await rpc("assign",{cmd:"aggod",pairs:agg.pairs});
+  // build BOTH matrices (aggregated + demand-matched full baseline). The
+  // baseline assigns exactly the trips that stay inter-zonal under THIS
+  // aggregation, so the score measures pure routing/loading error — not the
+  // internalised short trips that aggregation removes by definition.
+  var odr=await rpc("assign",{cmd:"aggod",pairs:agg.pairs,sampleN:AGG_SEARCH_N});
+  setBub(prog, "✦ "+tag+": "+esc(cfg.name)+" — matched baseline ("+(odr&&odr.internalised?odr.internalised.toLocaleString()+" trips internalised":"…")+")…");
+  await rpc("assign",{cmd:"odbase",which:"filt"});
+  await runAggAssign();                                    // demand-matched baseline
+  await rpc("assign",{cmd:"snapfull"});
+  await rpc("assign",{cmd:"odbase",which:"agg"});
+  setBub(prog, "✦ "+tag+": "+esc(cfg.name)+" — aggregated assignment…");
   var t0=nowMs(); await runAggAssign(); var runtime=(nowMs()-t0)/1000;   // assignment wall-clock
   var cmp=await rpc("assign",{cmd:"cmpfull"});
   if(!cmp||!cmp.ok) return null;
@@ -621,13 +632,16 @@ async function findBestAggregation(){
   var areaTxt = (STUDY_RECT && am && am.ok && am.n)
     ? "Error is scored only inside your <b>study area + 5 km buffer</b> ("+am.n.toLocaleString()+" links)."
     : "Couldn't read a study area, so error is scored over the whole network — zoom to your area of interest and run me again to focus it.";
-  // SPEED: rank every method on a demand-preserving origin SAMPLE (fast), then
-  // verify the single winner on all zones — far quicker than all-zones × N methods.
-  var SEARCH_SAMPLE="1000";
-  setBub(prog, "✦ <b>Aggregation-method search</b> — ranking methods on a fast "+SEARCH_SAMPLE+"-origin sample, then I verify the winner on all zones. "+areaTxt);
-  await rpc("assign",{cmd:"set",id:"sampleSel",value:SEARCH_SAMPLE});
+  // SCORING DESIGN: both runs of every method assign the IDENTICAL pre-sampled
+  // trips (aggod sampleN), with BPR incremental rerouting — so the score is
+  // pure aggregation-induced routing/loading error: no missing-intrazonal
+  // demand, no origin-sampling mismatch, no all-or-nothing knife edges.
+  var SEARCH_SAMPLE=AGG_SEARCH_N;
+  setBub(prog, "✦ <b>Aggregation-method search</b> — each method is scored against its own <b>demand-matched baseline</b>: the identical "+SEARCH_SAMPLE+"-origin pre-sampled trips assigned on full zones vs aggregated zones (BPR rerouting). Two runs per method; winner verified on all zones. "+areaTxt);
+  await rpc("assign",{cmd:"set",id:"methodSel",value:"bpr"});
+  await rpc("assign",{cmd:"set",id:"sampleSel",value:"0"});   // matrices are pre-sampled
   await pollState("assign", function(s){ return s.odStats && /matrix|trips|pairs/i.test(s.odStats); }, 7000);
-  await rpc("assign",{cmd:"aggod",pairs:[]});     // full zones (un-aggregated) on the sample
+  await rpc("assign",{cmd:"aggod",pairs:[],sampleN:AGG_SEARCH_N});   // pre-sampled, un-aggregated
   var tb=nowMs(); await runAggAssign(); ORIG_RT=(nowMs()-tb)/1000;   // original (un-aggregated) runtime
   var snap=await rpc("assign",{cmd:"snapfull"});
   if(!snap||!snap.ok){ setBub(prog,"I couldn't establish a full-zone baseline. Run an assignment first, then try again."); return {html:"",chips:["Run an assignment"]}; }
@@ -647,18 +661,20 @@ async function findBestAggregation(){
   }
   results.sort(function(a,b){ return a.pctRmse-b.pctRmse; });
   var best=results[0];
-  // VERIFY the winner on ALL zones: fresh all-zones baseline + winner re-run, both timed
-  setBub(prog,"✦ Verifying the winner (<b>"+esc(best.name)+"</b>) on <b>all zones</b>…");
+  // VERIFY the winner on ALL zones with the demand-MATCHED baseline: assign the
+  // same kept trips on full zones, then on the winner's zones, both timed
+  setBub(prog,"✦ Verifying the winner (<b>"+esc(best.name)+"</b>) on <b>all zones</b> (matched baseline)…");
   await rpc("assign",{cmd:"set",id:"sampleSel",value:"0"});
   await pollState("assign", function(s){ return s.odStats && /matrix|trips|pairs/i.test(s.odStats); }, 7000);
-  await rpc("assign",{cmd:"aggod",pairs:[]});                         // all-zones original
-  var toa=nowMs(); await runAggAssign(); var origAllRT=(nowMs()-toa)/1000;
-  await rpc("assign",{cmd:"snapfull"});                               // all-zones reference
   switchApp("viewer"); await waitReady("viewer");
   if(!best.cfg.custom) await applyAggConfig(best.cfg);
   var bagg=await fetchAgg(best.cfg);
   switchApp("assign"); await waitReady("assign");
-  await rpc("assign",{cmd:"aggod",pairs:bagg.pairs});
+  var bodr=await rpc("assign",{cmd:"aggod",pairs:bagg.pairs});        // build both matrices
+  await rpc("assign",{cmd:"odbase",which:"filt"});
+  var toa=nowMs(); await runAggAssign(); var origAllRT=(nowMs()-toa)/1000;
+  await rpc("assign",{cmd:"snapfull"});                               // matched all-zones reference
+  await rpc("assign",{cmd:"odbase",which:"agg"});
   var twa=nowMs(); await runAggAssign(); var winAllRT=(nowMs()-twa)/1000;
   var cmpAll=await rpc("assign",{cmd:"cmpfull"});
   await rpc("assign",{cmd:"scnsave",key:best.key});      // refresh the winner's cache (all zones)
@@ -677,12 +693,13 @@ async function findBestAggregation(){
       +'</div>';
   }).join("");
   var scope = (STUDY_RECT && best.nLinks) ? " Error is measured only inside your <b>study area + 5 km buffer</b> ("+best.nLinks.toLocaleString()+" links)." : "";
-  var speed = origAllRT>0 ? " <b>Assignment runtime (all zones):</b> original "+origAllRT.toFixed(1)+" s → best aggregation "+winAllRT.toFixed(1)+" s ("+(origAllRT/Math.max(0.01,winAllRT)).toFixed(1)+"× faster)." : "";
-  var html="<b>Best: "+esc(best.name)+"</b> at "+best.zones.toLocaleString()+" zones — preserves the assigned flows best (<b>"+best.pctRmse.toFixed(1)+"% flow RMSE</b>, VHT error "+best.vhtErr.toFixed(1)+"%, corr "+best.corr.toFixed(3)+", verified on all zones)."+scope+speed+" The map shows the <b>before→after Δ plot</b>."
+  var speed = origAllRT>0 ? " <b>Assignment runtime (all zones):</b> matched baseline "+origAllRT.toFixed(1)+" s → best aggregation "+winAllRT.toFixed(1)+" s ("+(origAllRT/Math.max(0.01,winAllRT)).toFixed(1)+"× faster)." : "";
+  var intern = (bodr&&bodr.ok&&bodr.internalised!=null) ? " It internalises <b>"+bodr.internalised.toLocaleString()+" trips</b> ("+(100*bodr.internalised/Math.max(1,bodr.internalised+bodr.keptTrips)).toFixed(1)+"% of demand) — those become intrazonal and leave the network model by design; the error below is measured on the remaining trips against a <b>demand-matched full-zone baseline</b>, so it is pure routing/loading error." : "";
+  var html="<b>Best: "+esc(best.name)+"</b> at "+best.zones.toLocaleString()+" zones — preserves the assigned flows best (<b>"+best.pctRmse.toFixed(1)+"% flow RMSE</b>, VHT error "+best.vhtErr.toFixed(1)+"%, corr "+best.corr.toFixed(3)+", verified on all zones)."+intern+scope+speed+" The map shows the <b>before→after Δ plot</b>."
     + aggChart(results,"runtime","Assignment runtime by method (vs original)"," s", ORIG_RT, "original "+(ORIG_RT?ORIG_RT.toFixed(1):"?")+" s")
     + aggChart(results,"vhtErr","VHT error by method (lower = better)")
     + aggChart(results,"pctRmse","Flow RMSE by method")
-    + "<div class='did' style='font-size:11px;color:#9fb0c8;margin-top:4px'>Runtimes above are the fast ranking pass ("+SEARCH_SAMPLE+"-origin sample); the winner is verified on all zones. <b>Click a scenario</b> to load its Δ plot, or <b>apply ▸</b> to set it as the model.</div>"
+    + "<div class='did' style='font-size:11px;color:#9fb0c8;margin-top:4px'>Scores = pure aggregation error: identical pre-sampled trips ("+SEARCH_SAMPLE+" origins), demand-matched baseline, BPR rerouting; runtimes are that ranking pass; the winner's numbers are re-measured on all zones. <b>Click a scenario</b> to load its Δ plot, or <b>apply ▸</b> to set it as the model.</div>"
     + "<div class='did' style='max-height:180px;overflow:auto'>"+rows+"</div>";
   return {html:html, chips:["Colour by V/C","What are the current KPIs?","Reset to full zones"]};
 }

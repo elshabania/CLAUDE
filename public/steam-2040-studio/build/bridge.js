@@ -224,18 +224,25 @@
     var mx=(rect[2]-rect[0]), my=(rect[3]-rect[1]);
     var vx0=rect[0]-mx*pad, vx1=rect[2]+mx*pad, vy0=rect[1]-my*pad, vy1=rect[3]+my*pad;
     function inside(i){ var x=CENT[i*2], y=CENT[i*2+1]; return x>=vx0&&x<=vx1&&y>=vy0&&y<=vy1; }
-    // base + lowest-index OUTSIDE member per cluster (the exterior representative)
-    var base={}, outRep={};
-    for(var i=0;i<N;i++){ var r=rid[i]; if(base[r]===undefined||i<base[r]) base[r]=i;
-      if(!inside(i)){ if(outRep[r]===undefined||i<outRep[r]) outRep[r]=i; } }
-    var pairs=[], merged=0, roots={}, inN=0;
-    for(var k=0;k<N;k++){
-      if(inside(k)){ roots["s"+k]=1; inN++; continue; }   // keep full resolution inside
-      var rr=rid[k], rep=(outRep[rr]!==undefined)?outRep[rr]:base[rr];
-      roots["c"+rep]=1;
-      if(rep!==k){ pairs.push([CIDS[k]>>>0, CIDS[rep]>>>0]); merged++; }
+    // group the OUTSIDE members per cluster; each group's representative is the
+    // member nearest the group's mean centroid (least loading shift)
+    var groupsOut=new Map(), inN=0;
+    for(var i=0;i<N;i++){
+      if(inside(i)){ inN++; continue; }
+      var r=rid[i]; var g=groupsOut.get(r); if(!g){g=[];groupsOut.set(r,g);} g.push(i);
     }
-    return {ok:true, pairs:pairs, merged:merged, zones:Object.keys(roots).length, total:N, inStudy:inN};
+    var pairs=[], merged=0, outZones=0;
+    groupsOut.forEach(function(g){
+      outZones++;
+      if(g.length<2) return;
+      var sx=0,sy=0;
+      for(var q=0;q<g.length;q++){ sx+=CENT[g[q]*2]; sy+=CENT[g[q]*2+1]; }
+      var mx2=sx/g.length, my2=sy/g.length, rep=g[0], bd=Infinity;
+      for(q=0;q<g.length;q++){ var dx=CENT[g[q]*2]-mx2, dy=CENT[g[q]*2+1]-my2, d=dx*dx+dy*dy;
+        if(d<bd){ bd=d; rep=g[q]; } }
+      for(q=0;q<g.length;q++){ if(g[q]!==rep){ pairs.push([CIDS[g[q]]>>>0, CIDS[rep]>>>0]); merged++; } }
+    });
+    return {ok:true, pairs:pairs, merged:merged, zones:inN+outZones, total:N, inStudy:inN};
   }
   /* CUSTOM SPATIAL AGGREGATIONS (Viewer side) — proximity-first methods built
      directly on the zone centroids, independent of the app's own M1-M5:
@@ -383,18 +390,32 @@
     }
     return { N:N, find:find, clusters:clusters };
   }
+  /* pick each cluster's representative as the member NEAREST the cluster's
+     mean centroid — the merged demand then loads as close as possible to
+     where the member zones actually load, minimising the loading shift */
+  function bestRepPairs(find, N){
+    var groups2=new Map();
+    for(var i=0;i<N;i++){ var r=find(i); var g=groups2.get(r); if(!g){g=[];groups2.set(r,g);} g.push(i); }
+    var pairs=[], merged=0, zones=0;
+    groups2.forEach(function(g){
+      zones++;
+      if(g.length<2) return;
+      var sx=0,sy=0;
+      for(var q=0;q<g.length;q++){ sx+=CENT[g[q]*2]; sy+=CENT[g[q]*2+1]; }
+      var mx2=sx/g.length, my2=sy/g.length, rep=g[0], bd=Infinity;
+      for(q=0;q<g.length;q++){ var dx=CENT[g[q]*2]-mx2, dy=CENT[g[q]*2+1]-my2, d=dx*dx+dy*dy;
+        if(d<bd){ bd=d; rep=g[q]; } }
+      for(q=0;q<g.length;q++){ if(g[q]!==rep){ pairs.push([CIDS[g[q]]>>>0, CIDS[rep]>>>0]); merged++; } }
+    });
+    return {pairs:pairs, merged:merged, zones:zones};
+  }
   function aggCustom(opts){
     if(typeof CENT==="undefined" || typeof CIDS==="undefined" || !CIDS.length)
       return {ok:false, err:"no zone centroids"};
     var mode=(opts&&opts.mode)||"nn", target=(opts&&opts.target)|0;
     var scr=spatialCluster(mode,target);
-    var N=scr.N, find=scr.find;
-    // emit [zoneId ➜ representative] pairs, lowest-index member as the rep
-    var repIdx={}, pairs=[], merged=0, roots={};
-    for(var i=0;i<N;i++){ var r3=find(i); if(repIdx[r3]===undefined || i<repIdx[r3]) repIdx[r3]=i; }
-    for(i=0;i<N;i++){ var r4=find(i); roots[r4]=1;
-      if(repIdx[r4]!==i){ pairs.push([CIDS[i]>>>0, CIDS[repIdx[r4]]>>>0]); merged++; } }
-    return {ok:true, pairs:pairs, merged:merged, zones:Object.keys(roots).length, total:N, mode:mode, target:target};
+    var rp=bestRepPairs(scr.find, scr.N);
+    return {ok:true, pairs:rp.pairs, merged:rp.merged, zones:rp.zones, total:scr.N, mode:mode, target:target};
   }
   /* run a custom method as a FIRST-CLASS viewer aggregation: build the same
      merge forest the app's own methods produce and finalise through assemble(),
@@ -454,34 +475,68 @@
   function getAggregation(){
     if(typeof ACT==="undefined" || !ACT || !ACT.rid || typeof CIDS==="undefined")
       return {ok:false, err:"no aggregation yet"};
-    var rid=ACT.rid, N=rid.length, repIdx={};
-    for(var i=0;i<N;i++){ var r=rid[i]; if(repIdx[r]===undefined || i<repIdx[r]) repIdx[r]=i; }
-    var pairs=[], merged=0, roots={};
-    for(var k=0;k<N;k++){ var rr=rid[k]; roots[rr]=1;
-      if(repIdx[rr]!==k){ pairs.push([CIDS[k]>>>0, CIDS[repIdx[rr]]>>>0]); merged++; } }
-    return {ok:true, pairs:pairs, merged:merged, zones:Object.keys(roots).length, total:N};
+    var rid=ACT.rid, N=rid.length;
+    var rp=bestRepPairs(function(i){ return rid[i]; }, N);
+    return {ok:true, pairs:rp.pairs, merged:rp.merged, zones:rp.zones, total:N};
   }
   /* ASSIGNMENT: re-aggregate the embedded OD by a zoneId➜representative map,
      drop now-intrazonal trips, rebuild ODMAT, ready for a re-run. */
-  function aggregateOD(pairs){
+  function aggregateOD(pairs, sampleN){
     if(typeof buildODfromArrays!=="function" || !window.__ODRAW) return {ok:false, err:"OD not loaded yet"};
     var O=window.__ODRAW.O, D=window.__ODRAW.D, V=window.__ODRAW.V, cnt=window.__ODRAW.cnt;
     var rep={}; for(var k=0;k<pairs.length;k++) rep[pairs[k][0]]=pairs[k][1];
+    // optional deterministic origin PRE-SAMPLE applied to BOTH matrices, so the
+    // baseline and the aggregated run assign the IDENTICAL physical trips —
+    // no origin-sampling mismatch pollutes the comparison
+    var oSel=null;
+    if(sampleN>0){
+      var oSeen=new Set(); for(var s5=0;s5<cnt;s5++) oSeen.add(O[s5]>>>0);
+      var oArr=Array.from(oSeen); oArr.sort(function(a,b){ return a-b; });
+      if(sampleN<oArr.length){ oSel=new Set(); var st5=oArr.length/sampleN;
+        for(var s6=0;s6<sampleN;s6++) oSel.add(oArr[Math.floor(s6*st5)]); }
+    }
     var BIG=1000000, agg=new Map();
+    // build BOTH: the aggregated matrix AND a demand-MATCHED full-zone matrix
+    // that excludes the trips the aggregation internalises, so the baseline can
+    // assign exactly the same demand and the comparison measures pure routing/
+    // loading error, not the missing intrazonal trips.
+    var FO=[], FD=[], FV=[], dropped=0, kept=0;
     for(var i=0;i<cnt;i++){
-      var o=O[i]>>>0, d=D[i]>>>0, ro=rep[o], rd=rep[d];
-      if(ro!==undefined) o=ro; if(rd!==undefined) d=rd;
-      if(o===d) continue;                                   // intrazonal after merge
+      var o0=O[i]>>>0, d0=D[i]>>>0;
+      if(oSel && !oSel.has(o0)) continue;
+      var ro=rep[o0], rd=rep[d0];
+      var o=(ro!==undefined)?ro:o0, d=(rd!==undefined)?rd:d0;
       var v=(typeof h2f==="function")?h2f(V[i]):V[i]; if(!(v>0)) continue;
+      if(o===d){ dropped+=v; continue; }                   // intrazonal after merge
+      kept+=v;
       var key=o*BIG+d; agg.set(key,(agg.get(key)||0)+v);
+      FO.push(o0); FD.push(d0); FV.push(v);
     }
     var m=agg.size, O2=new Float64Array(m), D2=new Float64Array(m), V2=new Float64Array(m), j=0;
-    agg.forEach(function(v,key){ O2[j]=Math.floor(key/BIG); D2[j]=key%BIG; V2[j]=v; j++; });
+    agg.forEach(function(v2,key){ O2[j]=Math.floor(key/BIG); D2[j]=key%BIG; V2[j]=v2; j++; });
+    window.__ODAGG={O:O2,D:D2,V:V2,m:m};
+    window.__ODFILT={O:Float64Array.from(FO),D:Float64Array.from(FD),V:Float64Array.from(FV),m:FO.length};
     var r=buildODfromArrays(O2,D2,V2,m,false);
     try{ var ds=document.getElementById("demandSel"); if(ds) ds.value="od"; }catch(e){}
     var lbl = pairs.length ? "Aggregated zones" : "Full zones";
     try{ var os=document.getElementById("odStats"); if(os) os.textContent=lbl+" · "+r.cells.toLocaleString()+" OD pairs · "+Math.round(r.grand).toLocaleString()+" trips · "+r.origins.toLocaleString()+" origins"; }catch(e){}
-    return {ok:true, pairs:r.cells, trips:Math.round(r.grand), origins:r.origins};
+    return {ok:true, pairs:r.cells, trips:Math.round(r.grand), origins:r.origins,
+            internalised:Math.round(dropped), keptTrips:Math.round(kept)};
+  }
+  /* switch the live OD between the stored matrices: the MATCHED full-zone
+     baseline ("filt"), the aggregated one ("agg"), or the original raw ("full") */
+  function odBase(which){
+    if(typeof buildODfromArrays!=="function") return {ok:false, err:"no builder"};
+    var src2 = which==="filt" ? window.__ODFILT : which==="agg" ? window.__ODAGG : null;
+    if(which==="full"){
+      if(!window.__ODRAW) return {ok:false, err:"no raw OD"};
+      var W0=window.__ODRAW, r0=buildODfromArrays(W0.O,W0.D,W0.V,W0.cnt,true);
+      return {ok:true, which:"full", pairs:r0.cells, origins:r0.origins};
+    }
+    if(!src2) return {ok:false, err:"no stored matrix "+which};
+    var r=buildODfromArrays(src2.O,src2.D,src2.V,src2.m,false);
+    try{ var ds=document.getElementById("demandSel"); if(ds) ds.value="od"; }catch(e){}
+    return {ok:true, which:which, pairs:r.cells, trips:Math.round(r.grand), origins:r.origins};
   }
 
   /* ---- corridor benefit appraisal (Assignment side) ----
@@ -540,7 +595,8 @@
         case "bodyclass": out = bodyClass(m.name, m.on); break;
         case "section":   out = section(m.text); break;
         case "getagg":    out = getAggregation(); break;
-        case "aggod":     out = aggregateOD(m.pairs||[]); break;
+        case "aggod":     out = aggregateOD(m.pairs||[], m.sampleN|0); break;
+        case "odbase":    out = odBase(m.which); break;
         case "getview":   out = getView(); break;
         case "setview":   out = setView(m); break;
         case "getxl":     out = getXlayers(); break;
