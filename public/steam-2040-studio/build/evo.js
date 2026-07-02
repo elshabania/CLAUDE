@@ -92,13 +92,80 @@
       if(mains[list[q]].kind===mains[list[0]].kind) mu.uni(list[0],list[q]); } });
     var mg2=new Map();
     for(var g=0;g<mains.length;g++){ var rt=mu.find(g); var a3=mg2.get(rt); if(!a3){a3=[];mg2.set(rt,a3);} a3.push(g); }
+    var mainGroups=[];
+    mg2.forEach(function(idxs){ mainGroups.push(idxs.map(function(x){ return mains[x]; })); });
+    // PROXIMITY MERGE of mainline schemes that are physically ONE work:
+    //  (a) parallel carriageways — same kind, geometries running alongside for
+    //      a substantial length (mere crossings stay below the threshold)
+    //  (b) continuations — same kind, chain ends within 400 m (e.g. the change
+    //      breaks over an unchanged bridge deck)
+    (function(){
+      var PROXD=250, STEP=150, KEYP=1<<20;
+      function samples(G,out,gi){ for(var q=0;q<G.length;q++){ var p=L.pts[G[q].i]; var acc=0;
+        out.push({g:gi,x:p[0],y:p[1]});
+        for(var w=2;w<p.length;w+=2){ var dx=p[w]-p[w-2], dy=p[w+1]-p[w-1], seg=Math.hypot(dx,dy);
+          var pos=0; while(acc+seg-pos>=STEP){ pos+=STEP-acc; acc=0;
+            out.push({g:gi,x:p[w-2]+dx*pos/seg,y:p[w-1]+dy*pos/seg}); }
+          acc+=seg-pos; } } }
+      var pts2=[], lens=[];
+      for(var gi=0;gi<mainGroups.length;gi++){ var G=mainGroups[gi];
+        var Lm=0; for(var q=0;q<G.length;q++) Lm+=G[q].lenM; lens.push(Lm);
+        samples(G,pts2,gi); }
+      var grid2=new Map();
+      for(var q2=0;q2<pts2.length;q2++){ var P2=pts2[q2];
+        var k6=(Math.floor(P2.x/PROXD)+4096)*KEYP+Math.floor(P2.y/PROXD)+4096;
+        var a6=grid2.get(k6); if(!a6){a6=[];grid2.set(k6,a6);} a6.push(q2); }
+      var near=new Map();   // "a_b" -> count of a-points near b
+      var d2=PROXD*PROXD;
+      for(var q3=0;q3<pts2.length;q3++){ var A2=pts2[q3], seen={};
+        var gx=Math.floor(A2.x/PROXD)+4096, gy=Math.floor(A2.y/PROXD)+4096;
+        for(var ox=-1;ox<=1;ox++) for(var oy=-1;oy<=1;oy++){
+          var lst=grid2.get((gx+ox)*KEYP+(gy+oy)); if(!lst) continue;
+          for(var w2=0;w2<lst.length;w2++){ var B2=pts2[lst[w2]];
+            if(B2.g===A2.g || seen[B2.g]) continue;
+            if(mainGroups[B2.g][0].kind!==mainGroups[A2.g][0].kind) continue;
+            var ddx=A2.x-B2.x, ddy=A2.y-B2.y;
+            if(ddx*ddx+ddy*ddy<=d2){ seen[B2.g]=1;
+              var key2=A2.g<B2.g?(A2.g+"_"+B2.g):(B2.g+"_"+A2.g);
+              near.set(key2,(near.get(key2)||0)+1); } } } }
+      var pm=makeUF(mainGroups.length);
+      near.forEach(function(cnt,key2){ var pp=key2.split("_"), a7=+pp[0], b7=+pp[1];
+        var proxLen=cnt*STEP;
+        var thr=Math.max(700, Math.min(1500, 0.5*Math.min(lens[a7],lens[b7])));
+        if(proxLen>=thr) pm.uni(a7,b7); });
+      // (b) continuations: chain-end coordinates within 400 m
+      var ends=[];
+      for(var gi2=0;gi2<mainGroups.length;gi2++){ var G2=mainGroups[gi2], deg=new Map();
+        for(var q4=0;q4<G2.length;q4++){ deg.set(G2[q4].A,(deg.get(G2[q4].A)||0)+1); deg.set(G2[q4].B,(deg.get(G2[q4].B)||0)+1); }
+        var eo=[];
+        for(var q5=0;q5<G2.length;q5++){ var U5=G2[q5], p5=L.pts[U5.i];
+          if(deg.get(U5.A)===1) eo.push([p5[0],p5[1]]);
+          if(deg.get(U5.B)===1) eo.push([p5[p5.length-2],p5[p5.length-1]]); }
+        ends.push(eo); }
+      for(var a8=0;a8<mainGroups.length;a8++) for(var b8=a8+1;b8<mainGroups.length;b8++){
+        if(mainGroups[a8][0].kind!==mainGroups[b8][0].kind) continue;
+        if(pm.find(a8)===pm.find(b8)) continue;
+        var hit=false, EA=ends[a8], EB=ends[b8];
+        for(var e1=0;e1<EA.length&&!hit;e1++) for(var e2b=0;e2b<EB.length;e2b++){
+          var gdx=EA[e1][0]-EB[e2b][0], gdy=EA[e1][1]-EB[e2b][1];
+          if(gdx*gdx+gdy*gdy<=160000){ hit=true; break; } }
+        if(hit) pm.uni(a8,b8); }
+      var mm=new Map();
+      for(var gi3=0;gi3<mainGroups.length;gi3++){ var r8=pm.find(gi3);
+        var a9=mm.get(r8); if(!a9){a9=[];mm.set(r8,a9);} a9.push(gi3); }
+      var merged=[];
+      mm.forEach(function(idxs2){ var G9=[];
+        for(var q6=0;q6<idxs2.length;q6++) G9=G9.concat(mainGroups[idxs2[q6]]);
+        merged.push(G9); });
+      mainGroups=merged;
+    })();
     var groups=[];                      // each: array of link records
     var nodeOwner=new Map();            // node -> project index
-    mg2.forEach(function(idxs){
-      var gi=groups.length, G=idxs.map(function(x){ return mains[x]; });
-      groups.push(G);
-      for(var q=0;q<G.length;q++){ nodeOwner.set(G[q].A,gi); nodeOwner.set(G[q].B,gi); }
-    });
+    for(var mgI=0;mgI<mainGroups.length;mgI++){
+      var gi4=groups.length, G4=mainGroups[mgI];
+      groups.push(G4);
+      for(var q7=0;q7<G4.length;q7++){ nodeOwner.set(G4[q7].A,gi4); nodeOwner.set(G4[q7].B,gi4); }
+    }
     // 2) JUNCTION ZONES: cluster connector links by SPATIAL PROXIMITY, not just
     // connectivity — at a grade-separated interchange the four quadrant webs
     // only connect through the mainlines, so pure connectivity splits them.
@@ -327,19 +394,23 @@
       if(diff){ if(!(L.FL[i]&2))continue; t.strokeStyle="#33415c"; t.globalAlpha=.5; stroke(i, Math.min(Math.max(.5,sc*7),3)); }
       else { if(!(L.FL[i]&yearBit))continue; var st=CLS[classKey(useT25?L.T25[i]:L.T40[i])]||CLS.local;
         t.strokeStyle=st.c; t.globalAlpha=st.a; stroke(i, Math.min(Math.max(st.b, st.wm*sc), st.mx)); } }
-    // diff: colour each upgrade link by ITS kind (a corridor can now mix its
-    // mainline with attached ramps/junction links), selected corridor haloed
+    // diff: with NO selection, colour each upgrade link by ITS kind. With a
+    // project selected, everything goes GREY and the selected project draws in
+    // BLUE, so the scheme reads instantly against the base network.
     if(diff && E.corridors){ t.globalAlpha=.9;
+      var hasSel=(E.sel>=0 && !!E.corridors[E.sel]);
       var wd0=Math.min(Math.max(1.1,sc*8),4);
       for(var ci=0;ci<E.corridors.length;ci++){ var c=E.corridors[ci], cb=c.bb;
         if(cb[2]<vx0||cb[0]>vx1||cb[3]<vy0||cb[1]>vy1) continue; if(ci===E.sel)continue;
-        for(var z=0;z<c.links.length;z++){ var U0=E.ups[c.links[z]];
-          t.strokeStyle=KINDCOL[U0.kind]||"#9aa"; stroke(U0.i, wd0); } }
-      if(E.sel>=0 && E.corridors[E.sel]){ var s2=E.corridors[E.sel]; t.globalAlpha=1;
-        t.strokeStyle="#ffffff"; for(var a=0;a<s2.links.length;a++) stroke(E.ups[s2.links[a]].i, Math.min(Math.max(3.4,sc*14),9));
-        var wd1=Math.min(Math.max(1.8,sc*9),5);
-        for(var a2=0;a2<s2.links.length;a2++){ var U1=E.ups[s2.links[a2]];
-          t.strokeStyle=KINDCOL[U1.kind]||"#fff"; stroke(U1.i, wd1); } } }
+        if(hasSel){ t.strokeStyle="#4a5c76"; t.globalAlpha=.55;
+          for(var z0=0;z0<c.links.length;z0++) stroke(E.ups[c.links[z0]].i, wd0); }
+        else { t.globalAlpha=.9;
+          for(var z=0;z<c.links.length;z++){ var U0=E.ups[c.links[z]];
+            t.strokeStyle=KINDCOL[U0.kind]||"#9aa"; stroke(U0.i, wd0); } } }
+      if(hasSel){ var s2=E.corridors[E.sel]; t.globalAlpha=1;
+        t.strokeStyle="#0a1a2e"; for(var a=0;a<s2.links.length;a++) stroke(E.ups[s2.links[a]].i, Math.min(Math.max(3.6,sc*15),10));
+        t.strokeStyle="#3aa6ff"; var wd1=Math.min(Math.max(2.0,sc*9),5.5);
+        for(var a2=0;a2<s2.links.length;a2++) stroke(E.ups[s2.links[a2]].i, wd1); } }
     t.globalAlpha=1;
   };
 
