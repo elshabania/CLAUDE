@@ -92,8 +92,8 @@ def patch_recengine(src):
       '<select id="budgetSel"><option value="0">none</option><option value="20">20</option>'
       '<option value="50" selected>50</option><option value="100">100</option>'
       '<option value="200">200</option><option value="500">500</option></select> lane-km</label> '
-      '<label title="ranking / selection objective">Rank by <select id="rankBySel">'
-      '<option value="bcr" selected>benefit/cost</option><option value="vht">VHT saved</option></select></label></div>',
+      '<label title="ranking / selection objective — benefit per lane-km is a cost-effectiveness (BCR-proxy) measure">Rank by <select id="rankBySel">'
+      '<option value="bcr" selected>benefit / lane-km</option><option value="vht">VHT saved</option></select></label></div>',
       "UI budget row")
     # subtitle
     src = _rep(src, 'reassigns &amp; measures VHT saved',
@@ -157,7 +157,7 @@ def patch_recengine(src):
     src = _rep(src,
       'h.textContent="Ranked by VHT saved (measured by reassignment) \\u00b7 base "+fmtN(baseQuick)+":";',
       'var _rb=((document.getElementById("rankBySel")||{}).value)||"bcr";'
-      ' h.textContent=(_rb==="bcr"?"Ranked by benefit/cost (BCR)":"Ranked by VHT saved")+" \\u00b7 base "+fmtN(baseQuick)+":";',
+      ' h.textContent=(_rb==="bcr"?"Ranked by benefit per lane-km (cost-effectiveness)":"Ranked by VHT saved")+" \\u00b7 base "+fmtN(baseQuick)+":";',
       "rendersol header")
     return src
 

@@ -768,13 +768,13 @@ async function assessCorridors(){
   var rows=results.map(function(r,i){
     return '<div class="scnrow"><a href="#" class="evolink" data-evo="'+r.id+'" data-name="'+esc(r.name)+'">'
       +(i+1)+". "+(i===0?"<b>":"")+esc(r.name)+(i===0?"</b>":"")
-      +" — "+Math.round(r.vhtSaved).toLocaleString()+" veh-h saved · "+r.laneKm.toFixed(1)+" lane-km · BCR "+r.bcr.toFixed(1)
+      +" — "+Math.round(r.vhtSaved).toLocaleString()+" veh-h saved · "+r.laneKm.toFixed(1)+" lane-km · "+r.bcr.toFixed(1)+" veh-h/ln-km"
       +"</a></div>"; }).join("");
   var chart=apprChart(results.map(function(r){ return {name:r.name, v:Math.max(0,r.vhtSaved), lbl:Math.round(r.vhtSaved).toLocaleString()}; }), "VHT saved by corridor (veh-h, higher = better)");
-  var html="<b>Corridor benefit appraisal</b> — each major scheme added to the <b>2025 base</b>, 2040 demand assigned, ranked by <b>benefit-cost ratio</b> (VHT saved per lane-km). "
-    +"Top priority: <b>"+esc(best.name)+"</b> — saves <b>"+Math.round(best.vhtSaved).toLocaleString()+" veh-hours</b> for "+best.laneKm.toFixed(1)+" lane-km (BCR "+best.bcr.toFixed(1)+")."
+  var html="<b>Corridor benefit appraisal</b> — each major scheme added to the <b>2025 base</b>, 2040 demand assigned, ranked by <b>cost-effectiveness</b> (veh-h saved per lane-km — a BCR proxy: it matches a true benefit-cost ranking when cost scales with lane-km and one value of time applies). "
+    +"Top priority: <b>"+esc(best.name)+"</b> — saves <b>"+Math.round(best.vhtSaved).toLocaleString()+" veh-hours</b> for "+best.laneKm.toFixed(1)+" lane-km ("+best.bcr.toFixed(1)+" veh-h per lane-km)."
     +chart
-    +"<div class='did' style='font-size:11px;color:#9fb0c8;margin-top:4px'>Ranked by BCR — click a corridor to highlight it on the map. (Fast "+APPR_SAMPLE+"-origin demand-preserving sample, BPR rerouting; type-upgrade speed effects approximated via capacity.)</div>"
+    +"<div class='did' style='font-size:11px;color:#9fb0c8;margin-top:4px'>Click a corridor to highlight it on the map. Method notes: "+APPR_SAMPLE+"-origin demand-preserving sample; BPR incremental rerouting (not full equilibrium); v/c capped at 4 in the delay curve so the constrained 2025 base stays bounded; 2040-only roads are modelled as near-zero capacity rather than deleted; type-upgrade speed effects approximated via capacity. Use the numbers for ranking, not absolute appraisal.</div>"
     +"<div class='did' style='max-height:200px;overflow:auto'>"+rows+"</div>";
   return {html:html, chips:["Show differences","Show 2040 network","What are the current KPIs?"]};
 }
@@ -890,7 +890,7 @@ function renderProgList(empty){
     var it=document.createElement("div"); it.className="pitem"; it.draggable=true; it.dataset.i=idx;
     it.innerHTML='<span class="pgrip" title="drag to reorder">⠿</span>'+
       '<div class="pbody"><b>'+(idx+1)+'. '+esc(p.type)+'</b> <span class="psub">· corridor '+p.rank+'</span>'+
-      '<br><span class="psub">'+fmtVH(p.stepSaved)+' veh-h · '+(p.stepCost||0).toFixed(1)+' lane-km · BCR '+((p.stepCost>0)?(p.stepSaved/p.stepCost).toFixed(0):"∞")+'</span></div>'+
+      '<br><span class="psub">'+fmtVH(p.stepSaved)+' veh-h · '+(p.stepCost||0).toFixed(1)+' lane-km · '+((p.stepCost>0)?(p.stepSaved/p.stepCost).toFixed(0)+' veh-h/ln-km':"—")+'</span></div>'+
       '<div class="pmove"><button data-up title="up">▲</button><button data-dn title="down">▼</button></div>'+
       '<button class="pdrop" title="remove">✕</button>';
     it.querySelector("[data-up]").addEventListener("click",function(){ if(idx>0){ var t=PROG[idx-1];PROG[idx-1]=PROG[idx];PROG[idx]=t; renderProgList(); } });
@@ -904,7 +904,7 @@ function renderProgList(empty){
     box.appendChild(it);
   });
   var t=progTotals();
-  document.getElementById("progTot").innerHTML="Total <b>"+fmtVH(t.vht)+"</b> veh-h · "+t.cost.toFixed(1)+" lane-km · BCR "+(t.bcr>0?t.bcr.toFixed(0):"–");
+  document.getElementById("progTot").innerHTML="Total <b>"+fmtVH(t.vht)+"</b> veh-h · "+t.cost.toFixed(1)+" lane-km · "+(t.bcr>0?t.bcr.toFixed(0)+" veh-h/ln-km":"–");
 }
 async function progApply(){
   if(!PROG.length) return;
@@ -1008,7 +1008,7 @@ var KB=[
  {k:["v/c","vc","volume to capacity","volume-to-capacity","volume capacity"],
   a:"<b>V/C</b> is volume ÷ capacity on a link. Below ~0.85 traffic flows freely; near 1.0 it's at capacity; above 1.0 the link is over-saturated. Colour the Assignment map by <span class='k'>V/C</span> to see bottlenecks."},
  {k:["los","level of service","a-f","grade"],
-  a:"<b>LOS</b> (Level of Service) grades a link A–F from its V/C and speed: A is free-flow, E is at capacity, F is breakdown/stop-and-go. Use the <span class='k'>LOS</span> colour mode to communicate conditions to non-engineers."},
+  a:"<b>LOS</b> (Level of Service) grades a link A–F — here derived from its V/C ratio: A is free-flow, E is at capacity, F is breakdown/stop-and-go. Use the <span class='k'>LOS</span> colour mode to communicate conditions to non-engineers."},
  {k:["equilibrium","user equilibrium","wardrop","nash"],
   a:"<b>User equilibrium</b> (Wardrop's first principle) is the state where every used route between an O–D pair has equal, minimal travel time — no driver can unilaterally find a faster path. Frank-Wolfe and MSA iterate toward it; the relative gap reports how close you are."},
  {k:["gap","relative gap","convergence"],
@@ -1022,7 +1022,7 @@ var KB=[
  {k:["study area","study-area","adaptive aggregation","ax method","focus area","area of interest","local detail"],
   a:"<b>AX · study-area adaptive</b> is a method I add to the search: it keeps <b>full zonal resolution inside your current map view</b> (the study area) and merges only the zones outside it. Because the densest, highest-flow links sit in the study area and their centroid loadings are preserved exactly, it drives the assignment error to its minimum where you care — usually the lowest flow RMSE of any method at a comparable zone count. Zoom to the area you're studying, then ask me to <span class='k'>find the best aggregation</span>."},
  {k:["network evolution","2025","2040","upgrades","corridor","corridors","horizon","scheme","schemes","new roads","widening","appraisal","do-something","do-minimum"],
-  a:"<b>Network evolution</b> compares two horizon-year networks from one uploaded shapefile (fields <code>LINK_/LTYPE_/LANE_</code> per year). I find every <b>upgrade</b> 2025→2040 — <span style='color:#39d353'>new roads</span>, <span style='color:#38bdf8'>widenings</span> and <span style='color:#fbbf24'>type upgrades</span> — group them into <b>corridors</b> (contiguous links of the same kind &amp; road class), and highlight them on one map. Next I appraise each corridor <b>do-something vs do-minimum</b>: add it to the 2025 base, assign 2040 demand, and measure the VHT/VMT saved, then rank the schemes by benefit and BCR. Say <span class='k'>compare 2025 and 2040</span> to start (load your shapefile first)."},
+  a:"<b>Network evolution</b> compares the <b>2025 and 2040 networks</b>, which are baked into the app from the project shapefile (fields <code>LINK_/LTYPE_/LANE_</code> per year). I find every <b>major upgrade</b> 2025→2040 — <span style='color:#39d353'>new roads</span>, <span style='color:#38bdf8'>widenings</span> and <span style='color:#fbbf24'>type upgrades</span> on freeways/expressways and interchanges — group them into <b>corridors</b> (contiguous links of the same kind &amp; class), and show them with the map toggle (<span class='k'>2040 / 2025 / Differences</span>). I can then appraise each corridor <b>do-something vs do-minimum</b>: add it to the 2025 base, assign 2040 demand, measure the veh-hours saved, and rank schemes by cost-effectiveness. Say <span class='k'>compare 2025 and 2040</span> or <span class='k'>assess corridor benefits</span>."},
  {k:["taz","traffic analysis zone","centroid","centroids"],
   a:"A <b>TAZ</b> (Traffic Analysis Zone) is the spatial unit of travel demand; its <b>centroid</b> is the point where all of a zone's trips load onto the network through connectors. This model has 3,692 centroids."},
  {k:["od","o-d","origin-destination","matrix","demand matrix","trip table"],
@@ -1038,7 +1038,7 @@ var KB=[
  {k:["capacity","lanes","speed","settings"],
   a:"Link <b>capacity</b> (veh/hr) and free-flow <b>speed</b> come from road class and lane count. Edit them — and the BPR α/β — under <span class='k'>Settings</span> in the Assignment app; re-run afterwards to apply."},
  {k:["recommend","recommendation","rank corridors","find solutions","bcr","benefit cost","benefit-cost","budget","prioritise","prioritize","best value","cost effective"],
-  a:"<b>Recommend &amp; solve</b> ranks congested corridors by delay, generates upgrade options (add lanes, widen the bottleneck, parallel relief road), then <i>reassigns</i> each to measure the real VHT it saves. It now prioritises by <b>benefit–cost ratio</b>: set a <span class='k'>Budget</span> (lane-km) and <span class='k'>Rank by</span> benefit/cost, and the <b>build program</b> option assembles the best set of projects that fits the budget by marginal BCR — so you get the most congestion relief per lane-km, not just the biggest absolute saving."},
+  a:"<b>Recommend &amp; solve</b> ranks congested corridors by delay, generates upgrade options (add lanes, widen the bottleneck, parallel relief road), then <i>reassigns</i> each to measure the real VHT it saves. It prioritises by <b>cost-effectiveness</b> — VHT saved per lane-km built. That is a <i>proxy</i> for a true benefit–cost ratio (which needs monetised time savings and scheme costs); the ranking matches a BCR ranking when cost scales with lane-km and a single value of time applies. Set a <span class='k'>Budget</span> (lane-km) and the <b>build program</b> option assembles the project set that fits the budget by marginal cost-effectiveness."},
  {k:["scenario","upgrade","widen","add lane","new road","build road"],
   a:"In the Assignment app's <b>Scenario</b> section you can <span class='k'>Upgrade</span> a link (add lanes), <span class='k'>Draw road</span> (place a new road between two taps), then <span class='k'>Run scenario</span> to re-assign and measure VHT/VMT change versus the base case. Save named scenarios to compare."},
  {k:["pnr","park and ride","park-and-ride","pt","transit","walk"],

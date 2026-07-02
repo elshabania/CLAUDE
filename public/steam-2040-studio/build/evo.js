@@ -146,8 +146,14 @@
   /* ---- overlay rendering ---- */
   E._ensureOverlay=function(){ if(E.overlay){ E.overlay.style.display="block"; return; }
     var cv=document.createElement("canvas"); cv.id="evoOverlay";
-    cv.style.cssText="position:fixed;left:0;top:0;pointer-events:none;z-index:6";
-    document.body.appendChild(cv); E.overlay=cv; E.octx=cv.getContext("2d"); };
+    cv.style.cssText="position:fixed;left:0;top:0;pointer-events:none";
+    // sit directly ABOVE the map canvas but BELOW every native control (zoom
+    // buttons, scale bar, header/footer, minimap) so the app's own UI and
+    // landmarks stay visible in the 2025/2040/Differences views
+    var map=document.getElementById("map");
+    if(map && map.parentNode) map.insertAdjacentElement("afterend", cv);
+    else document.body.appendChild(cv);
+    E.overlay=cv; E.octx=cv.getContext("2d"); };
   E._start=function(){ if(E.raf)return; var loop=function(){ E.raf=requestAnimationFrame(loop); E._draw(); }; E.raf=requestAnimationFrame(loop); };
   E._stop=function(){ if(E.raf){ cancelAnimationFrame(E.raf); E.raf=0; } };
   E._bg=function(){ try{ if(typeof THEME!=="undefined"&&THEME&&THEME.mapBg) return THEME.mapBg; }catch(e){} return "#0a0e16"; };
