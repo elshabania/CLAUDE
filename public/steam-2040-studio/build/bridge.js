@@ -595,6 +595,36 @@
     agg.forEach(function(v2,key){ O2[j]=Math.floor(key/BIG); D2[j]=key%BIG; V2[j]=v2; j++; });
     window.__ODAGG={O:O2,D:D2,V:V2,m:m};
     window.__ODFILT={O:Float64Array.from(FO),D:Float64Array.from(FD),V:Float64Array.from(FV),m:FO.length};
+    // CONNECTOR RE-DIMENSIONING: a representative zone now loads several zones'
+    // demand through its own centroid connectors. Scale those connectors'
+    // capacity by the demand ratio (standard practice when aggregating zones);
+    // without it the aggregated equilibrium bottlenecks artificially at the
+    // connectors and BPR time explodes. Applied only while the AGGREGATED
+    // matrix is live (odBase toggles it), never to the matched baseline.
+    var capf=null;
+    if(pairs.length && typeof GLINK!=="undefined" && GLINK && GLINK.A){
+      var ends=new Map();
+      for(var e0=0;e0<cnt;e0++){ var vv=(typeof h2f==="function")?h2f(V[e0]):V[e0]; if(!(vv>0)) continue;
+        var oo=O[e0]>>>0, dd0=D[e0]>>>0;
+        ends.set(oo,(ends.get(oo)||0)+vv); ends.set(dd0,(ends.get(dd0)||0)+vv); }
+      var tot=new Map();                       // rep -> own + absorbed trip-ends
+      for(var p2=0;p2<pairs.length;p2++){ var mem=pairs[p2][0]>>>0, rp=pairs[p2][1]>>>0;
+        if(!tot.has(rp)) tot.set(rp,(ends.get(rp)||0));
+        tot.set(rp, tot.get(rp)+(ends.get(mem)||0)); }
+      var fz=new Map();                        // rep zone -> connector factor
+      tot.forEach(function(t2,rp2){ var own=ends.get(rp2)||0;
+        fz.set(rp2, own>0 ? Math.min(10, Math.max(1, t2/own)) : 10); });
+      capf=new Map();
+      var GA=GLINK.A, GB=GLINK.B;
+      for(var g2=0; g2<GLINK.m; g2++){
+        var fa=fz.get(GA[g2]), fb=fz.get(GB[g2]);
+        var f2=(fa!==undefined||fb!==undefined)?Math.max(fa||1,fb||1):undefined;
+        if(f2!==undefined && f2>1) capf.set(g2, f2);
+      }
+      if(!capf.size) capf=null;
+    }
+    window.__AGGCAPF_P=capf;
+    window.__AGGCAPF=capf;                     // aggod leaves the aggregated matrix live
     var r=buildODfromArrays(O2,D2,V2,m,false);
     try{ var ds=document.getElementById("demandSel"); if(ds) ds.value="od"; }catch(e){}
     var lbl = pairs.length ? "Aggregated zones" : "Full zones";
@@ -623,6 +653,8 @@
   function odBase(which){
     if(typeof buildODfromArrays!=="function") return {ok:false, err:"no builder"};
     var src2 = which==="filt" ? window.__ODFILT : which==="agg" ? window.__ODAGG : null;
+    // connector re-dimensioning belongs ONLY to the aggregated zone system
+    window.__AGGCAPF = (which==="agg") ? (window.__AGGCAPF_P||null) : null;
     if(which==="full"){
       if(!window.__ODRAW) return {ok:false, err:"no raw OD"};
       var W0=window.__ODRAW, r0=buildODfromArrays(W0.O,W0.D,W0.V,W0.cnt,true);

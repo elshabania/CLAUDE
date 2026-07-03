@@ -307,7 +307,8 @@ def tweak(src, appid):
         assert 'ELN[g]=Math.min(255,lanes); ECAP[g]=Math.max(1,lanes)*classCap(GLINK.cls[g]); }' in src
         src = src.replace('ELN[g]=Math.min(255,lanes); ECAP[g]=Math.max(1,lanes)*classCap(GLINK.cls[g]); }',
                           'ELN[g]=Math.min(255,lanes); ECAP[g]=Math.max(1,lanes)*classCap(GLINK.cls[g]);'
-                          ' if(window.__YEARCAPF){ var _yf=window.__YEARCAPF[g]; if(_yf!==undefined) ECAP[g]=Math.max(0.5, ECAP[g]*_yf); } }', 1)
+                          ' if(window.__YEARCAPF){ var _yf=window.__YEARCAPF[g]; if(_yf!==undefined) ECAP[g]=Math.max(0.5, ECAP[g]*_yf); }'
+                          ' if(window.__AGGCAPF){ var _af=window.__AGGCAPF.get(g); if(_af!==undefined) ECAP[g]=ECAP[g]*_af; } }', 1)
     # SELECTION ACCURACY (both apps): size the canvas to the document CLIENT box,
     # which excludes any scrollbar. window.innerWidth includes the scrollbar, so
     # using it makes W wider than the painted canvas and skews hit-testing — the
