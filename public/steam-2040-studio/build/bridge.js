@@ -502,15 +502,69 @@
   /* run a custom method as a FIRST-CLASS viewer aggregation: build the same
      merge forest the app's own methods produce and finalise through assemble(),
      so zone drawing, stats, exports and the assignment handoff all work. */
-  var CUSTLBL={ nn:"NN · adjacent-first", nnd:"NND · demand-weighted", qtd:"QTD · demand quadtree", ward:"WARD · variance-minimising", kmeans:"KM · k-means compact",
+  var CUSTLBL={ nn:"NN · adjacent-first", nnd:"NND · demand-weighted", qtd:"QTD · demand quadtree", gehx:"GEHX · exact-guard", ward:"WARD · variance-minimising", kmeans:"KM · k-means compact",
                 kcenter:"KC · k-center coverage", grid:"GRID · square cells", hex:"HEX · hexagonal cells",
                 quad:"QT · quadtree adaptive", bal:"BAL · size-balanced", ring:"RING · rings × sectors" };
+  /* GEHX in the Viewer dropdown: same 2-stage algorithm as the Assignment's
+     gehAgg, computed from the ferried zone→attachment-node + trip-end table
+     (window.__GEHDATA). Returns a union-find like spatialCluster does. */
+  function gehClusterViewer(target){
+    var D=window.__GEHDATA; if(!D) return null;
+    var N=CIDS.length, comp=new Int32Array(N), i;
+    for(i=0;i<N;i++) comp[i]=i;
+    function find(p){ var r=p; while(comp[r]!==r)r=comp[r]; while(comp[p]!==r){ var nx=comp[p]; comp[p]=r; p=nx; } return r; }
+    var clusters=N;
+    function uni(a,b){ var ra=find(a), rb=find(b); if(ra!==rb){ comp[ra]=rb; clusters--; return true; } return false; }
+    var nd=new Int32Array(N).fill(-1), w=new Float64Array(N);
+    for(i=0;i<N;i++){ var e=D.map.get(CIDS[i]>>>0); if(e){ nd[i]=e[0]; w[i]=e[1]; } }
+    // stage 1 — same attachment node (merge into the highest-demand member)
+    var byNode=new Map();
+    for(i=0;i<N;i++){ if(nd[i]<0) continue; var a=byNode.get(nd[i]); if(!a){a=[];byNode.set(nd[i],a);} a.push(i); }
+    byNode.forEach(function(a){ if(a.length<2) return;
+      var r0=a[0]; a.forEach(function(z){ if(w[z]>w[r0]) r0=z; });
+      a.forEach(function(z){ if(z!==r0) uni(z,r0); });
+    });
+    // stage 2 — smallest trip-end zones into the nearest surviving zone
+    if(target>0 && clusters>target){
+      var CELL=3000, KEY2=1<<20, grid=new Map();
+      function gk(x,y){ return Math.floor(x/CELL)*KEY2+Math.floor(y/CELL); }
+      var alive=new Set(); for(i=0;i<N;i++) if(find(i)===i) alive.add(i);
+      alive.forEach(function(z){ var k=gk(CENT[z*2],CENT[z*2+1]); var a=grid.get(k); if(!a){a=new Set();grid.set(k,a);} a.add(z); });
+      var order=Array.from(alive).sort(function(a,b){ return w[a]-w[b]; });
+      for(var q=0;q<order.length && clusters>target;q++){
+        var zq=order[q]; if(find(zq)!==zq || !alive.has(zq)) continue;
+        var x0=CENT[zq*2], y0=CENT[zq*2+1], best=-1, bd=Infinity;
+        for(var ring=1; ring<=12 && best<0; ring++){
+          var gx=Math.floor(x0/CELL), gy=Math.floor(y0/CELL), r2max=(ring*CELL)*(ring*CELL);
+          for(var ox=-ring;ox<=ring;ox++) for(var oy=-ring;oy<=ring;oy++){
+            var cs=grid.get((gx+ox)*KEY2+(gy+oy)); if(!cs) continue;
+            cs.forEach(function(z3){ if(z3===zq) return;
+              var dx=CENT[z3*2]-x0, dy=CENT[z3*2+1]-y0, dd=dx*dx+dy*dy;
+              if(dd<bd && dd<=r2max*4){ bd=dd; best=z3; } });
+          }
+        }
+        if(best<0) continue;
+        uni(zq,best); alive.delete(zq);
+        var sq=grid.get(gk(x0,y0)); if(sq) sq.delete(zq);
+      }
+    }
+    return {N:N, find:find, clusters:clusters};
+  }
   function runCustomAgg(mode){
     try{
       if(typeof assemble!=="function" || typeof CENT==="undefined") return {ok:false, err:"viewer not ready"};
       var N=CIDS.length;
       var target=+(((document.getElementById("maxZoneSel")||{}).value))||Math.round(N*0.55);
-      var scr=spatialCluster(mode,target), find=scr.find;
+      var scr;
+      if(mode==="gehx"){
+        scr=gehClusterViewer(target);
+        if(!scr){   // no ferried data yet — ask the container to fetch it, then re-run
+          try{ window.parent.postMessage({steam:1,resp:1,event:"needgeh"},"*"); }catch(e){}
+          try{ agglbl.textContent="GEHX — fetching assignment data…"; }catch(e){}
+          return {ok:false, err:"fetching assignment data"};
+        }
+      } else scr=spatialCluster(mode,target);
+      var find=scr.find;
       // assemble()'s forest convention: par[i] < 0 marks a root
       var MAXT=N*2, px=new Float64Array(MAXT), py=new Float64Array(MAXT), par=new Int32Array(MAXT);
       par.fill(-1);
@@ -771,6 +825,20 @@
             exact:exact, soft:soft, maxW:Math.round(maxW),
             guaranteed:(soft===0), guardZones:zs.length-exact};
   }
+  /* zone attachment-node + trip-end table for the Viewer's GEHX dropdown mode:
+     the Viewer has no graph, so the container ferries this across once. */
+  function gehData(){
+    if(!window.__ODRAW || typeof zoneIdIndex!=="function") return {ok:false, err:"OD not loaded yet"};
+    if(typeof GRAPH==="undefined" || !GRAPH || !GRAPH.znode) return {ok:false, err:"graph unavailable"};
+    var idx=zoneIdIndex(), zn=GRAPH.znode, R=window.__ODRAW;
+    var ends=new Map(), i;
+    for(i=0;i<R.cnt;i++){ var v=(typeof h2f==="function")?h2f(R.V[i]):R.V[i]; if(!(v>0)) continue;
+      var o=R.O[i]>>>0, d=R.D[i]>>>0; ends.set(o,(ends.get(o)||0)+v); ends.set(d,(ends.get(d)||0)+v); }
+    var ids=[], nd=[], w=[];
+    idx.forEach(function(zi,id){ if(zn[zi]<0) return;
+      ids.push(id); nd.push(zn[zi]); w.push(ends.get(id)||0); });
+    return {ok:true, ids:ids, nd:nd, w:w, n:ids.length};
+  }
   /* switch the live OD between the stored matrices: the MATCHED full-zone
      baseline ("filt"), the aggregated one ("agg"), or the original raw ("full") */
   function odBase(which){
@@ -860,12 +928,22 @@
         case "odends":    out = odEnds(); break;
         case "vdfcap":    window.__APPRCLAMP=(m.v>0)?m.v:null; out={ok:true, cap:window.__APPRCLAMP}; break;
         case "gehagg":    out = gehAgg(m.target); break;
+        case "gehdata":   out = gehData(); break;
         case "showdiff":  out = showDiff((m.key && window.__SCN) ? window.__SCN[m.key] : null); break;
         case "scnsave":   out = scnSave(m.key); break;
         case "getrect":   out = getRect(); break;
         case "getaggsa":  out = getAggregationStudyArea(m); break;
         case "getaggcustom": out = aggCustom(m); break;
         case "applypairs":   out = applyPairsViewer(m.pairs, m.label); break;
+        case "setgehdata": {
+          var gm=new Map();
+          for(var gq=0; gq<(m.ids||[]).length; gq++) gm.set(m.ids[gq]>>>0, [m.nd[gq], m.w[gq]]);
+          window.__GEHDATA={map:gm, n:gm.size};
+          var rerun=null;
+          try{ if(typeof METHOD!=="undefined" && METHOD==="gehx" && window.__CUSTAGG) rerun=window.__CUSTAGG.run("gehx"); }catch(e){}
+          out={ok:true, n:gm.size, rerun:rerun&&rerun.ok?rerun.zones:null};
+          break;
+        }
         case "setarea":   out = setAreaMask(m.rect, m.buffer); break;
         case "cleararea": out = clearAreaMask(); break;
         case "evoready":   out = window.STEAMEvo ? STEAMEvo.ready() : {ok:false, err:"evolution module not loaded"}; break;

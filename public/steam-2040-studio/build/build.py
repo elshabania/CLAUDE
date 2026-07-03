@@ -327,7 +327,7 @@ def tweak(src, appid):
         src = src.replace('<option value="demand">Intrazonal demand</option>',
             '<option value="demand">Intrazonal demand</option>\n'
             '      <option value="nn">NN · Adjacent-first (nearest pairs)</option>\n'
-            '      <option value="nnd">NND · Demand-weighted adjacent</option>\n      <option value="qtd">QTD · Demand quadtree</option>\n'
+            '      <option value="nnd">NND · Demand-weighted adjacent</option>\n      <option value="qtd">QTD · Demand quadtree</option>\n      <option value="gehx">GEHX · Exact-guard (same node first)</option>\n'
             '      <option value="ward">WARD · Variance-minimising</option>\n'
             '      <option value="kmeans">KM · K-means compact</option>\n'
             '      <option value="kcenter">KC · K-center coverage</option>\n'

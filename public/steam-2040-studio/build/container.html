@@ -300,6 +300,17 @@ window.addEventListener("message",function(ev){
     for(var k in APPS){ if(APPS[k].label && m.app===k){ APPS[k].ready=true; updateCtx(); } }
     return;
   }
+  if(m.event==="needgeh"){   // Viewer selected GEHX but lacks the assignment-side data
+    (async function(){
+      try{
+        await waitReady("assign");
+        await pollState("assign", function(s){ return s.odStats && /matrix|trips|pairs/i.test(s.odStats); }, 15000);
+        var d=await rpc("assign",{cmd:"gehdata",timeoutMs:30000});
+        if(d&&d.ok) await rpc("viewer",{cmd:"setgehdata",ids:d.ids,nd:d.nd,w:d.w,timeoutMs:30000});
+      }catch(e){}
+    })();
+    return;
+  }
   if(m.event==="evorank"){ openDock(); submit("rank 2040 improvements"); return; }   // ★ button in the viewer's toggle bar
   if(m.event==="evoeval"){ openDock();                                               // Evaluate button on a map-selected project
     (async function(){ var t=thinking(); var r;
