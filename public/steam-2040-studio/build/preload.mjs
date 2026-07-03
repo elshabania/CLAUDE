@@ -23,10 +23,17 @@ const LBL = { nn:'NN · adjacent-first', nnd:'NND · demand-weighted', qtd:'QTD 
   kcenter:'KC · k-center coverage', grid:'GRID · square cells', hex:'HEX · hex cells',
   quad:'QT · quadtree adaptive', bal:'BAL · size-balanced', ring:'RING · rings × sectors' };
 const CONFIGS = [];
-for (const t of TARGETS) for (const m of METHODS) CONFIGS.push({ name: LBL[m] + ' @ ' + t, custom: m, target: t });
-if (!process.env.METHODS) {
-  CONFIGS.push({ name: 'M1 · land use + distance', method: 'm1' });
-  CONFIGS.push({ name: 'M2 · districts', method: 'm2' });
+if (process.env.CONFIGS_JSON) {
+  for (const c of JSON.parse(process.env.CONFIGS_JSON)) {
+    if (c.method) CONFIGS.push({ name: c.name || c.method.toUpperCase(), method: c.method });
+    else CONFIGS.push({ name: LBL[c.m] + ' @ ' + c.t, custom: c.m, target: c.t });
+  }
+} else {
+  for (const t of TARGETS) for (const m of METHODS) CONFIGS.push({ name: LBL[m] + ' @ ' + t, custom: m, target: t });
+  if (!process.env.METHODS) {
+    CONFIGS.push({ name: 'M1 · land use + distance', method: 'm1' });
+    CONFIGS.push({ name: 'M2 · districts', method: 'm2' });
+  }
 }
 if (process.env.ONLY) CONFIGS.length = +process.env.ONLY;
 
