@@ -99,7 +99,50 @@ class Packer:
         return struct.pack("<I", len(hjson)) + hjson + body
 
 
-def build_blob(net, zones: Zones | None, od: ODMatrix | None):
+def compute_baseline(net, zones, od, iters=15, sample=0):
+    """Run a correct full-origin Frank-Wolfe equilibrium in Python and return the
+    per-link volume, to bake into the file as the displayed baseline.
+
+    In-browser origin sampling distorts the flow pattern (it scales a random
+    subset of origins up, over-loading their corridors), so the honest result is
+    computed here once with every origin loaded (``sample=0``).
+    """
+    if zones is None or zones.n == 0 or od is None or od.n_pairs == 0:
+        return None
+    try:
+        from steam_core.graph import build_csr
+        from steam_core.zonemap import build_zone_node_map
+        from steam_assignment.demand import build_fixed_demand
+        from steam_assignment.assignment import assign
+    except Exception as exc:  # pragma: no cover
+        print(f"[build] baseline skipped (import): {exc}")
+        return None
+    s = Settings()
+    s.origin_sample = sample
+    s.fw_max_iter = iters
+    graph = build_csr(net)
+    zn = build_zone_node_map(zones, net)
+    dem = build_fixed_demand(od, zones, zn, s)
+    t = _now()
+    res = assign(net, graph, dem, s, "Frank-Wolfe UE")
+    gap = res.gap_history[-1] if res.gap_history else float("nan")
+    over = int(np.sum(res.vc > 1))
+    print(f"[build] baseline FW: {len(dem.origins):,} origins, {iters} iters, "
+          f"gap {gap:.2e}, {over:,} links over capacity ({_dt(t):.0f}s)")
+    return res.volume.astype(np.float32)
+
+
+def _now():
+    import time
+    return time.time()
+
+
+def _dt(t):
+    import time
+    return time.time() - t
+
+
+def build_blob(net, zones: Zones | None, od: ODMatrix | None, base_volume=None):
     # --- recenter geometry to local metres (keeps float32 precision) --------
     gx = net.geom_xy.astype(np.float64)
     xmin, ymin = float(gx[:, 0].min()), float(gx[:, 1].min())
@@ -167,9 +210,16 @@ def build_blob(net, zones: Zones | None, od: ODMatrix | None):
             p.add("od_d", di, np.int32)
             p.add("od_t", tr, np.float32)
 
+    # baked correct baseline assignment (full-origin equilibrium)
+    has_baseline = False
+    if base_volume is not None and len(base_volume) == n_links:
+        p.add("base_volume", np.asarray(base_volume, np.float32), np.float32)
+        has_baseline = True
+
     header = {
         "n_links": int(n_links), "n_nodes": int(n_nodes),
         "n_zones": int(n_zones), "n_od": int(n_od),
+        "has_baseline": has_baseline,
         "bounds": [0.0, 0.0, xmax - xmin, ymax - ymin],
     }
     blob = p.blob(header)
@@ -286,6 +336,10 @@ def main():
                     help="output .html path")
     ap.add_argument("--sample", action="store_true",
                     help="build from synthetic demo data (no confidential files)")
+    ap.add_argument("--no-baseline", action="store_true",
+                    help="skip baking the pre-computed full-origin equilibrium")
+    ap.add_argument("--baseline-iters", type=int, default=15,
+                    help="Frank-Wolfe iterations for the baked baseline")
     args = ap.parse_args()
 
     if args.sample:
@@ -312,7 +366,13 @@ def main():
 
     print(f"[build] links={net.n_links:,} nodes={net.n_nodes:,} "
           f"zones={zones.n if zones else 0:,} od={od.n_pairs if od else 0:,}")
-    blob, origin, header = build_blob(net, zones, od)
+    base_volume = None
+    if not args.no_baseline:
+        # demo data is tiny -> quick; real data uses full origins (correct)
+        iters = 8 if args.sample else args.baseline_iters
+        print("[build] computing correct full-origin baseline equilibrium…")
+        base_volume = compute_baseline(net, zones, od, iters=iters, sample=0)
+    blob, origin, header = build_blob(net, zones, od, base_volume=base_volume)
     print(f"[build] blob raw {len(blob)/1e6:.1f} MB · "
           f"sections={len(header['sections'])} · n_od={header['n_od']:,}")
     html = build_html(blob, origin, header)

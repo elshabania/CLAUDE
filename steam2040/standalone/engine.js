@@ -47,8 +47,12 @@ export class Model {
     if (!this.hasZones) this.nZones = 0;
     if (!this.hasOD) this.h.n_od = 0;
     if (this.nLinks <= 0) throw new Error("This network has no road links — nothing to display.");
+    // originSample is the live-run speed/accuracy dial. In-browser sampling
+    // scales a random subset of origins up, which over-loads their corridors, so
+    // the *displayed* result comes from the baked full-origin baseline below;
+    // live re-runs use a large sample + warm-start to stay close to it.
     this.settings = { bprAlpha: 0.15, bprBeta: 4, periodFactor: 0.1, deterrence: 0.1,
-                      vot: 35, workingDays: 250, originSample: 600, fwIters: 8, fwGap: 1e-3,
+                      vot: 35, workingDays: 250, originSample: 1500, fwIters: 8, fwGap: 1e-3,
                       dispVcCap: 3, dispSpeedFloor: 5 };
     this._derive();
     this._buildCSR();
@@ -56,6 +60,12 @@ export class Model {
     if (this.hasZones && this.hasOD) this._groupOD(); else this.odByNode = new Map();
     this.result = null;
     this.aggregation = null;
+    this.baselineVolume = null;
+    // Correct full-origin equilibrium computed at build time and baked in.
+    if (this.h.has_baseline && this.s.base_volume && this.s.base_volume.length === this.nLinks) {
+      this.baselineVolume = new Float32Array(this.s.base_volume);
+      this._finalize(this.baselineVolume, [], this.hasOD ? "fixed" : "gravity", "baseline");
+    }
   }
 
   canAssign(demand) {

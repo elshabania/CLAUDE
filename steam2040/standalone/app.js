@@ -115,12 +115,16 @@ async function boot(){
   S.map.resize();
   const m = S.model, off = m.s.geom_off, xy = m.s.geom_xy;
   S.map.setLinks(off, xy, m.h.bounds);
-  applyLinkStyle("class");
+  // If a correct baked baseline equilibrium is present, show it straight away.
+  const hasBase = !!(m.result && m.result.method==="baseline");
+  applyLinkStyle(hasBase ? "vc" : "class");
   S.map.resetView();
-  status(`${m.nLinks.toLocaleString()} links · ${m.nNodes.toLocaleString()} nodes · ${m.nZones.toLocaleString()} zones · ${(m.h.n_od||0).toLocaleString()} OD`);
+  const base=`${m.nLinks.toLocaleString()} links · ${m.nNodes.toLocaleString()} nodes · ${m.nZones.toLocaleString()} zones · ${(m.h.n_od||0).toLocaleString()} OD`;
+  if(hasBase){ const k=m.kpis(); fillKPI(k); status(base+` · baseline equilibrium (avg v/c ${k.avgVc.toFixed(2)})`); }
+  else status(base);
   wire(); wireMobile(); STEAM_applyCapabilities(); setMode("network");
   const hint=$("hint"); if(hint){ hint.hidden=false; setTimeout(()=>{ if(!hint.hidden) hint.hidden=true; },14000); }
-  toast("Network loaded — press ? for shortcuts.","good");
+  toast(hasBase?"Loaded the pre-computed equilibrium — links coloured by v/c.":"Network loaded — press ? for shortcuts.","good");
   if(STEAM_selftestRequested()) STEAM_runSelfTest();
 }
 const tick = () => new Promise(r=>setTimeout(r,16));
@@ -238,10 +242,14 @@ async function runAssign(method, demand){
   S.assigning=true; const btn=$("runAssign"); if(btn){ btn.textContent="Stop"; btn.classList.add("stop"); }
   S.map.showDots=false;
   const t0=performance.now();
+  // Warm-start from the correct baseline (or current result) so a live sampled
+  // re-run converges quickly and stays near the full-origin equilibrium.
+  const warm=(method==="frankwolfe"||method==="msa")
+    ? (m.result?m.result.volume:m.baselineVolume) : null;
   await m.assignProgressive(method, demand, (k,K,g)=>{
     applyLinkStyle("volume"); S.map.render(); fillKPI(m.kpis());
     status(`assigning ${method}… iter ${k}/${K}`+(isFinite(g)?` · gap ${g.toExponential(2)}`:""), true);
-  });
+  }, warm);
   const k=m.kpis(); fillKPI(k);
   status(`assigned (${method}) in ${((performance.now()-t0)/1000).toFixed(1)}s · gap ${isFinite(k.gap)?k.gap.toExponential(2):"–"} · ${k.over.toLocaleString()} links over capacity`);
   S.assigning=false; if(btn){ btn.textContent="Run assignment"; btn.classList.remove("stop"); }
