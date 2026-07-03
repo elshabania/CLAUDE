@@ -765,12 +765,14 @@ function preRow(r, idx, rank, isBest){
     ? " — "+r.zones.toLocaleString()+" zones · <b>links ≤1%: "+r.pctW1.toFixed(1)+"%</b> · GEH&lt;5: "+r.geh5.toFixed(1)+"%"+g2+" · VHT "+r.vhtErr.toFixed(2)+"% · intern "+r.internPct.toFixed(1)+"%"+spd
     : " — "+r.zones.toLocaleString()+" zones · VHT "+r.vhtErr.toFixed(2)+"% · RMSE "+r.pctRmse.toFixed(1)+"% · corr "+r.corr.toFixed(3)+" · intern "+r.internPct.toFixed(1)+"%"+spd;
   var canD=(r.dN!=null&&r.dN>0);
+  var ident=(!canD && r.maxGeh!=null && r.maxGeh===0);
   return '<div class="scnrow">'
     +(canD
       ? '<a href="#" class="prelink scnlink" data-pre="'+idx+'" title="Show this configuration\'s baked Δ plot on the map">'
-      : '<span class="scnlink" style="cursor:default">')
+      : '<span class="scnlink" style="cursor:default"'+(ident?' title="The aggregated assignment is bit-identical to full zones — there are no differences to plot"':'')+'>')
     +rank+". "+(isBest?"<b>":"")+esc(r.name)+(isBest?"</b>":"")+lnk
-    +(canD?' <span style="color:#6f87a8">Δ ▸</span></a>':'</span>')
+    +(canD?' <span style="color:#6f87a8">Δ ▸</span></a>'
+          :(ident?' <span style="color:#2ecc71" >≡ identical — no Δ exists</span></span>':'</span>'))
     +'<button class="scnapply" data-preapply="'+idx+'" title="Rebuild this aggregation live and apply it to the model (all zones, full demand)">apply ▸</button>'
     +'</div>';
 }
