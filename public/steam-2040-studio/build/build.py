@@ -398,6 +398,14 @@ blocks = (
     f'<script type="application/octet-stream" id="src-assign">{a}</script>\n'
 )
 
+# baked sparse Δ plots for the preloaded aggregation comparison (optional)
+diff_file = SCRATCH / "preload-diff.gz"
+if diff_file.exists():
+    import base64 as _b64
+    diff_b64 = _b64.b64encode(diff_file.read_bytes()).decode("ascii")
+    blocks += f'<script type="application/octet-stream" id="preload-diff">{diff_b64}</script>\n'
+    print(f"  baked preload-diff.gz: {diff_file.stat().st_size/1e6:.2f} MB gzip → {len(diff_b64)/1e6:.2f} MB base64")
+
 if "<!--APP_SOURCES-->" not in container:
     raise SystemExit("container missing <!--APP_SOURCES--> marker")
 out = container.replace("<!--APP_SOURCES-->", blocks)

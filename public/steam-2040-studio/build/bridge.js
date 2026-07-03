@@ -173,7 +173,54 @@
     var corr=(va>0&&vf>0)? cov/Math.sqrt(va*vf) : 0;
     var vhtF=areaVHT(F,idx), vhtA=areaVHT(A,idx);
     var vhtErr= vhtF>0 ? 100*Math.abs(vhtA-vhtF)/vhtF : 0;
-    return {ok:true, pctRmse:pctRmse, corr:corr, vhtErr:vhtErr, vhtFull:vhtF, vhtNow:vhtA, maxAbs:maxAbs, nLinks:n, masked:!!mask};
+    // link-level agreement: share of links whose flow moved ≤1% / ≤5% of its
+    // baseline (1 / 5 veh floor so empty links don't dominate), the standard
+    // GEH<5 share, and the p95 relative error on carrying links (≥50 veh)
+    var w1=0, w5=0, geh=0, gehN=0, rel=[];
+    for(j=0;j<n;j++){ gg=idx[j]; var f0=F[gg]||0, a0=A[gg]||0, ad0=Math.abs(a0-f0);
+      if(ad0<=Math.max(0.01*f0,1)) w1++;
+      if(ad0<=Math.max(0.05*f0,5)) w5++;
+      var s0=f0+a0; if(s0>0){ gehN++; if(Math.sqrt(2*ad0*ad0/s0)<5) geh++; }
+      if(f0>=50) rel.push(ad0/f0);
+    }
+    rel.sort(function(a,b){ return a-b; });
+    var p95=rel.length ? 100*rel[Math.floor(rel.length*0.95)] : 0;
+    return {ok:true, pctRmse:pctRmse, corr:corr, vhtErr:vhtErr, vhtFull:vhtF, vhtNow:vhtA, maxAbs:maxAbs, nLinks:n, masked:!!mask,
+            pctW1:100*w1/n, pctW5:100*w5/n, geh5:(gehN?100*geh/gehN:0), p95pct:p95, nCarry:rel.length};
+  }
+  /* sparse per-link Δ (current flows − full snapshot) for baking preloaded
+     difference plots: links with |Δ| ≥ minAbs, their baseline flow, and the
+     p95 |Δ| colour scale the live Δ plot would use. */
+  function exportDiff(minAbs){
+    if(!window.__FULLVOL || typeof baseVol==="undefined" || !baseVol) return {ok:false, err:"no comparison"};
+    var F=window.__FULLVOL, A=baseVol;
+    var M=(typeof GLINK!=="undefined"&&GLINK.m)?GLINK.m:Math.min(F.length,A.length);
+    var t=(typeof minAbs==="number"&&minAbs>0)?minAbs:0.5;
+    var idx=[], dv=[], fv=[], ad=[], g, d;
+    for(g=0; g<M; g++){ d=(A[g]||0)-(F[g]||0); if(d){ ad.push(Math.abs(d)); }
+      if(Math.abs(d)>=t){ idx.push(g); dv.push(d); fv.push(F[g]||0); } }
+    ad.sort(function(a,b){ return a-b; });
+    var dmax=ad.length ? Math.max(1, ad[Math.floor(ad.length*0.95)]) : 1;
+    return {ok:true, m:M, n:idx.length, nNonZero:ad.length, idx:idx, dv:dv, fv:fv, dmax:dmax};
+  }
+  /* display a BAKED difference plot: sparse Δ + per-link baseline denominators
+     arrive from the container (no assignment run needed). Same rendering state
+     showDiff sets, so the Δ-filter slider works unchanged. */
+  function showBaked(m){
+    try{
+      if(typeof GLINK==="undefined" || !GLINK || !GLINK.m) return {ok:false, err:"no network"};
+      var M=GLINK.m, ix=m.idx, dv=m.dv, fv=m.fv;
+      if(!ix || !ix.length) return {ok:false, err:"empty baked diff"};
+      DIFF=new Float64Array(M);
+      var den=new Float64Array(M);
+      for(var j=0;j<ix.length;j++){ var g=ix[j]; if(g<M){ DIFF[g]=dv[j]; den[g]=fv?(fv[j]||0):0; } }
+      DIFFMAX=(typeof m.dmax==="number"&&m.dmax>0)?m.dmax:1;
+      window.__DIFFDEN=den;
+      MODE="diff";
+      try{ document.querySelectorAll("#modeSeg button,#miniMode button").forEach(function(x){ x.classList.toggle("on", x.dataset.m==="diff"); }); }catch(e){}
+      if(typeof render==="function") render();
+      return {ok:true, n:ix.length};
+    }catch(e){ return {ok:false, err:String(e)}; }
   }
   /* render the difference plot: aggregated flows minus the full snapshot.
      srcVol lets us re-show ANY cached scenario's Δ (vs the same full baseline)
@@ -605,6 +652,8 @@
         case "applyprog": out = applyProgram(m.picks||[]); break;
         case "snapfull":  out = snapFull(); break;
         case "cmpfull":   out = cmpFull(); break;
+        case "expdiff":   out = exportDiff(m.minAbs); break;
+        case "showbaked": out = showBaked(m); break;
         case "showdiff":  out = showDiff((m.key && window.__SCN) ? window.__SCN[m.key] : null); break;
         case "scnsave":   out = scnSave(m.key); break;
         case "getrect":   out = getRect(); break;

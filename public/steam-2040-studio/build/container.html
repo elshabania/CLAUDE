@@ -569,7 +569,7 @@ async function evalAggConfig(cfg, prog, tag){
   var spd = (ORIG_RT&&runtime>0) ? " · "+(ORIG_RT/runtime).toFixed(1)+"× faster" : "";
   setBub(prog, "✦ "+tag+": <b>"+esc(cfg.name)+"</b> — "+agg.zones.toLocaleString()+" zones · flow RMSE "+cmp.pctRmse.toFixed(1)+"% · VHT err "+cmp.vhtErr.toFixed(1)+"% · "+runtime.toFixed(1)+" s"+spd+" — <i>Δ plot shown</i>");
   await aggSleep(900);                                   // let the user see the Δ
-  var r={name:cfg.name, cfg:cfg, key:sid, zones:agg.zones, merged:agg.merged, pctRmse:cmp.pctRmse, corr:cmp.corr, vhtErr:cmp.vhtErr, nLinks:cmp.nLinks, runtime:runtime};
+  var r={name:cfg.name, cfg:cfg, key:sid, zones:agg.zones, merged:agg.merged, pctRmse:cmp.pctRmse, corr:cmp.corr, vhtErr:cmp.vhtErr, nLinks:cmp.nLinks, runtime:runtime, pctW1:cmp.pctW1, geh5:cmp.geh5};
   AGG_BYKEY[sid]=r;
   return r;
 }
@@ -687,7 +687,7 @@ async function findBestAggregation(){
     return '<div class="scnrow">'
       +'<a href="#" class="scnlink" data-scn="'+esc(r.key||"")+'" data-name="'+esc(r.name)+'">'
       + (i+1)+". "+(i===0?"<b>":"")+esc(r.name)+(i===0?"</b>":"")
-      +" — "+r.zones.toLocaleString()+" zones · RMSE "+r.pctRmse.toFixed(1)+"% · VHT "+r.vhtErr.toFixed(1)+"% · "+rt
+      +" — "+r.zones.toLocaleString()+" zones · RMSE "+r.pctRmse.toFixed(1)+"% · VHT "+r.vhtErr.toFixed(1)+"%"+(r.pctW1!=null?" · links≤1% "+r.pctW1.toFixed(0)+"%":"")+" · "+rt
       +"</a>"
       +'<button class="scnapply" data-apply="'+esc(r.key||"")+'" title="Apply this aggregation to the model (all zones)">apply ▸</button>'
       +'</div>';
@@ -695,7 +695,8 @@ async function findBestAggregation(){
   var scope = (STUDY_RECT && best.nLinks) ? " Error is measured only inside your <b>study area + 5 km buffer</b> ("+best.nLinks.toLocaleString()+" links)." : "";
   var speed = origAllRT>0 ? " <b>Assignment runtime (all zones):</b> matched baseline "+origAllRT.toFixed(1)+" s → best aggregation "+winAllRT.toFixed(1)+" s ("+(origAllRT/Math.max(0.01,winAllRT)).toFixed(1)+"× faster)." : "";
   var intern = (bodr&&bodr.ok&&bodr.internalised!=null) ? " It internalises <b>"+bodr.internalised.toLocaleString()+" trips</b> ("+(100*bodr.internalised/Math.max(1,bodr.internalised+bodr.keptTrips)).toFixed(1)+"% of demand) — those become intrazonal and leave the network model by design; the error below is measured on the remaining trips against a <b>demand-matched full-zone baseline</b>, so it is pure routing/loading error." : "";
-  var html="<b>Best: "+esc(best.name)+"</b> at "+best.zones.toLocaleString()+" zones — preserves the assigned flows best (<b>"+best.pctRmse.toFixed(1)+"% flow RMSE</b>, VHT error "+best.vhtErr.toFixed(1)+"%, corr "+best.corr.toFixed(3)+", verified on all zones)."+intern+scope+speed+" The map shows the <b>before→after Δ plot</b>."
+  var lnkTxt=(cmpAll&&cmpAll.ok&&cmpAll.pctW1!=null)?" At link level, <b>"+cmpAll.pctW1.toFixed(1)+"% of links stay within 1%</b> of their baseline flow (GEH&lt;5 on "+cmpAll.geh5.toFixed(1)+"%).":"";
+  var html="<b>Best: "+esc(best.name)+"</b> at "+best.zones.toLocaleString()+" zones — preserves the assigned flows best (<b>"+best.pctRmse.toFixed(1)+"% flow RMSE</b>, VHT error "+best.vhtErr.toFixed(1)+"%, corr "+best.corr.toFixed(3)+", verified on all zones)."+lnkTxt+intern+scope+speed+" The map shows the <b>before→after Δ plot</b>."
     + aggChart(results,"runtime","Assignment runtime by method (vs original)"," s", ORIG_RT, "original "+(ORIG_RT?ORIG_RT.toFixed(1):"?")+" s")
     + aggChart(results,"vhtErr","VHT error by method (lower = better)")
     + aggChart(results,"pctRmse","Flow RMSE by method")
@@ -720,20 +721,72 @@ async function resetZonesHandoff(){
    can be read instantly without running the live search. ===== */
 var PRELOAD_AGG=null; /*__PRELOAD_AGG__*/
 function preShort(r){ var c=r.cfg||{}; return c.custom ? c.custom.toUpperCase()+(c.target?" @"+c.target:"") : (c.method||"?").toUpperCase(); }
+/* rank preloaded configs at LINK level: most links within 1% first, VHT error
+   as the tiebreak (older bakes without link stats fall back to VHT only) */
+function preScore(a,b){
+  var aw=(a.pctW1!=null), bw=(b.pctW1!=null);
+  if(aw&&bw && b.pctW1!==a.pctW1) return b.pctW1-a.pctW1;
+  return a.vhtErr-b.vhtErr;
+}
 function preBestIdx(){
   var P=PRELOAD_AGG; if(!P||!P.results||!P.results.length) return -1;
-  var bi=0; P.results.forEach(function(r,i){ if(r.vhtErr<P.results[bi].vhtErr) bi=i; });
+  var bi=0; P.results.forEach(function(r,i){ if(preScore(r,P.results[bi])<0) bi=i; });
   return bi;
 }
 function preRow(r, idx, rank, isBest){
   var spd=(r.baseRt>0&&r.rt>0)?" · "+r.rt.toFixed(1)+" s ("+(r.baseRt/Math.max(0.01,r.rt)).toFixed(1)+"×)":"";
+  var lnk=(r.pctW1!=null)
+    ? " — "+r.zones.toLocaleString()+" zones · <b>links ≤1%: "+r.pctW1.toFixed(1)+"%</b> · GEH&lt;5: "+r.geh5.toFixed(1)+"% · VHT "+r.vhtErr.toFixed(2)+"% · intern "+r.internPct.toFixed(1)+"%"+spd
+    : " — "+r.zones.toLocaleString()+" zones · VHT "+r.vhtErr.toFixed(2)+"% · RMSE "+r.pctRmse.toFixed(1)+"% · corr "+r.corr.toFixed(3)+" · intern "+r.internPct.toFixed(1)+"%"+spd;
+  var canD=(r.dN!=null&&r.dN>0);
   return '<div class="scnrow">'
-    +'<span class="scnlink" style="cursor:default">'
-    +rank+". "+(isBest?"<b>":"")+esc(r.name)+(isBest?"</b>":"")
-    +" — "+r.zones.toLocaleString()+" zones · VHT "+r.vhtErr.toFixed(2)+"% · RMSE "+r.pctRmse.toFixed(1)+"% · corr "+r.corr.toFixed(3)
-    +" · intern "+r.internPct.toFixed(1)+"%"+spd+"</span>"
+    +(canD
+      ? '<a href="#" class="prelink scnlink" data-pre="'+idx+'" title="Show this configuration\'s baked Δ plot on the map">'
+      : '<span class="scnlink" style="cursor:default">')
+    +rank+". "+(isBest?"<b>":"")+esc(r.name)+(isBest?"</b>":"")+lnk
+    +(canD?' <span style="color:#6f87a8">Δ ▸</span></a>':'</span>')
     +'<button class="scnapply" data-preapply="'+idx+'" title="Rebuild this aggregation live and apply it to the model (all zones, full demand)">apply ▸</button>'
     +'</div>';
+}
+/* lazily decode the baked sparse Δ block (base64 → gzip → ArrayBuffer) */
+function preDiffBuf(){
+  if(window.__PREDIFFP) return window.__PREDIFFP;
+  window.__PREDIFFP=(async function(){
+    var el=document.getElementById("preload-diff"); if(!el) return null;
+    var b64=el.textContent.replace(/\s+/g,""); if(!b64) return null;
+    var bin=atob(b64), bytes=new Uint8Array(bin.length);
+    for(var i=0;i<bin.length;i++) bytes[i]=bin.charCodeAt(i);
+    return new Response(new Blob([bytes]).stream().pipeThrough(new DecompressionStream("gzip"))).arrayBuffer();
+  })();
+  return window.__PREDIFFP;
+}
+/* show a preloaded configuration's Δ plot straight from the baked data —
+   no assignment run needed; the map's Δ-filter bar works as usual */
+async function showPreDiff(i){
+  var P=PRELOAD_AGG, r=P&&P.results&&P.results[i];
+  if(!r) return;
+  if(r.dN==null||!r.dN){ addMsg("cop","That configuration has no baked Δ plot — use <b>apply ▸</b> to compute it live."); return; }
+  var m=addMsg("cop","Loading the baked Δ plot for <b>"+esc(r.name)+"</b>…");
+  try{
+    var ab=await preDiffBuf();
+    if(!ab) throw new Error("no baked Δ block in this build");
+    var n=r.dN, off=r.dOff;
+    var idx=new Uint32Array(ab, off, n), dvq=new Int16Array(ab, off+4*n, n), fvq=new Uint16Array(ab, off+6*n, n);
+    var dv=new Float32Array(n), fv=new Float32Array(n);
+    for(var j=0;j<n;j++){ dv[j]=dvq[j]*r.dvS; fv[j]=fvq[j]*r.fvS; }
+    switchApp("assign"); await waitReady("assign");
+    // a freshly-created Assignment frame may still be decoding its network —
+    // retry until the link graph exists (a few seconds at most)
+    var res=null;
+    for(var att=0; att<25; att++){
+      res=await rpc("assign",{cmd:"showbaked",idx:idx,dv:dv,fv:fv,dmax:r.dmax,timeoutMs:30000});
+      if(res&&res.ok) break;
+      await aggSleep(400);
+    }
+    highlightRail("assign");
+    if(!res||!res.ok) throw new Error((res&&res.err)||"display failed");
+    setBub(m,"Baked <b>Δ plot</b> for <b>"+esc(r.name)+"</b> — <span style='color:#2ecc71'>green</span> links gain flow under this aggregation, <span style='color:#e74c3c'>red</span> lose, vs its demand-matched full-zone baseline. "+n.toLocaleString()+" links with |Δ| ≥ "+(P.minAbs||1)+" veh are baked in; use the map's filter bar to hide small differences. <b>apply ▸</b> makes it the live model.");
+  }catch(e){ setBub(m,"Couldn't show that Δ plot: "+esc(String(e&&e.message||e))+"."); }
 }
 async function showPreloadedComparison(){
   openDock();
@@ -748,15 +801,17 @@ async function showPreloadedComparison(){
     if(!groups[g]){ groups[g]=[]; order.push(g); }
     groups[g].push({r:r,i:i});
   });
-  var html="<b>Preloaded aggregation comparison — unified (whole network).</b> Precomputed with the optimiser's exact protocol: for every method the <b>identical "+(P.sampleN||800)+"-origin pre-sampled trips</b> are assigned on full zones (demand-matched baseline) and on the aggregated zones, BPR rerouting, and the error is measured over the <b>entire network</b> — no study-area mask. <b>VHT error</b> is the headline metric: whole-network flow RMSE % is dominated by thousands of low-volume links where tiny absolute shifts read as huge percentages, while VHT error tells you how much total travel time the aggregated model gets wrong.";
+  var hasW1=P.results.some(function(r){ return r.pctW1!=null; });
+  var html="<b>Preloaded aggregation comparison — unified (whole network).</b> Precomputed with the optimiser's exact protocol: for every method the <b>identical "+(P.sampleN||800)+"-origin pre-sampled trips</b> are assigned on full zones (demand-matched baseline) and on the aggregated zones, BPR rerouting, and the error is measured over the <b>entire network</b> — no study-area mask."
+    +(hasW1?" Ranked at <b>link level</b>: <b>links ≤1%</b> is the share of links whose flow moves by no more than 1% of its baseline (with a 1-veh floor so empty links don't inflate the score); <b>GEH&lt;5</b> is the standard model-validation share. Click a row to see its <b>baked Δ plot</b> instantly.":"");
   order.forEach(function(g){
-    var arr=groups[g].slice().sort(function(a,b){ return a.r.vhtErr-b.r.vhtErr; });
+    var arr=groups[g].slice().sort(function(a,b){ return preScore(a.r,b.r); });
     html+="<div class='did' style='margin-top:7px;font-weight:700;color:#d7e1f2'>"+esc(g)+"</div>"
         +"<div class='did'>"+arr.map(function(e,k){ return preRow(e.r, e.i, k+1, e.i===best); }).join("")+"</div>";
   });
-  var chartData=P.results.map(function(r){ return {name:preShort(r), vhtErr:r.vhtErr, rt:r.rt}; });
-  html+=aggChart(chartData,"vhtErr","VHT error — all preloaded configs (lower = better)")
-      +"<div class='did' style='font-size:11px;color:#9fb0c8;margin-top:4px'>intern % = demand internalised (becomes intrazonal and leaves the network by design); runtimes are the aggregated run vs its matched baseline. <b>apply ▸</b> rebuilds that aggregation live, assigns the full demand on all zones and shows its Δ plot.</div>";
+  var chartData=P.results.map(function(r){ return {name:preShort(r), vhtErr:r.vhtErr, off1:(r.pctW1!=null?100-r.pctW1:null)}; });
+  html+=(hasW1?aggChart(chartData,"off1","Links off by more than 1% (lower = better)"):aggChart(chartData,"vhtErr","VHT error — all preloaded configs (lower = better)"))
+      +"<div class='did' style='font-size:11px;color:#9fb0c8;margin-top:4px'>intern % = demand internalised (becomes intrazonal and leaves the network by design); runtimes are the aggregated run vs its matched baseline. <b>Click a row (Δ ▸)</b> to show its baked difference plot — no run needed; <b>apply ▸</b> rebuilds it live on all zones with full demand.</div>";
   return {html:html, chips:["Apply the best preloaded","Find best aggregation","Reset to full zones"]};
 }
 /* rebuild a preloaded configuration live and set it as the model (all zones,
@@ -787,7 +842,7 @@ async function applyPreloaded(idx){
   await rpc("assign",{cmd:"scnsave",key:key});
   await rpc("assign",{cmd:"showdiff"}); highlightRail("assign");
   AGG_BYKEY[key]={name:r.name, cfg:r.cfg, key:key, zones:agg.zones};
-  var err=(cmp&&cmp.ok)?" Verified on all zones with full demand: <b>VHT error "+cmp.vhtErr.toFixed(2)+"%</b> · flow RMSE "+cmp.pctRmse.toFixed(1)+"% · corr "+cmp.corr.toFixed(3)+".":"";
+  var err=(cmp&&cmp.ok)?" Verified on all zones with full demand: <b>"+(cmp.pctW1!=null?cmp.pctW1.toFixed(1)+"% of links within 1%</b> · GEH&lt;5 "+cmp.geh5.toFixed(1)+"% · ":"</b>")+"VHT error "+cmp.vhtErr.toFixed(2)+"% · corr "+cmp.corr.toFixed(3)+".":"";
   setBub(msg,"Applied <b>"+esc(r.name)+"</b> — "+agg.zones.toLocaleString()+" zones. Assignment "+rt.toFixed(1)+" s vs "+baseRt.toFixed(1)+" s matched baseline ("+(baseRt/Math.max(0.01,rt)).toFixed(1)+"× faster)."+err+" The map shows the before→after Δ plot.");
   addChips(msg,["Colour by V/C","Rank corridors","Reset to full zones"]);
 }
@@ -1145,6 +1200,8 @@ log.addEventListener("click",function(e){
     if(ap.hasAttribute("data-preapply")) applyPreloaded(+ap.getAttribute("data-preapply"));
     else applyScenario(ap.getAttribute("data-apply"));
     return; }
+  var pl=e.target.closest(".prelink");
+  if(pl){ e.preventDefault(); showPreDiff(+pl.getAttribute("data-pre")); return; }
   var ev=e.target.closest(".evolink");
   if(ev){ e.preventDefault(); inspectCorridor(+ev.getAttribute("data-evo"), ev.getAttribute("data-name")); return; }
   var a=e.target.closest(".scnlink");
@@ -1177,7 +1234,9 @@ function thinking(){
 /* ---- knowledge base (concept Q&A) ---- */
 var KB=[
  {k:["preloaded","precomputed","baked results","what is the preloaded comparison"],
-  a:"The <b>preloaded comparison</b> is a set of aggregation-method scores computed offline over the <b>whole network</b> (no study-area mask) and baked into this build: several spatial methods (NN, WARD, K-means, HEX, quadtree, size-balanced) each at zone targets like 3150 / 2600 / 2050 / 1500, plus the app's M1 and M2. Every score uses the optimiser's exact protocol — identical pre-sampled trips, demand-matched full-zone baseline, BPR rerouting — so you can read the results instantly (say <span class='k'>preloaded comparison</span>) and <b>apply ▸</b> any configuration live."},
+  a:"The <b>preloaded comparison</b> is a set of aggregation-method scores computed offline over the <b>whole network</b> (no study-area mask) and baked into this build: several spatial methods (NN, WARD, K-means, HEX, quadtree, size-balanced) each at zone targets like 3150 / 2600 / 2050 / 1500, plus the app's M1 and M2. Every score uses the optimiser's exact protocol — identical pre-sampled trips, demand-matched full-zone baseline, BPR rerouting — and is reported at <b>link level</b>: the share of links whose flow stays within 1% of baseline, and the standard GEH&lt;5 share. Say <span class='k'>preloaded comparison</span> to read them instantly, <b>click a row</b> to see its baked Δ plot with no run, or <b>apply ▸</b> to make it the live model."},
+ {k:["geh","geh statistic","geh 5","model validation criterion"],
+  a:"<b>GEH</b> is the standard model-validation statistic for comparing two link flows: <code>GEH = √(2(a−b)² / (a+b))</code> — a self-scaling blend of absolute and relative error. The usual acceptance criterion is <b>GEH &lt; 5 on at least 85% of links</b>. The preloaded comparison and the aggregation optimiser both report the GEH&lt;5 share, so you can judge an aggregation the same way you'd judge a model calibration. Note that <b>100% of links within 1%</b> is unattainable under any real aggregation: merging zones moves their loading points, so the links at the old connection points must change — the practical question is what share of the network stays within tolerance."},
  {k:["bpr","bureau of public roads","volume delay","congestion function"],
   a:"<b>BPR</b> is the Bureau of Public Roads volume–delay function: <code>t = t0 · (1 + α·(v/c)^β)</code>, usually α=0.15, β=4. Travel time stays near free-flow until volume approaches capacity, then rises sharply. In the Assignment app, the <span class='k'>BPR (4 inc)</span> method loads demand in four increments using this curve; <span class='k'>Frank-Wolfe</span> and <span class='k'>MSA</span> use it inside an equilibrium loop."},
  {k:["frank-wolfe","frank wolfe","fw","convex combination"],
