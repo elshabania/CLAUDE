@@ -1,0 +1,14 @@
+__pycache__/
+*.pyc
+*.egg-info/
+.pytest_cache/
+build/
+dist/
+*.spec.bak
+sample_data/
+*.npz
+.cache/
+
+# user data (large; provide via STEAM_DATA_DIR at runtime)
+realdata/
+bundled_data/

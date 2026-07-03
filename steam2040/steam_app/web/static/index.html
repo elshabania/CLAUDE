@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>STEAM 2040 Studio</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<header>
+  <strong>STEAM&nbsp;2040 Studio</strong>
+  <span class="sep"></span>
+  <label>Mode
+    <select id="mode">
+      <option value="assignment">Assignment</option>
+      <option value="aggregation">Aggregation</option>
+    </select>
+  </label>
+  <label>Colour
+    <select id="color"></select>
+  </label>
+  <button id="reset">Reset view</button>
+  <span class="sep"></span>
+  <span id="status" class="status">loading…</span>
+</header>
+
+<main>
+  <aside id="left">
+    <!-- Assignment controls -->
+    <section data-panel="assignment">
+      <h3>Assignment</h3>
+      <label>Method <select id="method"></select></label>
+      <label>Demand <select id="demand"></select></label>
+      <button id="run" class="primary">Run assignment</button>
+      <div id="progress" class="progress"><div></div></div>
+      <div id="gap" class="muted">gap: –</div>
+      <h3>Scenario</h3>
+      <div id="sel" class="muted">Right-click a link to select it</div>
+      <label>Add lanes <input id="addlanes" type="number" min="1" max="6" value="1"></label>
+      <button id="upgrade">Upgrade link</button>
+      <button id="scenario">Run scenario vs baseline</button>
+      <button id="undo">Undo edit</button>
+      <button id="recommend">Recommendations</button>
+    </section>
+
+    <!-- Aggregation controls -->
+    <section data-panel="aggregation" hidden>
+      <h3>Zone aggregation</h3>
+      <label>Target zones <input id="agg-target" type="number" min="1" value="1800"></label>
+      <label>Barrier ≥
+        <select id="agg-barrier">
+          <option value="fwy">freeways</option>
+          <option value="art">arterials+</option>
+          <option value="coll" selected>collectors+</option>
+        </select>
+      </label>
+      <label>Max span (m) <input id="agg-span" type="number" value="6000"></label>
+      <label>Method
+        <select id="agg-method"><option>single</option><option>dynamic</option></select>
+      </label>
+      <div id="agg-keys" class="keys"></div>
+      <button id="aggregate" class="primary">Aggregate</button>
+      <button id="agg-qa">QA audit</button>
+      <div id="agg-stats" class="muted">–</div>
+    </section>
+  </aside>
+
+  <div id="mapwrap">
+    <canvas id="map"></canvas>
+    <canvas id="overlay"></canvas>
+    <div id="tip" class="tip" hidden></div>
+    <div id="legend" class="legend"></div>
+  </div>
+
+  <aside id="right">
+    <section>
+      <h3>KPIs</h3>
+      <table id="kpis"></table>
+    </section>
+    <section>
+      <h3>Top congested links</h3>
+      <table id="toplinks"><thead><tr><th>Link</th><th>Class</th><th>v/c</th><th>LOS</th></tr></thead><tbody></tbody></table>
+    </section>
+    <section id="chat">
+      <h3>AI Assistant <span id="backend" class="pill"></span></h3>
+      <div id="chatlog" class="chatlog"></div>
+      <div class="chatrow">
+        <input id="chatinput" placeholder="e.g. run frank-wolfe, then show top 10 links">
+        <button id="chatsend">Send</button>
+      </div>
+    </section>
+  </aside>
+</main>
+
+<script type="module" src="/static/app.js"></script>
+</body>
+</html>

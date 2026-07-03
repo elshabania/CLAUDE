@@ -1,0 +1,19 @@
+# STEAM 2040 Studio runtime dependencies.
+numpy>=1.26
+scipy>=1.11
+pyshp>=2.3            # shapefile reader (imported as `shapefile`)
+numba>=0.59          # optional acceleration; pure-Python fallback if absent
+
+# Web app (browser UI) — the primary front-end.
+fastapi>=0.110
+uvicorn>=0.27
+httpx>=0.26          # required by the FastAPI test client
+
+# Desktop app (legacy PySide6 GUI). Optional — the web app supersedes it.
+PySide6>=6.6
+
+# Optional extras (install manually if you want them):
+#   anthropic>=0.40    # Claude (cloud) assistant backend
+#   Ollama (https://ollama.com) running locally  # offline LLM assistant agent
+#   pytest>=8.0        # test suite
+#   pyinstaller>=6.0   # build a standalone executable
