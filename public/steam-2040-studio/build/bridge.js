@@ -302,7 +302,7 @@
      Returns the same pairs format as getAggregation ([zoneId, repId]). */
   /* the shared spatial-clustering engine: every mode fills a union-find over
      the N zones. All operate on centroids only, so they need no app UI state. */
-  function spatialCluster(mode, target){
+  function spatialCluster(mode, target, WGT){
     var N=CIDS.length;
     target=Math.max(50, Math.min(N, (target|0) || Math.round(N*0.55)));
     // normalised positive coords so grid keys stay valid for negative eastings
@@ -324,16 +324,22 @@
       for(var bi=0;bi<32;bi++){ var mid=Math.sqrt(lo*hi); if(occOf(mid)>target) lo=mid; else hi=mid; }
       return hi; }
     function occCount(keyAt){ return function(s){ var st=new Set(); for(var q=0;q<N;q++) st.add(keyAt(q,s)); return st.size; }; }
-    /* cluster-level greedy rounds shared by nn / ward / bal */
-    function clusterRounds(pickEdges){
-      var rad=2500;
+    /* cluster-level greedy rounds shared by nn / ward / bal / nnd. rad0/grow
+       set the distance-band schedule: small bands keep distance dominant and
+       let the cost function only ORDER merges within a band. */
+    function clusterRounds(pickEdges, rad0, grow){
+      var rad=rad0||2500, GR=grow||2;
       while(clusters>target && rad<800000){
-        // current cluster reps, centroids (member means) and sizes
+        // current cluster reps, centroids and sizes. With zone weights (trip
+        // ends) the centroid is DEMAND-weighted — merge distance is measured
+        // between centres of demand, not centres of geometry.
         var roots=new Map();
         for(var q=0;q<N;q++){ var r=find(q); var o=roots.get(r);
-          if(!o){ o={sx:0,sy:0,n:0,rep:r}; roots.set(r,o); } o.sx+=xs[q]; o.sy+=ys[q]; o.n++; }
-        var reps=[], RX=[], RY=[], RN=[];
-        roots.forEach(function(o){ reps.push(o.rep); RX.push(o.sx/o.n); RY.push(o.sy/o.n); RN.push(o.n); });
+          if(!o){ o={sx:0,sy:0,sw:0,n:0,rep:r}; roots.set(r,o); }
+          var wq=WGT?Math.max(WGT[q],1e-9):1;
+          o.sx+=xs[q]*wq; o.sy+=ys[q]*wq; o.sw+=wq; o.n++; }
+        var reps=[], RX=[], RY=[], RN=[], RW=[];
+        roots.forEach(function(o){ reps.push(o.rep); RX.push(o.sx/o.sw); RY.push(o.sy/o.sw); RN.push(o.n); RW.push(o.sw); });
         var g=new Map(), cell=rad;
         for(i2=0;i2<reps.length;i2++){ var kk=Math.floor(RX[i2]/cell)*KEY+Math.floor(RY[i2]/cell);
           var a0=g.get(kk); if(!a0){a0=[];g.set(kk,a0);} a0.push(i2); }
@@ -344,13 +350,13 @@
             var lst=g.get((gx+ox)*KEY+(gy+oy)); if(!lst) continue;
             for(var w=0;w<lst.length;w++){ var j=lst[w]; if(j<=i2) continue;
               var ddx=RX[i2]-RX[j], ddy=RY[i2]-RY[j], dd=ddx*ddx+ddy*ddy;
-              if(dd<=r2) edges.push([pickEdges(dd,RN[i2],RN[j]), i2, j]); } }
+              if(dd<=r2) edges.push([pickEdges(dd,RN[i2],RN[j],RW[i2],RW[j]), i2, j]); } }
         }
         edges.sort(function(a,b){ return a[0]-b[0]; });
         var didMerge=false;
         for(var e2=0;e2<edges.length && clusters>target;e2++){
           if(uni(reps[edges[e2][1]], reps[edges[e2][2]])) didMerge=true; }
-        if(!didMerge || clusters>target) rad*=2;   // widen the neighbourhood
+        if(!didMerge || clusters>target) rad*=GR;   // widen the neighbourhood
       }
     }
     if(mode==="grid"){
@@ -361,13 +367,21 @@
       function hexKey(q,s){ var row=Math.floor(ys[q]/(0.866*s)); var xo=xs[q]-(row&1)*(s/2); return row*KEY+Math.floor(xo/s); }
       var sH=bisectCell(occCount(hexKey));
       mergeByCell(function(q){ return hexKey(q,sH); });
-    } else if(mode==="quad"){
-      // quadtree: keep splitting the fullest cell until ~target non-empty leaves
+    } else if(mode==="quad" || mode==="qtd"){
+      // quadtree: keep splitting the "fullest" cell until ~target non-empty
+      // leaves. quad measures fullness by ZONE COUNT; qtd by TRIP-END DEMAND,
+      // so cells shrink exactly where the demand is — centroid displacement is
+      // bounded by the cell size, made smallest where moving trips hurts most.
+      var byDemand=(mode==="qtd" && WGT);
+      function leafScore(L){ if(!byDemand) return L.z.length;
+        var s=0; for(var q3=0;q3<L.z.length;q3++) s+=WGT[L.z[q3]]; return s; }
       var mxq=0,myq=0; for(i=0;i<N;i++){ if(xs[i]>mxq)mxq=xs[i]; if(ys[i]>myq)myq=ys[i]; }
       var all=[]; for(i=0;i<N;i++) all.push(i);
       var leaves=[{x0:0,y0:0,x1:mxq+1,y1:myq+1,z:all}];
+      leaves[0].sc=leafScore(leaves[0]);
       while(leaves.length<target){
-        var bi2=-1,bn=1; for(i2=0;i2<leaves.length;i2++){ if(!leaves[i2].done && leaves[i2].z.length>bn){bn=leaves[i2].z.length;bi2=i2;} }
+        var bi2=-1,bn=-1; for(i2=0;i2<leaves.length;i2++){ var Li=leaves[i2];
+          if(!Li.done && Li.z.length>1 && Li.sc>bn){ bn=Li.sc; bi2=i2; } }
         if(bi2<0) break;                              // nothing splittable left
         var Lf=leaves[bi2], mx2=(Lf.x0+Lf.x1)/2, my2=(Lf.y0+Lf.y1)/2, subs=[[],[],[],[]];
         for(var w2=0;w2<Lf.z.length;w2++){ var zz=Lf.z[w2];
@@ -375,6 +389,7 @@
         var news=[]; for(var s4=0;s4<4;s4++){ if(!subs[s4].length) continue;
           news.push({ x0:(s4&1)?mx2:Lf.x0, x1:(s4&1)?Lf.x1:mx2, y0:(s4&2)?my2:Lf.y0, y1:(s4&2)?Lf.y1:my2, z:subs[s4] }); }
         if(news.length<=1){ Lf.done=true; continue; }     // co-located points: unsplittable
+        for(var n4=0;n4<news.length;n4++) news[n4].sc=leafScore(news[n4]);
         leaves.splice(bi2,1); leaves.push.apply(leaves,news);
       }
       for(i2=0;i2<leaves.length;i2++){ var zl=leaves[i2].z; for(var w3=1;w3<zl.length;w3++) uni(zl[w3],zl[0]); }
@@ -432,6 +447,13 @@
       // size-balancing: distance scaled UP by the joint size, so small clusters
       // pair with small/near neighbours first and zone sizes stay even
       clusterRounds(function(dd,na,nb){ return dd*(na+nb); });
+    } else if(mode==="nnd"){
+      // DEMAND-weighted adjacent-first: trip ends are the cluster mass, so the
+      // merge cost d^2 * (wa*wb)/(wa+wb) IS the squared trip-displacement of
+      // the merge — high-demand zones keep their own loading points. Distance
+      // stays DOMINANT via tight bands (350 m start, ×1.6): demand only orders
+      // merges within a band, so nothing gets dragged kilometres away.
+      clusterRounds(function(dd,na,nb,wa,wb){ return dd*wa*wb/(wa+wb); }, 350, 1.6);
     } else {   // "nn" — closest pairs merge first (single-linkage, adjacency-first)
       clusterRounds(function(dd){ return dd; });
     }
@@ -440,16 +462,19 @@
   /* pick each cluster's representative as the member NEAREST the cluster's
      mean centroid — the merged demand then loads as close as possible to
      where the member zones actually load, minimising the loading shift */
-  function bestRepPairs(find, N){
+  function bestRepPairs(find, N, WGT){
     var groups2=new Map();
     for(var i=0;i<N;i++){ var r=find(i); var g=groups2.get(r); if(!g){g=[];groups2.set(r,g);} g.push(i); }
     var pairs=[], merged=0, zones=0;
     groups2.forEach(function(g){
       zones++;
       if(g.length<2) return;
-      var sx=0,sy=0;
-      for(var q=0;q<g.length;q++){ sx+=CENT[g[q]*2]; sy+=CENT[g[q]*2+1]; }
-      var mx2=sx/g.length, my2=sy/g.length, rep=g[0], bd=Infinity;
+      // representative = member nearest the cluster's DEMAND-weighted mean, so
+      // the trips that must relocate travel the least distance possible
+      var sx=0,sy=0,sw=0;
+      for(var q=0;q<g.length;q++){ var wq=WGT?Math.max(WGT[g[q]],1e-9):1;
+        sx+=CENT[g[q]*2]*wq; sy+=CENT[g[q]*2+1]*wq; sw+=wq; }
+      var mx2=sx/sw, my2=sy/sw, rep=g[0], bd=Infinity;
       for(q=0;q<g.length;q++){ var dx=CENT[g[q]*2]-mx2, dy=CENT[g[q]*2+1]-my2, d=dx*dx+dy*dy;
         if(d<bd){ bd=d; rep=g[q]; } }
       for(q=0;q<g.length;q++){ if(g[q]!==rep){ pairs.push([CIDS[g[q]]>>>0, CIDS[rep]>>>0]); merged++; } }
@@ -460,14 +485,21 @@
     if(typeof CENT==="undefined" || typeof CIDS==="undefined" || !CIDS.length)
       return {ok:false, err:"no zone centroids"};
     var mode=(opts&&opts.mode)||"nn", target=(opts&&opts.target)|0;
-    var scr=spatialCluster(mode,target);
-    var rp=bestRepPairs(scr.find, scr.N);
-    return {ok:true, pairs:rp.pairs, merged:rp.merged, zones:rp.zones, total:scr.N, mode:mode, target:target};
+    // optional per-zone trip-end weights (from the Assignment's OD): id-keyed
+    var W=null;
+    if(opts && opts.wid && opts.w && opts.wid.length){
+      var wm=new Map(); for(var k2=0;k2<opts.wid.length;k2++) wm.set(opts.wid[k2]>>>0, opts.w[k2]);
+      W=new Float64Array(CIDS.length);
+      for(var i2=0;i2<CIDS.length;i2++) W[i2]=wm.get(CIDS[i2]>>>0)||0;
+    }
+    var scr=spatialCluster(mode,target,W);
+    var rp=bestRepPairs(scr.find, scr.N, W);
+    return {ok:true, pairs:rp.pairs, merged:rp.merged, zones:rp.zones, total:scr.N, mode:mode, target:target, weighted:!!W};
   }
   /* run a custom method as a FIRST-CLASS viewer aggregation: build the same
      merge forest the app's own methods produce and finalise through assemble(),
      so zone drawing, stats, exports and the assignment handoff all work. */
-  var CUSTLBL={ nn:"NN · adjacent-first", ward:"WARD · variance-minimising", kmeans:"KM · k-means compact",
+  var CUSTLBL={ nn:"NN · adjacent-first", nnd:"NND · demand-weighted", qtd:"QTD · demand quadtree", ward:"WARD · variance-minimising", kmeans:"KM · k-means compact",
                 kcenter:"KC · k-center coverage", grid:"GRID · square cells", hex:"HEX · hexagonal cells",
                 quad:"QT · quadtree adaptive", bal:"BAL · size-balanced", ring:"RING · rings × sectors" };
   function runCustomAgg(mode){
@@ -570,6 +602,22 @@
     return {ok:true, pairs:r.cells, trips:Math.round(r.grand), origins:r.origins,
             internalised:Math.round(dropped), keptTrips:Math.round(kept)};
   }
+  /* per-zone trip ends (origins + destinations summed) from the raw OD — the
+     demand weights the viewer's spatial clustering uses to keep high-demand
+     zones unmerged and to place cluster representatives at demand centres */
+  function odEnds(){
+    if(!window.__ODRAW) return {ok:false, err:"OD not loaded yet"};
+    var R=window.__ODRAW, w=new Map();
+    for(var i=0;i<R.cnt;i++){
+      var v=(typeof h2f==="function")?h2f(R.V[i]):R.V[i];
+      if(!(v>0)) continue;
+      var o=R.O[i]>>>0, d=R.D[i]>>>0;
+      w.set(o,(w.get(o)||0)+v); w.set(d,(w.get(d)||0)+v);
+    }
+    var wid=[], wv=[];
+    w.forEach(function(val,id){ wid.push(id); wv.push(val); });
+    return {ok:true, wid:wid, w:wv, n:wid.length};
+  }
   /* switch the live OD between the stored matrices: the MATCHED full-zone
      baseline ("filt"), the aggregated one ("agg"), or the original raw ("full") */
   function odBase(which){
@@ -654,6 +702,7 @@
         case "cmpfull":   out = cmpFull(); break;
         case "expdiff":   out = exportDiff(m.minAbs); break;
         case "showbaked": out = showBaked(m); break;
+        case "odends":    out = odEnds(); break;
         case "showdiff":  out = showDiff((m.key && window.__SCN) ? window.__SCN[m.key] : null); break;
         case "scnsave":   out = scnSave(m.key); break;
         case "getrect":   out = getRect(); break;
@@ -712,11 +761,12 @@
     function apply(){
       var m=modeSel.value, v=+slider.value;
       window.__DIFFMIN = v>0 ? {m:m, v:v} : null;
-      valEl.textContent = v>0 ? (m==="pct" ? "≥ "+v+"%" : "≥ "+fmtV(v)+" veh") : "off";
+      valEl.textContent = v>0 ? (m==="geh" ? "GEH ≥ "+v : m==="pct" ? "≥ "+v+"%" : "≥ "+fmtV(v)+" veh") : "off";
       try{ if(typeof render==="function") render(); }catch(e){}
     }
     function configSlider(){
-      if(modeSel.value==="pct"){ slider.max=100; slider.step=1; }
+      if(modeSel.value==="geh"){ slider.max=20; slider.step=0.5; }
+      else if(modeSel.value==="pct"){ slider.max=100; slider.step=1; }
       else { var mx=Math.max(10, Math.ceil((typeof DIFFMAX!=="undefined"?DIFFMAX:1000)*1.5));
         slider.max=mx; slider.step=Math.max(1, Math.round(mx/200)); }
       slider.value=0; apply();
@@ -733,7 +783,7 @@
       document.head.appendChild(st);
       bar=document.createElement("div"); bar.id="diffFilter";
       bar.innerHTML='<span>Hide Δ below</span>'
-        +'<select id="dfMode"><option value="abs">veh</option><option value="pct">% of base</option></select>'
+        +'<select id="dfMode"><option value="geh" selected>GEH</option><option value="abs">veh</option><option value="pct">% of base</option></select>'
         +'<input id="dfRange" type="range" min="0" max="1000" step="1" value="0">'
         +'<span class="dfv" id="dfVal">off</span>';
       document.body.appendChild(bar);

@@ -448,6 +448,7 @@ var AGGCONFIGS=[
   {name:"AX · study-area adaptive", method:"m1", studyArea:true},
   {name:"AX · study-area + districts", method:"m2", studyArea:true},
   /* proximity-first spatial methods (aggregate zones next to each other first) */
+  {name:"NND · demand-weighted", custom:"nnd"},
   {name:"NN · adjacent-first", custom:"nn"},
   {name:"WARD · variance-min", custom:"ward"},
   {name:"KM · compact k-means", custom:"kmeans"},
@@ -468,10 +469,26 @@ var AGGCONFIGS=[
   {name:"M4 · + freight guard", method:"m4", guards:{gFreight:true}},
   {name:"M2 · + land-use guard", method:"m2", guards:{gLuClass:true}}
 ];
+/* per-zone trip-end weights from the Assignment's OD — fetched once, then
+   passed to every custom spatial aggregation so merging is demand-aware
+   (high-demand zones keep their own loading points) */
+var OD_ENDS;
+async function getOdEnds(){
+  if(OD_ENDS!==undefined) return OD_ENDS;
+  await waitReady("assign");
+  await pollState("assign", function(s){ return s.odStats && /matrix|trips|pairs/i.test(s.odStats); }, 8000);
+  var r=await rpc("assign",{cmd:"odends",timeoutMs:30000});
+  OD_ENDS=(r&&r.ok)?{wid:r.wid,w:r.w}:null;
+  return OD_ENDS;
+}
 /* fetch a config's zone aggregation from the Viewer, whatever family it is:
    custom spatial (nn/grid/kmeans), study-area adaptive, or a built-in method */
 async function fetchAgg(cfg){
-  if(cfg.custom) return rpc("viewer",{cmd:"getaggcustom",mode:cfg.custom,target:cfg.target||AGG_TARGET,timeoutMs:60000});
+  if(cfg.custom){
+    var we=await getOdEnds();
+    return rpc("viewer",{cmd:"getaggcustom",mode:cfg.custom,target:cfg.target||AGG_TARGET,
+                         wid:we&&we.wid,w:we&&we.w,timeoutMs:60000});
+  }
   if(cfg.studyArea) return rpc("viewer",{cmd:"getaggsa",rect:STUDY_RECT,pad:(cfg.pad||0)});
   return rpc("viewer",{cmd:"getagg"});
 }
@@ -507,7 +524,7 @@ async function runAggAssign(){    // run the assignment and wait for it to finis
 /* parameter variants to refine the winning method (stage 2) */
 function expandConfig(cfg){
   var method=(typeof cfg==="string")?cfg:cfg.method;
-  if(cfg&&cfg.custom){ var M=cfg.custom, NM={nn:"NN",grid:"GRID",kmeans:"KM",ward:"WARD",kcenter:"KC",hex:"HEX",quad:"QT",bal:"BAL",ring:"RING"}[M]||M.toUpperCase();
+  if(cfg&&cfg.custom){ var M=cfg.custom, NM={nn:"NN",nnd:"NND",grid:"GRID",kmeans:"KM",ward:"WARD",kcenter:"KC",hex:"HEX",quad:"QT",bal:"BAL",ring:"RING"}[M]||M.toUpperCase();
     return [
       {name:NM+" · very fine ("+Math.round(AGG_TARGET*1.7)+" zones)", custom:M, target:Math.round(AGG_TARGET*1.7)},
       {name:NM+" · finer ("+Math.round(AGG_TARGET*1.3)+" zones)", custom:M, target:Math.round(AGG_TARGET*1.3)},
@@ -802,7 +819,9 @@ async function showPreloadedComparison(){
     groups[g].push({r:r,i:i});
   });
   var hasW1=P.results.some(function(r){ return r.pctW1!=null; });
-  var html="<b>Preloaded aggregation comparison — unified (whole network).</b> Precomputed with the optimiser's exact protocol: for every method the <b>identical "+(P.sampleN||800)+"-origin pre-sampled trips</b> are assigned on full zones (demand-matched baseline) and on the aggregated zones, BPR rerouting, and the error is measured over the <b>entire network</b> — no study-area mask."
+  var proto=(P.method==="fw")?"<b>Frank-Wolfe user equilibrium</b> (converged to gap &lt; 0.01%)":(P.method==="msa")?"MSA equilibrium":"BPR incremental rerouting";
+  var dem=(P.sampleN>0)?"the identical "+P.sampleN+"-origin pre-sampled trips":"<b>the full demand — all origins, no sampling</b>";
+  var html="<b>Preloaded aggregation comparison — unified (whole network).</b> For every method "+dem+" are assigned on full zones (demand-matched baseline) and on the aggregated zones with "+proto+", and the error is measured over the <b>entire network</b> — no study-area mask."
     +(hasW1?" Ranked at <b>link level</b>: <b>links ≤1%</b> is the share of links whose flow moves by no more than 1% of its baseline (with a 1-veh floor so empty links don't inflate the score); <b>GEH&lt;5</b> is the standard model-validation share. Click a row to see its <b>baked Δ plot</b> instantly.":"");
   order.forEach(function(g){
     var arr=groups[g].slice().sort(function(a,b){ return preScore(a.r,b.r); });
@@ -1235,6 +1254,8 @@ function thinking(){
 var KB=[
  {k:["preloaded","precomputed","baked results","what is the preloaded comparison"],
   a:"The <b>preloaded comparison</b> is a set of aggregation-method scores computed offline over the <b>whole network</b> (no study-area mask) and baked into this build: several spatial methods (NN, WARD, K-means, HEX, quadtree, size-balanced) each at zone targets like 3150 / 2600 / 2050 / 1500, plus the app's M1 and M2. Every score uses the optimiser's exact protocol — identical pre-sampled trips, demand-matched full-zone baseline, BPR rerouting — and is reported at <b>link level</b>: the share of links whose flow stays within 1% of baseline, and the standard GEH&lt;5 share. Say <span class='k'>preloaded comparison</span> to read them instantly, <b>click a row</b> to see its baked Δ plot with no run, or <b>apply ▸</b> to make it the live model."},
+ {k:["nnd","demand weighted aggregation","why corridors differ","corridor differences","moved trips"],
+  a:"<b>Why do some corridors show big Δs under aggregation?</b> With a demand-matched baseline the only thing aggregation changes is <i>where merged zones' trips enter the network</i>. Diagnosis on this model showed every big-Δ corridor sits within ~400 m of one of the largest <b>demand-weighted centroid displacements</b> — e.g. pure nearest-neighbour merging at 2600 zones moved a 60,000-trip-end zone 1.6 km, forcing all its trips onto different connectors and flipping flow between parallel streets. <b>NND · demand-weighted</b> fixes this at the root: trip ends act as cluster mass (merge cost d²·w<sub>a</sub>w<sub>b</sub>/(w<sub>a</sub>+w<sub>b</sub>)), centroids and representatives are demand-weighted, so high-demand zones keep their own loading points and low-demand zones absorb the merging. All custom methods also gained demand-weighted representative placement."},
  {k:["geh","geh statistic","geh 5","model validation criterion"],
   a:"<b>GEH</b> is the standard model-validation statistic for comparing two link flows: <code>GEH = √(2(a−b)² / (a+b))</code> — a self-scaling blend of absolute and relative error. The usual acceptance criterion is <b>GEH &lt; 5 on at least 85% of links</b>. The preloaded comparison and the aggregation optimiser both report the GEH&lt;5 share, so you can judge an aggregation the same way you'd judge a model calibration. Note that <b>100% of links within 1%</b> is unattainable under any real aggregation: merging zones moves their loading points, so the links at the old connection points must change — the practical question is what share of the network stays within tolerance."},
  {k:["bpr","bureau of public roads","volume delay","congestion function"],
@@ -1337,6 +1358,7 @@ var ACTIONS=[
  A({app:"viewer", keys:["distance change","geometry method","by distance"], say:"Aggregation method set to <b>Distance change (geometry)</b>.", ops:[["set","methodSel","distance"]]}),
  A({app:"viewer", keys:["intrazonal demand","demand method"], say:"Aggregation method set to <b>Intrazonal demand</b>.", ops:[["set","methodSel","demand"]]}),
  A({app:"viewer", keys:["adjacent first method","nearest neighbour method","nn aggregation","adjacent zones method"], say:"Aggregation method set to <b>NN · Adjacent-first</b> — closest zones merge first.", ops:[["set","methodSel","nn"]]}),
+ A({app:"viewer", keys:["demand weighted method","nnd method","demand aware method","trip weighted method"], say:"Aggregation method set to <b>NND · Demand-weighted adjacent</b> — trip ends act as cluster mass, so high-demand zones keep their own loading points and low-demand zones merge first.", ops:[["set","methodSel","nnd"]]}),
  A({app:"viewer", keys:["ward method","variance method"], say:"Aggregation method set to <b>WARD · Variance-minimising</b>.", ops:[["set","methodSel","ward"]]}),
  A({app:"viewer", keys:["k-means method","kmeans method","compact clusters"], say:"Aggregation method set to <b>KM · K-means compact</b>.", ops:[["set","methodSel","kmeans"]]}),
  A({app:"viewer", keys:["k-center method","kcenter method","coverage method"], say:"Aggregation method set to <b>KC · K-center coverage</b>.", ops:[["set","methodSel","kcenter"]]}),

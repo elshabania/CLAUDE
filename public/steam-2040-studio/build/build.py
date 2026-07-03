@@ -290,9 +290,10 @@ def tweak(src, appid):
         assert 'if(diff){ const dv=gi?DIFF[gi[i]]:0; if(Math.abs(dv)<1e-6){ col=THEME.baseLink; lw=Math.max(.35,base*.45); t.globalAlpha=.10; }' in src
         src = src.replace('if(diff){ const dv=gi?DIFF[gi[i]]:0; if(Math.abs(dv)<1e-6){ col=THEME.baseLink; lw=Math.max(.35,base*.45); t.globalAlpha=.10; }',
             'if(diff){ const dv=gi?DIFF[gi[i]]:0; var _fm=window.__DIFFMIN, _adv=Math.abs(dv), _hide=false;'
-            ' if(_fm&&_fm.v>0&&_adv>=1e-6){ if(_fm.m==="pct"){'
+            ' if(_fm&&_fm.v>0&&_adv>=1e-6){ if(_fm.m==="pct"||_fm.m==="geh"){'
             ' var _dn=(window.__DIFFDEN&&gi)?Math.abs(window.__DIFFDEN[gi[i]]):((typeof baseVol!=="undefined"&&baseVol&&gi)?Math.abs(baseVol[gi[i]]):0);'
-            ' _hide=(100*_adv/Math.max(1,_dn))<_fm.v; } else { _hide=_adv<_fm.v; } }'
+            ' if(_fm.m==="geh"){ var _s=2*_dn+dv; _hide=(_s<=0)||Math.sqrt(2*_adv*_adv/_s)<_fm.v; }'
+            ' else { _hide=(100*_adv/Math.max(1,_dn))<_fm.v; } } else { _hide=_adv<_fm.v; } }'
             ' if(_adv<1e-6||_hide){ col=THEME.baseLink; lw=Math.max(.35,base*.45); t.globalAlpha=.10; }', 1)
         # BENEFIT APPRAISAL: clamp v/c in the BPR curve while appraising, so the
         # heavily-cut 2025 base (2040 demand on missing freeways) stays bounded
@@ -325,6 +326,7 @@ def tweak(src, appid):
         src = src.replace('<option value="demand">Intrazonal demand</option>',
             '<option value="demand">Intrazonal demand</option>\n'
             '      <option value="nn">NN · Adjacent-first (nearest pairs)</option>\n'
+            '      <option value="nnd">NND · Demand-weighted adjacent</option>\n      <option value="qtd">QTD · Demand quadtree</option>\n'
             '      <option value="ward">WARD · Variance-minimising</option>\n'
             '      <option value="kmeans">KM · K-means compact</option>\n'
             '      <option value="kcenter">KC · K-center coverage</option>\n'
