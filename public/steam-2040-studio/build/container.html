@@ -813,7 +813,23 @@ async function showPreDiff(i){
     }
     highlightRail("assign");
     if(!res||!res.ok) throw new Error((res&&res.err)||"display failed");
-    setBub(m,"Baked <b>Δ plot</b> for <b>"+esc(r.name)+"</b> — <span style='color:#2ecc71'>green</span> links gain flow under this aggregation, <span style='color:#e74c3c'>red</span> lose, vs its demand-matched full-zone baseline. "+n.toLocaleString()+" links with |Δ| ≥ "+(P.minAbs||1)+" veh are baked in; use the map's filter bar to hide small differences. <b>apply ▸</b> makes it the live model.");
+    // ALSO load this method's merged zones into the Viewer, so switching to
+    // the Zones view shows the aggregation itself (not just its Δ)
+    var zoneNote="";
+    try{
+      await waitReady("viewer");
+      if(r.cfg && (r.cfg.custom || r.cfg.gehx)){
+        var agg=await fetchAgg(r.cfg);
+        if(agg && agg.ok && agg.pairs && agg.pairs.length){
+          var ap=await rpc("viewer",{cmd:"applypairs",pairs:agg.pairs,label:r.name,timeoutMs:30000});
+          if(ap&&ap.ok) zoneNote=" The <b>Network Viewer</b> now shows this method's merged zone system ("+ap.zones.toLocaleString()+" zones) — switch tabs to see it.";
+        }
+      } else if(r.cfg && r.cfg.method){
+        await applyAggConfig(r.cfg);
+        zoneNote=" The <b>Network Viewer</b> now shows this method's aggregation — switch tabs to see it.";
+      }
+    }catch(e2){ /* zone sync is best-effort; the Δ plot already succeeded */ }
+    setBub(m,"Baked <b>Δ plot</b> for <b>"+esc(r.name)+"</b> — <span style='color:#2ecc71'>green</span> links gain flow under this aggregation, <span style='color:#e74c3c'>red</span> lose, vs its demand-matched full-zone baseline. "+n.toLocaleString()+" links with |Δ| ≥ "+(P.minAbs||1)+" veh are baked in; use the map's filter bar to hide small differences."+zoneNote+" <b>apply ▸</b> makes it the live model.");
   }catch(e){ setBub(m,"Couldn't show that Δ plot: "+esc(String(e&&e.message||e))+"."); }
 }
 async function showPreloadedComparison(){
@@ -855,6 +871,10 @@ async function applyPreloaded(idx){
   if(!r.cfg.custom && !r.cfg.gehx) await applyAggConfig(r.cfg);
   var agg=await fetchAgg(r.cfg);
   if(!agg||!agg.ok||!agg.merged){ setBub(msg,"Couldn't rebuild that aggregation — open the Viewer and try again."); return; }
+  // reflect the merged zone system in the Viewer's Zones view too
+  if(agg.pairs && agg.pairs.length && (r.cfg.custom || r.cfg.gehx)){
+    try{ await rpc("viewer",{cmd:"applypairs",pairs:agg.pairs,label:r.name,timeoutMs:30000}); }catch(e0){}
+  }
   switchApp("assign"); await waitReady("assign");
   await rpc("assign",{cmd:"set",id:"methodSel",value:(P.method||"bpr")});   // same protocol the scores used
   await rpc("assign",{cmd:"set",id:"sampleSel",value:"0"});

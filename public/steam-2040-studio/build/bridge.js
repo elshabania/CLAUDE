@@ -535,6 +535,41 @@
   }
   // registry the app's applyAggregation() dispatches through
   try{ window.__CUSTAGG={ modes:CUSTLBL, run:runCustomAgg }; }catch(e){}
+  /* display an EXPLICIT merge list as the viewer's zone aggregation — the
+     exact pairs a scored/preloaded configuration used (any family, incl. the
+     Assignment-side GEHX), so the Zones view shows that method's zone system */
+  function applyPairsViewer(pairs, label){
+    try{
+      if(typeof assemble!=="function" || typeof CENT==="undefined") return {ok:false, err:"viewer not ready"};
+      if(!pairs || !pairs.length) return {ok:false, err:"no merge pairs"};
+      var N=CIDS.length, idToIdx=new Map(), i;
+      for(i=0;i<N;i++) idToIdx.set(CIDS[i]>>>0, i);
+      var MAXT=N*2, px=new Float64Array(MAXT), py=new Float64Array(MAXT), par=new Int32Array(MAXT);
+      par.fill(-1);
+      for(i=0;i<N;i++){ px[i]=CENT[i*2]; py[i]=CENT[i*2+1]; }
+      var groups=new Map(), missed=0;
+      for(i=0;i<pairs.length;i++){
+        var m0=idToIdx.get(pairs[i][0]>>>0), r0=idToIdx.get(pairs[i][1]>>>0);
+        if(m0===undefined||r0===undefined){ missed++; continue; }
+        var g=groups.get(r0); if(!g){ g=[r0]; groups.set(r0,g); }
+        g.push(m0);
+      }
+      var T=N;
+      groups.forEach(function(g){
+        if(g.length<2) return;
+        var cur=g[0], sx=px[g[0]], sy=py[g[0]], n=1;
+        for(var q=1;q<g.length;q++){ var c=T++; sx+=px[g[q]]; sy+=py[g[q]]; n++;
+          par[cur]=c; par[g[q]]=c; px[c]=sx/n; py[c]=sy/n; cur=c; }
+      });
+      ACT=assemble(px,py,par,T);
+      var mg=0, MG=ACT.centMerged; if(MG) for(var m2=0;m2<MG.length;m2++) mg+=MG[m2];
+      try{ agglbl.textContent="whole model · "+ACT.zones.toLocaleString()+" zones ("+mg.toLocaleString()+" merged) · "+(label||"preloaded configuration");
+           netstatsEl.textContent=ACT.zones.toLocaleString()+" centroids · "+ACT.nconn.toLocaleString()+" connections"; }catch(e){}
+      try{ shadeCache.key=null; }catch(e){}
+      if(typeof render==="function") render();
+      return {ok:true, zones:ACT.zones, merged:mg, missed:missed};
+    }catch(err){ return {ok:false, err:String(err&&err.message||err)}; }
+  }
 
   /* shared map view (both apps use cx,cy world-centre + sc px/m) for zoom sync */
   function getView(){ try{ return {ok:true, cx:cx, cy:cy, sc:sc}; }catch(e){ return {ok:false}; } }
@@ -830,6 +865,7 @@
         case "getrect":   out = getRect(); break;
         case "getaggsa":  out = getAggregationStudyArea(m); break;
         case "getaggcustom": out = aggCustom(m); break;
+        case "applypairs":   out = applyPairsViewer(m.pairs, m.label); break;
         case "setarea":   out = setAreaMask(m.rect, m.buffer); break;
         case "cleararea": out = clearAreaMask(); break;
         case "evoready":   out = window.STEAMEvo ? STEAMEvo.ready() : {ok:false, err:"evolution module not loaded"}; break;
