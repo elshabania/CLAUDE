@@ -27,6 +27,7 @@ const CONFIGS = [];
 if (process.env.CONFIGS_JSON) {
   for (const c of JSON.parse(process.env.CONFIGS_JSON)) {
     if (c.method) CONFIGS.push({ name: c.name || c.method.toUpperCase(), method: c.method });
+    else if (c.gehx) CONFIGS.push({ name: 'GEHX · exact-guard @ ' + c.t, gehx: true, target: c.t });
     else CONFIGS.push({ name: LBL[c.m] + ' @ ' + c.t, custom: c.m, target: c.t });
   }
 } else {
@@ -69,6 +70,17 @@ await page.evaluate(async ({ METHOD }) => {
     }
   };
 }, { METHOD });
+if (process.env.WARMRUN) {   // one quick sampled run so GRAPH exists (gehagg needs it)
+  await page.evaluate(async (METHOD) => {
+    const S = window.__STEAM;
+    await S.rpc('assign', { cmd: 'set', id: 'methodSel', value: 'aon' });
+    await S.rpc('assign', { cmd: 'set', id: 'sampleSel', value: '50' });
+    await S.runAggAssign();
+    await S.rpc('assign', { cmd: 'set', id: 'methodSel', value: METHOD });
+    await S.rpc('assign', { cmd: 'set', id: 'sampleSel', value: '0' });
+  }, METHOD);
+  console.log('warm-up run done (graph built)');
+}
 if (VDF_CAP > 0) {   // capacity-restrained VDF: bound v/c in BOTH runs of every comparison
   let set = false;
   for (const f of page.frames()) {
@@ -105,7 +117,8 @@ for (let i = 0; i < CONFIGS.length; i++) {
       return { zones: agg.zones, merged: agg.merged, pctRmse: cmp.pctRmse, vhtErr: cmp.vhtErr,
                corr: cmp.corr, nLinks: cmp.nLinks, internPct, internalised: odr.internalised,
                keptTrips: odr.keptTrips, rt, baseRt,
-               pctW1: cmp.pctW1, pctW5: cmp.pctW5, geh5: cmp.geh5, p95pct: cmp.p95pct, nCarry: cmp.nCarry,
+               pctW1: cmp.pctW1, pctW5: cmp.pctW5, geh5: cmp.geh5, pctG2: cmp.pctG2, maxGeh: cmp.maxGeh, p95pct: cmp.p95pct, nCarry: cmp.nCarry,
+               exact: agg.exact, soft: agg.soft, maxW: agg.maxW,
                diff: (xd && xd.ok) ? { idx: xd.idx, dv: xd.dv, fv: xd.fv, dmax: xd.dmax, m: xd.m, nNonZero: xd.nNonZero } : null };
     }, { cfg, SAMPLE_N, MIN_ABS });
     if (r.err) { console.log('SKIP —', r.err); continue; }

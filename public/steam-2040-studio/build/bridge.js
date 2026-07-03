@@ -176,17 +176,20 @@
     // link-level agreement: share of links whose flow moved ≤1% / ≤5% of its
     // baseline (1 / 5 veh floor so empty links don't dominate), the standard
     // GEH<5 share, and the p95 relative error on carrying links (≥50 veh)
-    var w1=0, w5=0, geh=0, gehN=0, rel=[];
+    var w1=0, w5=0, geh=0, g2=0, gehN=0, maxGeh=0, rel=[];
     for(j=0;j<n;j++){ gg=idx[j]; var f0=F[gg]||0, a0=A[gg]||0, ad0=Math.abs(a0-f0);
       if(ad0<=Math.max(0.01*f0,1)) w1++;
       if(ad0<=Math.max(0.05*f0,5)) w5++;
-      var s0=f0+a0; if(s0>0){ gehN++; if(Math.sqrt(2*ad0*ad0/s0)<5) geh++; }
+      var s0=f0+a0, gv=(s0>0)?Math.sqrt(2*ad0*ad0/s0):0;
+      if(s0>0){ gehN++; if(gv<5) geh++; }
+      if(gv<2) g2++;
+      if(gv>maxGeh) maxGeh=gv;
       if(f0>=50) rel.push(ad0/f0);
     }
     rel.sort(function(a,b){ return a-b; });
     var p95=rel.length ? 100*rel[Math.floor(rel.length*0.95)] : 0;
     return {ok:true, pctRmse:pctRmse, corr:corr, vhtErr:vhtErr, vhtFull:vhtF, vhtNow:vhtA, maxAbs:maxAbs, nLinks:n, masked:!!mask,
-            pctW1:100*w1/n, pctW5:100*w5/n, geh5:(gehN?100*geh/gehN:0), p95pct:p95, nCarry:rel.length};
+            pctW1:100*w1/n, pctW5:100*w5/n, geh5:(gehN?100*geh/gehN:0), pctG2:100*g2/n, maxGeh:maxGeh, p95pct:p95, nCarry:rel.length};
   }
   /* sparse per-link Δ (current flows − full snapshot) for baking preloaded
      difference plots: links with |Δ| ≥ minAbs, their baseline flow, and the
@@ -601,21 +604,7 @@
     // without it the aggregated equilibrium bottlenecks artificially at the
     // connectors and BPR time explodes. Applied only while the AGGREGATED
     // matrix is live (odBase toggles it), never to the matched baseline.
-    var fz=null;
-    if(pairs.length){
-      var ends=new Map();
-      for(var e0=0;e0<cnt;e0++){ var vv=(typeof h2f==="function")?h2f(V[e0]):V[e0]; if(!(vv>0)) continue;
-        var oo=O[e0]>>>0, dd0=D[e0]>>>0;
-        ends.set(oo,(ends.get(oo)||0)+vv); ends.set(dd0,(ends.get(dd0)||0)+vv); }
-      var tot=new Map();                       // rep -> own + absorbed trip-ends
-      for(var p2=0;p2<pairs.length;p2++){ var mem=pairs[p2][0]>>>0, rp=pairs[p2][1]>>>0;
-        if(!tot.has(rp)) tot.set(rp,(ends.get(rp)||0));
-        tot.set(rp, tot.get(rp)+(ends.get(mem)||0)); }
-      fz=new Map();                            // rep zone id -> access-capacity factor
-      tot.forEach(function(t2,rp2){ var own=ends.get(rp2)||0;
-        fz.set(rp2, own>0 ? Math.min(10, Math.max(1, t2/own)) : 10); });
-    }
-    window.__AGGFZ=fz;
+    window.__AGGPAIRS=pairs.length?pairs:null;
     window.__AGGCAPF_P=null;                   // (re)built lazily once GRAPH exists
     window.__AGGCAPF=buildAggCapf();           // aggod leaves the aggregated matrix live
     var r=buildODfromArrays(O2,D2,V2,m,false);
@@ -646,13 +635,32 @@
      representative that absorbed other zones' demand is the capacity of the
      real links incident to its attachment node. Needs GRAPH (any prior run). */
   function buildAggCapf(){
-    var fz=window.__AGGFZ;
-    if(!fz || typeof GRAPH==="undefined" || !GRAPH || !GRAPH.znode) return null;
+    var prs=window.__AGGPAIRS;
+    if(!prs || typeof GRAPH==="undefined" || !GRAPH || !GRAPH.znode || !window.__ODRAW || typeof zoneIdIndex!=="function") return null;
     if(window.__AGGCAPF_P) return window.__AGGCAPF_P;
-    var capf=new Map(), head=GRAPH.head, elink=GRAPH.elink, zn=GRAPH.znode;
-    fz.forEach(function(f,rz){
-      if(!(f>1) || rz>=zn.length) return;
-      var n=zn[rz]; if(n==null || n<0) return;
+    var idx0=zoneIdIndex(), zn0=GRAPH.znode, R=window.__ODRAW;
+    function nodeOf(id){ var zi=idx0.get(id); return (zi===undefined)?-1:zn0[zi]; }
+    var ends=new Map(), i;
+    for(i=0;i<R.cnt;i++){ var v=(typeof h2f==="function")?h2f(R.V[i]):R.V[i]; if(!(v>0)) continue;
+      var o=R.O[i]>>>0, d=R.D[i]>>>0; ends.set(o,(ends.get(o)||0)+v); ends.set(d,(ends.get(d)||0)+v); }
+    var rep=new Map();
+    for(i=0;i<prs.length;i++) rep.set(prs[i][0]>>>0, prs[i][1]>>>0);
+    // demand attached to each NODE before vs after aggregation — the factor is
+    // per node, so merges that keep the same attachment node stay EXACTLY 1
+    // (nothing relocated) and only genuinely moved demand earns capacity. The
+    // OD and pairs speak zone IDs; znode is indexed by zone INDEX (zoneIdIndex).
+    var before=new Map(), after=new Map();
+    ends.forEach(function(w,z){
+      var n0=nodeOf(z); if(n0<0) return;
+      before.set(n0,(before.get(n0)||0)+w);
+      var n1=nodeOf(rep.has(z)?rep.get(z):z); if(n1<0) return;
+      after.set(n1,(after.get(n1)||0)+w);
+    });
+    var capf=new Map(), head=GRAPH.head, elink=GRAPH.elink;
+    after.forEach(function(a,n){
+      var b=before.get(n)||0;
+      var f=(b>0)?Math.min(10,Math.max(1,a/b)):(a>0?10:1);
+      if(!(f>1.001)) return;
       for(var e=head[n]; e<head[n+1]; e++){
         var g=elink[e], cur=capf.get(g)||1; if(f>cur) capf.set(g,f);
       }
@@ -660,6 +668,73 @@
     if(!capf.size) return null;
     window.__AGGCAPF_P=capf;
     return capf;
+  }
+  /* GEHX · exact-guard aggregation (Assignment side — needs GRAPH.znode).
+     Stage 1: merge zones that share a network ATTACHMENT NODE — their demand
+     already loads at the identical node, so the assignment is provably
+     unchanged (GEH exactly 0 on every link). Stage 2 (only if the target
+     demands more): merge the smallest-trip-end zones first into the nearest
+     surviving zone by attachment-node distance — moving w trips can worsen
+     any link by at most w, so the guarantee degrades gracefully and maxW
+     reports the exposure. */
+  function gehAgg(target){
+    if(typeof GRAPH==="undefined" || !GRAPH || !GRAPH.znode) return {ok:false, err:"run an assignment first (the network graph is needed)"};
+    if(!window.__ODRAW || typeof zoneIdIndex!=="function") return {ok:false, err:"OD not loaded yet"};
+    target=target|0;
+    // znode is indexed by zone INDEX; the OD (and merge pairs) speak zone IDs —
+    // zoneIdIndex() is the app's id → index map. Everything below stays in ID
+    // space and translates only to look up the attachment node.
+    var idx=zoneIdIndex(), zn0=GRAPH.znode, NX=GRAPH.nodeX, NY=GRAPH.nodeY;
+    function nodeOf(id){ var zi=idx.get(id); return (zi===undefined)?-1:zn0[zi]; }
+    var zn=nodeOf;
+    var R=window.__ODRAW, ends=new Map(), i;
+    for(i=0;i<R.cnt;i++){ var v=(typeof h2f==="function")?h2f(R.V[i]):R.V[i]; if(!(v>0)) continue;
+      var o=R.O[i]>>>0, d=R.D[i]>>>0; ends.set(o,(ends.get(o)||0)+v); ends.set(d,(ends.get(d)||0)+v); }
+    var zs=[];
+    idx.forEach(function(zi,id){ if(zn0[zi]>=0) zs.push(id); });
+    var alive=new Set(zs), rep=new Map(), exact=0, soft=0, maxW=0;
+    // stage 1 — same attachment node (rep = the member with the most demand)
+    var byNode=new Map();
+    zs.forEach(function(z2){ var a=byNode.get(zn(z2)); if(!a){a=[];byNode.set(zn(z2),a);} a.push(z2); });
+    byNode.forEach(function(a){ if(a.length<2) return;
+      var r0=a[0], bw=-1;
+      a.forEach(function(z2){ var w=ends.get(z2)||0; if(w>bw){bw=w;r0=z2;} });
+      a.forEach(function(z2){ if(z2!==r0){ rep.set(z2,r0); alive.delete(z2); exact++; } });
+    });
+    // stage 2 — smallest demand first, nearest surviving zone
+    if(target>0 && alive.size>target){
+      var CELL=3000, KEY2=1<<20, grid=new Map();
+      function gk(x,y){ return Math.floor(x/CELL)*KEY2+Math.floor(y/CELL); }
+      alive.forEach(function(z2){ var k=gk(NX[zn(z2)],NY[zn(z2)]); var a=grid.get(k); if(!a){a=new Set();grid.set(k,a);} a.add(z2); });
+      var order=Array.from(alive).sort(function(a,b){ return (ends.get(a)||0)-(ends.get(b)||0); });
+      for(var q=0;q<order.length && alive.size>target;q++){
+        var zq=order[q]; if(!alive.has(zq)) continue;
+        var x0=NX[zn(zq)], y0=NY[zn(zq)], best=-1, bd=Infinity;
+        for(var ring=1; ring<=12 && best<0; ring++){
+          var r2max=(ring*CELL)*(ring*CELL);
+          var gx=Math.floor(x0/CELL), gy=Math.floor(y0/CELL);
+          for(var ox=-ring;ox<=ring;ox++) for(var oy=-ring;oy<=ring;oy++){
+            var cellSet=grid.get((gx+ox)*KEY2+(gy+oy)); if(!cellSet) continue;
+            cellSet.forEach(function(z3){ if(z3===zq) return;
+              var dx=NX[zn(z3)]-x0, dy=NY[zn(z3)]-y0, dd=dx*dx+dy*dy;
+              if(dd<bd && dd<=r2max*4){ bd=dd; best=z3; } });
+          }
+        }
+        if(best<0) continue;
+        rep.set(zq,best); alive.delete(zq); soft++;
+        var wq=ends.get(zq)||0; if(wq>maxW) maxW=wq;
+        var kq=gk(x0,y0); var sq=grid.get(kq); if(sq){ sq.delete(zq); }
+      }
+    }
+    // resolve representative chains to their surviving roots
+    var pairs=[];
+    rep.forEach(function(r1,mem){
+      var r2=r1, hop=0; while(rep.has(r2) && hop++<50) r2=rep.get(r2);
+      pairs.push([mem, r2]);
+    });
+    return {ok:true, pairs:pairs, merged:pairs.length, zones:alive.size, total:zs.length,
+            exact:exact, soft:soft, maxW:Math.round(maxW),
+            guaranteed:(soft===0), guardZones:zs.length-exact};
   }
   /* switch the live OD between the stored matrices: the MATCHED full-zone
      baseline ("filt"), the aggregated one ("agg"), or the original raw ("full") */
@@ -748,6 +823,8 @@
         case "expdiff":   out = exportDiff(m.minAbs); break;
         case "showbaked": out = showBaked(m); break;
         case "odends":    out = odEnds(); break;
+        case "vdfcap":    window.__APPRCLAMP=(m.v>0)?m.v:null; out={ok:true, cap:window.__APPRCLAMP}; break;
+        case "gehagg":    out = gehAgg(m.target); break;
         case "showdiff":  out = showDiff((m.key && window.__SCN) ? window.__SCN[m.key] : null); break;
         case "scnsave":   out = scnSave(m.key); break;
         case "getrect":   out = getRect(); break;

@@ -448,6 +448,7 @@ var AGGCONFIGS=[
   {name:"AX · study-area adaptive", method:"m1", studyArea:true},
   {name:"AX · study-area + districts", method:"m2", studyArea:true},
   /* proximity-first spatial methods (aggregate zones next to each other first) */
+  {name:"GEHX · exact-guard", gehx:true, target:3150},
   {name:"NND · demand-weighted", custom:"nnd"},
   {name:"NN · adjacent-first", custom:"nn"},
   {name:"WARD · variance-min", custom:"ward"},
@@ -484,6 +485,7 @@ async function getOdEnds(){
 /* fetch a config's zone aggregation from the Viewer, whatever family it is:
    custom spatial (nn/grid/kmeans), study-area adaptive, or a built-in method */
 async function fetchAgg(cfg){
+  if(cfg.gehx) return rpc("assign",{cmd:"gehagg",target:cfg.target||3150,timeoutMs:120000});
   if(cfg.custom){
     var we=await getOdEnds();
     return rpc("viewer",{cmd:"getaggcustom",mode:cfg.custom,target:cfg.target||AGG_TARGET,
@@ -516,14 +518,20 @@ async function applyAggConfig(cfg){
   await rpc("viewer",{cmd:"set",id:"methodSel",value:cfg.method});
   await aggSleep(1500);   // let the aggregation compute
 }
-async function runAggAssign(){    // run the assignment and wait for it to finish
+async function runAggAssign(maxMs){    // run the assignment and wait for it to finish
   await rpc("assign",{cmd:"click",id:"runBtn"});
-  // allow for an all-zones run, which is far slower than the 250-origin sample
-  return pollState("assign", function(x){ return x.kpi && x.kpi.length>2 && /origins\s*·.*links/i.test(x.status||""); }, 240000);
+  // allow for an all-zones run, which is far slower than the 250-origin sample;
+  // equilibrium (FW) on all origins needs far longer still — callers extend it
+  return pollState("assign", function(x){ return x.kpi && x.kpi.length>2 && /origins\s*·.*links/i.test(x.status||""); }, maxMs||240000);
 }
 /* parameter variants to refine the winning method (stage 2) */
 function expandConfig(cfg){
   var method=(typeof cfg==="string")?cfg:cfg.method;
+  if(cfg&&cfg.gehx) return [
+    {name:"GEHX · exact-guard @ 3300", gehx:true, target:3300},
+    {name:"GEHX · exact-guard @ 3000", gehx:true, target:3000},
+    {name:"GEHX · exact-guard @ 2800", gehx:true, target:2800},
+    {name:"GEHX · exact-guard @ 2600", gehx:true, target:2600}];
   if(cfg&&cfg.custom){ var M=cfg.custom, NM={nn:"NN",nnd:"NND",grid:"GRID",kmeans:"KM",ward:"WARD",kcenter:"KC",hex:"HEX",quad:"QT",bal:"BAL",ring:"RING"}[M]||M.toUpperCase();
     return [
       {name:NM+" · very fine ("+Math.round(AGG_TARGET*1.7)+" zones)", custom:M, target:Math.round(AGG_TARGET*1.7)},
@@ -562,7 +570,7 @@ function expandConfig(cfg){
 async function evalAggConfig(cfg, prog, tag){
   setBub(prog, "✦ <b>Aggregation search</b> — "+tag+": "+esc(cfg.name)+" — aggregating…");
   switchApp("viewer"); await waitReady("viewer");
-  if(!cfg.custom) await applyAggConfig(cfg);     // custom spatial methods need no viewer UI state
+  if(!cfg.custom && !cfg.gehx) await applyAggConfig(cfg);   // custom/gehx methods need no viewer UI state
   var agg=await fetchAgg(cfg);
   if(!agg||!agg.ok||!agg.merged) return null;
   switchApp("assign"); await waitReady("assign");
@@ -596,7 +604,7 @@ async function applyScenario(key){
   if(!r){ addMsg("cop","I no longer have that scenario's settings cached — re-run <b>find best aggregation</b> first."); return; }
   var msg=addMsg("cop","Applying <b>"+esc(r.name)+"</b> to the model on all zones…");
   switchApp("viewer"); await waitReady("viewer");
-  if(!r.cfg.custom) await applyAggConfig(r.cfg);
+  if(!r.cfg.custom && !r.cfg.gehx) await applyAggConfig(r.cfg);
   var agg=await fetchAgg(r.cfg);
   if(!agg||!agg.ok){ setBub(msg,"Couldn't rebuild that aggregation — try again."); return; }
   switchApp("assign"); await waitReady("assign");
@@ -684,7 +692,7 @@ async function findBestAggregation(){
   await rpc("assign",{cmd:"set",id:"sampleSel",value:"0"});
   await pollState("assign", function(s){ return s.odStats && /matrix|trips|pairs/i.test(s.odStats); }, 7000);
   switchApp("viewer"); await waitReady("viewer");
-  if(!best.cfg.custom) await applyAggConfig(best.cfg);
+  if(!best.cfg.custom && !best.cfg.gehx) await applyAggConfig(best.cfg);
   var bagg=await fetchAgg(best.cfg);
   switchApp("assign"); await waitReady("assign");
   var bodr=await rpc("assign",{cmd:"aggod",pairs:bagg.pairs});        // build both matrices
@@ -752,8 +760,9 @@ function preBestIdx(){
 }
 function preRow(r, idx, rank, isBest){
   var spd=(r.baseRt>0&&r.rt>0)?" · "+r.rt.toFixed(1)+" s ("+(r.baseRt/Math.max(0.01,r.rt)).toFixed(1)+"×)":"";
+  var g2=(r.pctG2!=null)?" · GEH&lt;2: "+r.pctG2.toFixed(1)+"%"+(r.maxGeh!=null?" (max "+r.maxGeh.toFixed(1)+")":""):"";
   var lnk=(r.pctW1!=null)
-    ? " — "+r.zones.toLocaleString()+" zones · <b>links ≤1%: "+r.pctW1.toFixed(1)+"%</b> · GEH&lt;5: "+r.geh5.toFixed(1)+"% · VHT "+r.vhtErr.toFixed(2)+"% · intern "+r.internPct.toFixed(1)+"%"+spd
+    ? " — "+r.zones.toLocaleString()+" zones · <b>links ≤1%: "+r.pctW1.toFixed(1)+"%</b> · GEH&lt;5: "+r.geh5.toFixed(1)+"%"+g2+" · VHT "+r.vhtErr.toFixed(2)+"% · intern "+r.internPct.toFixed(1)+"%"+spd
     : " — "+r.zones.toLocaleString()+" zones · VHT "+r.vhtErr.toFixed(2)+"% · RMSE "+r.pctRmse.toFixed(1)+"% · corr "+r.corr.toFixed(3)+" · intern "+r.internPct.toFixed(1)+"%"+spd;
   var canD=(r.dN!=null&&r.dN>0);
   return '<div class="scnrow">'
@@ -841,26 +850,29 @@ async function applyPreloaded(idx){
   if(!r){ addMsg("cop","I can't find that preloaded configuration — say <b>preloaded comparison</b> to list them."); return; }
   var msg=addMsg("cop","Rebuilding <b>"+esc(r.name)+"</b> and applying it to the model on all zones…");
   switchApp("viewer"); await waitReady("viewer");
-  if(!r.cfg.custom) await applyAggConfig(r.cfg);
+  if(!r.cfg.custom && !r.cfg.gehx) await applyAggConfig(r.cfg);
   var agg=await fetchAgg(r.cfg);
   if(!agg||!agg.ok||!agg.merged){ setBub(msg,"Couldn't rebuild that aggregation — open the Viewer and try again."); return; }
   switchApp("assign"); await waitReady("assign");
-  await rpc("assign",{cmd:"set",id:"methodSel",value:"bpr"});   // same rerouting the scores used
+  await rpc("assign",{cmd:"set",id:"methodSel",value:(P.method||"bpr")});   // same protocol the scores used
   await rpc("assign",{cmd:"set",id:"sampleSel",value:"0"});
   await pollState("assign", function(s){ return s.odStats && /matrix|trips|pairs/i.test(s.odStats); }, 7000);
   await rpc("assign",{cmd:"setarea",rect:null});                // verify over the whole network
+  if(P.vdfCap) await rpc("assign",{cmd:"vdfcap",v:P.vdfCap});   // capacity-restrained, like the baked scores
   await rpc("assign",{cmd:"aggod",pairs:agg.pairs});            // full demand, both matrices
-  setBub(msg,"Applying <b>"+esc(r.name)+"</b> — running the demand-matched baseline on all zones…");
+  var runMs=(P.method==="fw")?2400000:240000;   // equilibrium on all origins takes minutes
+  setBub(msg,"Applying <b>"+esc(r.name)+"</b> — running the demand-matched baseline on all zones"+(P.method==="fw"?" (user equilibrium — this takes several minutes)":"")+"…");
   await rpc("assign",{cmd:"odbase",which:"filt"});
-  var t0=nowMs(); await runAggAssign(); var baseRt=(nowMs()-t0)/1000;
+  var t0=nowMs(); await runAggAssign(runMs); var baseRt=(nowMs()-t0)/1000;
   await rpc("assign",{cmd:"snapfull"});
   await rpc("assign",{cmd:"odbase",which:"agg"});
   setBub(msg,"Applying <b>"+esc(r.name)+"</b> — baseline done ("+baseRt.toFixed(1)+" s), running the aggregated assignment…");
-  var t1=nowMs(); await runAggAssign(); var rt=(nowMs()-t1)/1000;
+  var t1=nowMs(); await runAggAssign(runMs); var rt=(nowMs()-t1)/1000;
   var cmp=await rpc("assign",{cmd:"cmpfull"});
   var key="pre"+idx;
   await rpc("assign",{cmd:"scnsave",key:key});
   await rpc("assign",{cmd:"showdiff"}); highlightRail("assign");
+  if(P.vdfCap) await rpc("assign",{cmd:"vdfcap",v:0});          // don't leak the cap into normal runs
   AGG_BYKEY[key]={name:r.name, cfg:r.cfg, key:key, zones:agg.zones};
   var err=(cmp&&cmp.ok)?" Verified on all zones with full demand: <b>"+(cmp.pctW1!=null?cmp.pctW1.toFixed(1)+"% of links within 1%</b> · GEH&lt;5 "+cmp.geh5.toFixed(1)+"% · ":"</b>")+"VHT error "+cmp.vhtErr.toFixed(2)+"% · corr "+cmp.corr.toFixed(3)+".":"";
   setBub(msg,"Applied <b>"+esc(r.name)+"</b> — "+agg.zones.toLocaleString()+" zones. Assignment "+rt.toFixed(1)+" s vs "+baseRt.toFixed(1)+" s matched baseline ("+(baseRt/Math.max(0.01,rt)).toFixed(1)+"× faster)."+err+" The map shows the before→after Δ plot.");
@@ -1257,6 +1269,8 @@ var KB=[
   a:"The <b>preloaded comparison</b> is a set of aggregation-method scores computed offline over the <b>whole network</b> (no study-area mask) and baked into this build: several spatial methods (NN, WARD, K-means, HEX, quadtree, size-balanced) each at zone targets like 3150 / 2600 / 2050 / 1500, plus the app's M1 and M2. Every score uses the optimiser's exact protocol — identical pre-sampled trips, demand-matched full-zone baseline, BPR rerouting — and is reported at <b>link level</b>: the share of links whose flow stays within 1% of baseline, and the standard GEH&lt;5 share. Say <span class='k'>preloaded comparison</span> to read them instantly, <b>click a row</b> to see its baked Δ plot with no run, or <b>apply ▸</b> to make it the live model."},
  {k:["nnd","demand weighted aggregation","why corridors differ","corridor differences","moved trips"],
   a:"<b>Why do some corridors show big Δs under aggregation?</b> With a demand-matched baseline the only thing aggregation changes is <i>where merged zones' trips enter the network</i>. Diagnosis on this model showed every big-Δ corridor sits within ~400 m of one of the largest <b>demand-weighted centroid displacements</b> — e.g. pure nearest-neighbour merging at 2600 zones moved a 60,000-trip-end zone 1.6 km, forcing all its trips onto different connectors and flipping flow between parallel streets. <b>NND · demand-weighted</b> fixes this at the root: trip ends act as cluster mass (merge cost d²·w<sub>a</sub>w<sub>b</sub>/(w<sub>a</sub>+w<sub>b</sub>)), centroids and representatives are demand-weighted, so high-demand zones keep their own loading points and low-demand zones absorb the merging. All custom methods also gained demand-weighted representative placement."},
+ {k:["gehx","exact guard","exact aggregation","guaranteed aggregation","geh below 2","zero error aggregation"],
+  a:"<b>GEHX · exact-guard</b> is the aggregation method built for hard link-level guarantees. Stage 1 merges zones that share the same <b>network attachment node</b> — their trips already enter the model at the identical node, so the assignment is <b>provably unchanged (GEH = 0 on every link)</b>. Stage 2 (only if a deeper target demands it) merges the smallest-trip-end zones first into the nearest surviving zone; moving <i>w</i> trips can worsen any link by at most <i>w</i>, so the method reports the largest zone it had to move (maxW) as its exposure. On this network ~260 same-node merges plus ~370 near-zero-demand zones make <b>GEH &lt; 2 on all links provable down to ≈3,100 zones</b>; below that, relocating any real zone zeroes its own access street (GEH = √(2w) there), so no method can guarantee GEH &lt; 2 everywhere — GEHX minimises the violations instead and the report shows the measured GEH&lt;2 share and max GEH."},
  {k:["geh","geh statistic","geh 5","model validation criterion"],
   a:"<b>GEH</b> is the standard model-validation statistic for comparing two link flows: <code>GEH = √(2(a−b)² / (a+b))</code> — a self-scaling blend of absolute and relative error. The usual acceptance criterion is <b>GEH &lt; 5 on at least 85% of links</b>. The preloaded comparison and the aggregation optimiser both report the GEH&lt;5 share, so you can judge an aggregation the same way you'd judge a model calibration. Note that <b>100% of links within 1%</b> is unattainable under any real aggregation: merging zones moves their loading points, so the links at the old connection points must change — the practical question is what share of the network stays within tolerance."},
  {k:["bpr","bureau of public roads","volume delay","congestion function"],
