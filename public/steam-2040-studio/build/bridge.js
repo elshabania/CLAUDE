@@ -601,8 +601,8 @@
     // without it the aggregated equilibrium bottlenecks artificially at the
     // connectors and BPR time explodes. Applied only while the AGGREGATED
     // matrix is live (odBase toggles it), never to the matched baseline.
-    var capf=null;
-    if(pairs.length && typeof GLINK!=="undefined" && GLINK && GLINK.A){
+    var fz=null;
+    if(pairs.length){
       var ends=new Map();
       for(var e0=0;e0<cnt;e0++){ var vv=(typeof h2f==="function")?h2f(V[e0]):V[e0]; if(!(vv>0)) continue;
         var oo=O[e0]>>>0, dd0=D[e0]>>>0;
@@ -611,20 +611,13 @@
       for(var p2=0;p2<pairs.length;p2++){ var mem=pairs[p2][0]>>>0, rp=pairs[p2][1]>>>0;
         if(!tot.has(rp)) tot.set(rp,(ends.get(rp)||0));
         tot.set(rp, tot.get(rp)+(ends.get(mem)||0)); }
-      var fz=new Map();                        // rep zone -> connector factor
+      fz=new Map();                            // rep zone id -> access-capacity factor
       tot.forEach(function(t2,rp2){ var own=ends.get(rp2)||0;
         fz.set(rp2, own>0 ? Math.min(10, Math.max(1, t2/own)) : 10); });
-      capf=new Map();
-      var GA=GLINK.A, GB=GLINK.B;
-      for(var g2=0; g2<GLINK.m; g2++){
-        var fa=fz.get(GA[g2]), fb=fz.get(GB[g2]);
-        var f2=(fa!==undefined||fb!==undefined)?Math.max(fa||1,fb||1):undefined;
-        if(f2!==undefined && f2>1) capf.set(g2, f2);
-      }
-      if(!capf.size) capf=null;
     }
-    window.__AGGCAPF_P=capf;
-    window.__AGGCAPF=capf;                     // aggod leaves the aggregated matrix live
+    window.__AGGFZ=fz;
+    window.__AGGCAPF_P=null;                   // (re)built lazily once GRAPH exists
+    window.__AGGCAPF=buildAggCapf();           // aggod leaves the aggregated matrix live
     var r=buildODfromArrays(O2,D2,V2,m,false);
     try{ var ds=document.getElementById("demandSel"); if(ds) ds.value="od"; }catch(e){}
     var lbl = pairs.length ? "Aggregated zones" : "Full zones";
@@ -648,13 +641,33 @@
     w.forEach(function(val,id){ wid.push(id); wv.push(val); });
     return {ok:true, wid:wid, w:wv, n:wid.length};
   }
+  /* build the per-link access-capacity map from the per-rep factors: zones
+     attach to the network at GRAPH.znode[zone], so the ACCESS capacity of a
+     representative that absorbed other zones' demand is the capacity of the
+     real links incident to its attachment node. Needs GRAPH (any prior run). */
+  function buildAggCapf(){
+    var fz=window.__AGGFZ;
+    if(!fz || typeof GRAPH==="undefined" || !GRAPH || !GRAPH.znode) return null;
+    if(window.__AGGCAPF_P) return window.__AGGCAPF_P;
+    var capf=new Map(), head=GRAPH.head, elink=GRAPH.elink, zn=GRAPH.znode;
+    fz.forEach(function(f,rz){
+      if(!(f>1) || rz>=zn.length) return;
+      var n=zn[rz]; if(n==null || n<0) return;
+      for(var e=head[n]; e<head[n+1]; e++){
+        var g=elink[e], cur=capf.get(g)||1; if(f>cur) capf.set(g,f);
+      }
+    });
+    if(!capf.size) return null;
+    window.__AGGCAPF_P=capf;
+    return capf;
+  }
   /* switch the live OD between the stored matrices: the MATCHED full-zone
      baseline ("filt"), the aggregated one ("agg"), or the original raw ("full") */
   function odBase(which){
     if(typeof buildODfromArrays!=="function") return {ok:false, err:"no builder"};
     var src2 = which==="filt" ? window.__ODFILT : which==="agg" ? window.__ODAGG : null;
-    // connector re-dimensioning belongs ONLY to the aggregated zone system
-    window.__AGGCAPF = (which==="agg") ? (window.__AGGCAPF_P||null) : null;
+    // access re-dimensioning belongs ONLY to the aggregated zone system
+    window.__AGGCAPF = (which==="agg") ? buildAggCapf() : null;
     if(which==="full"){
       if(!window.__ODRAW) return {ok:false, err:"no raw OD"};
       var W0=window.__ODRAW, r0=buildODfromArrays(W0.O,W0.D,W0.V,W0.cnt,true);
