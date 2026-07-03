@@ -15,6 +15,7 @@ const OUTD = new URL(`./preload-diff${SUF}.gz`, import.meta.url).pathname;
 const SAMPLE_N = process.env.SAMPLEN !== undefined ? +process.env.SAMPLEN : 800;  // 0 = ALL origins
 const METHOD = process.env.ASSIGN_METHOD || 'bpr';   // 'fw' = Frank-Wolfe user equilibrium
 const MIN_ABS = +(process.env.MINABS || 1);   // bake links with |Δ| ≥ this (veh)
+const VDF_CAP = +(process.env.VDFCAP || 0);   // bound v/c in the BPR curve (both runs); 0 = unbounded
 
 // methods × targets grid; app methods M1/M2 have their own natural zone counts
 const TARGETS = (process.env.TARGETS || '3150,2600,2050,1500').split(',').map(Number);
@@ -68,7 +69,14 @@ await page.evaluate(async ({ METHOD }) => {
     }
   };
 }, { METHOD });
-console.log(`assign ready (${METHOD}, whole-network scoring, sampleN=${SAMPLE_N || 'ALL'})`);
+if (VDF_CAP > 0) {   // capacity-restrained VDF: bound v/c in BOTH runs of every comparison
+  let set = false;
+  for (const f of page.frames()) {
+    set = await f.evaluate(cap => { if (typeof GLINK === 'undefined') return false; window.__APPRCLAMP = cap; return true; }, VDF_CAP).catch(() => false) || set;
+  }
+  if (!set) throw new Error('could not set VDF cap — assign frame not found');
+}
+console.log(`assign ready (${METHOD}, whole-network scoring, sampleN=${SAMPLE_N || 'ALL'}, vdfCap=${VDF_CAP || 'none'})`);
 
 const results = [];
 for (let i = 0; i < CONFIGS.length; i++) {
@@ -136,7 +144,7 @@ function writeOutputs(results) {
     return { ...rest, dOff: metas[i].off, dN: idx.length, dvS, fvS, dmax, dM: diff.m };
   });
   fs.writeFileSync(OUTD, zlib.gzipSync(buf, { level: 9 }));
-  fs.writeFileSync(OUT, JSON.stringify({ sampleN: SAMPLE_N, scope: 'whole-network', method: METHOD, minAbs: MIN_ABS, results: jres }, null, 1));
+  fs.writeFileSync(OUT, JSON.stringify({ sampleN: SAMPLE_N, scope: 'whole-network', method: METHOD, minAbs: MIN_ABS, vdfCap: VDF_CAP || null, results: jres }, null, 1));
 }
 
 // restore the un-aggregated matrix so nothing is left in a weird state

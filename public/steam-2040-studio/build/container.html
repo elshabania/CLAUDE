@@ -820,6 +820,7 @@ async function showPreloadedComparison(){
   });
   var hasW1=P.results.some(function(r){ return r.pctW1!=null; });
   var proto=(P.method==="fw")?"<b>Frank-Wolfe user equilibrium</b> (converged to gap &lt; 0.01%)":(P.method==="msa")?"MSA equilibrium":"BPR incremental rerouting";
+  if(P.vdfCap) proto+=", capacity-restrained (v/c bounded at "+P.vdfCap+" in both runs) with re-dimensioned access capacity at merged zones";
   var dem=(P.sampleN>0)?"the identical "+P.sampleN+"-origin pre-sampled trips":"<b>the full demand — all origins, no sampling</b>";
   var html="<b>Preloaded aggregation comparison — unified (whole network).</b> For every method "+dem+" are assigned on full zones (demand-matched baseline) and on the aggregated zones with "+proto+", and the error is measured over the <b>entire network</b> — no study-area mask."
     +(hasW1?" Ranked at <b>link level</b>: <b>links ≤1%</b> is the share of links whose flow moves by no more than 1% of its baseline (with a 1-veh floor so empty links don't inflate the score); <b>GEH&lt;5</b> is the standard model-validation share. Click a row to see its <b>baked Δ plot</b> instantly.":"");
