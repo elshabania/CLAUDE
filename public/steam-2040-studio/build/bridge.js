@@ -549,19 +549,15 @@
             cs.forEach(consider);
           }
         }
-        // zero-demand zones are free to move — distance is only a tiebreak
-        return best<0?null:{t:best, cost:w[zq]*Math.sqrt(bd)+Math.sqrt(bd)*1e-6};
+        return best<0?null:{t:best, cost:0};
       }
-      var hp=[];
-      function hpush(c,z2){ hp.push([c,z2]); var a2=hp.length-1; while(a2>0){ var p2=(a2-1)>>1; if(hp[p2][0]<=hp[a2][0]) break; var t2=hp[p2]; hp[p2]=hp[a2]; hp[a2]=t2; a2=p2; } }
-      function hpop(){ var top=hp[0], last=hp.pop(); if(hp.length){ hp[0]=last; var a2=0; for(;;){ var l2=2*a2+1, r3=l2+1, s3=a2; if(l2<hp.length&&hp[l2][0]<hp[s3][0])s3=l2; if(r3<hp.length&&hp[r3][0]<hp[s3][0])s3=r3; if(s3===a2)break; var t3=hp[a2];hp[a2]=hp[s3];hp[s3]=t3;a2=s3; } } return top; }
-      alive.forEach(function(z){ var b0=bestTarget(z); if(b0) hpush(b0.cost, z); });
-      var guard=alive.size*40;
-      while(clusters>target && hp.length && guard-->0){
-        var top=hpop(), zq=top[1];
-        if(!alive.has(zq) || find(zq)!==zq) continue;
+      // smallest trip-ends first, nearest surviving target — the policy the
+      // offline variant race confirmed optimal (damage-priced orderings and
+      // penalty-steered targets all scored worse under the exact protocol)
+      var order=Array.from(alive).sort(function(a,b){ return w[a]-w[b]; });
+      for(var q4=0; q4<order.length && clusters>target; q4++){
+        var zq=order[q4]; if(!alive.has(zq) || find(zq)!==zq) continue;
         var bt=bestTarget(zq); if(!bt) continue;
-        if(hp.length && bt.cost>hp[0][0]*1.000001){ hpush(bt.cost, zq); continue; }
         uni(zq,bt.t); alive.delete(zq);
         var sq=grid.get(gk(CENT[zq*2],CENT[zq*2+1])); if(sq) sq.delete(zq);
       }
@@ -780,11 +776,12 @@
      Stage 1: merge zones that share a network ATTACHMENT NODE — their demand
      already loads at the identical node, so the assignment is provably
      unchanged (GEH exactly 0 on every link). Stage 2 (only if the target
-     demands more): cheapest-damage-first — moves are priced trips × distance,
-     targets are penalised for mutual demand (internalisation) and for weak
-     GEH<5 slack at their attachment node, and a lazy-greedy heap always
-     spends the error budget on the cheapest remaining move. Moving w trips
-     can worsen any link by at most w, so maxW reports the exposure. */
+     demands more): smallest trip-end zones first into the nearest surviving
+     zone — the policy an offline variant race confirmed optimal (damage-
+     priced orderings and penalty-steered targets all scored worse under the
+     exact demand-matched protocol; "net" targets by road distance instead of
+     euclidean and is available via the variant option). Moving w trips can
+     worsen any link by at most w, so maxW reports the exposure. */
   function gehAgg(target, variant){
     if(typeof GRAPH==="undefined" || !GRAPH || !GRAPH.znode) return {ok:false, err:"run an assignment first (the network graph is needed)"};
     if(!window.__ODRAW || typeof zoneIdIndex!=="function") return {ok:false, err:"OD not loaded yet"};
@@ -819,8 +816,8 @@
     // "hop" prefers topologically-near targets (≤4 network hops), "cap"
     // refuses targets whose slack the move would exceed (unless forced).
     var movedTrips=0;
-    var VAR=(typeof variant==="string"&&variant)||window.__GEHXVAR||"wd";
-    var usePen=(VAR!=="o"), useHop=(VAR==="hop"), useCap=(VAR==="cap");
+    var VAR=(typeof variant==="string"&&variant)||window.__GEHXVAR||"o";
+    var usePen=(VAR!=="o"&&VAR!=="net"), useHop=(VAR==="hop"), useCap=(VAR==="cap"), useNet=(VAR==="net");
     var heapOrder=(VAR==="wd"||VAR==="cap");
     if(target>0 && alive.size>target){
       var CELL=3000, KEY2=1<<20, grid=new Map();
@@ -898,10 +895,40 @@
         // distance enters its cost only as a nearest-first tiebreak
         return best<0?null:{t:best, cost:wq*bs + bs*1e-6};
       }
+      // network-distance-nearest surviving zone: bounded Dijkstra in METRES
+      // from the mover's attachment node over the road graph — euclidean
+      // nearest can jump a river or freeway barrier that the traffic cannot
+      var nodeAlive=null;
+      if(useNet){ nodeAlive=new Map();
+        alive.forEach(function(z2){ var n=zn(z2); var s=nodeAlive.get(n); if(!s){s=new Set();nodeAlive.set(n,s);} s.add(z2); });
+      }
+      function netTarget(zq){
+        var src=zn(zq); if(src<0) return null;
+        var dist=new Map(); dist.set(src,0);
+        var pq=[[0,src]];
+        function qpush(c,n){ pq.push([c,n]); var a2=pq.length-1; while(a2>0){ var p2=(a2-1)>>1; if(pq[p2][0]<=pq[a2][0]) break; var t2=pq[p2]; pq[p2]=pq[a2]; pq[a2]=t2; a2=p2; } }
+        function qpop(){ var top=pq[0], last=pq.pop(); if(pq.length){ pq[0]=last; var a2=0; for(;;){ var l2=2*a2+1, r3=l2+1, s3=a2; if(l2<pq.length&&pq[l2][0]<pq[s3][0])s3=l2; if(r3<pq.length&&pq[r3][0]<pq[s3][0])s3=r3; if(s3===a2)break; var t3=pq[a2];pq[a2]=pq[s3];pq[s3]=t3;a2=s3; } } return top; }
+        var settled=0;
+        while(pq.length){
+          var tp=qpop(), d0=tp[0], n0=tp[1];
+          var cd=dist.get(n0); if(cd!==undefined && d0>cd+1e-9) continue;   // stale
+          var s0=nodeAlive.get(n0);
+          if(s0){ var hit=-1; s0.forEach(function(z3){ if(hit<0&&z3!==zq) hit=z3; }); if(hit>=0) return {t:hit, cost:d0}; }
+          if(d0>15000 || ++settled>40000) break;
+          for(var e1=GRAPH.head[n0]; e1<GRAPH.head[n0+1]; e1++){
+            var L1=GRAPH.elink[e1]; if(L1<0) continue;
+            var n1=GRAPH.to[e1], nd=d0+Math.max(5,GRAPH.ELEN[L1]||30);
+            var cur=dist.get(n1);
+            if(cur===undefined||nd<cur){ dist.set(n1,nd); qpush(nd,n1); }
+          }
+        }
+        return null;   // nothing reachable within 15 km of road — fall back to euclidean
+      }
       function doMerge(zq2, t2){
         rep.set(zq2,t2); alive.delete(zq2); soft++;
         var wq2=ends.get(zq2)||0; if(wq2>maxW) maxW=wq2; movedTrips+=wq2;
         var sq=grid.get(gk(NX[zn(zq2)],NY[zn(zq2)])); if(sq) sq.delete(zq2);
+        if(nodeAlive){ var s5=nodeAlive.get(zn(zq2)); if(s5){ s5.delete(zq2); if(!s5.size) nodeAlive.delete(zn(zq2)); } }
       }
       if(heapOrder){
         // lazy-greedy min-heap of [cost, zone]
@@ -922,7 +949,8 @@
         // smallest trip-ends first (free zero-demand moves lead by definition)
         for(var q3=0; q3<byEnds.length && alive.size>target; q3++){
           var zq3=byEnds[q3]; if(!alive.has(zq3)) continue;
-          var bt3=bestTarget(zq3); if(!bt3) continue;
+          var bt3=useNet ? (netTarget(zq3)||bestTarget(zq3)) : bestTarget(zq3);
+          if(!bt3) continue;
           doMerge(zq3, bt3.t);
         }
       }
