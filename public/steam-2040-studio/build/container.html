@@ -303,8 +303,7 @@ window.addEventListener("message",function(ev){
   if(m.event==="needgeh"){   // Viewer selected GEHX but lacks the assignment-side data
     (async function(){
       try{
-        await waitReady("assign");
-        await pollState("assign", function(s){ return s.odStats && /matrix|trips|pairs/i.test(s.odStats); }, 15000);
+        await ensureAssignGraph();   // runs one quick pass if the graph doesn't exist yet
         var d=await rpc("assign",{cmd:"gehdata",timeoutMs:30000});
         if(d&&d.ok) await rpc("viewer",{cmd:"setgehdata",ids:d.ids,nd:d.nd,w:d.w,timeoutMs:30000});
       }catch(e){}
@@ -495,8 +494,28 @@ async function getOdEnds(){
 }
 /* fetch a config's zone aggregation from the Viewer, whatever family it is:
    custom spatial (nn/grid/kmeans), study-area adaptive, or a built-in method */
+/* the Assignment builds its network graph on the first run — GEHX needs it,
+   so kick one quick free-flow pass if it isn't there yet (selects restored) */
+var GRAPH_READY=false;
+async function ensureAssignGraph(){
+  if(GRAPH_READY) return true;
+  await waitReady("assign");
+  await pollState("assign", function(s){ return s.odStats && /matrix|trips|pairs/i.test(s.odStats); }, 15000);
+  var probe=await rpc("assign",{cmd:"gehdata",timeoutMs:15000});
+  if(probe&&probe.ok){ GRAPH_READY=true; return true; }
+  var m0=await rpc("assign",{cmd:"getval",id:"methodSel"});
+  var s0=await rpc("assign",{cmd:"getval",id:"sampleSel"});
+  await rpc("assign",{cmd:"set",id:"methodSel",value:"aon"});
+  await rpc("assign",{cmd:"set",id:"sampleSel",value:"500"});
+  await runAggAssign();
+  if(m0&&m0.ok&&m0.value!=null) await rpc("assign",{cmd:"set",id:"methodSel",value:m0.value});
+  if(s0&&s0.ok&&s0.value!=null) await rpc("assign",{cmd:"set",id:"sampleSel",value:s0.value});
+  var again=await rpc("assign",{cmd:"gehdata",timeoutMs:15000});
+  GRAPH_READY=!!(again&&again.ok);
+  return GRAPH_READY;
+}
 async function fetchAgg(cfg){
-  if(cfg.gehx) return rpc("assign",{cmd:"gehagg",target:cfg.target||3150,timeoutMs:120000});
+  if(cfg.gehx){ await ensureAssignGraph(); return rpc("assign",{cmd:"gehagg",target:cfg.target||3150,timeoutMs:120000}); }
   if(cfg.custom){
     var we=await getOdEnds();
     return rpc("viewer",{cmd:"getaggcustom",mode:cfg.custom,target:cfg.target||AGG_TARGET,
@@ -757,9 +776,12 @@ async function resetZonesHandoff(){
    can be read instantly without running the live search. ===== */
 var PRELOAD_AGG=null; /*__PRELOAD_AGG__*/
 function preShort(r){ var c=r.cfg||{}; return c.custom ? c.custom.toUpperCase()+(c.target?" @"+c.target:"") : (c.method||"?").toUpperCase(); }
-/* rank preloaded configs at LINK level: most links within 1% first, VHT error
-   as the tiebreak (older bakes without link stats fall back to VHT only) */
+/* rank preloaded configs by the model-validation standard: highest GEH<5
+   share first, links-within-1% then VHT error as tiebreaks (older bakes
+   without link stats fall back to VHT only) */
 function preScore(a,b){
+  var ag=(a.geh5!=null), bg=(b.geh5!=null);
+  if(ag&&bg && b.geh5!==a.geh5) return b.geh5-a.geh5;
   var aw=(a.pctW1!=null), bw=(b.pctW1!=null);
   if(aw&&bw && b.pctW1!==a.pctW1) return b.pctW1-a.pctW1;
   return a.vhtErr-b.vhtErr;
@@ -773,17 +795,20 @@ function preRow(r, idx, rank, isBest){
   var spd=(r.baseRt>0&&r.rt>0)?" · "+r.rt.toFixed(1)+" s ("+(r.baseRt/Math.max(0.01,r.rt)).toFixed(1)+"×)":"";
   var g2=(r.pctG2!=null)?" · GEH&lt;2: "+r.pctG2.toFixed(1)+"%"+(r.maxGeh!=null?" (max "+r.maxGeh.toFixed(1)+")":""):"";
   var lnk=(r.pctW1!=null)
-    ? " — "+r.zones.toLocaleString()+" zones · <b>links ≤1%: "+r.pctW1.toFixed(1)+"%</b> · GEH&lt;5: "+r.geh5.toFixed(1)+"%"+g2+" · VHT "+r.vhtErr.toFixed(2)+"% · intern "+r.internPct.toFixed(1)+"%"+spd
+    ? " — "+r.zones.toLocaleString()+" zones · <b>GEH&lt;5: "+r.geh5.toFixed(1)+"%</b> · links ≤1%: "+r.pctW1.toFixed(1)+"%"+g2+" · VHT "+r.vhtErr.toFixed(2)+"% · intern "+r.internPct.toFixed(1)+"%"+spd
     : " — "+r.zones.toLocaleString()+" zones · VHT "+r.vhtErr.toFixed(2)+"% · RMSE "+r.pctRmse.toFixed(1)+"% · corr "+r.corr.toFixed(3)+" · intern "+r.internPct.toFixed(1)+"%"+spd;
   var canD=(r.dN!=null&&r.dN>0);
   var ident=(!canD && r.maxGeh!=null && r.maxGeh===0);
+  var canZ=!!(r.cfg && (r.cfg.custom || r.cfg.gehx || r.cfg.method));   // every config can at least show its zone system
   return '<div class="scnrow">'
     +(canD
-      ? '<a href="#" class="prelink scnlink" data-pre="'+idx+'" title="Show this configuration\'s baked Δ plot on the map">'
-      : '<span class="scnlink" style="cursor:default"'+(ident?' title="The aggregated assignment is bit-identical to full zones — there are no differences to plot"':'')+'>')
+      ? '<a href="#" class="prelink scnlink" data-pre="'+idx+'" title="Show this configuration\'s baked Δ plot on the map (and its zone system in the Viewer)">'
+      : (canZ
+        ? '<a href="#" class="prelink scnlink" data-pre="'+idx+'" title="'+(ident?"The aggregated assignment is bit-identical to full zones — no Δ exists. Click to show its merged zone system in the Viewer":"Show this method\'s merged zone system in the Viewer")+'">'
+        : '<span class="scnlink" style="cursor:default">'))
     +rank+". "+(isBest?"<b>":"")+esc(r.name)+(isBest?"</b>":"")+lnk
     +(canD?' <span style="color:#6f87a8">Δ ▸</span></a>'
-          :(ident?' <span style="color:#2ecc71" >≡ identical — no Δ exists</span></span>':'</span>'))
+          :(canZ?(ident?' <span style="color:#2ecc71">≡ identical · zones ▸</span></a>':' <span style="color:#6f87a8">zones ▸</span></a>'):'</span>'))
     +'<button class="scnapply" data-preapply="'+idx+'" title="Rebuild this aggregation live and apply it to the model (all zones, full demand)">apply ▸</button>'
     +'</div>';
 }
@@ -801,10 +826,38 @@ function preDiffBuf(){
 }
 /* show a preloaded configuration's Δ plot straight from the baked data —
    no assignment run needed; the map's Δ-filter bar works as usual */
+/* load a preloaded configuration's merged zone system into the Viewer and
+   show it (used directly for rows with no Δ — e.g. the provably-identical
+   GEHX @ 3150 — and as the zone-sync step after a Δ plot) */
+async function showPreZones(r){
+  await waitReady("viewer");
+  if(r.cfg && (r.cfg.custom || r.cfg.gehx)){
+    var agg=await fetchAgg(r.cfg);
+    if(agg && agg.ok && agg.pairs && agg.pairs.length){
+      var ap=await rpc("viewer",{cmd:"applypairs",pairs:agg.pairs,label:r.name,timeoutMs:60000});
+      if(ap&&ap.ok) return ap.zones;
+    }
+    return 0;
+  }
+  if(r.cfg && r.cfg.method){ await applyAggConfig(r.cfg); return r.zones||0; }
+  return 0;
+}
 async function showPreDiff(i){
   var P=PRELOAD_AGG, r=P&&P.results&&P.results[i];
   if(!r) return;
-  if(r.dN==null||!r.dN){ addMsg("cop","That configuration has no baked Δ plot — use <b>apply ▸</b> to compute it live."); return; }
+  if(r.dN==null||!r.dN){
+    // no baked Δ (identical, or Δ never exported) — show the ZONE SYSTEM instead
+    var ident=(r.maxGeh!=null && r.maxGeh===0);
+    var mz=addMsg("cop","Building the merged zone system for <b>"+esc(r.name)+"</b>…");
+    try{
+      var nz=await showPreZones(r);
+      switchApp("viewer"); try{ selectTool("zones"); }catch(eT){}
+      highlightRail("viewer");
+      if(!nz) throw new Error("the Viewer couldn't rebuild this aggregation — run an assignment first if it needs the network graph");
+      setBub(mz,"The <b>Network Viewer</b> now shows <b>"+esc(r.name)+"</b> — its merged zone system ("+nz.toLocaleString()+" zones)."+(ident?" This configuration's assignment is <b>bit-identical</b> to full zones (GEH 0 on every link), so there is no Δ plot to show — the zone map IS the whole story.":" It has no baked Δ plot — use <b>apply ▸</b> to compute one live."));
+    }catch(e){ setBub(mz,"Couldn't show that zone system: "+esc(String(e&&e.message||e))+"."); }
+    return;
+  }
   var m=addMsg("cop","Loading the baked Δ plot for <b>"+esc(r.name)+"</b>…");
   try{
     var ab=await preDiffBuf();
@@ -828,17 +881,8 @@ async function showPreDiff(i){
     // the Zones view shows the aggregation itself (not just its Δ)
     var zoneNote="";
     try{
-      await waitReady("viewer");
-      if(r.cfg && (r.cfg.custom || r.cfg.gehx)){
-        var agg=await fetchAgg(r.cfg);
-        if(agg && agg.ok && agg.pairs && agg.pairs.length){
-          var ap=await rpc("viewer",{cmd:"applypairs",pairs:agg.pairs,label:r.name,timeoutMs:30000});
-          if(ap&&ap.ok) zoneNote=" The <b>Network Viewer</b> now shows this method's merged zone system ("+ap.zones.toLocaleString()+" zones) — switch tabs to see it.";
-        }
-      } else if(r.cfg && r.cfg.method){
-        await applyAggConfig(r.cfg);
-        zoneNote=" The <b>Network Viewer</b> now shows this method's aggregation — switch tabs to see it.";
-      }
+      var nz2=await showPreZones(r);
+      if(nz2) zoneNote=" The <b>Network Viewer</b> now shows this method's merged zone system ("+nz2.toLocaleString()+" zones) — switch tabs to see it.";
     }catch(e2){ /* zone sync is best-effort; the Δ plot already succeeded */ }
     setBub(m,"Baked <b>Δ plot</b> for <b>"+esc(r.name)+"</b> — <span style='color:#2ecc71'>green</span> links gain flow under this aggregation, <span style='color:#e74c3c'>red</span> lose, vs its demand-matched full-zone baseline. "+n.toLocaleString()+" links with |Δ| ≥ "+(P.minAbs||1)+" veh are baked in; use the map's filter bar to hide small differences."+zoneNote+" <b>apply ▸</b> makes it the live model.");
   }catch(e){ setBub(m,"Couldn't show that Δ plot: "+esc(String(e&&e.message||e))+"."); }
@@ -861,14 +905,14 @@ async function showPreloadedComparison(){
   if(P.vdfCap) proto+=", capacity-restrained (v/c bounded at "+P.vdfCap+" in both runs) with re-dimensioned access capacity at merged zones";
   var dem=(P.sampleN>0)?"the identical "+P.sampleN+"-origin pre-sampled trips":"<b>the full demand — all origins, no sampling</b>";
   var html="<b>Preloaded aggregation comparison — unified (whole network).</b> For every method "+dem+" are assigned on full zones (demand-matched baseline) and on the aggregated zones with "+proto+", and the error is measured over the <b>entire network</b> — no study-area mask."
-    +(hasW1?" Ranked at <b>link level</b>: <b>links ≤1%</b> is the share of links whose flow moves by no more than 1% of its baseline (with a 1-veh floor so empty links don't inflate the score); <b>GEH&lt;5</b> is the standard model-validation share. Click a row to see its <b>baked Δ plot</b> instantly.":"");
+    +(hasW1?" Ranked by <b>GEH&lt;5</b> — the standard model-validation criterion (share of links passing GEH&lt;5; the usual acceptance bar is 85%). <b>links ≤1%</b> is the stricter share of links whose flow moves by no more than 1% of its baseline (1-veh floor). Click a row to see its <b>baked Δ plot</b> instantly — rows marked <b>zones ▸</b> show their merged zone system in the Viewer.":"");
   order.forEach(function(g){
     var arr=groups[g].slice().sort(function(a,b){ return preScore(a.r,b.r); });
     html+="<div class='did' style='margin-top:7px;font-weight:700;color:#d7e1f2'>"+esc(g)+"</div>"
         +"<div class='did'>"+arr.map(function(e,k){ return preRow(e.r, e.i, k+1, e.i===best); }).join("")+"</div>";
   });
-  var chartData=P.results.map(function(r){ return {name:preShort(r), vhtErr:r.vhtErr, off1:(r.pctW1!=null?100-r.pctW1:null)}; });
-  html+=(hasW1?aggChart(chartData,"off1","Links off by more than 1% (lower = better)"):aggChart(chartData,"vhtErr","VHT error — all preloaded configs (lower = better)"))
+  var chartData=P.results.map(function(r){ return {name:preShort(r), vhtErr:r.vhtErr, offG:(r.geh5!=null?100-r.geh5:null)}; });
+  html+=(hasW1?aggChart(chartData,"offG","Links failing GEH<5 (lower = better)"):aggChart(chartData,"vhtErr","VHT error — all preloaded configs (lower = better)"))
       +"<div class='did' style='font-size:11px;color:#9fb0c8;margin-top:4px'>intern % = demand internalised (becomes intrazonal and leaves the network by design); runtimes are the aggregated run vs its matched baseline. <b>Click a row (Δ ▸)</b> to show its baked difference plot — no run needed; <b>apply ▸</b> rebuilds it live on all zones with full demand.</div>";
   return {html:html, chips:["Apply the best preloaded","Find best aggregation","Reset to full zones"]};
 }

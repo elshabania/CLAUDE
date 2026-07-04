@@ -42,6 +42,43 @@ console.log('rows:', res.rows, '· apply buttons:', res.applies, '· charts:', r
 console.log('groups:', res.groups.join(' | '));
 console.log('text head:', res.text.replace(/\n/g, ' ').slice(0, 260));
 
+// click the first row WITH a baked Δ (dN>0), then the first zones-only row
+// (e.g. the provably-identical GEHX @ 3150, which loads zones + may need a
+// one-off quick assignment pass to build the graph)
+const hasPre = await page.evaluate(() => {
+  const bub = [...document.querySelectorAll('.msg.cop .bub')].pop();
+  const links = [...bub.querySelectorAll('.prelink')];
+  const withD = links.find(a => / Δ ▸|Δ ▸/.test(a.textContent));
+  if (!withD) return false;
+  withD.click(); return true;
+});
+if (hasPre) {
+  await page.waitForFunction(() => {
+    const b = [...document.querySelectorAll('.msg.cop .bub')].pop();
+    return /Baked Δ plot|Couldn't show/.test(b.innerText);
+  }, undefined, { timeout: 120000 });
+  const dmsg = await page.evaluate(() => [...document.querySelectorAll('.msg.cop .bub')].pop().innerText.slice(0, 250));
+  console.log('\nΔ click →', dmsg.replace(/\n/g, ' '));
+  const modeOn = await page.frameLocator('#wrap-assign iframe').locator('#modeSeg button.on').getAttribute('data-m').catch(() => null);
+  console.log('assign mode segment =', modeOn, modeOn === 'diff' ? '✓' : '✗');
+  const hasZ = await page.evaluate(() => {
+    const links = [...document.querySelectorAll('.msg.cop .bub .prelink')];
+    const z = links.find(a => /zones ▸/.test(a.textContent));
+    if (!z) return false;
+    z.click(); return true;
+  });
+  if (hasZ) {
+    await page.waitForFunction(() => {
+      const b = [...document.querySelectorAll('.msg.cop .bub')].pop();
+      return /Network Viewer now shows|Couldn't show that zone/.test(b.innerText);
+    }, undefined, { timeout: 240000 });
+    const zmsg = await page.evaluate(() => [...document.querySelectorAll('.msg.cop .bub')].pop().innerText.slice(0, 220));
+    console.log('zones click →', zmsg.replace(/\n/g, ' '));
+  } else console.log('(no zones-only rows)');
+} else {
+  console.log('\n(no prelink rows — baked Δ block absent)');
+}
+
 if (APPLY && res.applies) {
   console.log('\nclicking first apply ▸ (best in first group)…');
   await page.evaluate(() => {

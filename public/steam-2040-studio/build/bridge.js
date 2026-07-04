@@ -524,28 +524,46 @@
       var r0=a[0]; a.forEach(function(z){ if(w[z]>w[r0]) r0=z; });
       a.forEach(function(z){ if(z!==r0) uni(z,r0); });
     });
-    // stage 2 — smallest trip-end zones into the nearest surviving zone
+    // stage 2 — cheapest-damage-first: moves priced trips × distance to the
+    // nearest survivor, spent via a lazy-greedy heap (same policy as the
+    // Assignment-side gehAgg; OD-pair and volume penalties live there — the
+    // Viewer has only the ferried trip-end totals)
     if(target>0 && clusters>target){
       var CELL=3000, KEY2=1<<20, grid=new Map();
       function gk(x,y){ return Math.floor(x/CELL)*KEY2+Math.floor(y/CELL); }
       var alive=new Set(); for(i=0;i<N;i++) if(find(i)===i) alive.add(i);
       alive.forEach(function(z){ var k=gk(CENT[z*2],CENT[z*2+1]); var a=grid.get(k); if(!a){a=new Set();grid.set(k,a);} a.add(z); });
-      var order=Array.from(alive).sort(function(a,b){ return w[a]-w[b]; });
-      for(var q=0;q<order.length && clusters>target;q++){
-        var zq=order[q]; if(find(zq)!==zq || !alive.has(zq)) continue;
-        var x0=CENT[zq*2], y0=CENT[zq*2+1], best=-1, bd=Infinity;
-        for(var ring=1; ring<=12 && best<0; ring++){
-          var gx=Math.floor(x0/CELL), gy=Math.floor(y0/CELL), r2max=(ring*CELL)*(ring*CELL);
+      function bestTarget(zq){
+        var x0=CENT[zq*2], y0=CENT[zq*2+1];
+        var gx=Math.floor(x0/CELL), gy=Math.floor(y0/CELL), best=-1, bd=Infinity, found=-1;
+        function consider(z3){ if(z3===zq) return;
+          var dx=CENT[z3*2]-x0, dy=CENT[z3*2+1]-y0, dd=dx*dx+dy*dy;
+          if(dd<bd){ bd=dd; best=z3; } }
+        var c0=grid.get(gx*KEY2+gy);
+        if(c0&&c0.size&&!(c0.size===1&&c0.has(zq))){ found=0; c0.forEach(consider); }
+        for(var ring=1; ring<=30 && (found<0 || ring<=found+1); ring++){
           for(var ox=-ring;ox<=ring;ox++) for(var oy=-ring;oy<=ring;oy++){
-            var cs=grid.get((gx+ox)*KEY2+(gy+oy)); if(!cs) continue;
-            cs.forEach(function(z3){ if(z3===zq) return;
-              var dx=CENT[z3*2]-x0, dy=CENT[z3*2+1]-y0, dd=dx*dx+dy*dy;
-              if(dd<bd && dd<=r2max*4){ bd=dd; best=z3; } });
+            if(Math.max(Math.abs(ox),Math.abs(oy))!==ring) continue;
+            var cs=grid.get((gx+ox)*KEY2+(gy+oy)); if(!cs||!cs.size) continue;
+            if(found<0) found=ring;
+            cs.forEach(consider);
           }
         }
-        if(best<0) continue;
-        uni(zq,best); alive.delete(zq);
-        var sq=grid.get(gk(x0,y0)); if(sq) sq.delete(zq);
+        // zero-demand zones are free to move — distance is only a tiebreak
+        return best<0?null:{t:best, cost:w[zq]*Math.sqrt(bd)+Math.sqrt(bd)*1e-6};
+      }
+      var hp=[];
+      function hpush(c,z2){ hp.push([c,z2]); var a2=hp.length-1; while(a2>0){ var p2=(a2-1)>>1; if(hp[p2][0]<=hp[a2][0]) break; var t2=hp[p2]; hp[p2]=hp[a2]; hp[a2]=t2; a2=p2; } }
+      function hpop(){ var top=hp[0], last=hp.pop(); if(hp.length){ hp[0]=last; var a2=0; for(;;){ var l2=2*a2+1, r3=l2+1, s3=a2; if(l2<hp.length&&hp[l2][0]<hp[s3][0])s3=l2; if(r3<hp.length&&hp[r3][0]<hp[s3][0])s3=r3; if(s3===a2)break; var t3=hp[a2];hp[a2]=hp[s3];hp[s3]=t3;a2=s3; } } return top; }
+      alive.forEach(function(z){ var b0=bestTarget(z); if(b0) hpush(b0.cost, z); });
+      var guard=alive.size*40;
+      while(clusters>target && hp.length && guard-->0){
+        var top=hpop(), zq=top[1];
+        if(!alive.has(zq) || find(zq)!==zq) continue;
+        var bt=bestTarget(zq); if(!bt) continue;
+        if(hp.length && bt.cost>hp[0][0]*1.000001){ hpush(bt.cost, zq); continue; }
+        uni(zq,bt.t); alive.delete(zq);
+        var sq=grid.get(gk(CENT[zq*2],CENT[zq*2+1])); if(sq) sq.delete(zq);
       }
     }
     return {N:N, find:find, clusters:clusters};
@@ -762,10 +780,11 @@
      Stage 1: merge zones that share a network ATTACHMENT NODE — their demand
      already loads at the identical node, so the assignment is provably
      unchanged (GEH exactly 0 on every link). Stage 2 (only if the target
-     demands more): merge the smallest-trip-end zones first into the nearest
-     surviving zone by attachment-node distance — moving w trips can worsen
-     any link by at most w, so the guarantee degrades gracefully and maxW
-     reports the exposure. */
+     demands more): cheapest-damage-first — moves are priced trips × distance,
+     targets are penalised for mutual demand (internalisation) and for weak
+     GEH<5 slack at their attachment node, and a lazy-greedy heap always
+     spends the error budget on the cheapest remaining move. Moving w trips
+     can worsen any link by at most w, so maxW reports the exposure. */
   function gehAgg(target){
     if(typeof GRAPH==="undefined" || !GRAPH || !GRAPH.znode) return {ok:false, err:"run an assignment first (the network graph is needed)"};
     if(!window.__ODRAW || typeof zoneIdIndex!=="function") return {ok:false, err:"OD not loaded yet"};
@@ -790,29 +809,89 @@
       a.forEach(function(z2){ var w=ends.get(z2)||0; if(w>bw){bw=w;r0=z2;} });
       a.forEach(function(z2){ if(z2!==r0){ rep.set(z2,r0); alive.delete(z2); exact++; } });
     });
-    // stage 2 — smallest demand first, nearest surviving zone
+    // stage 2 — CHEAPEST-DAMAGE-FIRST merging (enhanced). Each move is priced
+    // (trips moved) × (distance moved), with two penalties folded into the
+    // target choice: mutual o-d demand with the target (those trips would
+    // internalise and vanish from every link between the pair) and the GEH<5
+    // slack of the target's attachment node (a link carrying V veh tolerates
+    // ≈ 5·√V of shift before its GEH reaches 5, so parking w trips on a node
+    // whose strongest incident link is small is penalised). A lazy-greedy
+    // heap re-prices a zone when the survivor set changes under it, so the
+    // error budget is always spent on the cheapest remaining move.
+    var movedTrips=0;
     if(target>0 && alive.size>target){
       var CELL=3000, KEY2=1<<20, grid=new Map();
       function gk(x,y){ return Math.floor(x/CELL)*KEY2+Math.floor(y/CELL); }
       alive.forEach(function(z2){ var k=gk(NX[zn(z2)],NY[zn(z2)]); var a=grid.get(k); if(!a){a=new Set();grid.set(k,a);} a.add(z2); });
-      var order=Array.from(alive).sort(function(a,b){ return (ends.get(a)||0)-(ends.get(b)||0); });
-      for(var q=0;q<order.length && alive.size>target;q++){
-        var zq=order[q]; if(!alive.has(zq)) continue;
-        var x0=NX[zn(zq)], y0=NY[zn(zq)], best=-1, bd=Infinity;
-        for(var ring=1; ring<=12 && best<0; ring++){
-          var r2max=(ring*CELL)*(ring*CELL);
-          var gx=Math.floor(x0/CELL), gy=Math.floor(y0/CELL);
+      // mutual OD demand for the likely movers — one pass over the raw OD
+      var byEnds=Array.from(alive).sort(function(a,b){ return (ends.get(a)||0)-(ends.get(b)||0); });
+      var movers=new Set(byEnds.slice(0, Math.min(byEnds.length, (alive.size-target)*3+50)));
+      var partners=new Map(); movers.forEach(function(z2){ partners.set(z2,new Map()); });
+      for(i=0;i<R.cnt;i++){ var vv=(typeof h2f==="function")?h2f(R.V[i]):R.V[i]; if(!(vv>0)) continue;
+        var oo=R.O[i]>>>0, dd0=R.D[i]>>>0;
+        var mo=partners.get(oo); if(mo) mo.set(dd0,(mo.get(dd0)||0)+vv);
+        var md=partners.get(dd0); if(md) md.set(oo,(md.get(oo)||0)+vv); }
+      // GEH<5 slack of a node = 5·√(strongest incident link volume) — only
+      // meaningful when a run's flows exist; otherwise neutral
+      var haveVol=(typeof baseVol!=="undefined" && baseVol && GRAPH.head && GRAPH.elink);
+      var slackCache=new Map();
+      function slackAt(node){
+        if(!haveVol || node<0) return Infinity;
+        var s=slackCache.get(node);
+        if(s===undefined){
+          var vmax=0;
+          for(var e0=GRAPH.head[node]; e0<GRAPH.head[node+1]; e0++){
+            var L0=GRAPH.elink[e0]; if(L0>=0 && baseVol[L0]>vmax) vmax=baseVol[L0]; }
+          s=5*Math.sqrt(Math.max(vmax,25)); slackCache.set(node,s);
+        }
+        return s;
+      }
+      // best target for zq among the nearest survivors (first occupied ring
+      // +1), scored by distance × internalisation × slack penalties
+      function bestTarget(zq){
+        var x0=NX[zn(zq)], y0=NY[zn(zq)], wq=ends.get(zq)||0, pm=partners.get(zq);
+        var gx=Math.floor(x0/CELL), gy=Math.floor(y0/CELL);
+        var best=-1, bs=Infinity, found=-1;
+        function consider(z3){
+          if(z3===zq) return;
+          var dx=NX[zn(z3)]-x0, dy=NY[zn(z3)]-y0, dd=dx*dx+dy*dy;
+          var mut=pm?(pm.get(z3)||0):0, wt=ends.get(z3)||0;
+          var sk=slackAt(zn(z3));
+          var sc=Math.sqrt(dd)
+                *(1+4*mut/(wq+wt+1))
+                *(1+(sk===Infinity?0:Math.pow(wq/sk,2)));
+          if(sc<bs){ bs=sc; best=z3; }
+        }
+        var c0=grid.get(gx*KEY2+gy);
+        if(c0&&c0.size&&!(c0.size===1&&c0.has(zq))){ found=0; c0.forEach(consider); }
+        for(var ring=1; ring<=30 && (found<0 || ring<=found+1); ring++){
           for(var ox=-ring;ox<=ring;ox++) for(var oy=-ring;oy<=ring;oy++){
-            var cellSet=grid.get((gx+ox)*KEY2+(gy+oy)); if(!cellSet) continue;
-            cellSet.forEach(function(z3){ if(z3===zq) return;
-              var dx=NX[zn(z3)]-x0, dy=NY[zn(z3)]-y0, dd=dx*dx+dy*dy;
-              if(dd<bd && dd<=r2max*4){ bd=dd; best=z3; } });
+            if(Math.max(Math.abs(ox),Math.abs(oy))!==ring) continue;   // shell only
+            var cs=grid.get((gx+ox)*KEY2+(gy+oy)); if(!cs||!cs.size) continue;
+            if(found<0) found=ring;
+            cs.forEach(consider);
           }
         }
-        if(best<0) continue;
-        rep.set(zq,best); alive.delete(zq); soft++;
-        var wq=ends.get(zq)||0; if(wq>maxW) maxW=wq;
-        var kq=gk(x0,y0); var sq=grid.get(kq); if(sq){ sq.delete(zq); }
+        // cost = trips × penalised distance: a zero-demand zone is FREE to
+        // move (its merge cannot change any link), so it always goes first —
+        // distance enters its cost only as a nearest-first tiebreak
+        return best<0?null:{t:best, cost:wq*bs + bs*1e-6};
+      }
+      // lazy-greedy min-heap of [cost, zone]
+      var hp=[];
+      function hpush(c,z2){ hp.push([c,z2]); var a2=hp.length-1; while(a2>0){ var p2=(a2-1)>>1; if(hp[p2][0]<=hp[a2][0]) break; var t2=hp[p2]; hp[p2]=hp[a2]; hp[a2]=t2; a2=p2; } }
+      function hpop(){ var top=hp[0], last=hp.pop(); if(hp.length){ hp[0]=last; var a2=0; for(;;){ var l2=2*a2+1, r3=l2+1, s3=a2; if(l2<hp.length&&hp[l2][0]<hp[s3][0])s3=l2; if(r3<hp.length&&hp[r3][0]<hp[s3][0])s3=r3; if(s3===a2)break; var t3=hp[a2];hp[a2]=hp[s3];hp[s3]=t3;a2=s3; } } return top; }
+      alive.forEach(function(z2){ var bt0=bestTarget(z2); if(bt0) hpush(bt0.cost, z2); });
+      var guard=alive.size*40;
+      while(alive.size>target && hp.length && guard-->0){
+        var top=hpop(), zq2=top[1];
+        if(!alive.has(zq2)) continue;
+        var bt=bestTarget(zq2); if(!bt) continue;
+        // survivors changed since this entry was priced — re-queue if beaten
+        if(hp.length && bt.cost>hp[0][0]*1.000001){ hpush(bt.cost, zq2); continue; }
+        rep.set(zq2,bt.t); alive.delete(zq2); soft++;
+        var wq2=ends.get(zq2)||0; if(wq2>maxW) maxW=wq2; movedTrips+=wq2;
+        var sq=grid.get(gk(NX[zn(zq2)],NY[zn(zq2)])); if(sq) sq.delete(zq2);
       }
     }
     // resolve representative chains to their surviving roots
@@ -822,7 +901,7 @@
       pairs.push([mem, r2]);
     });
     return {ok:true, pairs:pairs, merged:pairs.length, zones:alive.size, total:zs.length,
-            exact:exact, soft:soft, maxW:Math.round(maxW),
+            exact:exact, soft:soft, maxW:Math.round(maxW), moved:Math.round(movedTrips),
             guaranteed:(soft===0), guardZones:zs.length-exact};
   }
   /* zone attachment-node + trip-end table for the Viewer's GEHX dropdown mode:
@@ -909,6 +988,7 @@
         case "seg":   out = seg(m.container, m.key); break;
         case "read":  out = readId(m.id); break;
         case "snap":  out = snap(m.ids); break;
+        case "getval": (function(){ var el=$(m.id); out = el ? {ok:true, value:(el.value!==undefined?el.value:null)} : {ok:false, err:"no element"}; })(); break;
         case "open":  out = openDetails(m.text); break;
         case "bodyclass": out = bodyClass(m.name, m.on); break;
         case "section":   out = section(m.text); break;
