@@ -7,7 +7,7 @@ import { chromium } from '/home/user/CLAUDE/node_modules/playwright-core/index.m
 import fs from 'fs';
 import zlib from 'zlib';
 
-const FILE = 'file:///home/user/CLAUDE/public/steam-2040-studio/index.html';
+const FILE = process.env.APPFILE || 'file:///tmp/claude-0/-home-user-CLAUDE/30055bac-83bd-59e3-8e5d-fb45647ff03f/scratchpad/mine/index.html';
 const EXE = '/opt/pw-browsers/chromium-1194/chrome-linux/chrome';
 const SUF = process.env.OUTSUF || '';   // write to preload-agg<SUF>.json / preload-diff<SUF>.gz
 const OUT = new URL(`./preload-agg${SUF}.json`, import.meta.url).pathname;

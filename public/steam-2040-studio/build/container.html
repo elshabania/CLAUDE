@@ -515,6 +515,10 @@ async function ensureAssignGraph(){
   return GRAPH_READY;
 }
 async function fetchAgg(cfg){
+  if(cfg.pairset && PRELOAD_AGG && PRELOAD_AGG.pairsets && PRELOAD_AGG.pairsets[cfg.pairset]){
+    var ps=PRELOAD_AGG.pairsets[cfg.pairset];   // certified merge list baked verbatim
+    return {ok:true, pairs:ps.pairs, merged:ps.pairs.length, zones:ps.zones};
+  }
   if(cfg.gehx){ await ensureAssignGraph(); return rpc("assign",{cmd:"gehagg",target:cfg.target||3150,timeoutMs:120000}); }
   if(cfg.custom){
     var we=await getOdEnds();
@@ -634,7 +638,7 @@ async function applyScenario(key){
   if(!r){ addMsg("cop","I no longer have that scenario's settings cached — re-run <b>find best aggregation</b> first."); return; }
   var msg=addMsg("cop","Applying <b>"+esc(r.name)+"</b> to the model on all zones…");
   switchApp("viewer"); await waitReady("viewer");
-  if(!r.cfg.custom && !r.cfg.gehx) await applyAggConfig(r.cfg);
+  if(!r.cfg.custom && !r.cfg.gehx && !r.cfg.pairset) await applyAggConfig(r.cfg);
   var agg=await fetchAgg(r.cfg);
   if(!agg||!agg.ok){ setBub(msg,"Couldn't rebuild that aggregation — try again."); return; }
   switchApp("assign"); await waitReady("assign");
@@ -775,7 +779,12 @@ async function resetZonesHandoff(){
    pre-sampled trips, BPR rerouting — and baked into the build so the results
    can be read instantly without running the live search. ===== */
 var PRELOAD_AGG=null; /*__PRELOAD_AGG__*/
-function preShort(r){ var c=r.cfg||{}; return c.custom ? c.custom.toUpperCase()+(c.target?" @"+c.target:"") : (c.method||"?").toUpperCase(); }
+function preShort(r){ var c=r.cfg||{};
+  if(c.gehx100||c.pairset) return "GEHX-100";
+  if(c.gehx) return "GEHX"+(c.target?" @"+c.target:"");
+  if(c.custom) return c.custom.toUpperCase()+(c.target?" @"+c.target:"");
+  return (c.method||"?").toUpperCase();
+}
 /* rank preloaded configs by the model-validation standard: highest GEH<5
    share first, links-within-1% then VHT error as tiebreaks (older bakes
    without link stats fall back to VHT only) */
@@ -793,13 +802,14 @@ function preBestIdx(){
 }
 function preRow(r, idx, rank, isBest){
   var spd=(r.baseRt>0&&r.rt>0)?" · "+r.rt.toFixed(1)+" s ("+(r.baseRt/Math.max(0.01,r.rt)).toFixed(1)+"×)":"";
-  var g2=(r.pctG2!=null)?" · GEH&lt;2: "+r.pctG2.toFixed(1)+"%"+(r.maxGeh!=null?" (max "+r.maxGeh.toFixed(1)+")":""):"";
+  var g2=(r.pctG2!=null)?" · <b>GEH&lt;2: "+r.pctG2.toFixed(1)+"%</b>"+(r.maxGeh!=null?" (max "+r.maxGeh.toFixed(2)+")":""):"";
   var lnk=(r.pctW1!=null)
     ? " — "+r.zones.toLocaleString()+" zones · <b>GEH&lt;5: "+r.geh5.toFixed(1)+"%</b> · links ≤1%: "+r.pctW1.toFixed(1)+"%"+g2+" · VHT "+r.vhtErr.toFixed(2)+"% · intern "+r.internPct.toFixed(1)+"%"+spd
     : " — "+r.zones.toLocaleString()+" zones · VHT "+r.vhtErr.toFixed(2)+"% · RMSE "+r.pctRmse.toFixed(1)+"% · corr "+r.corr.toFixed(3)+" · intern "+r.internPct.toFixed(1)+"%"+spd;
+  if(r.fw&&r.fw.geh5!=null) lnk+=" · <span style='color:#7df9ff' title='decision-grade spot check: Frank-Wolfe user equilibrium, all origins'>eqm GEH&lt;5: "+r.fw.geh5.toFixed(1)+"%</span>";
   var canD=(r.dN!=null&&r.dN>0);
   var ident=(!canD && r.maxGeh!=null && r.maxGeh===0);
-  var canZ=!!(r.cfg && (r.cfg.custom || r.cfg.gehx || r.cfg.method));   // every config can at least show its zone system
+  var canZ=!!(r.cfg && (r.cfg.custom || r.cfg.gehx || r.cfg.method || r.cfg.pairset));   // every config can at least show its zone system
   return '<div class="scnrow">'
     +(canD
       ? '<a href="#" class="prelink scnlink" data-pre="'+idx+'" title="Show this configuration\'s baked Δ plot on the map (and its zone system in the Viewer)">'
@@ -831,7 +841,7 @@ function preDiffBuf(){
    GEHX @ 3150 — and as the zone-sync step after a Δ plot) */
 async function showPreZones(r){
   await waitReady("viewer");
-  if(r.cfg && (r.cfg.custom || r.cfg.gehx)){
+  if(r.cfg && (r.cfg.custom || r.cfg.gehx || r.cfg.pairset)){
     var agg=await fetchAgg(r.cfg);
     if(agg && agg.ok && agg.pairs && agg.pairs.length){
       var ap=await rpc("viewer",{cmd:"applypairs",pairs:agg.pairs,label:r.name,timeoutMs:60000});
@@ -896,23 +906,27 @@ async function showPreloadedComparison(){
   // group the results by target zone count (app methods have their own natural counts)
   var groups={}, order=[];
   P.results.forEach(function(r,i){
-    var g=(r.cfg&&r.cfg.target)? r.cfg.target+"-zone target" : "App methods (natural zone counts)";
+    var g=(r.cfg&&r.cfg.gehx100)? "GEHX-100 — certified: every carrying link below GEH 2 (measure-and-repair)"
+        : (r.cfg&&r.cfg.target)? r.cfg.target+"-zone target" : "App methods (natural zone counts)";
     if(!groups[g]){ groups[g]=[]; order.push(g); }
     groups[g].push({r:r,i:i});
   });
+  order.sort(function(a,b){ return (a.indexOf("GEHX-100")===0?-1:0)-(b.indexOf("GEHX-100")===0?-1:0); });
   var hasW1=P.results.some(function(r){ return r.pctW1!=null; });
   var proto=(P.method==="fw")?"<b>Frank-Wolfe user equilibrium</b> (converged to gap &lt; 0.01%)":(P.method==="msa")?"MSA equilibrium":"BPR incremental rerouting";
   if(P.vdfCap) proto+=", capacity-restrained (v/c bounded at "+P.vdfCap+" in both runs) with re-dimensioned access capacity at merged zones";
   var dem=(P.sampleN>0)?"the identical "+P.sampleN+"-origin pre-sampled trips":"<b>the full demand — all origins, no sampling</b>";
   var html="<b>Preloaded aggregation comparison — unified (whole network).</b> For every method "+dem+" are assigned on full zones (demand-matched baseline) and on the aggregated zones with "+proto+", and the error is measured over the <b>entire network</b> — no study-area mask."
-    +(hasW1?" Ranked by <b>GEH&lt;5</b> — the standard model-validation criterion (share of links passing GEH&lt;5; the usual acceptance bar is 85%). <b>links ≤1%</b> is the stricter share of links whose flow moves by no more than 1% of its baseline (1-veh floor). Click a row to see its <b>baked Δ plot</b> instantly — rows marked <b>zones ▸</b> show their merged zone system in the Viewer.":"");
+    +(hasW1?" Ranked by <b>GEH&lt;5</b> — the standard model-validation criterion (share of links passing GEH&lt;5; the usual acceptance bar is 85%). <b>links ≤1%</b> is the stricter share of links whose flow moves by no more than 1% of its baseline (1-veh floor). Click a row to see its <b>baked Δ plot</b> instantly — rows marked <b>zones ▸</b> show their merged zone system in the Viewer."+(P.results.some(function(r){return r.fw;})?" Rows with an <span style='color:#7df9ff'>eqm</span> tag also carry a <b>Frank-Wolfe equilibrium spot check</b> (all origins, decision-grade).":""):"");
   order.forEach(function(g){
     var arr=groups[g].slice().sort(function(a,b){ return preScore(a.r,b.r); });
     html+="<div class='did' style='margin-top:7px;font-weight:700;color:#d7e1f2'>"+esc(g)+"</div>"
         +"<div class='did'>"+arr.map(function(e,k){ return preRow(e.r, e.i, k+1, e.i===best); }).join("")+"</div>";
   });
   var chartData=P.results.map(function(r){ return {name:preShort(r), vhtErr:r.vhtErr, offG:(r.geh5!=null?100-r.geh5:null)}; });
-  html+=(hasW1?aggChart(chartData,"offG","Links failing GEH<5 (lower = better)"):aggChart(chartData,"vhtErr","VHT error — all preloaded configs (lower = better)"))
+  var chartTop=chartData.filter(function(d){ return d.offG!=null; }).sort(function(a,b){ return a.offG-b.offG; }).slice(0,20);
+  var chartTitle="Links failing GEH<5 (lower = better)"+(chartData.length>20?" — best 20 of "+chartData.length:"");
+  html+=(hasW1?aggChart(chartTop,"offG",chartTitle):aggChart(chartData,"vhtErr","VHT error — all preloaded configs (lower = better)"))
       +"<div class='did' style='font-size:11px;color:#9fb0c8;margin-top:4px'>intern % = demand internalised (becomes intrazonal and leaves the network by design); runtimes are the aggregated run vs its matched baseline. <b>Click a row (Δ ▸)</b> to show its baked difference plot — no run needed; <b>apply ▸</b> rebuilds it live on all zones with full demand.</div>";
   return {html:html, chips:["Apply the best preloaded","Find best aggregation","Reset to full zones"]};
 }
@@ -927,7 +941,7 @@ async function applyPreloaded(idx){
   var agg=await fetchAgg(r.cfg);
   if(!agg||!agg.ok||!agg.merged){ setBub(msg,"Couldn't rebuild that aggregation — open the Viewer and try again."); return; }
   // reflect the merged zone system in the Viewer's Zones view too
-  if(agg.pairs && agg.pairs.length && (r.cfg.custom || r.cfg.gehx)){
+  if(agg.pairs && agg.pairs.length && (r.cfg.custom || r.cfg.gehx || r.cfg.pairset)){
     try{ await rpc("viewer",{cmd:"applypairs",pairs:agg.pairs,label:r.name,timeoutMs:30000}); }catch(e0){}
   }
   switchApp("assign"); await waitReady("assign");
@@ -1348,6 +1362,8 @@ var KB=[
   a:"<b>Why do some corridors show big Δs under aggregation?</b> With a demand-matched baseline the only thing aggregation changes is <i>where merged zones' trips enter the network</i>. Diagnosis on this model showed every big-Δ corridor sits within ~400 m of one of the largest <b>demand-weighted centroid displacements</b> — e.g. pure nearest-neighbour merging at 2600 zones moved a 60,000-trip-end zone 1.6 km, forcing all its trips onto different connectors and flipping flow between parallel streets. <b>NND · demand-weighted</b> fixes this at the root: trip ends act as cluster mass (merge cost d²·w<sub>a</sub>w<sub>b</sub>/(w<sub>a</sub>+w<sub>b</sub>)), centroids and representatives are demand-weighted, so high-demand zones keep their own loading points and low-demand zones absorb the merging. All custom methods also gained demand-weighted representative placement."},
  {k:["gehx","exact guard","exact aggregation","guaranteed aggregation","geh below 2","zero error aggregation"],
   a:"<b>GEHX · exact-guard</b> is the aggregation method built for hard link-level guarantees. Stage 1 merges zones that share the same <b>network attachment node</b> — their trips already enter the model at the identical node, so the assignment is <b>provably unchanged (GEH = 0 on every link)</b>. Stage 2 (only if a deeper target demands it) merges the smallest-trip-end zones first into the nearest surviving zone; moving <i>w</i> trips can worsen any link by at most <i>w</i>, so the method reports the largest zone it had to move (maxW) as its exposure. On this network ~260 same-node merges plus ~370 near-zero-demand zones make <b>GEH &lt; 2 on all links provable down to ≈3,100 zones</b>; below that, relocating any real zone zeroes its own access street (GEH = √(2w) there), so no method can guarantee GEH &lt; 2 everywhere — GEHX minimises the violations instead and the report shows the measured GEH&lt;2 share and max GEH."},
+ {k:["gehx-100","gehx100","certified aggregation","100 percent geh","all links below geh 2"],
+  a:"<b>GEHX-100</b> is the maximum-compression zone system <b>certified to keep every carrying link below GEH 2</b>. It is built by measure-and-repair: aggregate deep with GEHX, run the exact demand-matched comparison, find the links at GEH ≥ 2, un-merge the zones near them, and repeat until none remain — the final pass measures max GEH 1.99 over the whole network. A rule-based guarantee is impossible (small demand moves can flip an unrelated route choice and cascade), so certification is by measurement, and the certified merge list is baked into this build verbatim — <b>apply ▸</b> reproduces it exactly."},
  {k:["geh","geh statistic","geh 5","model validation criterion"],
   a:"<b>GEH</b> is the standard model-validation statistic for comparing two link flows: <code>GEH = √(2(a−b)² / (a+b))</code> — a self-scaling blend of absolute and relative error. The usual acceptance criterion is <b>GEH &lt; 5 on at least 85% of links</b>. The preloaded comparison and the aggregation optimiser both report the GEH&lt;5 share, so you can judge an aggregation the same way you'd judge a model calibration. Note that <b>100% of links within 1%</b> is unattainable under any real aggregation: merging zones moves their loading points, so the links at the old connection points must change — the practical question is what share of the network stays within tolerance."},
  {k:["bpr","bureau of public roads","volume delay","congestion function"],

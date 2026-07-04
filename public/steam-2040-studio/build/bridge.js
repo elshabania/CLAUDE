@@ -181,15 +181,26 @@
       if(ad0<=Math.max(0.01*f0,1)) w1++;
       if(ad0<=Math.max(0.05*f0,5)) w5++;
       var s0=f0+a0, gv=(s0>0)?Math.sqrt(2*ad0*ad0/s0):0;
-      if(s0>0){ gehN++; if(gv<5) geh++; }
-      if(gv<2) g2++;
+      if(s0>0){ gehN++; if(gv<5) geh++; if(gv<2) g2++; }
       if(gv>maxGeh) maxGeh=gv;
       if(f0>=50) rel.push(ad0/f0);
     }
     rel.sort(function(a,b){ return a-b; });
     var p95=rel.length ? 100*rel[Math.floor(rel.length*0.95)] : 0;
     return {ok:true, pctRmse:pctRmse, corr:corr, vhtErr:vhtErr, vhtFull:vhtF, vhtNow:vhtA, maxAbs:maxAbs, nLinks:n, masked:!!mask,
-            pctW1:100*w1/n, pctW5:100*w5/n, geh5:(gehN?100*geh/gehN:0), pctG2:100*g2/n, maxGeh:maxGeh, p95pct:p95, nCarry:rel.length};
+            pctW1:100*w1/n, pctW5:100*w5/n, geh5:(gehN?100*geh/gehN:0), pctG2:(gehN?100*g2/gehN:0), nGeh:gehN, maxGeh:maxGeh, p95pct:p95, nCarry:rel.length};
+  }
+  /* links whose GEH (current vs full snapshot) meets a threshold — used by
+     the measure-and-repair certification loop for GEHX-100 */
+  function gehBad(th){
+    if(!window.__FULLVOL || typeof baseVol==="undefined" || !baseVol) return {ok:false, err:"no comparison"};
+    var F=window.__FULLVOL, A=baseVol, M=(typeof GLINK!=="undefined"&&GLINK.m)?GLINK.m:0, out=[];
+    for(var g=0; g<M; g++){ var f0=F[g]||0, a0=A[g]||0, s0=f0+a0; if(!(s0>0)) continue;
+      var ad=Math.abs(a0-f0), gv=Math.sqrt(2*ad*ad/s0);
+      if(gv>=th) out.push([g, +gv.toFixed(3), Math.round(f0), Math.round(a0),
+                           Math.round((GLINK.ax[g]+GLINK.bx[g])/2), Math.round((GLINK.ay[g]+GLINK.by[g])/2)]);
+    }
+    return {ok:true, links:out};
   }
   /* sparse per-link Δ (current flows − full snapshot) for baking preloaded
      difference plots: links with |Δ| ≥ minAbs, their baseline flow, and the
@@ -817,7 +828,7 @@
     // refuses targets whose slack the move would exceed (unless forced).
     var movedTrips=0;
     var VAR=(typeof variant==="string"&&variant)||window.__GEHXVAR||"o";
-    var usePen=(VAR!=="o"&&VAR!=="net"), useHop=(VAR==="hop"), useCap=(VAR==="cap"), useNet=(VAR==="net");
+    var usePen=(VAR!=="o"&&VAR!=="net"&&VAR!=="g2"), useHop=(VAR==="hop"), useCap=(VAR==="cap"), useNet=(VAR==="net"), useG2=(VAR==="g2");
     var heapOrder=(VAR==="wd"||VAR==="cap");
     if(target>0 && alive.size>target){
       var CELL=3000, KEY2=1<<20, grid=new Map();
@@ -835,6 +846,20 @@
       // meaningful when a run's flows exist; otherwise neutral
       var haveVol=(typeof baseVol!=="undefined" && baseVol && GRAPH.head && GRAPH.elink);
       var slackCache=new Map();
+      // GEH<2 tolerance of a node: its strongest incident link carrying V veh
+      // stays below GEH 2 while the accumulated shift is < 1+sqrt(1+4V)
+      var slack2Cache=new Map(), nodeBud=new Map();
+      function slack2At(node){
+        if(!haveVol || node<0) return 2;   // no flows yet: only w<2 is provably safe
+        var s=slack2Cache.get(node);
+        if(s===undefined){
+          var vmax=0;
+          for(var e9=GRAPH.head[node]; e9<GRAPH.head[node+1]; e9++){
+            var L9=GRAPH.elink[e9]; if(L9>=0 && baseVol[L9]>vmax) vmax=baseVol[L9]; }
+          s=1+Math.sqrt(1+4*vmax); slack2Cache.set(node,s);
+        }
+        return s;
+      }
       function slackAt(node){
         if(!haveVol || node<0) return Infinity;
         var s=slackCache.get(node);
@@ -876,6 +901,7 @@
           }
           if(useHop&&hopMap){ var hh=hopMap.get(zn(z3)); sc*=(hh===undefined?2:(0.5+hh/4)); }
           if(sc<bsU){ bsU=sc; bestU=z3; }                        // unconstrained fallback
+          if(useG2 && (nodeBud.get(zn(z3))||0)+wq>=slack2At(zn(z3))) return;   // GEH<2 budget
           if(useCap && wq>slackAt(zn(z3))) return;               // hard slack cap
           if(sc<bs){ bs=sc; best=z3; }
         }
@@ -889,7 +915,7 @@
             cs.forEach(consider);
           }
         }
-        if(best<0){ best=bestU; bs=bsU; }                        // every target capped → forced
+        if(best<0 && !useG2){ best=bestU; bs=bsU; }              // forced (g2 never overrides its budget)
         // cost = trips × penalised distance: a zero-demand zone is FREE to
         // move (its merge cannot change any link), so it always goes first —
         // distance enters its cost only as a nearest-first tiebreak
@@ -925,6 +951,7 @@
         return null;   // nothing reachable within 15 km of road — fall back to euclidean
       }
       function doMerge(zq2, t2){
+        if(useG2) nodeBud.set(zn(t2),(nodeBud.get(zn(t2))||0)+(ends.get(zq2)||0));
         rep.set(zq2,t2); alive.delete(zq2); soft++;
         var wq2=ends.get(zq2)||0; if(wq2>maxW) maxW=wq2; movedTrips+=wq2;
         var sq=grid.get(gk(NX[zn(zq2)],NY[zn(zq2)])); if(sq) sq.delete(zq2);
@@ -974,10 +1001,11 @@
     var ends=new Map(), i;
     for(i=0;i<R.cnt;i++){ var v=(typeof h2f==="function")?h2f(R.V[i]):R.V[i]; if(!(v>0)) continue;
       var o=R.O[i]>>>0, d=R.D[i]>>>0; ends.set(o,(ends.get(o)||0)+v); ends.set(d,(ends.get(d)||0)+v); }
-    var ids=[], nd=[], w=[];
+    var ids=[], nd=[], w=[], xs=[], ys=[];
     idx.forEach(function(zi,id){ if(zn[zi]<0) return;
-      ids.push(id); nd.push(zn[zi]); w.push(ends.get(id)||0); });
-    return {ok:true, ids:ids, nd:nd, w:w, n:ids.length};
+      ids.push(id); nd.push(zn[zi]); w.push(ends.get(id)||0);
+      xs.push(Math.round(GRAPH.nodeX[zn[zi]])); ys.push(Math.round(GRAPH.nodeY[zn[zi]])); });
+    return {ok:true, ids:ids, nd:nd, w:w, xs:xs, ys:ys, n:ids.length};
   }
   /* switch the live OD between the stored matrices: the MATCHED full-zone
      baseline ("filt"), the aggregated one ("agg"), or the original raw ("full") */
@@ -1069,6 +1097,7 @@
         case "odends":    out = odEnds(); break;
         case "vdfcap":    window.__APPRCLAMP=(m.v>0)?m.v:null; out={ok:true, cap:window.__APPRCLAMP}; break;
         case "gehagg":    out = gehAgg(m.target, m.variant); break;
+        case "gehbad":    out = gehBad(+m.th||2); break;
         case "gehdata":   out = gehData(); break;
         case "showdiff":  out = showDiff((m.key && window.__SCN) ? window.__SCN[m.key] : null); break;
         case "scnsave":   out = scnSave(m.key); break;

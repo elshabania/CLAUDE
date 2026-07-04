@@ -3,7 +3,7 @@
    the winner gets a final Frank-Wolfe verification pass. */
 import { chromium } from '/home/user/CLAUDE/node_modules/playwright-core/index.mjs';
 
-const FILE = 'file:///home/user/CLAUDE/public/steam-2040-studio/index.html';
+const FILE = process.env.APPFILE || 'file:///tmp/claude-0/-home-user-CLAUDE/30055bac-83bd-59e3-8e5d-fb45647ff03f/scratchpad/mine/index.html';
 const EXE = '/opt/pw-browsers/chromium-1194/chrome-linux/chrome';
 const VARIANTS = (process.env.VARIANTS || 'o,w,wd,hop,cap').split(',');
 const TARGETS = (process.env.TARGETS || '2800,2050').split(',').map(Number);
