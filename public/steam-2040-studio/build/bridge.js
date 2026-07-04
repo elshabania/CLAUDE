@@ -785,7 +785,7 @@
      GEH<5 slack at their attachment node, and a lazy-greedy heap always
      spends the error budget on the cheapest remaining move. Moving w trips
      can worsen any link by at most w, so maxW reports the exposure. */
-  function gehAgg(target){
+  function gehAgg(target, variant){
     if(typeof GRAPH==="undefined" || !GRAPH || !GRAPH.znode) return {ok:false, err:"run an assignment first (the network graph is needed)"};
     if(!window.__ODRAW || typeof zoneIdIndex!=="function") return {ok:false, err:"OD not loaded yet"};
     target=target|0;
@@ -809,16 +809,19 @@
       a.forEach(function(z2){ var w=ends.get(z2)||0; if(w>bw){bw=w;r0=z2;} });
       a.forEach(function(z2){ if(z2!==r0){ rep.set(z2,r0); alive.delete(z2); exact++; } });
     });
-    // stage 2 — CHEAPEST-DAMAGE-FIRST merging (enhanced). Each move is priced
-    // (trips moved) × (distance moved), with two penalties folded into the
-    // target choice: mutual o-d demand with the target (those trips would
-    // internalise and vanish from every link between the pair) and the GEH<5
-    // slack of the target's attachment node (a link carrying V veh tolerates
-    // ≈ 5·√V of shift before its GEH reaches 5, so parking w trips on a node
-    // whose strongest incident link is small is penalised). A lazy-greedy
-    // heap re-prices a zone when the survivor set changes under it, so the
-    // error budget is always spent on the cheapest remaining move.
+    // stage 2 — variant-selectable merge policy (raced offline, best is the
+    // default). Move ORDER: "w" = smallest trip-ends first (a zero-demand
+    // move is free — it cannot change any link); "wd" = lazy-greedy heap on
+    // trips × distance. TARGET choice: nearest survivor, optionally penalised
+    // for mutual o-d demand (those trips internalise and vanish from every
+    // link between the pair) and for the GEH<5 slack of the target's
+    // attachment node (a link carrying V veh tolerates ≈ 5·√V of shift);
+    // "hop" prefers topologically-near targets (≤4 network hops), "cap"
+    // refuses targets whose slack the move would exceed (unless forced).
     var movedTrips=0;
+    var VAR=(typeof variant==="string"&&variant)||window.__GEHXVAR||"wd";
+    var usePen=(VAR!=="o"), useHop=(VAR==="hop"), useCap=(VAR==="cap");
+    var heapOrder=(VAR==="wd"||VAR==="cap");
     if(target>0 && alive.size>target){
       var CELL=3000, KEY2=1<<20, grid=new Map();
       function gk(x,y){ return Math.floor(x/CELL)*KEY2+Math.floor(y/CELL); }
@@ -846,20 +849,37 @@
         }
         return s;
       }
+      // ≤4-hop neighbourhood of a node, for topology-preferring targets
+      function hopsFrom(node){
+        var m=new Map(); if(node<0) return m;
+        m.set(node,0); var fr=[node];
+        for(var h=1;h<=4;h++){ var nx=[];
+          for(var q2=0;q2<fr.length;q2++){ var n0=fr[q2];
+            for(var e1=GRAPH.head[n0]; e1<GRAPH.head[n0+1]; e1++){ var n1=GRAPH.to[e1];
+              if(!m.has(n1)){ m.set(n1,h); nx.push(n1); } } }
+          fr=nx; if(m.size>4000) break;
+        }
+        return m;
+      }
       // best target for zq among the nearest survivors (first occupied ring
-      // +1), scored by distance × internalisation × slack penalties
+      // +1), scored per the active variant
       function bestTarget(zq){
         var x0=NX[zn(zq)], y0=NY[zn(zq)], wq=ends.get(zq)||0, pm=partners.get(zq);
         var gx=Math.floor(x0/CELL), gy=Math.floor(y0/CELL);
-        var best=-1, bs=Infinity, found=-1;
+        var hopMap=useHop?hopsFrom(zn(zq)):null;
+        var best=-1, bs=Infinity, bestU=-1, bsU=Infinity, found=-1;
         function consider(z3){
           if(z3===zq) return;
           var dx=NX[zn(z3)]-x0, dy=NY[zn(z3)]-y0, dd=dx*dx+dy*dy;
-          var mut=pm?(pm.get(z3)||0):0, wt=ends.get(z3)||0;
-          var sk=slackAt(zn(z3));
-          var sc=Math.sqrt(dd)
-                *(1+4*mut/(wq+wt+1))
-                *(1+(sk===Infinity?0:Math.pow(wq/sk,2)));
+          var sc=Math.sqrt(dd);
+          if(usePen){
+            var mut=pm?(pm.get(z3)||0):0, wt=ends.get(z3)||0;
+            var sk=slackAt(zn(z3));
+            sc*=(1+4*mut/(wq+wt+1))*(1+(sk===Infinity?0:Math.pow(wq/sk,2)));
+          }
+          if(useHop&&hopMap){ var hh=hopMap.get(zn(z3)); sc*=(hh===undefined?2:(0.5+hh/4)); }
+          if(sc<bsU){ bsU=sc; bestU=z3; }                        // unconstrained fallback
+          if(useCap && wq>slackAt(zn(z3))) return;               // hard slack cap
           if(sc<bs){ bs=sc; best=z3; }
         }
         var c0=grid.get(gx*KEY2+gy);
@@ -872,26 +892,39 @@
             cs.forEach(consider);
           }
         }
+        if(best<0){ best=bestU; bs=bsU; }                        // every target capped → forced
         // cost = trips × penalised distance: a zero-demand zone is FREE to
         // move (its merge cannot change any link), so it always goes first —
         // distance enters its cost only as a nearest-first tiebreak
         return best<0?null:{t:best, cost:wq*bs + bs*1e-6};
       }
-      // lazy-greedy min-heap of [cost, zone]
-      var hp=[];
-      function hpush(c,z2){ hp.push([c,z2]); var a2=hp.length-1; while(a2>0){ var p2=(a2-1)>>1; if(hp[p2][0]<=hp[a2][0]) break; var t2=hp[p2]; hp[p2]=hp[a2]; hp[a2]=t2; a2=p2; } }
-      function hpop(){ var top=hp[0], last=hp.pop(); if(hp.length){ hp[0]=last; var a2=0; for(;;){ var l2=2*a2+1, r3=l2+1, s3=a2; if(l2<hp.length&&hp[l2][0]<hp[s3][0])s3=l2; if(r3<hp.length&&hp[r3][0]<hp[s3][0])s3=r3; if(s3===a2)break; var t3=hp[a2];hp[a2]=hp[s3];hp[s3]=t3;a2=s3; } } return top; }
-      alive.forEach(function(z2){ var bt0=bestTarget(z2); if(bt0) hpush(bt0.cost, z2); });
-      var guard=alive.size*40;
-      while(alive.size>target && hp.length && guard-->0){
-        var top=hpop(), zq2=top[1];
-        if(!alive.has(zq2)) continue;
-        var bt=bestTarget(zq2); if(!bt) continue;
-        // survivors changed since this entry was priced — re-queue if beaten
-        if(hp.length && bt.cost>hp[0][0]*1.000001){ hpush(bt.cost, zq2); continue; }
-        rep.set(zq2,bt.t); alive.delete(zq2); soft++;
+      function doMerge(zq2, t2){
+        rep.set(zq2,t2); alive.delete(zq2); soft++;
         var wq2=ends.get(zq2)||0; if(wq2>maxW) maxW=wq2; movedTrips+=wq2;
         var sq=grid.get(gk(NX[zn(zq2)],NY[zn(zq2)])); if(sq) sq.delete(zq2);
+      }
+      if(heapOrder){
+        // lazy-greedy min-heap of [cost, zone]
+        var hp=[];
+        function hpush(c,z2){ hp.push([c,z2]); var a2=hp.length-1; while(a2>0){ var p2=(a2-1)>>1; if(hp[p2][0]<=hp[a2][0]) break; var t2=hp[p2]; hp[p2]=hp[a2]; hp[a2]=t2; a2=p2; } }
+        function hpop(){ var top=hp[0], last=hp.pop(); if(hp.length){ hp[0]=last; var a2=0; for(;;){ var l2=2*a2+1, r3=l2+1, s3=a2; if(l2<hp.length&&hp[l2][0]<hp[s3][0])s3=l2; if(r3<hp.length&&hp[r3][0]<hp[s3][0])s3=r3; if(s3===a2)break; var t3=hp[a2];hp[a2]=hp[s3];hp[s3]=t3;a2=s3; } } return top; }
+        alive.forEach(function(z2){ var bt0=bestTarget(z2); if(bt0) hpush(bt0.cost, z2); });
+        var guard=alive.size*40;
+        while(alive.size>target && hp.length && guard-->0){
+          var top=hpop(), zq2=top[1];
+          if(!alive.has(zq2)) continue;
+          var bt=bestTarget(zq2); if(!bt) continue;
+          // survivors changed since this entry was priced — re-queue if beaten
+          if(hp.length && bt.cost>hp[0][0]*1.000001){ hpush(bt.cost, zq2); continue; }
+          doMerge(zq2, bt.t);
+        }
+      } else {
+        // smallest trip-ends first (free zero-demand moves lead by definition)
+        for(var q3=0; q3<byEnds.length && alive.size>target; q3++){
+          var zq3=byEnds[q3]; if(!alive.has(zq3)) continue;
+          var bt3=bestTarget(zq3); if(!bt3) continue;
+          doMerge(zq3, bt3.t);
+        }
       }
     }
     // resolve representative chains to their surviving roots
@@ -902,7 +935,7 @@
     });
     return {ok:true, pairs:pairs, merged:pairs.length, zones:alive.size, total:zs.length,
             exact:exact, soft:soft, maxW:Math.round(maxW), moved:Math.round(movedTrips),
-            guaranteed:(soft===0), guardZones:zs.length-exact};
+            variant:VAR, guaranteed:(soft===0), guardZones:zs.length-exact};
   }
   /* zone attachment-node + trip-end table for the Viewer's GEHX dropdown mode:
      the Viewer has no graph, so the container ferries this across once. */
@@ -1007,7 +1040,7 @@
         case "showbaked": out = showBaked(m); break;
         case "odends":    out = odEnds(); break;
         case "vdfcap":    window.__APPRCLAMP=(m.v>0)?m.v:null; out={ok:true, cap:window.__APPRCLAMP}; break;
-        case "gehagg":    out = gehAgg(m.target); break;
+        case "gehagg":    out = gehAgg(m.target, m.variant); break;
         case "gehdata":   out = gehData(); break;
         case "showdiff":  out = showDiff((m.key && window.__SCN) ? window.__SCN[m.key] : null); break;
         case "scnsave":   out = scnSave(m.key); break;
