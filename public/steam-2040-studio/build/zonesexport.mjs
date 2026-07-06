@@ -66,7 +66,7 @@ for (const L of LEVELS) {
     if (!c || !n) continue;
     rows.push({ id: r, cx: c[0], cy: c[1], nx: n[0], ny: n[1], members: m, tripends: Math.round((ends.get(r) || 0) * 10) / 10 });
   }
-  out[L.key] = rows;
+  out[L.key] = { rows: rows, pairs: L.pairs };
   console.log(L.key, '→', rows.length, 'zones (', L.pairs.length, 'merges )');
 }
 fs.writeFileSync(DIR + 'zones-export.json', JSON.stringify(out));
