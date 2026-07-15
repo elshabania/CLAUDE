@@ -995,6 +995,44 @@ async function applyPreloaded(idx){
   addChips(msg,["Colour by V/C","Rank corridors","Reset to full zones"]);
 }
 
+
+/* ===== METRO PLANNER (copilot side): propose stations on the density spine,
+   let the user drag them on the map, estimate ridership from the OD ===== */
+async function proposeMetro(text){
+  openDock();
+  var n=14; var mm=(text||"").match(/(\d{1,2})\s*station/); if(mm) n=+mm[1];
+  switchApp("viewer"); await waitReady("viewer");
+  var r=await rpc("viewer",{cmd:"metroplan",n:n,timeoutMs:30000});
+  highlightRail("viewer");
+  if(!r||!r.ok) return {html:"I couldn't plan a metro: "+esc((r&&r.err)||"unknown")+".", chips:["Propose a metro"]};
+  return {html:"<b>Proposed a "+r.n+"-station metro line ("+r.lenKm+" km)</b> along the population + demand density spine — stations sit at the local density centroid of each corridor segment, spaced ≥ 900 m."
+    +"<div class='did'>The line is drawn on the map. <b>Drag any station</b> to move it (the line follows), then ask me to <b>evaluate metro ridership</b>. Say “propose a metro with 20 stations” for a different count.</div>",
+    chips:["Evaluate metro ridership","Propose a metro with 20 stations","Clear the metro"]};
+}
+async function evalMetro(){
+  openDock();
+  var g=await rpc("viewer",{cmd:"metroget"});
+  if(!g||!g.ok) return {html:"There is no metro on the map yet — say <b>propose a metro</b> first.", chips:["Propose a metro"]};
+  var msg=addMsg("cop","Estimating ridership from the OD matrix…");
+  await ensureAssignGraph();
+  var r=await rpc("assign",{cmd:"metroeval",stations:g.stations,timeoutMs:60000});
+  msg.remove();
+  if(!r||!r.ok) return {html:"Couldn't evaluate: "+esc((r&&r.err)||"unknown")+".", chips:["Propose a metro"]};
+  var rows=r.board.map(function(b,i){ return {name:"M"+(i+1), b:b}; });
+  var top=rows.slice().sort(function(a,b){ return b.b-a.b; }).slice(0,3)
+    .map(function(o){ return o.name+" ("+o.b.toLocaleString()+")"; }).join(", ");
+  var html="<b>Estimated ridership: "+r.riders.toLocaleString()+" daily boardings</b> — "
+    +r.share+"% of all "+"trips in the OD matrix — over "+r.stations+" stations and "+r.lenKm+" km ("
+    +r.perKm.toLocaleString()+" riders/km). Busiest stations: "+top+"."
+    +aggChart(rows,"b","Daily boardings by station"," ")
+    +"<div class='did' style='font-size:11px;color:#9fb0c8'>Method: every OD pair whose two ends fall in station catchments (walk ≤ 800 m at full weight, feeder/PnR ≤ 2 km at 0.35) is diverted by a line-haul distance curve (5–30% by trip length). A sketch-level direct-demand estimate — drag stations and re-evaluate to compare alignments.</div>";
+  return {html:html, chips:["Propose a metro","Clear the metro","Evaluate metro ridership"]};
+}
+async function clearMetro(){
+  await rpc("viewer",{cmd:"metroclear"});
+  return {html:"Removed the metro proposal from the map.", chips:["Propose a metro"]};
+}
+
 /* ===== NETWORK EVOLUTION (2025 → 2040): the dual-year road network is baked
    into the Viewer, so the copilot just flips view modes (2040 full / 2040 roads
    / 2025 roads / Differences) and reads the upgrade-corridor list. ===== */
@@ -1387,6 +1425,8 @@ var KB=[
   a:"<b>Why do some corridors show big Δs under aggregation?</b> With a demand-matched baseline the only thing aggregation changes is <i>where merged zones' trips enter the network</i>. Diagnosis on this model showed every big-Δ corridor sits within ~400 m of one of the largest <b>demand-weighted centroid displacements</b> — e.g. pure nearest-neighbour merging at 2600 zones moved a 60,000-trip-end zone 1.6 km, forcing all its trips onto different connectors and flipping flow between parallel streets. <b>NND · demand-weighted</b> fixes this at the root: trip ends act as cluster mass (merge cost d²·w<sub>a</sub>w<sub>b</sub>/(w<sub>a</sub>+w<sub>b</sub>)), centroids and representatives are demand-weighted, so high-demand zones keep their own loading points and low-demand zones absorb the merging. All custom methods also gained demand-weighted representative placement."},
  {k:["gehx","exact guard","exact aggregation","guaranteed aggregation","geh below 2","zero error aggregation"],
   a:"<b>GEHX · exact-guard</b> is the aggregation method built for hard link-level guarantees. Stage 1 merges zones that share the same <b>network attachment node</b> — their trips already enter the model at the identical node, so the assignment is <b>provably unchanged (GEH = 0 on every link)</b>. Stage 2 (only if a deeper target demands it) merges the smallest-trip-end zones first into the nearest surviving zone; moving <i>w</i> trips can worsen any link by at most <i>w</i>, so the method reports the largest zone it had to move (maxW) as its exposure. On this network ~260 same-node merges plus ~370 near-zero-demand zones make <b>GEH &lt; 2 on all links provable down to ≈3,100 zones</b>; below that, relocating any real zone zeroes its own access street (GEH = √(2w) there), so no method can guarantee GEH &lt; 2 everywhere — GEHX minimises the violations instead and the report shows the measured GEH&lt;2 share and max GEH."},
+ {k:["metro","metro planner","how is ridership estimated","station catchment"],
+  a:"<b>Metro planner</b>: say <span class='k'>propose a metro</span> and the copilot sites stations along the <b>population + demand density spine</b> — the weighted principal axis of the dense core, with each station at the local density centroid of its corridor segment (≥ 900 m spacing; “with 20 stations” sets the count). <b>Drag stations on the map</b> to refine the alignment, then say <span class='k'>evaluate metro ridership</span>: every OD pair with both ends inside station catchments (walk ≤ 800 m full weight, feeder ≤ 2 km at 0.35) is diverted by a line-haul distance curve, giving daily boardings per station, total riders and riders/km — a sketch-level direct-demand estimate for comparing alignments, not a full mode-choice model."},
  {k:["gehx-100","gehx100","certified aggregation","100 percent geh","all links below geh 2"],
   a:"<b>GEHX-100</b> is the maximum-compression zone system <b>certified to keep every carrying link below GEH 2</b>. It is built by measure-and-repair: aggregate deep with GEHX, run the exact demand-matched comparison, find the links at GEH ≥ 2, un-merge the zones near them, and repeat until none remain — the final pass measures max GEH 1.99 over the whole network. A rule-based guarantee is impossible (small demand moves can flip an unrelated route choice and cascade), so certification is by measurement, and the certified merge list is baked into this build verbatim — <b>apply ▸</b> reproduces it exactly."},
  {k:["geh","geh statistic","geh 5","model validation criterion"],
@@ -1449,6 +1489,12 @@ var ACTIONS=[
     run:applyAggregationHandoff}),
  A({app:null, keys:["find best aggregation","best aggregation","best aggregation method","optimise aggregation","optimize aggregation","try aggregation methods","compare aggregation methods","which aggregation is best","best way to aggregate","best aggregation for"],
     run:findBestAggregation}),
+ A({app:null, keys:["propose a metro","metro proposal","plan a metro","suggest a metro","design a metro","propose metro","new metro line","metro line proposal"],
+    run:proposeMetro}),
+ A({app:null, keys:["evaluate metro ridership","metro ridership","evaluate the metro","estimate ridership","evaluate metro","ridership estimate","metro demand"],
+    run:evalMetro}),
+ A({app:null, keys:["clear the metro","clear metro","remove the metro","remove metro","delete metro"],
+    run:clearMetro}),
  A({app:null, keys:["preloaded comparison","preloaded results","preloaded aggregation","show preloaded comparison","show comparison results","comparison results","precomputed comparison","precomputed results","aggregation comparison results","unified comparison","aggregation results","baked comparison","preloaded comparison results"],
     run:showPreloadedComparison}),
  A({app:null, keys:["apply the best preloaded","apply best preloaded","apply the best preloaded aggregation","use the best preloaded"],
