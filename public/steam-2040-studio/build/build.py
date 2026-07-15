@@ -49,6 +49,11 @@ OVERRIDE = {
       align-items:stretch!important}
     #agg #aggticks,#agg input[type=range]{width:auto!important}
   }
+  /* STEAM AI Brain skin: rounded navy controls, emerald accent */
+  select,input[type=text],input[type=number],button{border-radius:9px}
+  input[type=range]{accent-color:#2dd4a7}
+  input[type=checkbox],input[type=radio]{accent-color:#2dd4a7}
+  ::selection{background:rgba(45,212,167,.35)}
   /* remove the header/footer gradient wash over the map */
   header{background:none!important}
   footer{background:none!important}
@@ -62,9 +67,17 @@ OVERRIDE = {
   /* declutter: the rail labels the section; drop the verbose footer note */
   #note{display:none!important}
   details.sec{margin-bottom:0!important}
+  /* STEAM AI Brain skin: rounded navy controls, emerald accent */
+  select,input[type=text],input[type=number],button{border-radius:9px}
+  input[type=range]{accent-color:#2dd4a7}
+  input[type=checkbox],input[type=radio]{accent-color:#2dd4a7}
+  ::selection{background:rgba(45,212,167,.35)}
   /* remove the header/footer gradient wash over the map */
   header{background:none!important}
   footer{background:none!important}
+  #runBtn{background:linear-gradient(135deg,#2dd4a7,#22d3ee)!important;color:#052a24!important;
+    border-color:transparent!important;font-weight:800!important;border-radius:10px!important}
+  #diffFilter{background:rgba(9,15,26,.95)!important;border:1px solid rgba(148,163,184,.22)!important}
  """,
 }
 def _rep(src, old, new, label):

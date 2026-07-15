@@ -3,11 +3,13 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-<title>STEAM 2040 Studio</title>
+<title>STEAM AI Brain</title>
 <style>
   :root{
-    --bg:#0b1018; --panel:#11192699; --solid:#0f1828; --line:#22304a; --txt:#d7e1f2;
-    --dim:#7e90b5; --gold:#ffd60a; --cyan:#7df9ff; --red:#ff453a; --green:#2ecc71;
+    --bg:#0a101c; --panel:#11192699; --solid:#0f1828; --line:#20304b; --txt:#e6edf7;
+    --dim:#8b9bb4; --gold:#ffd60a; --cyan:#7df9ff; --red:#ff453a; --green:#2ecc71;
+    --accent:#2dd4a7; --accent2:#22d3ee; --acgrad:linear-gradient(135deg,#2dd4a7,#22d3ee);
+    --card:rgba(11,18,32,.94); --bord:rgba(148,163,184,.16);
     --dock:380px;
   }
   *{margin:0;padding:0;box-sizing:border-box}
@@ -24,52 +26,62 @@
   button{font-family:inherit}
 
   /* ---- top bar ---- */
-  #bar{flex:none;height:50px;display:flex;align-items:center;gap:14px;padding:0 14px;
-    background:linear-gradient(#101a2c,#0c1220);border-bottom:1px solid var(--line);z-index:20}
-  #brand{display:flex;align-items:baseline;gap:8px;font-weight:800;letter-spacing:.02em;font-size:15px}
-  #brand .v{color:var(--gold)}
-  #brand small{color:var(--dim);font-weight:500;font-size:10.5px;letter-spacing:0}
-  #modechip{margin-left:8px;padding:4px 10px;border-radius:999px;border:1px solid var(--line);
-    background:#0e1626;color:var(--cyan);font-size:11px;font-weight:600;display:flex;align-items:center;gap:6px}
+  #bar{flex:none;height:54px;display:flex;align-items:center;gap:14px;padding:0 16px;
+    background:#0b1220;border-bottom:1px solid var(--bord);z-index:20}
+  #brand{display:flex;align-items:center;gap:10px;font-weight:800;letter-spacing:.01em;font-size:15.5px}
+  #brand .wm{display:flex;gap:6px;align-items:baseline}
+  #brand .v{background:var(--acgrad);-webkit-background-clip:text;background-clip:text;color:transparent}
+  #brand small{color:var(--dim);font-weight:500;font-size:10.5px;letter-spacing:.02em;margin-left:4px}
+  #modechip{margin-left:10px;padding:5px 12px;border-radius:999px;border:1px solid var(--bord);
+    background:#101b2e;color:var(--accent);font-size:11px;font-weight:700;display:flex;align-items:center;gap:7px;letter-spacing:.02em}
   #modechip .ic{font-size:12px}
   #barRight{margin-left:auto;display:flex;align-items:center;gap:10px}
-  #copBtn{padding:7px 13px;border-radius:9px;border:1px solid #2b6;background:#10301f;
-    color:#9defc0;font-size:12.5px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:7px}
-  #copBtn .pulse{width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:0 0 8px var(--green)}
+  #copBtn{padding:8px 15px;border-radius:999px;border:0;background:var(--acgrad);
+    color:#052a24;font-size:12.5px;font-weight:800;cursor:pointer;display:flex;align-items:center;gap:8px;
+    box-shadow:0 4px 14px rgba(34,211,238,.25)}
+  #copBtn .pulse{width:8px;height:8px;border-radius:50%;background:#04382c;box-shadow:0 0 0 3px rgba(4,56,44,.25)}
 
   /* ---- left icon rail ---- */
   #main{flex:1;display:flex;min-height:0}
-  #rail{flex:none;width:64px;background:linear-gradient(#0c1422,#0a0f1a);border-right:1px solid var(--line);
-    display:flex;flex-direction:column;align-items:center;padding:6px 0 4px;gap:2px;z-index:15;
+  #rail{flex:none;width:78px;background:#0b1220;border-right:1px solid var(--bord);
+    display:flex;flex-direction:column;align-items:center;padding:10px 0 8px;gap:3px;z-index:15;
     overflow-y:auto;overflow-x:hidden;scrollbar-width:thin}
   #rail::-webkit-scrollbar{width:0}
-  .rgrp{font-size:8px;letter-spacing:.07em;color:#4a5a78;text-transform:uppercase;margin:6px 0 1px;font-weight:700}
-  .ritem{width:54px;padding:6px 0 4px;border-radius:10px;border:1px solid transparent;background:none;
-    color:var(--dim);cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:2px;
-    font-size:9px;font-weight:600;line-height:1;flex:none;transition:background .15s,color .15s,border-color .15s}
-  .ritem .ic{font-size:16px;line-height:1}
-  .ritem:hover{background:#101a2c;color:var(--txt)}
-  .ritem.on{background:#13233c;border-color:#2d4a74;color:var(--gold)}
-  .ritem.cop{color:#9defc0}
-  .ritem.cop.on{background:#10301f;border-color:#2b6}
+  .rgrp{font-size:8.5px;letter-spacing:.16em;color:#556685;text-transform:uppercase;margin:12px 0 4px;font-weight:700}
+  .rgrp:first-child{margin-top:2px}
+  .ritem{width:64px;padding:9px 0 7px;border-radius:12px;border:1px solid transparent;background:none;
+    color:var(--dim);cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px;
+    font-size:9.5px;font-weight:600;line-height:1;flex:none;letter-spacing:.02em;
+    transition:background .15s,color .15s,border-color .15s,box-shadow .15s}
+  .ritem .ic{font-size:17px;line-height:1;filter:grayscale(.35) brightness(.95);transition:filter .15s}
+  .ritem:hover{background:#111c30;color:var(--txt)}
+  .ritem:hover .ic{filter:none}
+  .ritem.on{background:#152238;border-color:rgba(45,212,167,.35);color:#fff;
+    box-shadow:0 0 0 1px rgba(45,212,167,.12),0 4px 14px rgba(3,10,22,.5)}
+  .ritem.on .ic{filter:none}
+  .ritem.cop{color:var(--accent)}
+  .ritem.cop.on{background:#0e2a24;border-color:rgba(45,212,167,.5)}
   .rspring{flex:1}
+  #railFoot{flex:none;margin-top:6px;padding-top:8px;border-top:1px solid var(--bord);width:64px;
+    display:flex;flex-direction:column;align-items:center;gap:3px;color:#556685;font-size:8.5px;letter-spacing:.04em}
+  #railFoot .dotOK{width:7px;height:7px;border-radius:50%;background:var(--accent);box-shadow:0 0 8px rgba(45,212,167,.6)}
 
   /* ---- stage ---- */
   #stage{flex:1;position:relative;min-width:0;background:var(--bg)}
-  #zoneBar{position:absolute;top:10px;left:50%;transform:translateX(-50%);z-index:8;display:none;
-    align-items:center;gap:10px;padding:7px 10px 7px 14px;border:1px solid #2d4a74;border-radius:12px;
-    background:rgba(13,20,34,.92);backdrop-filter:blur(6px);box-shadow:0 6px 20px rgba(0,0,0,.45)}
+  #zoneBar{position:absolute;top:12px;left:50%;transform:translateX(-50%);z-index:8;display:none;
+    align-items:center;gap:10px;padding:8px 10px 8px 16px;border:1px solid var(--bord);border-radius:14px;
+    background:var(--card);backdrop-filter:blur(8px);box-shadow:0 12px 32px rgba(2,6,16,.5)}
   #zoneBar.show{display:flex}
   #zoneBar .zb-lbl{font-size:11.5px;color:var(--dim)}
   #zoneBar button{border-radius:8px;font-size:11.5px;font-weight:700;cursor:pointer;padding:6px 11px;border:1px solid var(--line)}
-  #zoneBar .zb-go{background:var(--gold);color:#0b1018;border-color:var(--gold)}
-  #zoneBar .zb-alt{background:#0e1626;color:var(--txt)}
+  #zoneBar .zb-go{background:var(--acgrad);color:#052a24;border:0;border-radius:999px}
+  #zoneBar .zb-alt{background:#101b2e;color:var(--txt);border-radius:999px;border-color:var(--bord)}
   @media (max-width:820px){ #zoneBar .zb-lbl{display:none} #zoneBar{top:8px} }
 
   /* ---- draggable / reorderable program list ---- */
   #progPanel{position:absolute;top:64px;right:18px;z-index:12;width:300px;display:none;
-    flex-direction:column;background:rgba(13,20,34,.97);border:1px solid #2d4a74;border-radius:12px;
-    box-shadow:0 10px 30px rgba(0,0,0,.55);overflow:hidden}
+    flex-direction:column;background:var(--card);border:1px solid var(--bord);border-radius:14px;
+    box-shadow:0 12px 32px rgba(2,6,16,.55);overflow:hidden}
   #progPanel.show{display:flex}
   #progHead{display:flex;align-items:center;gap:8px;padding:9px 11px;cursor:grab;
     background:linear-gradient(#16243c,#101a2c);border-bottom:1px solid var(--line);user-select:none}
@@ -94,7 +106,7 @@
   .pitem .pdrop{height:32px;color:#e07a7a}
   #progFoot{display:flex;align-items:center;gap:8px;padding:9px 11px;border-top:1px solid var(--line)}
   #progTot{flex:1;font-size:10px;color:var(--cyan);line-height:1.4}
-  #progFoot .zb-go{border:0;border-radius:8px;font-size:11.5px;font-weight:700;cursor:pointer;padding:7px 11px;background:var(--gold);color:#0b1018}
+  #progFoot .zb-go{border:0;border-radius:999px;font-size:11.5px;font-weight:800;cursor:pointer;padding:7px 13px;background:var(--acgrad);color:#052a24}
   #progEmpty{padding:14px 11px;font-size:11px;color:var(--dim)}
   .frameWrap{position:absolute;inset:0;display:none}
   .frameWrap.on{display:block}
@@ -102,7 +114,7 @@
   .frameLoad{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
     flex-direction:column;gap:12px;color:var(--dim);font-size:13px;background:var(--bg);z-index:2}
   .frameLoad.hide{display:none}
-  .spin{width:26px;height:26px;border-radius:50%;border:3px solid #1d2a42;border-top-color:var(--gold);
+  .spin{width:26px;height:26px;border-radius:50%;border:3px solid #1d2a42;border-top-color:var(--accent);
     animation:sp 0.8s linear infinite}
   @keyframes sp{to{transform:rotate(360deg)}}
 
@@ -111,22 +123,22 @@
     background:linear-gradient(#0d1422,#0b1018);border-left:1px solid var(--line)}
   body.dock-closed #dock{display:none}
   #dockHead{flex:none;padding:11px 14px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:10px}
-  #dockHead .av{width:30px;height:30px;border-radius:8px;flex:none;display:grid;place-items:center;
-    background:radial-gradient(circle at 30% 25%,#1c8f55,#0c3b25);font-size:15px;box-shadow:0 0 0 1px #2b6 inset}
+  #dockHead .av{width:30px;height:30px;border-radius:9px;flex:none;display:grid;place-items:center;
+    background:var(--acgrad);color:#052a24;font-size:15px;font-weight:800}
   #dockHead h2{font-size:13.5px;font-weight:700}
   #dockHead .sub{font-size:10px;color:var(--dim)}
   #dockClose{margin-left:auto;width:28px;height:28px;border-radius:7px;border:1px solid var(--line);
     background:#0e1626;color:var(--dim);cursor:pointer;font-size:14px}
   #ctxline{flex:none;padding:6px 14px;font-size:10.5px;color:var(--dim);border-bottom:1px solid var(--line);
     display:flex;align-items:center;gap:7px}
-  #ctxline b{color:var(--cyan);font-weight:600}
+  #ctxline b{color:var(--accent);font-weight:700}
   #ctxdot{width:7px;height:7px;border-radius:50%;background:var(--dim)}
   #ctxdot.live{background:var(--green);box-shadow:0 0 7px var(--green)}
 
   #log{flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:11px}
   .msg{display:flex;gap:9px;max-width:100%}
   .msg .ava{width:25px;height:25px;border-radius:7px;flex:none;display:grid;place-items:center;font-size:13px}
-  .msg.cop .ava{background:radial-gradient(circle at 30% 25%,#1c8f55,#0c3b25);box-shadow:0 0 0 1px #2b6 inset}
+  .msg.cop .ava{background:var(--acgrad);color:#052a24}
   .msg.user{flex-direction:row-reverse}
   .msg.user .ava{background:#1b2942;box-shadow:0 0 0 1px var(--line) inset}
   .bub{padding:9px 12px;border-radius:12px;font-size:12.5px;line-height:1.5;word-wrap:break-word;overflow-wrap:anywhere}
@@ -148,9 +160,11 @@
   .bub .evolink{flex:1;display:block;color:#cfe1ff;text-decoration:none;cursor:pointer;padding:2px 4px;border-radius:5px;line-height:1.45}
   .bub .evolink:hover{background:#13243c;color:#fff}
   .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
-  .sg{padding:5px 10px;border-radius:999px;border:1px solid var(--line);background:#0e1a2c;
-    color:var(--cyan);font-size:11px;cursor:pointer;white-space:nowrap;transition:border-color .15s,background .15s}
-  .sg:hover{border-color:var(--cyan);background:#13243c}
+  .sg{padding:5px 11px 5px 9px;border-radius:999px;border:1px solid var(--bord);background:#101b2e;
+    color:#cfe7ff;font-size:11px;cursor:pointer;white-space:nowrap;display:inline-flex;align-items:center;gap:6px;
+    transition:border-color .15s,background .15s}
+  .sg::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--acgrad);flex:none}
+  .sg:hover{border-color:rgba(45,212,167,.55);background:#13243c}
   .bub .scnapply{transition:background .15s}
   .typing .bub{color:var(--dim)}
   .dots span{display:inline-block;width:5px;height:5px;border-radius:50%;background:var(--dim);margin:0 1px;
@@ -162,15 +176,15 @@
   #inputRow{flex:none;padding:10px 12px 12px;display:flex;gap:8px;align-items:flex-end}
   #q{flex:1;resize:none;max-height:96px;min-height:40px;background:#0a1322;border:1px solid var(--line);
     border-radius:10px;color:var(--txt);font-size:12.5px;padding:10px 12px;font-family:inherit;line-height:1.4}
-  #q:focus{outline:none;border-color:#2b6;box-shadow:0 0 0 2px #1c8f5530}
-  #send{flex:none;width:40px;height:40px;border-radius:10px;border:0;background:var(--green);color:#04130b;
-    font-size:16px;cursor:pointer;font-weight:800}
+  #q:focus{outline:none;border-color:rgba(45,212,167,.55);box-shadow:0 0 0 2px rgba(45,212,167,.15)}
+  #send{flex:none;width:40px;height:40px;border-radius:12px;border:0;background:var(--acgrad);color:#052a24;
+    font-size:16px;cursor:pointer;font-weight:800;box-shadow:0 4px 14px rgba(34,211,238,.25)}
   #send:disabled{opacity:.4;cursor:default}
 
   /* floating reopen button when dock closed */
   #copFab{position:fixed;right:16px;bottom:16px;z-index:40;display:none;align-items:center;gap:8px;
-    padding:11px 16px;border-radius:999px;border:1px solid #2b6;background:#10301f;color:#9defc0;
-    font-size:13px;font-weight:700;cursor:pointer;box-shadow:0 6px 20px rgba(0,0,0,.5)}
+    padding:12px 18px;border-radius:999px;border:0;background:var(--acgrad);color:#052a24;
+    font-size:13px;font-weight:800;cursor:pointer;box-shadow:0 8px 24px rgba(34,211,238,.3)}
   body.dock-closed #copFab{display:flex}
 
   @media (max-width:820px){
@@ -186,7 +200,16 @@
 <body class="dock-closed">
 
 <div id="bar">
-  <div id="brand">STEAM <span class="v">2040</span> Studio <small>unified network · assignment · copilot</small></div>
+  <div id="brand">
+    <svg id="logo" width="26" height="26" viewBox="0 0 26 26" aria-hidden="true">
+      <defs><linearGradient id="lg" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0" stop-color="#2dd4a7"/><stop offset="1" stop-color="#22d3ee"/></linearGradient></defs>
+      <rect x="1" y="1" width="24" height="24" rx="7" fill="none" stroke="url(#lg)" stroke-width="1.6"/>
+      <circle cx="8.6" cy="9" r="2.1" fill="url(#lg)"/><circle cx="17.4" cy="7.6" r="1.7" fill="url(#lg)"/>
+      <circle cx="13.4" cy="17.6" r="2.4" fill="url(#lg)"/>
+      <path d="M8.6 9 L13.4 17.6 M17.4 7.6 L13.4 17.6 M8.6 9 L17.4 7.6" stroke="url(#lg)" stroke-width="1.3" fill="none"/>
+    </svg>
+    <span class="wm">STEAM <span class="v">AI Brain</span></span> <small>transport intelligence · network · assignment · copilot</small></div>
   <div id="modechip"><span class="ic">🗺️</span><span id="modename">Network</span></div>
   <div id="barRight">
     <button id="copBtn"><span class="pulse"></span>Copilot</button>
@@ -195,19 +218,21 @@
 
 <div id="main">
   <nav id="rail" aria-label="Tools">
-    <div class="rgrp">View</div>
+    <div class="rgrp">Views</div>
     <button class="ritem" data-tool="net"><span class="ic">🗺️</span>Network</button>
     <button class="ritem" data-tool="zones"><span class="ic">⬡</span>Zones</button>
     <div class="rgrp">Model</div>
     <button class="ritem" data-tool="assign"><span class="ic">🚦</span>Assign</button>
     <button class="ritem" data-tool="demand"><span class="ic">📈</span>Demand</button>
     <button class="ritem" data-tool="display"><span class="ic">🎨</span>Display</button>
+    <div class="rgrp">Tools</div>
     <button class="ritem" data-tool="rec"><span class="ic">✨</span>Solve</button>
     <button class="ritem" data-tool="scn"><span class="ic">🛠️</span>Scenario</button>
     <button class="ritem" data-tool="ana"><span class="ic">📊</span>Analysis</button>
     <button class="ritem" data-tool="settings"><span class="ic">⚙️</span>Settings</button>
     <div class="rspring"></div>
     <button class="ritem cop" id="railCop"><span class="ic">✦</span>Copilot</button>
+    <div id="railFoot"><span class="dotOK"></span>offline·ready</div>
   </nav>
   <div id="stage">
     <div class="frameWrap on" id="wrap-viewer">
@@ -1624,7 +1649,7 @@ function helpReply(){
 }
 function overviewReply(){
   return Promise.resolve({html:
-   "<b>STEAM 2040 Studio</b> unifies two strategic-model tools over the same 2040 network (152,879 road links + PT, walk &amp; PnR):"+
+   "<b>STEAM AI Brain</b> unifies two strategic-model tools over the same 2040 network (152,879 road links + PT, walk &amp; PnR):"+
    "<ul>"+
    "<li>🗺️ <span class='k'>Network Viewer</span> — explore the network and aggregate the 3,692-zone TAZ system while controlling the error it introduces.</li>"+
    "<li>🚦 <span class='k'>Assignment</span> — route an OD matrix onto the network (free-flow → user equilibrium), test road upgrades and new roads, and rank/solve congestion.</li>"+
