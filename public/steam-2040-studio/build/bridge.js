@@ -1098,10 +1098,12 @@
         case "vdfcap":    window.__APPRCLAMP=(m.v>0)?m.v:null; out={ok:true, cap:window.__APPRCLAMP}; break;
         case "gehagg":    out = gehAgg(m.target, m.variant); break;
         case "gehbad":    out = gehBad(+m.th||2); break;
-        case "metroplan":  out = (APP==="viewer") ? metroPlan(m.n) : {ok:false, err:"viewer only"}; break;
+        case "metroplan":  out = (APP==="viewer") ? metroPlan(m.n, m.anchor) : {ok:false, err:"viewer only"}; break;
         case "metroget":   out = (MET&&MET.st&&MET.st.length) ? {ok:true, stations:MET.st} : {ok:false, err:"no metro proposed"}; break;
         case "metroclear": out = (APP==="viewer") ? metroOverlay(false) : {ok:false, err:"viewer only"}; break;
         case "metroeval":  out = (APP==="assign") ? metroEval(m.stations) : {ok:false, err:"assign only"}; break;
+        case "metroroute": out = (APP==="assign") ? metroRoute(m.stations) : {ok:false, err:"assign only"}; break;
+        case "metrosetpath": out = (APP==="viewer") ? metroSetPath(m) : {ok:false, err:"viewer only"}; break;
         case "gehdata":   out = gehData(); break;
         case "showdiff":  out = showDiff((m.key && window.__SCN) ? window.__SCN[m.key] : null); break;
         case "scnsave":   out = scnSave(m.key); break;
@@ -1166,6 +1168,80 @@
      threshold — absolute vehicles or % of the baseline flow — via a slider.
      Visible only while the map is in difference mode. */
 
+
+  /* snap metro stations to road nodes and route each leg along the network
+     (Dijkstra on link length) so the line hugs real roads */
+  var MRT={grid:null, cell:1500};
+  function mrtGrid(){
+    if(MRT.grid) return MRT.grid;
+    var g=new Map(), NXa=GRAPH.nodeX, NYa=GRAPH.nodeY, n=GRAPH.head.length-1, KEY=1<<20;
+    for(var i=0;i<n;i++){
+      if(GRAPH.head[i]===GRAPH.head[i+1]) continue;         // isolated
+      var k=Math.floor(NXa[i]/MRT.cell)*KEY+Math.floor(NYa[i]/MRT.cell);
+      var a=g.get(k); if(!a){a=[];g.set(k,a);} a.push(i);
+    }
+    MRT.grid=g; return g;
+  }
+  function mrtSnap(x,y){
+    var g=mrtGrid(), KEY=1<<20, NXa=GRAPH.nodeX, NYa=GRAPH.nodeY;
+    var gx=Math.floor(x/MRT.cell), gy=Math.floor(y/MRT.cell), best=-1, bd=Infinity;
+    for(var ring=0; ring<=8 && best<0; ring++){
+      for(var ox=-ring;ox<=ring;ox++) for(var oy=-ring;oy<=ring;oy++){
+        if(Math.max(Math.abs(ox),Math.abs(oy))!==ring) continue;
+        var lst=g.get((gx+ox)*KEY+(gy+oy)); if(!lst) continue;
+        for(var q=0;q<lst.length;q++){ var nd=lst[q];
+          var d=Math.hypot(NXa[nd]-x, NYa[nd]-y);
+          if(d<bd){ bd=d; best=nd; } }
+      }
+      if(best>=0 && ring>0) break;   // one extra ring after the first hit
+    }
+    return best;
+  }
+  function mrtPath(a,b){
+    var head=GRAPH.head, to=GRAPH.to, elink=GRAPH.elink, EL=GRAPH.ELEN;
+    var dist=new Map([[a,0]]), prev=new Map(), pq=[[0,a]];
+    function push(c,n2){ pq.push([c,n2]); var i2=pq.length-1; while(i2>0){ var p2=(i2-1)>>1; if(pq[p2][0]<=pq[i2][0]) break; var t2=pq[p2]; pq[p2]=pq[i2]; pq[i2]=t2; i2=p2; } }
+    function pop(){ var t2=pq[0], l2=pq.pop(); if(pq.length){ pq[0]=l2; var i2=0; for(;;){ var l3=2*i2+1, r3=l3+1, s3=i2; if(l3<pq.length&&pq[l3][0]<pq[s3][0])s3=l3; if(r3<pq.length&&pq[r3][0]<pq[s3][0])s3=r3; if(s3===i2)break; var q3=pq[i2];pq[i2]=pq[s3];pq[s3]=q3;i2=s3; } } return t2; }
+    var settled=0;
+    while(pq.length){
+      var tp=pop(), d0=tp[0], n0=tp[1];
+      var cd=dist.get(n0); if(cd!==undefined && d0>cd+1e-9) continue;
+      if(n0===b) break;
+      if(d0>80000 || ++settled>250000) return null;
+      for(var e=head[n0]; e<head[n0+1]; e++){
+        var L=elink[e]; if(L<0) continue;
+        var n1=to[e], nd=d0+Math.max(3,EL[L]||30);
+        var cur=dist.get(n1);
+        if(cur===undefined||nd<cur){ dist.set(n1,nd); prev.set(n1,n0); push(nd,n1); }
+      }
+    }
+    if(!dist.has(b)) return null;
+    var path=[b], n3=b, hop=0;
+    while(n3!==a && hop++<100000){ n3=prev.get(n3); if(n3===undefined) return null; path.push(n3); }
+    path.reverse();
+    return path;
+  }
+  function metroRoute(stns){
+    if(typeof GRAPH==="undefined"||!GRAPH||!GRAPH.head) return {ok:false, err:"run an assignment first (network graph needed)"};
+    if(!stns||stns.length<2) return {ok:false, err:"need at least 2 stations"};
+    var NXa=GRAPH.nodeX, NYa=GRAPH.nodeY;
+    var snapped=[], nodes=[];
+    for(var i=0;i<stns.length;i++){
+      var nd=mrtSnap(stns[i][0], stns[i][1]);
+      if(nd<0) return {ok:false, err:"station "+(i+1)+" is too far from any road"};
+      nodes.push(nd); snapped.push([Math.round(NXa[nd]), Math.round(NYa[nd])]);
+    }
+    var legs=[], lenM=0;
+    for(i=1;i<nodes.length;i++){
+      var p=mrtPath(nodes[i-1], nodes[i]), flat=[];
+      if(p){ for(var q=0;q<p.length;q++){ flat.push(Math.round(NXa[p[q]]), Math.round(NYa[p[q]])); } }
+      else { flat=[snapped[i-1][0],snapped[i-1][1],snapped[i][0],snapped[i][1]]; }
+      for(q=2;q<flat.length;q+=2) lenM+=Math.hypot(flat[q]-flat[q-2], flat[q+1]-flat[q-1]);
+      legs.push(flat);
+    }
+    return {ok:true, snapped:snapped, legs:legs, lenKm:+(lenM/1000).toFixed(1)};
+  }
+
   /* ===== METRO PLANNER =====
      "Propose a metro": stations sited on the population/demand density spine
      (weighted principal axis of the dense core; each station is the local
@@ -1177,9 +1253,9 @@
   function mH(){ return document.documentElement.clientHeight||window.innerHeight; }
   function m2s(x,y){ return [(x-cx)*sc+mW()/2, mH()/2-(y-cy)*sc]; }
   function s2m(px2,py2){ return [(px2-mW()/2)/sc+cx, cy-(py2-mH()/2)/sc]; }
-  function metroPlan(n){
+  function metroPlan(n, anchor){
     if(typeof CIDS==="undefined"||typeof CENT==="undefined") return {ok:false, err:"zones not ready"};
-    n=Math.max(6, Math.min(30, (n|0)||14));
+    n=Math.max(4, Math.min(30, (n|0)||14));
     var m=(typeof zoneMetricsBase==="function")?zoneMetricsBase():{};
     var N=CIDS.length, w=new Float64Array(N), i;
     for(i=0;i<N;i++){ var v=0;
@@ -1193,18 +1269,25 @@
     var tot=0; for(i=0;i<ord.length;i++) tot+=w[ord[i]];
     var acc=0, core=[];
     for(i=0;i<ord.length && acc<tot*0.7;i++){ core.push(ord[i]); acc+=w[ord[i]]; }
-    // a metro is metropolitan: anchor on the DENSEST 5 km cell and keep only
-    // core zones within 22 km of it (drops the second city / desert zones)
-    var CG=5000, KEYG=1<<20, cellW=new Map();
-    core.forEach(function(z){ var k0=Math.floor(CENT[z*2]/CG)*KEYG+Math.floor(CENT[z*2+1]/CG);
-      cellW.set(k0,(cellW.get(k0)||0)+w[z]); });
-    var bestK=-1,bestW=-1; cellW.forEach(function(v,k0){ if(v>bestW){bestW=v;bestK=k0;} });
-    var pcx=0,pcy=0,pcw=0;
-    core.forEach(function(z){ var k0=Math.floor(CENT[z*2]/CG)*KEYG+Math.floor(CENT[z*2+1]/CG);
-      if(k0!==bestK) return; pcx+=CENT[z*2]*w[z]; pcy+=CENT[z*2+1]*w[z]; pcw+=w[z]; });
-    pcx/=pcw; pcy/=pcw;
-    core=core.filter(function(z){ return Math.hypot(CENT[z*2]-pcx, CENT[z*2+1]-pcy)<=22000; });
-    if(core.length<10) return {ok:false, err:"could not find a dense metro core"};
+    // a metro is metropolitan. With a NAMED AREA anchor, plan from that
+    // area's own zones; otherwise anchor on the densest 5 km cell (drops the
+    // second city / desert zones).
+    if(anchor && anchor.x!=null){
+      core=[];   // named area: take ALL weighted zones inside it, not just the global core
+      for(i=0;i<N;i++){ if(w[i]>0 && Math.hypot(CENT[i*2]-anchor.x, CENT[i*2+1]-anchor.y)<=(anchor.r||15000)) core.push(i); }
+      if(core.length<8) return {ok:false, err:"too little population / demand data inside that area"};
+    } else {
+      var CG=5000, KEYG=1<<20, cellW=new Map();
+      core.forEach(function(z){ var k0=Math.floor(CENT[z*2]/CG)*KEYG+Math.floor(CENT[z*2+1]/CG);
+        cellW.set(k0,(cellW.get(k0)||0)+w[z]); });
+      var bestK=-1,bestW=-1; cellW.forEach(function(v,k0){ if(v>bestW){bestW=v;bestK=k0;} });
+      var pcx=0,pcy=0,pcw=0;
+      core.forEach(function(z){ var k0=Math.floor(CENT[z*2]/CG)*KEYG+Math.floor(CENT[z*2+1]/CG);
+        if(k0!==bestK) return; pcx+=CENT[z*2]*w[z]; pcy+=CENT[z*2+1]*w[z]; pcw+=w[z]; });
+      pcx/=pcw; pcy/=pcw;
+      core=core.filter(function(z){ return Math.hypot(CENT[z*2]-pcx, CENT[z*2+1]-pcy)<=22000; });
+      if(core.length<10) return {ok:false, err:"could not find a dense metro core"};
+    }
     var sx=0,sy=0,sw=0;
     core.forEach(function(z){ sx+=CENT[z*2]*w[z]; sy+=CENT[z*2+1]*w[z]; sw+=w[z]; });
     var mx=sx/sw, my=sy/sw, sxx=0,sxy=0,syy=0;
@@ -1219,16 +1302,19 @@
     for(var k=0;k<n;k++){
       var a=p0+(p1-p0)*k/n, b=p0+(p1-p0)*(k+1)/n, cx2=0, cy2=0, cw=0;
       P.forEach(function(o){ if(o.p<a||o.p>=b) return;
-        var g=w[o.z]*Math.exp(-(o.q*o.q)/(2*2500*2500));   // pull toward the corridor (2.5 km sigma)
+        var sg=(anchor&&anchor.r&&anchor.r<6000)?900:2500;   // tight areas hug the corridor harder
+        var g=w[o.z]*Math.exp(-(o.q*o.q)/(2*sg*sg));
         cx2+=CENT[o.z*2]*g; cy2+=CENT[o.z*2+1]*g; cw+=g; });
       if(cw>0) st.push({x:cx2/cw, y:cy2/cw, w:cw});
     }
     for(i=st.length-2;i>=0;i--){ var d=Math.hypot(st[i].x-st[i+1].x, st[i].y-st[i+1].y);
-      if(d<900){ var W2=st[i].w+st[i+1].w;
+      var minSp=(anchor&&anchor.r&&anchor.r<6000)?500:900;
+      if(d<minSp){ var W2=st[i].w+st[i+1].w;
         st[i]={x:(st[i].x*st[i].w+st[i+1].x*st[i+1].w)/W2, y:(st[i].y*st[i].w+st[i+1].y*st[i+1].w)/W2, w:W2};
         st.splice(i+1,1); } }
     if(st.length<2) return {ok:false, err:"could not form a corridor"};
     MET.st=st.map(function(o){ return [Math.round(o.x), Math.round(o.y)]; });
+    MET.pop=(m.pop||null); MET.path=null; MET.stats=null;
     metroOverlay(true);
     var len=0; for(i=1;i<MET.st.length;i++) len+=Math.hypot(MET.st[i][0]-MET.st[i-1][0], MET.st[i][1]-MET.st[i-1][1]);
     return {ok:true, n:MET.st.length, lenKm:+(len/1000).toFixed(1)};
@@ -1247,6 +1333,27 @@
     (function loop(){ metroDraw(); MET.raf=requestAnimationFrame(loop); })();
     return {ok:true};
   }
+  function metroSetPath(m){
+    if(!MET.st) return {ok:false, err:"no metro"};
+    if(m.snapped && m.snapped.length===MET.st.length) MET.st=m.snapped.map(function(p){ return [p[0],p[1]]; });
+    MET.path=m.legs||null; MET.stats=null;
+    return {ok:true};
+  }
+  /* 1 km catchment per station: zones caught, total population */
+  function metroStats(){
+    if(MET.stats) return MET.stats;
+    var out=[], N=(typeof CIDS!=="undefined")?CIDS.length:0;
+    for(var k=0;k<MET.st.length;k++) out.push({pop:0, z:[]});
+    for(var i=0;i<N;i++){
+      var x=CENT[i*2], y=CENT[i*2+1];
+      for(k=0;k<MET.st.length;k++){
+        if(Math.hypot(x-MET.st[k][0], y-MET.st[k][1])<=1000){
+          out[k].z.push(i); out[k].pop+=(MET.pop&&MET.pop[i])?MET.pop[i]:0; break; }
+      }
+    }
+    MET.stats=out; return out;
+  }
+  function fmtK(v){ return v>=1000?((v/1000).toFixed(v>=10000?0:1)+"k"):Math.round(v); }
   function metroDraw(){
     var c=MET.cv; if(!c||!MET.st||!MET.st.length) return;
     var W=mW(), H=mH(), dpr=window.devicePixelRatio||1;
@@ -1254,18 +1361,62 @@
       c.width=Math.round(W*dpr); c.height=Math.round(H*dpr); c.style.width=W+"px"; c.style.height=H+"px"; }
     var t=c.getContext("2d"); t.setTransform(dpr,0,0,dpr,0,0); t.clearRect(0,0,W,H);
     var pts=MET.st.map(function(s0){ return m2s(s0[0],s0[1]); });
+    var stats=metroStats(), rpx=1000*sc, i;
+    // 1 km catchments: soft fill + dashed ring
+    for(i=0;i<pts.length;i++){
+      t.beginPath(); t.arc(pts[i][0],pts[i][1],rpx,0,7);
+      t.fillStyle=(i===MET.drag)?"rgba(255,214,10,.10)":"rgba(45,212,167,.07)"; t.fill();
+      t.setLineDash([5,4]); t.lineWidth=1.2;
+      t.strokeStyle=(i===MET.drag)?"rgba(255,214,10,.7)":"rgba(45,212,167,.45)"; t.stroke();
+      t.setLineDash([]);
+    }
+    // caught zone centroids light up
+    for(i=0;i<stats.length;i++){
+      var zz=stats[i].z;
+      for(var q=0;q<zz.length;q++){
+        var p2=m2s(CENT[zz[q]*2], CENT[zz[q]*2+1]);
+        t.beginPath(); t.arc(p2[0],p2[1],3.2,0,7); t.fillStyle="rgba(45,212,167,.28)"; t.fill();
+        t.beginPath(); t.arc(p2[0],p2[1],1.6,0,7); t.fillStyle="#7dfad0"; t.fill();
+      }
+    }
+    // alignment: road-following legs when routed, straight while dragging
     t.lineJoin="round"; t.lineCap="round";
-    t.beginPath(); pts.forEach(function(p,i){ i?t.lineTo(p[0],p[1]):t.moveTo(p[0],p[1]); });
-    t.strokeStyle="rgba(3,14,20,.9)"; t.lineWidth=8; t.stroke();
+    function traceLine(){
+      t.beginPath();
+      if(MET.path && MET.drag<0){
+        for(var L=0; L<MET.path.length; L++){ var fl=MET.path[L];
+          for(var q2=0;q2<fl.length;q2+=2){ var p3=m2s(fl[q2],fl[q2+1]);
+            (L===0&&q2===0)?t.moveTo(p3[0],p3[1]):t.lineTo(p3[0],p3[1]); } }
+      } else pts.forEach(function(p,i2){ i2?t.lineTo(p[0],p[1]):t.moveTo(p[0],p[1]); });
+    }
+    traceLine(); t.strokeStyle="rgba(3,14,20,.92)"; t.lineWidth=11; t.stroke();
     var g=t.createLinearGradient(pts[0][0],pts[0][1],pts[pts.length-1][0],pts[pts.length-1][1]);
     g.addColorStop(0,"#2dd4a7"); g.addColorStop(1,"#22d3ee");
-    t.strokeStyle=g; t.lineWidth=4.5; t.stroke();
-    pts.forEach(function(p,i){
-      t.beginPath(); t.arc(p[0],p[1],7,0,7); t.fillStyle="#0b1220"; t.fill();
-      t.lineWidth=2.5; t.strokeStyle=(i===MET.drag)?"#ffd60a":"#eafcf6"; t.stroke();
-      t.beginPath(); t.arc(p[0],p[1],2.6,0,7); t.fillStyle="#2dd4a7"; t.fill();
-      t.fillStyle="#dffcf2"; t.font="700 10px system-ui,sans-serif"; t.textAlign="center";
-      t.fillText("M"+(i+1), p[0], p[1]-11);
+    traceLine(); t.strokeStyle=g; t.lineWidth=5.5;
+    t.shadowColor="rgba(45,212,167,.6)"; t.shadowBlur=12; t.stroke();
+    t.shadowBlur=0;
+    if(MET.path && MET.drag<0){ traceLine(); t.strokeStyle="rgba(234,255,250,.85)"; t.lineWidth=1.1; t.setLineDash([7,7]); t.stroke(); t.setLineDash([]); }
+    // stations + population labels (labels greedily suppressed when crowded)
+    var lastLbl=null;
+    pts.forEach(function(p,i2){
+      t.beginPath(); t.arc(p[0],p[1],12,0,7); t.fillStyle="rgba(7,14,24,.88)"; t.fill();   // occluding halo
+      t.beginPath(); t.arc(p[0],p[1],8.5,0,7); t.fillStyle="#0b1220"; t.fill();
+      t.lineWidth=3; t.strokeStyle=(i2===MET.drag)?"#ffd60a":"#f2fffb";
+      t.shadowColor="rgba(45,212,167,.8)"; t.shadowBlur=8; t.stroke(); t.shadowBlur=0;
+      t.beginPath(); t.arc(p[0],p[1],3.4,0,7); t.fillStyle=(i2===MET.drag)?"#ffd60a":"#2dd4a7"; t.fill();
+      var showLbl = i2===MET.drag || !lastLbl || Math.hypot(p[0]-lastLbl[0], p[1]-lastLbl[1])>46 || i2===pts.length-1;
+      if(!showLbl) return;
+      lastLbl=p;
+      var lbl="M"+(i2+1), pop=stats[i2]?stats[i2].pop:0;
+      var txt=lbl+(pop>0?" · "+fmtK(pop):"");
+      t.font="700 10.5px system-ui,sans-serif"; t.textAlign="center";
+      var tw=t.measureText(txt).width;
+      t.fillStyle="rgba(7,14,24,.92)";
+      t.strokeStyle="rgba(45,212,167,.4)"; t.lineWidth=1;
+      t.beginPath(); t.roundRect ? t.roundRect(p[0]-tw/2-7, p[1]-31, tw+14, 17, 8) : t.rect(p[0]-tw/2-7, p[1]-31, tw+14, 17);
+      t.fill(); t.stroke();
+      t.fillStyle=(i2===MET.drag)?"#ffe27a":"#dffcf2";
+      t.fillText(txt, p[0], p[1]-18.5);
     });
   }
   function metroHit(e){
@@ -1278,8 +1429,11 @@
     MET.drag=i; e.preventDefault(); e.stopPropagation(); }
   function metroMove(e){ if(MET.drag<0) return;
     var wp=s2m(e.clientX,e.clientY); MET.st[MET.drag]=[Math.round(wp[0]),Math.round(wp[1])];
+    MET.stats=null;
     e.preventDefault(); e.stopPropagation(); }
-  function metroUp(e){ if(MET.drag<0) return; MET.drag=-1; e.preventDefault(); e.stopPropagation(); }
+  function metroUp(e){ if(MET.drag<0) return; MET.drag=-1; MET.stats=null;
+    try{ window.parent.postMessage({steam:1,resp:1,event:"metromoved"},"*"); }catch(_){}
+    e.preventDefault(); e.stopPropagation(); }
   /* ridership from the raw OD (Assignment side) */
   function metroEval(stns){
     if(!window.__ODRAW || typeof zoneIdIndex!=="function" || typeof GRAPH==="undefined"||!GRAPH||!GRAPH.znode)

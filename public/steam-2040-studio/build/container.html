@@ -335,6 +335,10 @@ window.addEventListener("message",function(ev){
     })();
     return;
   }
+  if(m.event==="metromoved"){   // a station was dragged — re-route the line along roads
+    clearTimeout(window.__METRT); window.__METRT=setTimeout(function(){ routeMetro(); }, 350);
+    return;
+  }
   if(m.event==="evorank"){ openDock(); submit("rank 2040 improvements"); return; }   // ★ button in the viewer's toggle bar
   if(m.event==="evoeval"){ openDock();                                               // Evaluate button on a map-selected project
     (async function(){ var t=thinking(); var r;
@@ -998,16 +1002,56 @@ async function applyPreloaded(idx){
 
 /* ===== METRO PLANNER (copilot side): propose stations on the density spine,
    let the user drag them on the map, estimate ridership from the OD ===== */
+/* named areas (UTM 40N anchors + radius) the metro planner understands */
+var METRO_PLACES=[
+  {keys:["abu dhabi","metro area","the metro","city"], name:"Abu Dhabi metro area", x:233000, y:2704000, r:22000},
+  {keys:["al ain","alain"],            name:"Al Ain",        x:371000, y:2679000, r:16000},
+  {keys:["dhafra","al dhafra","madinat zayed","western region"], name:"Al Dhafra (Madinat Zayed)", x:159000, y:2617000, r:30000},
+  {keys:["ruwais"],                    name:"Al Ruwais",     x:66000,  y:2666000, r:15000},
+  {keys:["reem island","al reem","reem"], name:"Reem Island", x:237000, y:2710000, r:3000},
+  {keys:["saadiyat"],                  name:"Saadiyat Island", x:238800, y:2714000, r:4500},
+  {keys:["yas"],                       name:"Yas Island",    x:256900, y:2709000, r:5000},
+  {keys:["musaffah","mussafah"],       name:"Musaffah",      x:246500, y:2694000, r:8000},
+  {keys:["khalifa city"],              name:"Khalifa City",  x:253700, y:2701000, r:7000},
+  {keys:["baniyas","bani yas"],        name:"Baniyas",       x:260500, y:2688000, r:6000},
+  {keys:["shahama"],                   name:"Al Shahama",    x:265200, y:2716000, r:7000}
+];
+function metroPlace(text){
+  var t=(text||"").toLowerCase();
+  for(var i=1;i<METRO_PLACES.length;i++){    // named places first (skip the generic metro entry)
+    var p=METRO_PLACES[i];
+    for(var k=0;k<p.keys.length;k++) if(t.indexOf(p.keys[k])>=0) return p;
+  }
+  return null;
+}
+/* route the current stations along the road network (snap + Dijkstra legs) */
+async function routeMetro(){
+  try{
+    var g=await rpc("viewer",{cmd:"metroget"});
+    if(!g||!g.ok) return null;
+    await ensureAssignGraph();
+    var r=await rpc("assign",{cmd:"metroroute",stations:g.stations,timeoutMs:60000});
+    if(r&&r.ok){ await rpc("viewer",{cmd:"metrosetpath",snapped:r.snapped,legs:r.legs,timeoutMs:30000}); return r; }
+  }catch(e){}
+  return null;
+}
 async function proposeMetro(text){
   openDock();
   var n=14; var mm=(text||"").match(/(\d{1,2})\s*station/); if(mm) n=+mm[1];
+  var place=metroPlace(text);
+  if(place && !mm) n=(place.r<=5000)?8:(place.r<=9000?10:14);
   switchApp("viewer"); await waitReady("viewer");
-  var r=await rpc("viewer",{cmd:"metroplan",n:n,timeoutMs:30000});
+  var r=await rpc("viewer",{cmd:"metroplan",n:n,anchor:place?{x:place.x,y:place.y,r:place.r}:null,timeoutMs:30000});
   highlightRail("viewer");
-  if(!r||!r.ok) return {html:"I couldn't plan a metro: "+esc((r&&r.err)||"unknown")+".", chips:["Propose a metro"]};
-  return {html:"<b>Proposed a "+r.n+"-station metro line ("+r.lenKm+" km)</b> along the population + demand density spine — stations sit at the local density centroid of each corridor segment, spaced ≥ 900 m."
-    +"<div class='did'>The line is drawn on the map. <b>Drag any station</b> to move it (the line follows), then ask me to <b>evaluate metro ridership</b>. Say “propose a metro with 20 stations” for a different count.</div>",
-    chips:["Evaluate metro ridership","Propose a metro with 20 stations","Clear the metro"]};
+  if(!r||!r.ok) return {html:"I couldn't plan a metro"+(place?" in "+esc(place.name):"")+": "+esc((r&&r.err)||"unknown")+".", chips:["Propose a metro","Propose a metro in Al Ain"]};
+  var msg=addMsg("cop","Snapping stations to the road network and routing the line along real roads…");
+  var rt=await routeMetro();
+  msg.remove();
+  var where=place?("in <b>"+esc(place.name)+"</b> — planned from that area's own population and demand"):"along the densest metropolitan corridor";
+  var lenTxt=rt&&rt.lenKm?rt.lenKm+" km along roads":r.lenKm+" km";
+  return {html:"<b>Proposed a "+r.n+"-station metro ("+lenTxt+")</b> "+where+". Stations sit on the population + demand density spine, snapped to the road network; each shows its <b>1 km catchment</b> (dashed ring), the zone centroids it captures, and the <b>total population</b> it serves."
+    +"<div class='did'>Drag any station — catchments and populations update live, and the line re-routes along roads when you release. Then ask me to <b>evaluate metro ridership</b>. Try “propose a metro in Al Ain”, “…in Dhafra”, “…on Reem Island”, or “…with 20 stations”.</div>",
+    chips:["Evaluate metro ridership","Propose a metro in Al Ain","Clear the metro"]};
 }
 async function evalMetro(){
   openDock();
@@ -1425,8 +1469,8 @@ var KB=[
   a:"<b>Why do some corridors show big Δs under aggregation?</b> With a demand-matched baseline the only thing aggregation changes is <i>where merged zones' trips enter the network</i>. Diagnosis on this model showed every big-Δ corridor sits within ~400 m of one of the largest <b>demand-weighted centroid displacements</b> — e.g. pure nearest-neighbour merging at 2600 zones moved a 60,000-trip-end zone 1.6 km, forcing all its trips onto different connectors and flipping flow between parallel streets. <b>NND · demand-weighted</b> fixes this at the root: trip ends act as cluster mass (merge cost d²·w<sub>a</sub>w<sub>b</sub>/(w<sub>a</sub>+w<sub>b</sub>)), centroids and representatives are demand-weighted, so high-demand zones keep their own loading points and low-demand zones absorb the merging. All custom methods also gained demand-weighted representative placement."},
  {k:["gehx","exact guard","exact aggregation","guaranteed aggregation","geh below 2","zero error aggregation"],
   a:"<b>GEHX · exact-guard</b> is the aggregation method built for hard link-level guarantees. Stage 1 merges zones that share the same <b>network attachment node</b> — their trips already enter the model at the identical node, so the assignment is <b>provably unchanged (GEH = 0 on every link)</b>. Stage 2 (only if a deeper target demands it) merges the smallest-trip-end zones first into the nearest surviving zone; moving <i>w</i> trips can worsen any link by at most <i>w</i>, so the method reports the largest zone it had to move (maxW) as its exposure. On this network ~260 same-node merges plus ~370 near-zero-demand zones make <b>GEH &lt; 2 on all links provable down to ≈3,100 zones</b>; below that, relocating any real zone zeroes its own access street (GEH = √(2w) there), so no method can guarantee GEH &lt; 2 everywhere — GEHX minimises the violations instead and the report shows the measured GEH&lt;2 share and max GEH."},
- {k:["metro","metro planner","how is ridership estimated","station catchment"],
-  a:"<b>Metro planner</b>: say <span class='k'>propose a metro</span> and the copilot sites stations along the <b>population + demand density spine</b> — the weighted principal axis of the dense core, with each station at the local density centroid of its corridor segment (≥ 900 m spacing; “with 20 stations” sets the count). <b>Drag stations on the map</b> to refine the alignment, then say <span class='k'>evaluate metro ridership</span>: every OD pair with both ends inside station catchments (walk ≤ 800 m full weight, feeder ≤ 2 km at 0.35) is diverted by a line-haul distance curve, giving daily boardings per station, total riders and riders/km — a sketch-level direct-demand estimate for comparing alignments, not a full mode-choice model."},
+ {k:["metro","metro planner","how is ridership estimated","station catchment","metro in al ain","metro areas"],
+  a:"<b>Metro planner</b>: say <span class='k'>propose a metro</span> and the copilot sites stations along the <b>population + demand density spine</b> — the weighted principal axis of the dense core, with each station at the local density centroid of its corridor segment (≥ 900 m spacing; “with 20 stations” sets the count). <b>Drag stations on the map</b> to refine the alignment, then say <span class='k'>evaluate metro ridership</span>: every OD pair with both ends inside station catchments (walk ≤ 800 m full weight, feeder ≤ 2 km at 0.35) is diverted by a line-haul distance curve, giving daily boardings per station, total riders and riders/km — a sketch-level direct-demand estimate for comparing alignments, not a full mode-choice model. Named areas it understands: Abu Dhabi metro, Al Ain, Al Dhafra / Madinat Zayed, Ruwais, Reem Island, Saadiyat, Yas, Musaffah, Khalifa City, Baniyas, Shahama."},
  {k:["gehx-100","gehx100","certified aggregation","100 percent geh","all links below geh 2"],
   a:"<b>GEHX-100</b> is the maximum-compression zone system <b>certified to keep every carrying link below GEH 2</b>. It is built by measure-and-repair: aggregate deep with GEHX, run the exact demand-matched comparison, find the links at GEH ≥ 2, un-merge the zones near them, and repeat until none remain — the final pass measures max GEH 1.99 over the whole network. A rule-based guarantee is impossible (small demand moves can flip an unrelated route choice and cascade), so certification is by measurement, and the certified merge list is baked into this build verbatim — <b>apply ▸</b> reproduces it exactly."},
  {k:["geh","geh statistic","geh 5","model validation criterion"],
@@ -1716,7 +1760,7 @@ async function handle(text){
 
   /* action */
   var r=c.r;
-  if(r.run){ var rr=await r.run(); if(rr && rr.html) return rr; return {html:r.say||"Done.", done:true}; }
+  if(r.run){ var rr=await r.run(text); if(rr && rr.html) return rr; return {html:r.say||"Done.", done:true}; }
   var key=r.app;
   if(key && key!==activeApp) switchApp(key);
   await drive(key, r.ops);
