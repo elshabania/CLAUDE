@@ -1101,6 +1101,7 @@
         case "metroplan":  out = (APP==="viewer") ? metroPlan(m.n, m.anchor) : {ok:false, err:"viewer only"}; break;
         case "metroget":   out = (MET&&MET.st&&MET.st.length) ? {ok:true, stations:MET.st} : {ok:false, err:"no metro proposed"}; break;
         case "metroclear": out = (APP==="viewer") ? metroOverlay(false) : {ok:false, err:"viewer only"}; break;
+        case "metromanual": out = (APP==="viewer") ? metroManual(m.on) : {ok:false, err:"viewer only"}; break;
         case "metroeval":  out = (APP==="assign") ? metroEval(m.stations) : {ok:false, err:"assign only"}; break;
         case "metroroute": out = (APP==="assign") ? metroRoute(m.stations) : {ok:false, err:"assign only"}; break;
         case "metrosetpath": out = (APP==="viewer") ? metroSetPath(m) : {ok:false, err:"viewer only"}; break;
@@ -1320,7 +1321,7 @@
     return {ok:true, n:MET.st.length, lenKm:+(len/1000).toFixed(1)};
   }
   function metroOverlay(on){
-    if(!on){ if(MET.cv){ MET.cv.remove(); MET.cv=null; } cancelAnimationFrame(MET.raf); MET.st=null; MET.drag=-1; return {ok:true}; }
+    if(!on){ if(MET.cv){ MET.cv.remove(); MET.cv=null; } cancelAnimationFrame(MET.raf); MET.st=null; MET.drag=-1; MET.manual=false; MET.path=null; MET.stats=null; return {ok:true}; }
     if(!MET.cv){
       var c=document.createElement("canvas"); c.id="metroOv";
       c.style.cssText="position:fixed;inset:0;z-index:6;pointer-events:none";
@@ -1328,6 +1329,7 @@
       window.addEventListener("pointerdown", metroDown, true);
       window.addEventListener("pointermove", metroMove, true);
       window.addEventListener("pointerup", metroUp, true);
+      window.addEventListener("dblclick", metroDbl, true);
     }
     cancelAnimationFrame(MET.raf);
     (function loop(){ metroDraw(); MET.raf=requestAnimationFrame(loop); })();
@@ -1361,6 +1363,8 @@
       c.width=Math.round(W*dpr); c.height=Math.round(H*dpr); c.style.width=W+"px"; c.style.height=H+"px"; }
     var t=c.getContext("2d"); t.setTransform(dpr,0,0,dpr,0,0); t.clearRect(0,0,W,H);
     var pts=MET.st.map(function(s0){ return m2s(s0[0],s0[1]); });
+    if(!pts.length){ if(MET.manual){ t.fillStyle="rgba(223,252,242,.8)"; t.font="600 12px system-ui,sans-serif"; t.textAlign="center";
+      t.fillText("Manual mode — click the map to place your first station", W/2, 84); } return; }
     var stats=metroStats(), rpx=1000*sc, i;
     // 1 km catchments: soft fill + dashed ring
     for(i=0;i<pts.length;i++){
@@ -1389,13 +1393,15 @@
             (L===0&&q2===0)?t.moveTo(p3[0],p3[1]):t.lineTo(p3[0],p3[1]); } }
       } else pts.forEach(function(p,i2){ i2?t.lineTo(p[0],p[1]):t.moveTo(p[0],p[1]); });
     }
+    if(pts.length>=2){
     traceLine(); t.strokeStyle="rgba(3,14,20,.92)"; t.lineWidth=11; t.stroke();
-    var g=t.createLinearGradient(pts[0][0],pts[0][1],pts[pts.length-1][0],pts[pts.length-1][1]);
-    g.addColorStop(0,"#2dd4a7"); g.addColorStop(1,"#22d3ee");
-    traceLine(); t.strokeStyle=g; t.lineWidth=5.5;
+    var g=(pts.length>=2)?t.createLinearGradient(pts[0][0],pts[0][1],pts[pts.length-1][0],pts[pts.length-1][1]):null;
+    if(g){ g.addColorStop(0,"#2dd4a7"); g.addColorStop(1,"#22d3ee"); }
+    traceLine(); t.strokeStyle=g||"#2dd4a7"; t.lineWidth=5.5;
     t.shadowColor="rgba(45,212,167,.6)"; t.shadowBlur=12; t.stroke();
     t.shadowBlur=0;
     if(MET.path && MET.drag<0){ traceLine(); t.strokeStyle="rgba(234,255,250,.85)"; t.lineWidth=1.1; t.setLineDash([7,7]); t.stroke(); t.setLineDash([]); }
+    }
     // stations + population labels (labels greedily suppressed when crowded)
     var lastLbl=null;
     pts.forEach(function(p,i2){
@@ -1425,15 +1431,39 @@
       if(Math.hypot(e.clientX-p[0], e.clientY-p[1])<=14) return i; }
     return -1;
   }
-  function metroDown(e){ var i=metroHit(e); if(i<0) return;
-    MET.drag=i; e.preventDefault(); e.stopPropagation(); }
-  function metroMove(e){ if(MET.drag<0) return;
+  function metroDown(e){ var i=metroHit(e);
+    if(i>=0){ MET.drag=i; e.preventDefault(); e.stopPropagation(); return; }
+    if(MET.manual && MET.st){ MET.pend=[e.clientX, e.clientY, Date.now()]; }   // maybe a tap-to-add
+  }
+  function metroMove(e){
+    if(MET.pend && Math.hypot(e.clientX-MET.pend[0], e.clientY-MET.pend[1])>6) MET.pend=null;   // it's a pan
+    if(MET.drag<0) return;
     var wp=s2m(e.clientX,e.clientY); MET.st[MET.drag]=[Math.round(wp[0]),Math.round(wp[1])];
     MET.stats=null;
     e.preventDefault(); e.stopPropagation(); }
-  function metroUp(e){ if(MET.drag<0) return; MET.drag=-1; MET.stats=null;
+  function metroUp(e){
+    if(MET.pend){                                   // manual tap → add a station here
+      var ok=(Date.now()-MET.pend[2])<600 && Math.hypot(e.clientX-MET.pend[0], e.clientY-MET.pend[1])<=6;
+      MET.pend=null;
+      if(ok){ var wp=s2m(e.clientX,e.clientY); MET.st.push([Math.round(wp[0]),Math.round(wp[1])]);
+        MET.stats=null; MET.path=null; MET.addT=Date.now();
+        try{ window.parent.postMessage({steam:1,resp:1,event:"metromoved"},"*"); }catch(_){}
+        return; }   // let the app see the click too, so its pan state closes cleanly
+    }
+    if(MET.drag<0) return; MET.drag=-1; MET.stats=null;
     try{ window.parent.postMessage({steam:1,resp:1,event:"metromoved"},"*"); }catch(_){}
     e.preventDefault(); e.stopPropagation(); }
+  function metroDbl(e){
+    if(Date.now()-(MET.addT||0)<800) return;   // a fresh tap-to-add must not read as remove
+    var i=metroHit(e); if(i<0) return;
+    MET.st.splice(i,1); MET.stats=null; MET.path=null;
+    try{ window.parent.postMessage({steam:1,resp:1,event:"metromoved"},"*"); }catch(_){}
+    e.preventDefault(); e.stopPropagation(); }
+  function metroManual(on){
+    MET.manual=!!on;
+    if(MET.manual){ if(!MET.st) MET.st=[]; if(typeof zoneMetricsBase==="function"&&!MET.pop){ var mm=zoneMetricsBase(); MET.pop=mm.pop||null; } metroOverlay(true); }
+    return {ok:true, manual:MET.manual, stations:(MET.st||[]).length};
+  }
   /* ridership from the raw OD (Assignment side) */
   function metroEval(stns){
     if(!window.__ODRAW || typeof zoneIdIndex!=="function" || typeof GRAPH==="undefined"||!GRAPH||!GRAPH.znode)

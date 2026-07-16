@@ -68,7 +68,23 @@
 
   /* ---- stage ---- */
   #stage{flex:1;position:relative;min-width:0;background:var(--bg)}
-  #zoneBar{position:absolute;top:12px;left:50%;transform:translateX(-50%);z-index:8;display:none;
+  #stepBar{position:absolute;top:0;left:0;right:0;z-index:9;display:none;align-items:center;gap:14px;
+    padding:8px 16px;background:linear-gradient(rgba(10,16,28,.95),rgba(10,16,28,.72) 75%,transparent);
+    pointer-events:none}
+  #stepBar.show{display:flex}
+  #stepBar>*{pointer-events:auto}
+  #stepInfo{display:flex;align-items:baseline;gap:9px;min-width:0}
+  #stepTitle{font-size:13px;font-weight:800;letter-spacing:.01em;white-space:nowrap}
+  #stepDesc{font-size:11px;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #stepActs{margin-left:auto;display:flex;align-items:center;gap:7px;flex-wrap:wrap;justify-content:flex-end}
+  #stepActs button{padding:5px 12px;border-radius:999px;border:1px solid var(--bord);background:#101b2e;
+    color:#cfe7ff;font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap;transition:border-color .15s,background .15s}
+  #stepActs button:hover{border-color:rgba(45,212,167,.55);background:#13243c}
+  #stepActs button.primary{background:var(--acgrad);color:#052a24;border:0;font-weight:800}
+  #stepActs button.tog.on{background:#0e2a24;border-color:rgba(45,212,167,.6);color:#7dfad0}
+  #stepActs select{padding:5px 8px;border-radius:9px;border:1px solid var(--bord);background:#101b2e;color:var(--txt);font-size:11px}
+  @media (max-width:900px){ #stepDesc{display:none} }
+  #zoneBar{position:absolute;top:46px;left:50%;transform:translateX(-50%);z-index:8;display:none;
     align-items:center;gap:10px;padding:8px 10px 8px 16px;border:1px solid var(--bord);border-radius:14px;
     background:var(--card);backdrop-filter:blur(8px);box-shadow:0 12px 32px rgba(2,6,16,.5)}
   #zoneBar.show{display:flex}
@@ -218,23 +234,31 @@
 
 <div id="main">
   <nav id="rail" aria-label="Tools">
-    <div class="rgrp">Views</div>
+    <div class="rgrp">Explore</div>
     <button class="ritem" data-tool="net"><span class="ic">🗺️</span>Network</button>
     <button class="ritem" data-tool="zones"><span class="ic">⬡</span>Zones</button>
     <div class="rgrp">Model</div>
-    <button class="ritem" data-tool="assign"><span class="ic">🚦</span>Assign</button>
     <button class="ritem" data-tool="demand"><span class="ic">📈</span>Demand</button>
+    <button class="ritem" data-tool="assign"><span class="ic">🚦</span>Assign</button>
     <button class="ritem" data-tool="display"><span class="ic">🎨</span>Display</button>
-    <div class="rgrp">Tools</div>
+    <div class="rgrp">Plan</div>
+    <button class="ritem" data-tool="metro"><span class="ic">🚇</span>Metro</button>
+    <button class="ritem" data-tool="projects"><span class="ic">🛣️</span>Projects</button>
     <button class="ritem" data-tool="rec"><span class="ic">✨</span>Solve</button>
     <button class="ritem" data-tool="scn"><span class="ic">🛠️</span>Scenario</button>
+    <div class="rgrp">Insights</div>
     <button class="ritem" data-tool="ana"><span class="ic">📊</span>Analysis</button>
+    <button class="ritem" data-tool="insights"><span class="ic">💡</span>Insights</button>
     <button class="ritem" data-tool="settings"><span class="ic">⚙️</span>Settings</button>
     <div class="rspring"></div>
     <button class="ritem cop" id="railCop"><span class="ic">✦</span>Copilot</button>
     <div id="railFoot"><span class="dotOK"></span>offline·ready</div>
   </nav>
   <div id="stage">
+    <div id="stepBar">
+      <div id="stepInfo"><b id="stepTitle"></b><span id="stepDesc"></span></div>
+      <div id="stepActs"></div>
+    </div>
     <div class="frameWrap on" id="wrap-viewer">
       <div class="frameLoad" id="load-viewer"><div class="spin"></div>Loading Network Viewer…</div>
     </div>
@@ -260,7 +284,7 @@
       <div class="av">✦</div>
       <div>
         <h2>STEAM Copilot</h2>
-        <div class="sub">drives both apps · offline</div>
+        <div class="sub">one brain · every step · offline</div>
       </div>
       <button id="dockClose" aria-label="Hide copilot">✕</button>
     </div>
@@ -1286,14 +1310,77 @@ function updateCtx(){
 /* ---------- left rail: tools reveal contextual panels, map-first by default ---------- */
 var TOOLS={
   net:{app:"viewer"}, zones:{app:"viewer"},
+  metro:{app:"viewer"}, projects:{app:"viewer"},
   assign:{app:"assign",section:"run"},
   demand:{app:"assign",section:"demand model"},
   display:{app:"assign",section:"display"},
   rec:{app:"assign",section:"recommend"},
   scn:{app:"assign",section:"scenario"},
   ana:{app:"assign",section:"analysis"},
+  insights:{app:null},
   settings:{app:"assign",section:"settings"}
 };
+/* every step explains itself and carries its key actions — this is what makes
+   the pipeline discoverable instead of buried in chat */
+var METRO_MANUAL=false;
+function act(lbl,fn,cls){ return {lbl:lbl, fn:fn, cls:cls||""}; }
+function say(t){ return function(){ openDock(); submit(t); }; }
+var STEPS={
+  net:{t:"Network Explorer", d:"Browse the 2040 model, the 2025 base and everything that changes between them.",
+    a:[act("2025 base",say("show 2025 network")), act("Differences",say("show differences")), act("★ Rank improvements",say("rank 2040 improvements"),"primary")]},
+  zones:{t:"Zone System", d:"Aggregate zones and pick the method that keeps link flows honest.",
+    a:[act("Preloaded comparison",say("preloaded comparison")), act("✦ Find best method",say("find best aggregation"),"primary"), act("What is GEHX-100?",say("what is gehx-100"))]},
+  demand:{t:"Demand", d:"The OD matrix: 12.6M daily trips. Inspect, grow or swap the demand.",
+    a:[act("Demand structure",say("demand structure"))]},
+  assign:{t:"Assignment", d:"Load the demand on the network, then read volumes, V/C, LOS and Δ plots.",
+    a:[act("▶ Run",function(){ rpc("assign",{cmd:"click",id:"runBtn"}); },"primary"), act("Colour by V/C",say("colour by v/c")), act("Rank corridors",say("rank corridors"))]},
+  display:{t:"Display", d:"Colour modes, filters and what the map shows."},
+  metro:{t:"Metro Planner", d:"Site a line by hand or let the AI propose it, then estimate ridership from real demand.",
+    a:[act("✦ AI propose",function(){
+        var ar=document.getElementById("mtArea"), n=document.getElementById("mtN");
+        var txt="propose a metro"+(ar&&ar.value?" in "+ar.value:"")+(n&&n.value?" with "+n.value+" stations":"");
+        openDock(); submit(txt);
+      },"primary"),
+      {sel:"mtArea", opts:[["","densest area"],["Al Ain","Al Ain"],["Dhafra","Al Dhafra"],["Reem island","Reem Island"],["Saadiyat","Saadiyat"],["Yas","Yas Island"],["Musaffah","Musaffah"],["Khalifa city","Khalifa City"],["Baniyas","Baniyas"],["Shahama","Shahama"],["Ruwais","Ruwais"]]},
+      {sel:"mtN", opts:[["","stations: auto"],["8","8 stations"],["10","10 stations"],["14","14 stations"],["18","18 stations"],["22","22 stations"]]},
+      act("✏️ Manual mode",async function(btn){
+        METRO_MANUAL=!METRO_MANUAL;
+        switchApp("viewer"); await waitReady("viewer");
+        await rpc("viewer",{cmd:"metromanual",on:METRO_MANUAL});
+        renderStepBar("metro");
+        if(METRO_MANUAL){ openDock(); addMsg("cop","<b>Manual mode is on</b> — click the map to place stations in sequence, drag to move one, double-click to remove it. The line re-routes along roads after every change. Ask me to <b>evaluate metro ridership</b> whenever you're ready."); }
+      },"tog"),
+      act("Evaluate ridership",say("evaluate metro ridership")),
+      act("Clear",function(){ METRO_MANUAL=false; openDock(); submit("clear the metro"); })]},
+  projects:{t:"2040 Projects", d:"Every 2025→2040 upgrade, grouped into schemes — select one on the map to appraise it alone.",
+    a:[act("Show differences",say("show differences")), act("★ Rank improvements",say("rank 2040 improvements"),"primary"), act("Assess all benefits",say("assess corridor benefits"))]},
+  rec:{t:"Solve", d:"Let the engine recommend upgrades and build a budget-constrained programme.",
+    a:[act("Find solutions",say("find solutions"),"primary"), act("Programme",function(){ openProgram(); })]},
+  scn:{t:"Scenario", d:"Draft roads, tweak capacity and test what-ifs against the base."},
+  ana:{t:"Analysis", d:"KPIs, screenlines and the numbers behind the maps.",
+    a:[act("Current KPIs",say("what are the current KPIs?"))]},
+  insights:{t:"Insights", d:"Everything the Brain has precomputed and everything it can explain.",
+    a:[act("Preloaded comparison",say("preloaded comparison"),"primary"), act("Current KPIs",say("what are the current KPIs?")), act("Network evolution",say("network evolution")), act("What can you do?",say("what can you do?"))]},
+  settings:{t:"Settings", d:"Engine parameters and defaults."}
+};
+function renderStepBar(id){
+  var bar=document.getElementById("stepBar"), st=STEPS[id];
+  if(!st){ bar.classList.remove("show"); return; }
+  document.getElementById("stepTitle").textContent=st.t;
+  document.getElementById("stepDesc").textContent=st.d||"";
+  var box=document.getElementById("stepActs"); box.innerHTML="";
+  (st.a||[]).forEach(function(a){
+    if(a.sel){ var sel=document.createElement("select"); sel.id=a.sel;
+      a.opts.forEach(function(o){ var op=document.createElement("option"); op.value=o[0]; op.textContent=o[1]; sel.appendChild(op); });
+      box.appendChild(sel); return; }
+    var b=document.createElement("button"); b.textContent=a.lbl; b.className=a.cls;
+    if(a.cls==="tog"&&id==="metro"&&METRO_MANUAL) b.classList.add("on");
+    b.addEventListener("click",function(){ a.fn(b); });
+    box.appendChild(b);
+  });
+  bar.classList.add("show");
+  try{ document.getElementById("modename").textContent=st.t; }catch(e){}
+}
 var currentTool=null;
 function highlightRail(id){
   document.querySelectorAll("#rail .ritem[data-tool]").forEach(function(b){ b.classList.toggle("on",b.dataset.tool===id); });
@@ -1307,13 +1394,15 @@ async function applyViewerPanels(){
 async function selectTool(id){
   var t=TOOLS[id]; if(!t) return;
   if(currentTool===id) return clearTool();      // toggle off → clean map
-  currentTool=id; highlightRail(id);
-  switchApp(t.app); await waitReady(t.app);
+  currentTool=id; highlightRail(id); renderStepBar(id);
+  if(t.app){ switchApp(t.app); await waitReady(t.app); }
   if(t.app==="assign"){ await rpc("assign",{cmd:"section",text:t.section}); }
-  else { await applyViewerPanels(); }
+  else if(t.app==="viewer"){ await applyViewerPanels(); }
+  if(id==="projects"){ await rpc("viewer",{cmd:"evomode",mode:"diff",timeoutMs:120000}); }
+  if(id==="insights"){ openDock(); }
 }
 async function clearTool(){
-  currentTool=null; highlightRail(null);
+  currentTool=null; highlightRail(null); renderStepBar(null);
   if(APPS.assign.frame) await rpc("assign",{cmd:"bodyclass",name:"collapsed",on:true});
   if(APPS.viewer.frame) await applyViewerPanels();
 }
@@ -1739,7 +1828,7 @@ function helpReply(){
 }
 function overviewReply(){
   return Promise.resolve({html:
-   "<b>STEAM AI Brain</b> unifies two strategic-model tools over the same 2040 network (152,879 road links + PT, walk &amp; PnR):"+
+   "<b>STEAM AI Brain</b> is one strategic-modelling workflow over the 2040 network (152,879 road links + PT, walk &amp; PnR):"+
    "<ul>"+
    "<li>🗺️ <span class='k'>Network Viewer</span> — explore the network and aggregate the 3,692-zone TAZ system while controlling the error it introduces.</li>"+
    "<li>🚦 <span class='k'>Assignment</span> — route an OD matrix onto the network (free-flow → user equilibrium), test road upgrades and new roads, and rank/solve congestion.</li>"+
@@ -1817,7 +1906,9 @@ addMsg("cop","👋 I'm the <b>STEAM Copilot</b>. I run the <b>Network Viewer</b>
 addChips(log.lastChild,["What can you do?","Run an assignment","Zoom to the Metro area"]);
 
 /* boot: load the default viewer frame, open dock after a beat */
-ensureFrame("viewer"); waitReady("viewer").then(updateCtx);
+ensureFrame("viewer"); waitReady("viewer").then(function(){ updateCtx();
+  setTimeout(function(){ ensureFrame("assign"); waitReady("assign"); }, 1200);   // warm the engine so steps switch instantly
+});
 setTimeout(openDock, 650);
 
 /* harness hooks for offline testing / preload generation (no user-facing use) */
