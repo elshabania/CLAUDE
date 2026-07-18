@@ -793,7 +793,7 @@
      exact demand-matched protocol; "net" targets by road distance instead of
      euclidean and is available via the variant option). Moving w trips can
      worsen any link by at most w, so maxW reports the exposure. */
-  function gehAgg(target, variant){
+  function gehAgg(target, variant, extFrom){
     if(typeof GRAPH==="undefined" || !GRAPH || !GRAPH.znode) return {ok:false, err:"run an assignment first (the network graph is needed)"};
     if(!window.__ODRAW || typeof zoneIdIndex!=="function") return {ok:false, err:"OD not loaded yet"};
     target=target|0;
@@ -808,10 +808,26 @@
       var o=R.O[i]>>>0, d=R.D[i]>>>0; ends.set(o,(ends.get(o)||0)+v); ends.set(d,(ends.get(d)||0)+v); }
     var zs=[];
     idx.forEach(function(zi,id){ if(zn0[zi]>=0) zs.push(id); });
+    // EXTERNAL STATIONS are frozen: they are gateways for external trips and
+    // must never merge (as member or target). Detected as the id block above
+    // the largest numbering gap in the top decile of the sorted id sequence;
+    // override via the extFrom option.
+    var prot=new Set();
+    (function(){
+      var srt=zs.slice().sort(function(a,b){ return a-b; });
+      var from=(typeof extFrom==="number"&&extFrom>0)?extFrom:0;
+      if(!from){
+        var i0=Math.floor(srt.length*0.9), bg=0, bat=-1;
+        for(var q=i0;q<srt.length-1;q++){ var gp=srt[q+1]-srt[q]; if(gp>bg){ bg=gp; bat=q; } }
+        if(bg>50) from=srt[bat+1];
+      }
+      if(from) srt.forEach(function(z9){ if(z9>=from) prot.add(z9); });
+    })();
     var alive=new Set(zs), rep=new Map(), exact=0, soft=0, maxW=0;
     // stage 1 — same attachment node (rep = the member with the most demand)
     var byNode=new Map();
-    zs.forEach(function(z2){ var a=byNode.get(zn(z2)); if(!a){a=[];byNode.set(zn(z2),a);} a.push(z2); });
+    zs.forEach(function(z2){ if(prot.has(z2)) return;
+      var a=byNode.get(zn(z2)); if(!a){a=[];byNode.set(zn(z2),a);} a.push(z2); });
     byNode.forEach(function(a){ if(a.length<2) return;
       var r0=a[0], bw=-1;
       a.forEach(function(z2){ var w=ends.get(z2)||0; if(w>bw){bw=w;r0=z2;} });
@@ -833,9 +849,11 @@
     if(target>0 && alive.size>target){
       var CELL=3000, KEY2=1<<20, grid=new Map();
       function gk(x,y){ return Math.floor(x/CELL)*KEY2+Math.floor(y/CELL); }
-      alive.forEach(function(z2){ var k=gk(NX[zn(z2)],NY[zn(z2)]); var a=grid.get(k); if(!a){a=new Set();grid.set(k,a);} a.add(z2); });
+      alive.forEach(function(z2){ if(prot.has(z2)) return;   // externals: never a merge target
+        var k=gk(NX[zn(z2)],NY[zn(z2)]); var a=grid.get(k); if(!a){a=new Set();grid.set(k,a);} a.add(z2); });
       // mutual OD demand for the likely movers — one pass over the raw OD
-      var byEnds=Array.from(alive).sort(function(a,b){ return (ends.get(a)||0)-(ends.get(b)||0); });
+      var byEnds=Array.from(alive).filter(function(z2){ return !prot.has(z2); })   // externals never move
+        .sort(function(a,b){ return (ends.get(a)||0)-(ends.get(b)||0); });
       var movers=new Set(byEnds.slice(0, Math.min(byEnds.length, (alive.size-target)*3+50)));
       var partners=new Map(); movers.forEach(function(z2){ partners.set(z2,new Map()); });
       for(i=0;i<R.cnt;i++){ var vv=(typeof h2f==="function")?h2f(R.V[i]):R.V[i]; if(!(vv>0)) continue;
@@ -926,7 +944,7 @@
       // nearest can jump a river or freeway barrier that the traffic cannot
       var nodeAlive=null;
       if(useNet){ nodeAlive=new Map();
-        alive.forEach(function(z2){ var n=zn(z2); var s=nodeAlive.get(n); if(!s){s=new Set();nodeAlive.set(n,s);} s.add(z2); });
+        alive.forEach(function(z2){ if(prot.has(z2)) return; var n=zn(z2); var s=nodeAlive.get(n); if(!s){s=new Set();nodeAlive.set(n,s);} s.add(z2); });
       }
       function netTarget(zq){
         var src=zn(zq); if(src<0) return null;
@@ -990,7 +1008,7 @@
     });
     return {ok:true, pairs:pairs, merged:pairs.length, zones:alive.size, total:zs.length,
             exact:exact, soft:soft, maxW:Math.round(maxW), moved:Math.round(movedTrips),
-            variant:VAR, guaranteed:(soft===0), guardZones:zs.length-exact};
+            variant:VAR, guaranteed:(soft===0), guardZones:zs.length-exact, externals:prot.size};
   }
   /* zone attachment-node + trip-end table for the Viewer's GEHX dropdown mode:
      the Viewer has no graph, so the container ferries this across once. */
@@ -1096,7 +1114,7 @@
         case "showbaked": out = showBaked(m); break;
         case "odends":    out = odEnds(); break;
         case "vdfcap":    window.__APPRCLAMP=(m.v>0)?m.v:null; out={ok:true, cap:window.__APPRCLAMP}; break;
-        case "gehagg":    out = gehAgg(m.target, m.variant); break;
+        case "gehagg":    out = gehAgg(m.target, m.variant, m.extFrom); break;
         case "gehbad":    out = gehBad(+m.th||2); break;
         case "metroplan":  out = (APP==="viewer") ? metroPlan(m.n, m.anchor) : {ok:false, err:"viewer only"}; break;
         case "metroget":   out = (MET&&MET.st&&MET.st.length) ? {ok:true, stations:MET.st} : {ok:false, err:"no metro proposed"}; break;
