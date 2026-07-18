@@ -508,7 +508,16 @@
     }
     var scr=spatialCluster(mode,target,W);
     var rp=bestRepPairs(scr.find, scr.N, W);
-    return {ok:true, pairs:rp.pairs, merged:rp.merged, zones:rp.zones, total:scr.N, mode:mode, target:target, weighted:!!W};
+    // EXTERNAL STATIONS never merge: drop any pair touching the id block above
+    // the largest numbering gap in the top decile (same rule as GEHX)
+    var srt=[], i9;
+    for(i9=0;i9<CIDS.length;i9++) srt.push(CIDS[i9]>>>0);
+    srt.sort(function(a,b){ return a-b; });
+    var i0=Math.floor(srt.length*0.9), bg=0, bat=-1;
+    for(var q9=i0;q9<srt.length-1;q9++){ var gp=srt[q9+1]-srt[q9]; if(gp>bg){ bg=gp; bat=q9; } }
+    var extFrom=(bg>50)?srt[bat+1]:Infinity, dropped=0;
+    var pairs=rp.pairs.filter(function(p){ var hit=(p[0]>=extFrom||p[1]>=extFrom); if(hit) dropped++; return !hit; });
+    return {ok:true, pairs:pairs, merged:pairs.length, zones:rp.zones+dropped, total:scr.N, mode:mode, target:target, weighted:!!W, extProtected:dropped};
   }
   /* run a custom method as a FIRST-CLASS viewer aggregation: build the same
      merge forest the app's own methods produce and finalise through assemble(),
