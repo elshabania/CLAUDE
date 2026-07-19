@@ -40,7 +40,7 @@ FAMDESC = {
  "ring": ("RING rings x sectors", "Concentric rings x angular sectors around the network centre, occupancy-adaptive. Cannot hit exact zone counts; the achieved count is stated below."),
 }
 PROTOCOL = ("Scores: identical 800-origin pre-sampled trips assigned on full zones (demand-matched baseline) and on the aggregated zones, "
-            "BPR rerouting, whole network, carrying links only. Renumbering: internal zones first, sequential from 0 with no gaps, sorted by the "
+            "BPR rerouting, whole network, carrying links only. Renumbering: internal zones first, sequential from 1 with no gaps (no zone is numbered 0), sorted by the "
             "representative's original ID; the 6 external stations (orig 5995-6000, blue) always keep the LAST positions, in original order, never merged. "
             "Merged internal zones (amber, IS_REP=0) map to their representative's new ID.")
 
@@ -145,9 +145,9 @@ def write_sheet(name, fam, desc, pairs, met, target_lbl, extra_res="", title=Non
     def root(z): return canon[root0(z)]
     reps = sorted({root(z) for z in IDS})
     int_reps = [r for r in reps if r not in ext_set]
-    new_of = {r: i for i, r in enumerate(int_reps)}
-    for k, e in enumerate(sorted(EXT)): new_of[e] = len(int_reps) + k
-    assert sorted(new_of.values()) == list(range(len(reps))), name
+    new_of = {r: i + 1 for i, r in enumerate(int_reps)}   # 1-based: no zone gets ID 0
+    for k, e in enumerate(sorted(EXT)): new_of[e] = len(int_reps) + k + 1
+    assert sorted(new_of.values()) == list(range(1, len(reps) + 1)), name
     members = {}
     for z in IDS: members[root(z)] = members.get(root(z), 0) + 1
 
@@ -219,7 +219,7 @@ fam, desc = BASE_APP["demand"]
 desc += (" IN THIS BUILD the zoning engine has no separately loaded OD matrix (demand lives in the assignment engine), so the "
          "criterion cannot price any merge and performs NO merges at every budget tested (0.5%, 1%, 2%) and with the urban/rural "
          "guard - the 79-run comparison grid found the same. The table below is therefore the identity renumbering: every zone "
-         "keeps its own representative and only the IDs compact to 0..3,669 with the 6 external stations last.")
+         "keeps its own representative and only the IDs compact to 1..3,670 with the 6 external stations last.")
 write_sheet("DEMAND", fam, desc, [], None, None,
             "no merges at any tested budget (0.5 / 1 / 2%) or guard; identity renumbering shown")
 
