@@ -1,0 +1,1921 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>STEAM AI Brain</title>
+<style>
+  :root{
+    --bg:#0a101c; --panel:#11192699; --solid:#0f1828; --line:#20304b; --txt:#e6edf7;
+    --dim:#8b9bb4; --gold:#ffd60a; --cyan:#7df9ff; --red:#ff453a; --green:#2ecc71;
+    --accent:#2dd4a7; --accent2:#22d3ee; --acgrad:linear-gradient(135deg,#2dd4a7,#22d3ee);
+    --card:rgba(11,18,32,.94); --bord:rgba(148,163,184,.16);
+    --dock:380px;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--txt);
+    font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;overscroll-behavior:none}
+  /* thin, theme-matched scrollbars everywhere (chat log, result lists, program) */
+  *{scrollbar-width:thin;scrollbar-color:#2d4a74 transparent}
+  *::-webkit-scrollbar{width:8px;height:8px}
+  *::-webkit-scrollbar-track{background:transparent}
+  *::-webkit-scrollbar-thumb{background:#22304a;border-radius:99px;border:2px solid var(--bg)}
+  *::-webkit-scrollbar-thumb:hover{background:#2d4a74}
+  body{position:fixed;inset:0;display:flex;flex-direction:column}
+  .mono{font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace}
+  button{font-family:inherit}
+
+  /* ---- top bar ---- */
+  #bar{flex:none;height:54px;display:flex;align-items:center;gap:14px;padding:0 16px;
+    background:#0b1220;border-bottom:1px solid var(--bord);z-index:20}
+  #brand{display:flex;align-items:center;gap:10px;font-weight:800;letter-spacing:.01em;font-size:15.5px}
+  #brand .wm{display:flex;gap:6px;align-items:baseline}
+  #brand .v{background:var(--acgrad);-webkit-background-clip:text;background-clip:text;color:transparent}
+  #brand small{color:var(--dim);font-weight:500;font-size:10.5px;letter-spacing:.02em;margin-left:4px}
+  #modechip{margin-left:10px;padding:5px 12px;border-radius:999px;border:1px solid var(--bord);
+    background:#101b2e;color:var(--accent);font-size:11px;font-weight:700;display:flex;align-items:center;gap:7px;letter-spacing:.02em}
+  #modechip .ic{font-size:12px}
+  #barRight{margin-left:auto;display:flex;align-items:center;gap:10px}
+  #copBtn{padding:8px 15px;border-radius:999px;border:0;background:var(--acgrad);
+    color:#052a24;font-size:12.5px;font-weight:800;cursor:pointer;display:flex;align-items:center;gap:8px;
+    box-shadow:0 4px 14px rgba(34,211,238,.25)}
+  #copBtn .pulse{width:8px;height:8px;border-radius:50%;background:#04382c;box-shadow:0 0 0 3px rgba(4,56,44,.25)}
+
+  /* ---- left icon rail ---- */
+  #main{flex:1;display:flex;min-height:0}
+  #rail{flex:none;width:78px;background:#0b1220;border-right:1px solid var(--bord);
+    display:flex;flex-direction:column;align-items:center;padding:10px 0 8px;gap:3px;z-index:15;
+    overflow-y:auto;overflow-x:hidden;scrollbar-width:thin}
+  #rail::-webkit-scrollbar{width:0}
+  .rgrp{font-size:8.5px;letter-spacing:.16em;color:#556685;text-transform:uppercase;margin:12px 0 4px;font-weight:700}
+  .rgrp:first-child{margin-top:2px}
+  .ritem{width:64px;padding:9px 0 7px;border-radius:12px;border:1px solid transparent;background:none;
+    color:var(--dim);cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px;
+    font-size:9.5px;font-weight:600;line-height:1;flex:none;letter-spacing:.02em;
+    transition:background .15s,color .15s,border-color .15s,box-shadow .15s}
+  .ritem .ic{font-size:17px;line-height:1;filter:grayscale(.35) brightness(.95);transition:filter .15s}
+  .ritem:hover{background:#111c30;color:var(--txt)}
+  .ritem:hover .ic{filter:none}
+  .ritem.on{background:#152238;border-color:rgba(45,212,167,.35);color:#fff;
+    box-shadow:0 0 0 1px rgba(45,212,167,.12),0 4px 14px rgba(3,10,22,.5)}
+  .ritem.on .ic{filter:none}
+  .ritem.cop{color:var(--accent)}
+  .ritem.cop.on{background:#0e2a24;border-color:rgba(45,212,167,.5)}
+  .rspring{flex:1}
+  #railFoot{flex:none;margin-top:6px;padding-top:8px;border-top:1px solid var(--bord);width:64px;
+    display:flex;flex-direction:column;align-items:center;gap:3px;color:#556685;font-size:8.5px;letter-spacing:.04em}
+  #railFoot .dotOK{width:7px;height:7px;border-radius:50%;background:var(--accent);box-shadow:0 0 8px rgba(45,212,167,.6)}
+
+  /* ---- stage ---- */
+  #stage{flex:1;position:relative;min-width:0;background:var(--bg)}
+  #stepBar{position:absolute;top:0;left:0;right:0;z-index:9;display:none;align-items:center;gap:14px;
+    padding:8px 16px;background:linear-gradient(rgba(10,16,28,.95),rgba(10,16,28,.72) 75%,transparent);
+    pointer-events:none}
+  #stepBar.show{display:flex}
+  #stepBar>*{pointer-events:auto}
+  #stepInfo{display:flex;align-items:baseline;gap:9px;min-width:0}
+  #stepTitle{font-size:13px;font-weight:800;letter-spacing:.01em;white-space:nowrap}
+  #stepDesc{font-size:11px;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #stepActs{margin-left:auto;display:flex;align-items:center;gap:7px;flex-wrap:wrap;justify-content:flex-end}
+  #stepActs button{padding:5px 12px;border-radius:999px;border:1px solid var(--bord);background:#101b2e;
+    color:#cfe7ff;font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap;transition:border-color .15s,background .15s}
+  #stepActs button:hover{border-color:rgba(45,212,167,.55);background:#13243c}
+  #stepActs button.primary{background:var(--acgrad);color:#052a24;border:0;font-weight:800}
+  #stepActs button.tog.on{background:#0e2a24;border-color:rgba(45,212,167,.6);color:#7dfad0}
+  #stepActs select{padding:5px 8px;border-radius:9px;border:1px solid var(--bord);background:#101b2e;color:var(--txt);font-size:11px}
+  @media (max-width:900px){ #stepDesc{display:none} }
+  #zoneBar{position:absolute;top:46px;left:50%;transform:translateX(-50%);z-index:8;display:none;
+    align-items:center;gap:10px;padding:8px 10px 8px 16px;border:1px solid var(--bord);border-radius:14px;
+    background:var(--card);backdrop-filter:blur(8px);box-shadow:0 12px 32px rgba(2,6,16,.5)}
+  #zoneBar.show{display:flex}
+  #zoneBar .zb-lbl{font-size:11.5px;color:var(--dim)}
+  #zoneBar button{border-radius:8px;font-size:11.5px;font-weight:700;cursor:pointer;padding:6px 11px;border:1px solid var(--line)}
+  #zoneBar .zb-go{background:var(--acgrad);color:#052a24;border:0;border-radius:999px}
+  #zoneBar .zb-alt{background:#101b2e;color:var(--txt);border-radius:999px;border-color:var(--bord)}
+  @media (max-width:820px){ #zoneBar .zb-lbl{display:none} #zoneBar{top:8px} }
+
+  /* ---- draggable / reorderable program list ---- */
+  #progPanel{position:absolute;top:64px;right:18px;z-index:12;width:300px;display:none;
+    flex-direction:column;background:var(--card);border:1px solid var(--bord);border-radius:14px;
+    box-shadow:0 12px 32px rgba(2,6,16,.55);overflow:hidden}
+  #progPanel.show{display:flex}
+  #progHead{display:flex;align-items:center;gap:8px;padding:9px 11px;cursor:grab;
+    background:linear-gradient(#16243c,#101a2c);border-bottom:1px solid var(--line);user-select:none}
+  #progHead.grab{cursor:grabbing}
+  #progHead .ph-grip{color:var(--dim);font-size:14px}
+  #progHead b{font-size:12.5px}
+  #progMeta{margin-left:auto;font-size:10px;color:var(--dim)}
+  #progClose{width:22px;height:22px;border-radius:6px;border:1px solid var(--line);background:#0e1626;color:var(--dim);cursor:pointer;font-size:12px}
+  #progHint{font-size:9.5px;color:var(--dim);padding:6px 11px;border-bottom:1px solid var(--line);line-height:1.4}
+  #progItems{max-height:46vh;overflow-y:auto;padding:7px;display:flex;flex-direction:column;gap:5px}
+  .pitem{display:flex;align-items:center;gap:7px;padding:7px 8px;border:1px solid var(--line);border-radius:8px;
+    background:#0d1424;font-size:11px;cursor:default}
+  .pitem.drag{opacity:.4}
+  .pitem.over{border-color:var(--gold)}
+  .pitem .pgrip{cursor:grab;color:var(--dim);font-size:13px;touch-action:none}
+  .pitem .pbody{flex:1;line-height:1.35;min-width:0}
+  .pitem .pbody b{color:var(--gold);font-weight:600}
+  .pitem .pbody .psub{color:var(--dim);font-size:10px}
+  .pitem .pmove{display:flex;flex-direction:column;gap:1px}
+  .pitem .pmove button,.pitem .pdrop{width:18px;height:15px;border:1px solid var(--line);background:#0e1626;color:var(--dim);
+    cursor:pointer;font-size:9px;border-radius:4px;line-height:1;padding:0}
+  .pitem .pdrop{height:32px;color:#e07a7a}
+  #progFoot{display:flex;align-items:center;gap:8px;padding:9px 11px;border-top:1px solid var(--line)}
+  #progTot{flex:1;font-size:10px;color:var(--cyan);line-height:1.4}
+  #progFoot .zb-go{border:0;border-radius:999px;font-size:11.5px;font-weight:800;cursor:pointer;padding:7px 13px;background:var(--acgrad);color:#052a24}
+  #progEmpty{padding:14px 11px;font-size:11px;color:var(--dim)}
+  .frameWrap{position:absolute;inset:0;display:none}
+  .frameWrap.on{display:block}
+  iframe{width:100%;height:100%;border:0;display:block;background:var(--bg)}
+  .frameLoad{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+    flex-direction:column;gap:12px;color:var(--dim);font-size:13px;background:var(--bg);z-index:2}
+  .frameLoad.hide{display:none}
+  .spin{width:26px;height:26px;border-radius:50%;border:3px solid #1d2a42;border-top-color:var(--accent);
+    animation:sp 0.8s linear infinite}
+  @keyframes sp{to{transform:rotate(360deg)}}
+
+  /* ---- copilot dock ---- */
+  #dock{flex:none;width:var(--dock);display:flex;flex-direction:column;min-height:0;
+    background:linear-gradient(#0d1422,#0b1018);border-left:1px solid var(--line)}
+  body.dock-closed #dock{display:none}
+  #dockHead{flex:none;padding:11px 14px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:10px}
+  #dockHead .av{width:30px;height:30px;border-radius:9px;flex:none;display:grid;place-items:center;
+    background:var(--acgrad);color:#052a24;font-size:15px;font-weight:800}
+  #dockHead h2{font-size:13.5px;font-weight:700}
+  #dockHead .sub{font-size:10px;color:var(--dim)}
+  #dockClose{margin-left:auto;width:28px;height:28px;border-radius:7px;border:1px solid var(--line);
+    background:#0e1626;color:var(--dim);cursor:pointer;font-size:14px}
+  #ctxline{flex:none;padding:6px 14px;font-size:10.5px;color:var(--dim);border-bottom:1px solid var(--line);
+    display:flex;align-items:center;gap:7px}
+  #ctxline b{color:var(--accent);font-weight:700}
+  #ctxdot{width:7px;height:7px;border-radius:50%;background:var(--dim)}
+  #ctxdot.live{background:var(--green);box-shadow:0 0 7px var(--green)}
+
+  #log{flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:11px}
+  .msg{display:flex;gap:9px;max-width:100%}
+  .msg .ava{width:25px;height:25px;border-radius:7px;flex:none;display:grid;place-items:center;font-size:13px}
+  .msg.cop .ava{background:var(--acgrad);color:#052a24}
+  .msg.user{flex-direction:row-reverse}
+  .msg.user .ava{background:#1b2942;box-shadow:0 0 0 1px var(--line) inset}
+  .bub{padding:9px 12px;border-radius:12px;font-size:12.5px;line-height:1.5;word-wrap:break-word;overflow-wrap:anywhere}
+  .msg.cop .bub{background:#101a2b;border:1px solid var(--line);border-top-left-radius:3px}
+  .msg.user .bub{background:#14305a;border:1px solid #1d4a86;border-top-right-radius:3px;color:#eaf2ff}
+  .bub b{color:var(--gold);font-weight:600}
+  .bub code{font-family:ui-monospace,monospace;background:#0a1422;border:1px solid var(--line);
+    border-radius:4px;padding:1px 5px;font-size:11px;color:var(--cyan)}
+  .bub .k{color:var(--cyan)}
+  .bub ul{margin:5px 0 2px;padding-left:17px}
+  .bub li{margin:2px 0}
+  .bub .did{margin-top:7px;padding-top:6px;border-top:1px dashed var(--line);font-size:11px;color:var(--green)}
+  .bub .did.warn{color:var(--gold)}
+  .bub .scnrow{display:flex;align-items:center;gap:6px}
+  .bub .scnlink{flex:1;display:block;color:#9fd0ff;text-decoration:none;cursor:pointer;padding:2px 4px;border-radius:5px;line-height:1.45}
+  .bub .scnlink:hover{background:#13243c;color:#cfe7ff;text-decoration:none}
+  .bub .scnapply{flex:none;cursor:pointer;font-size:10px;color:#cfe7ff;background:#16324f;border:1px solid var(--line);border-radius:999px;padding:2px 8px}
+  .bub .scnapply:hover{background:#1d4368}
+  .bub .evolink{flex:1;display:block;color:#cfe1ff;text-decoration:none;cursor:pointer;padding:2px 4px;border-radius:5px;line-height:1.45}
+  .bub .evolink:hover{background:#13243c;color:#fff}
+  .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+  .sg{padding:5px 11px 5px 9px;border-radius:999px;border:1px solid var(--bord);background:#101b2e;
+    color:#cfe7ff;font-size:11px;cursor:pointer;white-space:nowrap;display:inline-flex;align-items:center;gap:6px;
+    transition:border-color .15s,background .15s}
+  .sg::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--acgrad);flex:none}
+  .sg:hover{border-color:rgba(45,212,167,.55);background:#13243c}
+  .bub .scnapply{transition:background .15s}
+  .typing .bub{color:var(--dim)}
+  .dots span{display:inline-block;width:5px;height:5px;border-radius:50%;background:var(--dim);margin:0 1px;
+    animation:bl 1.2s infinite}
+  .dots span:nth-child(2){animation-delay:.2s}.dots span:nth-child(3){animation-delay:.4s}
+  @keyframes bl{0%,60%,100%{opacity:.25}30%{opacity:1}}
+
+  #quick{flex:none;padding:8px 12px 0;display:flex;flex-wrap:wrap;gap:6px;border-top:1px solid var(--line)}
+  #inputRow{flex:none;padding:10px 12px 12px;display:flex;gap:8px;align-items:flex-end}
+  #q{flex:1;resize:none;max-height:96px;min-height:40px;background:#0a1322;border:1px solid var(--line);
+    border-radius:10px;color:var(--txt);font-size:12.5px;padding:10px 12px;font-family:inherit;line-height:1.4}
+  #q:focus{outline:none;border-color:rgba(45,212,167,.55);box-shadow:0 0 0 2px rgba(45,212,167,.15)}
+  #send{flex:none;width:40px;height:40px;border-radius:12px;border:0;background:var(--acgrad);color:#052a24;
+    font-size:16px;cursor:pointer;font-weight:800;box-shadow:0 4px 14px rgba(34,211,238,.25)}
+  #send:disabled{opacity:.4;cursor:default}
+
+  /* floating reopen button when dock closed */
+  #copFab{position:fixed;right:16px;bottom:16px;z-index:40;display:none;align-items:center;gap:8px;
+    padding:12px 18px;border-radius:999px;border:0;background:var(--acgrad);color:#052a24;
+    font-size:13px;font-weight:800;cursor:pointer;box-shadow:0 8px 24px rgba(34,211,238,.3)}
+  body.dock-closed #copFab{display:flex}
+
+  @media (max-width:820px){
+    :root{--dock:100vw}
+    #brand small{display:none}
+    #dock{position:fixed;inset:0;z-index:50}
+    body.dock-closed #copFab{display:flex}
+    .tab span.lbl{display:none}
+    .tab{padding:7px 11px}
+  }
+</style>
+</head>
+<body class="dock-closed">
+
+<div id="bar">
+  <div id="brand">
+    <svg id="logo" width="26" height="26" viewBox="0 0 26 26" aria-hidden="true">
+      <defs><linearGradient id="lg" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0" stop-color="#2dd4a7"/><stop offset="1" stop-color="#22d3ee"/></linearGradient></defs>
+      <rect x="1" y="1" width="24" height="24" rx="7" fill="none" stroke="url(#lg)" stroke-width="1.6"/>
+      <circle cx="8.6" cy="9" r="2.1" fill="url(#lg)"/><circle cx="17.4" cy="7.6" r="1.7" fill="url(#lg)"/>
+      <circle cx="13.4" cy="17.6" r="2.4" fill="url(#lg)"/>
+      <path d="M8.6 9 L13.4 17.6 M17.4 7.6 L13.4 17.6 M8.6 9 L17.4 7.6" stroke="url(#lg)" stroke-width="1.3" fill="none"/>
+    </svg>
+    <span class="wm">STEAM <span class="v">AI Brain</span></span> <small>transport intelligence · network · assignment · copilot</small></div>
+  <div id="modechip"><span class="ic">🗺️</span><span id="modename">Network</span></div>
+  <div id="barRight">
+    <button id="copBtn"><span class="pulse"></span>Copilot</button>
+  </div>
+</div>
+
+<div id="main">
+  <nav id="rail" aria-label="Tools">
+    <div class="rgrp">Explore</div>
+    <button class="ritem" data-tool="net"><span class="ic">🗺️</span>Network</button>
+    <button class="ritem" data-tool="zones"><span class="ic">⬡</span>Zones</button>
+    <div class="rgrp">Model</div>
+    <button class="ritem" data-tool="demand"><span class="ic">📈</span>Demand</button>
+    <button class="ritem" data-tool="assign"><span class="ic">🚦</span>Assign</button>
+    <button class="ritem" data-tool="display"><span class="ic">🎨</span>Display</button>
+    <div class="rgrp">Plan</div>
+    <button class="ritem" data-tool="metro"><span class="ic">🚇</span>Metro</button>
+    <button class="ritem" data-tool="projects"><span class="ic">🛣️</span>Projects</button>
+    <button class="ritem" data-tool="rec"><span class="ic">✨</span>Solve</button>
+    <button class="ritem" data-tool="scn"><span class="ic">🛠️</span>Scenario</button>
+    <div class="rgrp">Insights</div>
+    <button class="ritem" data-tool="ana"><span class="ic">📊</span>Analysis</button>
+    <button class="ritem" data-tool="insights"><span class="ic">💡</span>Insights</button>
+    <button class="ritem" data-tool="settings"><span class="ic">⚙️</span>Settings</button>
+    <div class="rspring"></div>
+    <button class="ritem cop" id="railCop"><span class="ic">✦</span>Copilot</button>
+    <div id="railFoot"><span class="dotOK"></span>offline·ready</div>
+  </nav>
+  <div id="stage">
+    <div id="stepBar">
+      <div id="stepInfo"><b id="stepTitle"></b><span id="stepDesc"></span></div>
+      <div id="stepActs"></div>
+    </div>
+    <div class="frameWrap on" id="wrap-viewer">
+      <div class="frameLoad" id="load-viewer"><div class="spin"></div>Loading Network Viewer…</div>
+    </div>
+    <div class="frameWrap" id="wrap-assign">
+      <div class="frameLoad" id="load-assign"><div class="spin"></div>Loading Assignment engine…</div>
+    </div>
+    <div id="zoneBar">
+      <span class="zb-lbl">Aggregate zones, then test the assignment on them →</span>
+      <button id="zbAssign" class="zb-go">▶ Assign on these zones</button>
+      <button id="zbBest" class="zb-alt">✦ Find best method</button>
+      <button id="zbFull" class="zb-alt">↺ Full zones</button>
+    </div>
+    <div id="progPanel" aria-label="Solution program">
+      <div id="progHead"><span class="ph-grip">⠿</span><b>Program</b><span id="progMeta"></span><button id="progClose" aria-label="Close">✕</button></div>
+      <div id="progHint">Drag ⠿ to reorder · ✕ to drop a project · drag the header to move this panel</div>
+      <div id="progItems"></div>
+      <div id="progFoot"><span id="progTot"></span><button id="progApply" class="zb-go">Apply &amp; run scenario</button></div>
+    </div>
+  </div>
+
+  <aside id="dock">
+    <div id="dockHead">
+      <div class="av">✦</div>
+      <div>
+        <h2>STEAM Copilot</h2>
+        <div class="sub">one brain · every step · offline</div>
+      </div>
+      <button id="dockClose" aria-label="Hide copilot">✕</button>
+    </div>
+    <div id="ctxline"><span id="ctxdot"></span>Context: <b id="ctxapp">Network Viewer</b></div>
+    <div id="log"></div>
+    <div id="quick"></div>
+    <div id="inputRow">
+      <textarea id="q" rows="1" placeholder="Ask or tell the copilot… (e.g. “run a Frank-Wolfe assignment”)"></textarea>
+      <button id="send" aria-label="Send">➤</button>
+    </div>
+  </aside>
+</div>
+
+<button id="copFab"><span>✦</span> Ask Copilot</button>
+
+<!--APP_SOURCES-->
+
+<script>
+"use strict";
+/* =====================================================================
+   STEAM 2040 Studio — container + Copilot
+   Two original apps run untouched inside iframes (Blob URLs built from
+   embedded source). The copilot drives them through the injected bridge.
+   ===================================================================== */
+(function(){
+
+/* ---------- embedded-source helpers ---------- */
+var ENDTOK = "__STEAM_ES__";
+function appSource(id){
+  var el=document.getElementById(id);
+  return el ? el.textContent.split(ENDTOK).join("</scr"+"ipt>") : "";
+}
+
+/* ---------- app registry ---------- */
+var APPS = {
+  viewer:{ srcId:"src-viewer", label:"Network Viewer", frame:null, win:null, ready:false, url:null,
+    snapIds:["netstats","agglbl","odout","selinfo","loadStatus","dataStatus"] },
+  assign:{ srcId:"src-assign", label:"Assignment",     frame:null, win:null, ready:false, url:null,
+    snapIds:["kpi","status","gapOut","odStats","scnstats","analysisOut","demStats","reclist"] }
+};
+var activeApp="viewer";
+
+function ensureFrame(key){
+  var a=APPS[key];
+  if(a.frame) return a;
+  var html=appSource(a.srcId);
+  a.url=URL.createObjectURL(new Blob([html],{type:"text/html"}));
+  var f=document.createElement("iframe");
+  f.title=a.label;
+  f.src=a.url;
+  f.addEventListener("load",function(){ var l=document.getElementById("load-"+key); if(l) l.classList.add("hide"); });
+  document.getElementById("wrap-"+key).appendChild(f);
+  a.frame=f; a.win=f.contentWindow;
+  return a;
+}
+
+/* ---------- RPC to a frame's bridge ---------- */
+var rid=0, pending={};
+window.addEventListener("message",function(ev){
+  var m=ev.data; if(!m || m.steam!==1 || !m.resp) return;
+  if(m.event==="ready"){
+    for(var k in APPS){ if(APPS[k].label && m.app===k){ APPS[k].ready=true; updateCtx(); } }
+    return;
+  }
+  if(m.event==="needgeh"){   // Viewer selected GEHX but lacks the assignment-side data
+    (async function(){
+      try{
+        await ensureAssignGraph();   // runs one quick pass if the graph doesn't exist yet
+        var d=await rpc("assign",{cmd:"gehdata",timeoutMs:30000});
+        if(d&&d.ok) await rpc("viewer",{cmd:"setgehdata",ids:d.ids,nd:d.nd,w:d.w,timeoutMs:30000});
+      }catch(e){}
+    })();
+    return;
+  }
+  if(m.event==="metromoved"){   // a station was dragged — re-route the line along roads
+    clearTimeout(window.__METRT); window.__METRT=setTimeout(function(){ routeMetro(); }, 350);
+    return;
+  }
+  if(m.event==="evorank"){ openDock(); submit("rank 2040 improvements"); return; }   // ★ button in the viewer's toggle bar
+  if(m.event==="evoeval"){ openDock();                                               // Evaluate button on a map-selected project
+    (async function(){ var t=thinking(); var r;
+      try{ r=await assessOneCorridor(m.id); }catch(e){ r={html:"Evaluation failed: "+esc(String(e&&e.message||e))}; }
+      t.remove(); var mm=addMsg("cop", r.html||"Done."); addChips(mm, r.chips); })();
+    return; }
+  if(m.rid && pending[m.rid]){ pending[m.rid](m.out); delete pending[m.rid]; }
+});
+
+function waitReady(key,timeout){
+  return new Promise(function(res){
+    var a=ensureFrame(key);
+    var t0=Date.now();
+    (function poll(){
+      if(a.ready) return res(true);
+      try{ a.win.postMessage({steam:1,cmd:"ping",rid:0},"*"); }catch(e){}
+      if(Date.now()-t0>(timeout||9000)) return res(a.ready);
+      setTimeout(poll,120);
+    })();
+  });
+}
+function rpc(key,cmd){
+  return new Promise(function(res){
+    var a=APPS[key]; if(!a.win){ ensureFrame(key); a=APPS[key]; }
+    var id=++rid; cmd.steam=1; cmd.rid=id;
+    var done=false;
+    pending[id]=function(out){ done=true; res(out||{}); };
+    try{ a.win.postMessage(cmd,"*"); }catch(e){ res({ok:false,err:String(e)}); }
+    setTimeout(function(){ if(!done && pending[id]){ delete pending[id]; res({ok:false,err:"timeout"}); } }, cmd.timeoutMs||5000);
+  });
+}
+/* run a list of ops on an app, ensuring it is loaded+ready first */
+async function drive(key, ops){
+  await waitReady(key);
+  var results=[];
+  for(var i=0;i<ops.length;i++){
+    var op=ops[i], cmd={cmd:op[0]};
+    if(op[0]==="click")  cmd.id=op[1];
+    else if(op[0]==="set"){ cmd.id=op[1]; cmd.value=op[2]; }
+    else if(op[0]==="check"){ cmd.id=op[1]; cmd.value=op[2]; }
+    else if(op[0]==="seg"){ cmd.container=op[1]; cmd.key=op[2]; }
+    else if(op[0]==="open") cmd.text=op[1];
+    else if(op[0]==="key")  cmd.key=op[1];
+    results.push(await rpc(key,cmd));
+    await new Promise(function(r){ setTimeout(r,90); });   // let the app settle between ops
+  }
+  return results;
+}
+async function snapshot(key){
+  await waitReady(key);
+  var out=await rpc(key,{cmd:"snap",ids:APPS[key].snapIds});
+  return (out&&out.data)||{};
+}
+/* poll an app's state until ok(state) or timeout */
+async function pollState(key, ok, timeout){
+  var t0=Date.now(), s=await snapshot(key);
+  while(!ok(s) && Date.now()-t0<(timeout||9000)){
+    await new Promise(function(r){ setTimeout(r,400); });
+    s=await snapshot(key);
+  }
+  return s;
+}
+/* run an assignment, waiting for results; fall back to the all-ones engine
+   test if no OD matrix is available (the embedded matrix needs a decompressor
+   the base apps don't ship, so "loaded OD" can be empty). */
+async function runAssign(method, label){
+  switchApp("assign"); await waitReady("assign");
+  if(method) await rpc("assign",{cmd:"set",id:"methodSel",value:method});
+  // let the embedded OD finish decompressing so we assign real demand, not the fallback
+  await pollState("assign", function(s){ return s.odStats && /matrix|trips|pairs/i.test(s.odStats); }, 6000);
+  await rpc("assign",{cmd:"click",id:"runBtn"});
+  var noOD=function(s){ return /no od|switch demand|load a/i.test(s.status||""); };
+  var done=function(s){ return (s.kpi&&s.kpi.length>2) || noOD(s); };
+  var s=await pollState("assign", done, 14000), fell=false;
+  if((!s.kpi||s.kpi.length<3) && noOD(s)){
+    fell=true;
+    await rpc("assign",{cmd:"set",id:"demandSel",value:"ones"});
+    if(method) await rpc("assign",{cmd:"set",id:"methodSel",value:method});
+    await rpc("assign",{cmd:"click",id:"runBtn"});
+    s=await pollState("assign", function(x){ return x.kpi&&x.kpi.length>2; }, 14000);
+  }
+  var html=label||"Assignment complete.";
+  if(fell) html+=" <i>No OD matrix is loaded, so I ran the built-in <b>all-ones</b> engine test — magnitudes are illustrative; load an O,D,trips CSV for decision-grade numbers.</i>";
+  var statusDone=/origins\s*·.*links/i.test(s.status||"");   // final summary line
+  if(s.kpi && statusDone){
+    var bits=["<span class='k'>KPIs:</span> "+esc(s.kpi.slice(0,260))];
+    if(s.gapOut) bits.push("<span class='k'>Gap:</span> "+esc(s.gapOut.slice(0,90)));
+    html+="<div class='did"+(fell?" warn":"")+"'>"+bits.join("<br>")+"</div>";
+  } else {
+    html+=" Still computing — the map is updating live; ask me for the <b>KPIs</b> in a moment.";
+    if(s.status) html+="<div class='did warn'>"+esc(s.status.slice(0,200))+"</div>";
+  }
+  return {html:html, chips:["What are the current KPIs?","Colour by V/C","Rank corridors","Find solutions"]};
+}
+/* rank corridors / find solutions need a completed assignment first */
+async function rankOrSolve(btn, label){
+  switchApp("assign"); await waitReady("assign");
+  var s=await snapshot("assign");
+  var pre="";
+  if(!s.kpi || s.kpi.length<3){
+    pre=" <i>(ran a quick assignment first so there was something to rank).</i>";
+    await runAssign(null,"");
+  }
+  await rpc("assign",{cmd:"open",text:"recommend"});
+  await rpc("assign",{cmd:"click",id:btn});
+  s=await pollState("assign", function(x){ return x.reclist && x.reclist.length>2; }, 14000);
+  var html=label+pre;
+  if(s.reclist) html+="<div class='did'>"+esc(s.reclist.slice(0,420))+"</div>";
+  else if(s.status) html+="<div class='did warn'>"+esc(s.status.slice(0,180))+"</div>";
+  var prog=/program/i.test(s.reclist||"");
+  if(btn==="solveBtn" && prog){ openProgram(true); html+=" <i>Opened the draggable program list.</i>"; }
+  return {html:html, chips:prog?["Show program list","Colour by V/C","Top links"]:["Colour by V/C","Find solutions","Top links","Colour by LOS"]};
+}
+/* HANDOFF: take the Viewer's zone aggregation, re-aggregate the Assignment's
+   OD onto those merged zones, and re-run — "assign on the aggregated zones". */
+async function applyAggregationHandoff(){
+  await waitReady("viewer");
+  var agg=await rpc("viewer",{cmd:"getagg"});
+  if(!agg||!agg.ok){
+    return {html:"I couldn't read a zone aggregation yet. Open <b>Zones</b>, choose a method (e.g. Distance change or Districts) so the model merges zones, then ask me again.",
+            chips:["Open the zones tool","Colour by district"]};
+  }
+  if(!agg.merged){
+    return {html:"Right now no zones are merged — the current setting keeps all "+ (agg.total||0).toLocaleString() +" zones, so the assignment would be unchanged. Increase aggregation in <b>Zones</b> first (lower the confidence, raise the tolerance, or pick a coarser method).",
+            chips:["Open the zones tool"]};
+  }
+  switchApp("assign"); await waitReady("assign");
+  await pollState("assign", function(s){ return s.odStats && /matrix|trips|pairs/i.test(s.odStats); }, 7000);
+  var res=await rpc("assign",{cmd:"aggod",pairs:agg.pairs});
+  if(!res||!res.ok){
+    return {html:"The OD matrix isn't loaded yet, so I can't aggregate it ("+esc((res&&res.err)||"no OD")+"). Run an assignment once so the matrix loads, then try again.",
+            chips:["Run an assignment"]};
+  }
+  highlightRail("assign");
+  var run=await runAssign(null,
+    "Re-ran the assignment on your <b>aggregated zones</b> — "+agg.zones.toLocaleString()+" zones ("+agg.merged.toLocaleString()+" merged). "+
+    "After aggregation: "+res.pairs.toLocaleString()+" OD pairs, "+res.trips.toLocaleString()+" inter-zonal trips (intrazonal trips dropped).");
+  return run;
+}
+/* ===== AGGREGATION OPTIMISER: try many aggregation methods to the target
+   zone count, score each by how well it preserves the assigned flows, pick the
+   best, and show the before→after difference plot. ===== */
+var AGG_TARGET=2050;   // custom methods' target zone count (comparable to M1's typical result)
+var AGG_SEARCH_N=800;  // origin pre-sample shared by baseline+aggregated scoring runs
+var AGGCONFIGS=[
+  {name:"AX · study-area adaptive", method:"m1", studyArea:true},
+  {name:"AX · study-area + districts", method:"m2", studyArea:true},
+  /* proximity-first spatial methods (aggregate zones next to each other first) */
+  {name:"GEHX · exact-guard", gehx:true, target:3150},
+  {name:"NND · demand-weighted", custom:"nnd"},
+  {name:"NN · adjacent-first", custom:"nn"},
+  {name:"WARD · variance-min", custom:"ward"},
+  {name:"KM · compact k-means", custom:"kmeans"},
+  {name:"KC · k-center coverage", custom:"kcenter"},
+  {name:"GRID · square cells", custom:"grid"},
+  {name:"HEX · hex cells", custom:"hex"},
+  {name:"QT · quadtree adaptive", custom:"quad"},
+  {name:"BAL · size-balanced", custom:"bal"},
+  {name:"RING · rings × sectors", custom:"ring"},
+  {name:"M1 · land use + distance", method:"m1"},
+  {name:"M1 · strict area type", method:"m1", guards:{m1Strict:true}},
+  {name:"M2 · districts", method:"m2"},
+  {name:"M3 · low OD", method:"m3"},
+  {name:"M4 · hybrid", method:"m4"},
+  {name:"M5 · size / density", method:"m5"},
+  {name:"Distance change (geometry)", method:"distance"},
+  {name:"Intrazonal demand", method:"demand"},
+  {name:"M4 · + freight guard", method:"m4", guards:{gFreight:true}},
+  {name:"M2 · + land-use guard", method:"m2", guards:{gLuClass:true}}
+];
+/* per-zone trip-end weights from the Assignment's OD — fetched once, then
+   passed to every custom spatial aggregation so merging is demand-aware
+   (high-demand zones keep their own loading points) */
+var OD_ENDS;
+async function getOdEnds(){
+  if(OD_ENDS!==undefined) return OD_ENDS;
+  await waitReady("assign");
+  await pollState("assign", function(s){ return s.odStats && /matrix|trips|pairs/i.test(s.odStats); }, 8000);
+  var r=await rpc("assign",{cmd:"odends",timeoutMs:30000});
+  OD_ENDS=(r&&r.ok)?{wid:r.wid,w:r.w}:null;
+  return OD_ENDS;
+}
+/* fetch a config's zone aggregation from the Viewer, whatever family it is:
+   custom spatial (nn/grid/kmeans), study-area adaptive, or a built-in method */
+/* the Assignment builds its network graph on the first run — GEHX needs it,
+   so kick one quick free-flow pass if it isn't there yet (selects restored) */
+var GRAPH_READY=false;
+async function ensureAssignGraph(){
+  if(GRAPH_READY) return true;
+  await waitReady("assign");
+  await pollState("assign", function(s){ return s.odStats && /matrix|trips|pairs/i.test(s.odStats); }, 15000);
+  var probe=await rpc("assign",{cmd:"gehdata",timeoutMs:15000});
+  if(probe&&probe.ok){ GRAPH_READY=true; return true; }
+  var m0=await rpc("assign",{cmd:"getval",id:"methodSel"});
+  var s0=await rpc("assign",{cmd:"getval",id:"sampleSel"});
+  await rpc("assign",{cmd:"set",id:"methodSel",value:"aon"});
+  await rpc("assign",{cmd:"set",id:"sampleSel",value:"500"});
+  await runAggAssign();
+  if(m0&&m0.ok&&m0.value!=null) await rpc("assign",{cmd:"set",id:"methodSel",value:m0.value});
+  if(s0&&s0.ok&&s0.value!=null) await rpc("assign",{cmd:"set",id:"sampleSel",value:s0.value});
+  var again=await rpc("assign",{cmd:"gehdata",timeoutMs:15000});
+  GRAPH_READY=!!(again&&again.ok);
+  return GRAPH_READY;
+}
+async function fetchAgg(cfg){
+  if(cfg.pairset && PRELOAD_AGG && PRELOAD_AGG.pairsets && PRELOAD_AGG.pairsets[cfg.pairset]){
+    var ps=PRELOAD_AGG.pairsets[cfg.pairset];   // certified merge list baked verbatim
+    return {ok:true, pairs:ps.pairs, merged:ps.pairs.length, zones:ps.zones};
+  }
+  if(cfg.gehx){ await ensureAssignGraph(); return rpc("assign",{cmd:"gehagg",target:cfg.target||3150,timeoutMs:120000}); }
+  if(cfg.custom){
+    var we=await getOdEnds();
+    return rpc("viewer",{cmd:"getaggcustom",mode:cfg.custom,target:cfg.target||AGG_TARGET,
+                         wid:we&&we.wid,w:we&&we.w,timeoutMs:60000});
+  }
+  if(cfg.studyArea) return rpc("viewer",{cmd:"getaggsa",rect:STUDY_RECT,pad:(cfg.pad||0)});
+  return rpc("viewer",{cmd:"getagg"});
+}
+/* study-area rectangle (world coords) captured when a search starts, and a
+   sequence for caching each tested scenario's flows for later inspection */
+var STUDY_RECT=null, SCN_SEQ=1, AGG_BYKEY={}, ORIG_RT=null;
+function nowMs(){ return (window.performance&&performance.now)?performance.now():(+new Date()); }
+var GUARD_IDS=["gRegion","gSector","gUrban","gMetro","gMetroAcc","gFreight","gLuClass","m1Strict","m1Density"];
+var GUARD_DEFAULT={gRegion:true,gSector:true};
+/* the tuning selects a config may override — always reset to the app defaults
+   first, so one variant's setting can't leak into the configs tested after it */
+var SETS_DEFAULT={confSel:"0.99", tolSel:"1", budgetSel:"1", barLevelSel:"coll"};
+var LAST_SETS={};   // what we last pushed, so we only fire real changes
+function setBub(el,html){ try{ el.querySelector(".bub").innerHTML=html; log.scrollTop=log.scrollHeight; }catch(e){} }
+function aggSleep(ms){ return new Promise(function(r){ setTimeout(r,ms); }); }
+async function applyAggConfig(cfg){
+  for(var k=0;k<GUARD_IDS.length;k++){ var id=GUARD_IDS[k];
+    var want=(cfg.guards&&cfg.guards[id]!==undefined)?cfg.guards[id]:!!GUARD_DEFAULT[id];
+    await rpc("viewer",{cmd:"check",id:id,value:want});
+  }
+  for(var did in SETS_DEFAULT){
+    var v=(cfg.sets&&cfg.sets[did]!==undefined)?cfg.sets[did]:SETS_DEFAULT[did];
+    if(LAST_SETS[did]!==v){ await rpc("viewer",{cmd:"set",id:did,value:v}); LAST_SETS[did]=v; }
+  }
+  await rpc("viewer",{cmd:"set",id:"methodSel",value:cfg.method});
+  await aggSleep(1500);   // let the aggregation compute
+}
+async function runAggAssign(maxMs){    // run the assignment and wait for it to finish
+  await rpc("assign",{cmd:"click",id:"runBtn"});
+  // allow for an all-zones run, which is far slower than the 250-origin sample;
+  // equilibrium (FW) on all origins needs far longer still — callers extend it
+  return pollState("assign", function(x){ return x.kpi && x.kpi.length>2 && /origins\s*·.*links/i.test(x.status||""); }, maxMs||240000);
+}
+/* parameter variants to refine the winning method (stage 2) */
+function expandConfig(cfg){
+  var method=(typeof cfg==="string")?cfg:cfg.method;
+  if(cfg&&cfg.gehx) return [
+    {name:"GEHX · exact-guard @ 3300", gehx:true, target:3300},
+    {name:"GEHX · exact-guard @ 3000", gehx:true, target:3000},
+    {name:"GEHX · exact-guard @ 2800", gehx:true, target:2800},
+    {name:"GEHX · exact-guard @ 2600", gehx:true, target:2600}];
+  if(cfg&&cfg.custom){ var M=cfg.custom, NM={nn:"NN",nnd:"NND",grid:"GRID",kmeans:"KM",ward:"WARD",kcenter:"KC",hex:"HEX",quad:"QT",bal:"BAL",ring:"RING"}[M]||M.toUpperCase();
+    return [
+      {name:NM+" · very fine ("+Math.round(AGG_TARGET*1.7)+" zones)", custom:M, target:Math.round(AGG_TARGET*1.7)},
+      {name:NM+" · finer ("+Math.round(AGG_TARGET*1.3)+" zones)", custom:M, target:Math.round(AGG_TARGET*1.3)},
+      {name:NM+" · coarser ("+Math.round(AGG_TARGET*0.7)+" zones)", custom:M, target:Math.round(AGG_TARGET*0.7)},
+      {name:(M==="nn"?"KM · compact k-means":"NN · adjacent-first")+" (alt)", custom:(M==="nn"?"kmeans":"nn")}];
+  }
+  if(cfg&&cfg.studyArea) return [
+    {name:"AX · study-area (tighter)", method:method, studyArea:true, pad:-0.2},
+    {name:"AX · study-area (wider)", method:method, studyArea:true, pad:0.3},
+    {name:"AX · study-area land use", method:"m1", studyArea:true},
+    {name:"AX · study-area + districts", method:"m2", studyArea:true},
+    {name:"AX · study-area + freight guard", method:method, studyArea:true, guards:{gFreight:true}}];
+  if(method==="m1") return [
+    {name:"M1 · strict + per-km²", method:"m1", guards:{m1Strict:true,m1Density:true}},
+    {name:"M1 · per-km²", method:"m1", guards:{m1Density:true}},
+    {name:"M1 · + urban/rural", method:"m1", guards:{gUrban:true}},
+    {name:"M1 · + metro guard", method:"m1", guards:{gMetro:true}}];
+  if(method==="distance") return [
+    {name:"Distance · 95% conf", method:"distance", sets:{confSel:"0.95"}},
+    {name:"Distance · 0.5% tol", method:"distance", sets:{tolSel:"0.5"}},
+    {name:"Distance · 2% tol", method:"distance", sets:{tolSel:"2"}},
+    {name:"Distance · arterials barrier", method:"distance", sets:{barLevelSel:"art"}}];
+  if(method==="demand") return [
+    {name:"Demand · 0.5% budget", method:"demand", sets:{budgetSel:"0.5"}},
+    {name:"Demand · 2% budget", method:"demand", sets:{budgetSel:"2"}},
+    {name:"Demand · + urban/rural", method:"demand", guards:{gUrban:true}}];
+  var U=method.toUpperCase();
+  return [
+    {name:U+" · + urban/rural", method:method, guards:{gUrban:true}},
+    {name:U+" · + metro", method:method, guards:{gMetro:true}},
+    {name:U+" · + freight", method:method, guards:{gFreight:true}},
+    {name:U+" · arterials barrier", method:method, sets:{barLevelSel:"art"}}];
+}
+/* evaluate one config: aggregate → re-assign → score → show its Δ plot */
+async function evalAggConfig(cfg, prog, tag){
+  setBub(prog, "✦ <b>Aggregation search</b> — "+tag+": "+esc(cfg.name)+" — aggregating…");
+  switchApp("viewer"); await waitReady("viewer");
+  if(!cfg.custom && !cfg.gehx) await applyAggConfig(cfg);   // custom/gehx methods need no viewer UI state
+  var agg=await fetchAgg(cfg);
+  if(!agg||!agg.ok||!agg.merged) return null;
+  switchApp("assign"); await waitReady("assign");
+  // build BOTH matrices (aggregated + demand-matched full baseline). The
+  // baseline assigns exactly the trips that stay inter-zonal under THIS
+  // aggregation, so the score measures pure routing/loading error — not the
+  // internalised short trips that aggregation removes by definition.
+  var odr=await rpc("assign",{cmd:"aggod",pairs:agg.pairs,sampleN:AGG_SEARCH_N});
+  setBub(prog, "✦ "+tag+": "+esc(cfg.name)+" — matched baseline ("+(odr&&odr.internalised?odr.internalised.toLocaleString()+" trips internalised":"…")+")…");
+  await rpc("assign",{cmd:"odbase",which:"filt"});
+  await runAggAssign();                                    // demand-matched baseline
+  await rpc("assign",{cmd:"snapfull"});
+  await rpc("assign",{cmd:"odbase",which:"agg"});
+  setBub(prog, "✦ "+tag+": "+esc(cfg.name)+" — aggregated assignment…");
+  var t0=nowMs(); await runAggAssign(); var runtime=(nowMs()-t0)/1000;   // assignment wall-clock
+  var cmp=await rpc("assign",{cmd:"cmpfull"});
+  if(!cmp||!cmp.ok) return null;
+  var sid="scn"+(SCN_SEQ++);
+  await rpc("assign",{cmd:"scnsave",key:sid});           // cache this scenario's flows
+  await rpc("assign",{cmd:"showdiff"});                  // show THIS method's Δ
+  var spd = (ORIG_RT&&runtime>0) ? " · "+(ORIG_RT/runtime).toFixed(1)+"× faster" : "";
+  setBub(prog, "✦ "+tag+": <b>"+esc(cfg.name)+"</b> — "+agg.zones.toLocaleString()+" zones · flow RMSE "+cmp.pctRmse.toFixed(1)+"% · VHT err "+cmp.vhtErr.toFixed(1)+"% · "+runtime.toFixed(1)+" s"+spd+" — <i>Δ plot shown</i>");
+  await aggSleep(900);                                   // let the user see the Δ
+  var r={name:cfg.name, cfg:cfg, key:sid, zones:agg.zones, merged:agg.merged, pctRmse:cmp.pctRmse, corr:cmp.corr, vhtErr:cmp.vhtErr, nLinks:cmp.nLinks, runtime:runtime, pctW1:cmp.pctW1, geh5:cmp.geh5};
+  AGG_BYKEY[sid]=r;
+  return r;
+}
+/* apply (select) a previously-tested scenario as the live model state */
+async function applyScenario(key){
+  var r=AGG_BYKEY[key];
+  if(!r){ addMsg("cop","I no longer have that scenario's settings cached — re-run <b>find best aggregation</b> first."); return; }
+  var msg=addMsg("cop","Applying <b>"+esc(r.name)+"</b> to the model on all zones…");
+  switchApp("viewer"); await waitReady("viewer");
+  if(!r.cfg.custom && !r.cfg.gehx && !r.cfg.pairset) await applyAggConfig(r.cfg);
+  var agg=await fetchAgg(r.cfg);
+  if(!agg||!agg.ok){ setBub(msg,"Couldn't rebuild that aggregation — try again."); return; }
+  switchApp("assign"); await waitReady("assign");
+  await rpc("assign",{cmd:"set",id:"sampleSel",value:"0"});
+  await pollState("assign", function(s){ return s.odStats; }, 7000);
+  await rpc("assign",{cmd:"aggod",pairs:agg.pairs});
+  var t0=nowMs(); await runAggAssign(); var dt=(nowMs()-t0)/1000;
+  await rpc("assign",{cmd:"scnsave",key:key});
+  await rpc("assign",{cmd:"showdiff"}); highlightRail("assign");
+  setBub(msg,"Applied <b>"+esc(r.name)+"</b> — "+(agg.zones?agg.zones.toLocaleString()+" zones · ":"")+"assignment ran in "+dt.toFixed(1)+" s on all zones"+(ORIG_RT?" ("+(ORIG_RT/dt).toFixed(1)+"× vs the original "+ORIG_RT.toFixed(1)+" s)":"")+". The map shows its Δ plot — colour by V/C or rank corridors to dig in.");
+  addChips(msg,["Colour by V/C","Rank corridors","Reset to full zones"]);
+}
+/* inline SVG bar chart (offline, D3-style) of a metric per method. unit is
+   appended to each value label; refVal (optional) draws a dashed reference line
+   (e.g. the original full-zone runtime). */
+function aggChart(results, metric, title, unit, refVal, refLabel){
+  unit=(unit==null)?"%":unit;
+  var data=results.slice().filter(function(d){ return typeof d[metric]==="number"; }).sort(function(a,b){ return a[metric]-b[metric]; });
+  if(!data.length) return "";
+  var n=data.length, barH=15, gap=5, padT=22, padB=4, padL=6, labelW=118, chartW=326;
+  var plotW=chartW-labelW-50-padL;
+  var h=padT+padB+n*(barH+gap);
+  var max=Math.max(1, Math.max.apply(null, data.map(function(d){ return Math.max(0,d[metric]); })));
+  if(typeof refVal==="number") max=Math.max(max, refVal);
+  var s='<svg width="'+chartW+'" height="'+h+'" viewBox="0 0 '+chartW+' '+h+'" style="max-width:100%;margin-top:6px">';
+  s+='<text x="'+padL+'" y="13" fill="#d7e1f2" font-size="11" font-weight="700">'+esc(title)+'</text>';
+  data.forEach(function(d,i){ var y=padT+i*(barH+gap), v=Math.max(0,d[metric]);
+    var bw=Math.max(2, plotW*Math.min(1, v/max));
+    var col= i===0 ? "#2ecc71" : (v/max>0.5?"#e74c3c":"#e6a93c");
+    s+='<text x="'+padL+'" y="'+(y+barH-3)+'" fill="#9fb0c8" font-size="9.5">'+esc(d.name.slice(0,21))+'</text>';
+    s+='<rect x="'+(padL+labelW)+'" y="'+y+'" width="'+bw.toFixed(1)+'" height="'+barH+'" rx="3" fill="'+col+'"/>';
+    s+='<text x="'+(padL+labelW+bw+4)+'" y="'+(y+barH-3)+'" fill="#cfe7ff" font-size="9.5">'+v.toFixed(1)+unit+'</text>';
+  });
+  if(typeof refVal==="number"){ var rx=padL+labelW+plotW*Math.min(1,refVal/max);
+    s+='<line x1="'+rx.toFixed(1)+'" y1="'+(padT-3)+'" x2="'+rx.toFixed(1)+'" y2="'+(h-padB)+'" stroke="#ffd60a" stroke-width="1" stroke-dasharray="3,2"/>';
+    s+='<text x="'+Math.min(rx+3,chartW-60)+'" y="'+(padT+7)+'" fill="#ffd60a" font-size="8.5">'+esc(refLabel||("orig "+refVal.toFixed(1)+unit))+'</text>'; }
+  return s+'</svg>';
+}
+async function findBestAggregation(){
+  openDock();
+  AGG_BYKEY={}; ORIG_RT=null;
+  var prog=addMsg("cop","✦ <b>Aggregation-method search</b> — preparing…");
+  // the current map view becomes the "study area" for the adaptive method
+  var rr0=await rpc(activeApp,{cmd:"getrect"});
+  STUDY_RECT=(rr0&&rr0.ok)?rr0.rect:null;
+  switchApp("assign"); await waitReady("assign");
+  // restrict the error to the study area + a 5 km buffer; links outside are ignored
+  var AREA_BUFFER=5000;   // metres
+  var am=await rpc("assign",{cmd:"setarea",rect:STUDY_RECT,buffer:AREA_BUFFER});
+  var areaTxt = (STUDY_RECT && am && am.ok && am.n)
+    ? "Error is scored only inside your <b>study area + 5 km buffer</b> ("+am.n.toLocaleString()+" links)."
+    : "Couldn't read a study area, so error is scored over the whole network — zoom to your area of interest and run me again to focus it.";
+  // SCORING DESIGN: both runs of every method assign the IDENTICAL pre-sampled
+  // trips (aggod sampleN), with BPR incremental rerouting — so the score is
+  // pure aggregation-induced routing/loading error: no missing-intrazonal
+  // demand, no origin-sampling mismatch, no all-or-nothing knife edges.
+  var SEARCH_SAMPLE=AGG_SEARCH_N;
+  setBub(prog, "✦ <b>Aggregation-method search</b> — each method is scored against its own <b>demand-matched baseline</b>: the identical "+SEARCH_SAMPLE+"-origin pre-sampled trips assigned on full zones vs aggregated zones (BPR rerouting). Two runs per method; winner verified on all zones. "+areaTxt);
+  await rpc("assign",{cmd:"set",id:"methodSel",value:"bpr"});
+  await rpc("assign",{cmd:"set",id:"sampleSel",value:"0"});   // matrices are pre-sampled
+  await pollState("assign", function(s){ return s.odStats && /matrix|trips|pairs/i.test(s.odStats); }, 7000);
+  await rpc("assign",{cmd:"aggod",pairs:[],sampleN:AGG_SEARCH_N});   // pre-sampled, un-aggregated
+  var tb=nowMs(); await runAggAssign(); ORIG_RT=(nowMs()-tb)/1000;   // original (un-aggregated) runtime
+  var snap=await rpc("assign",{cmd:"snapfull"});
+  if(!snap||!snap.ok){ setBub(prog,"I couldn't establish a full-zone baseline. Run an assignment first, then try again."); return {html:"",chips:["Run an assignment"]}; }
+  // STAGE 1 — base methods
+  var results=[];
+  for(var i=0;i<AGGCONFIGS.length;i++){
+    var r=await evalAggConfig(AGGCONFIGS[i], prog, (i+1)+"/"+AGGCONFIGS.length);
+    if(r) results.push(r);
+  }
+  if(!results.length){ setBub(prog,"No aggregation produced a comparable assignment — load a real OD matrix first."); return {html:"",chips:["Run an assignment"]}; }
+  results.sort(function(a,b){ return a.pctRmse-b.pctRmse; });
+  // STAGE 2 — refine the winning method's parameters (more combinations)
+  var variants=expandConfig(results[0].cfg);
+  for(var j=0;j<variants.length;j++){
+    var rv=await evalAggConfig(variants[j], prog, "refine "+(j+1)+"/"+variants.length);
+    if(rv) results.push(rv);
+  }
+  results.sort(function(a,b){ return a.pctRmse-b.pctRmse; });
+  var best=results[0];
+  // VERIFY the winner on ALL zones with the demand-MATCHED baseline: assign the
+  // same kept trips on full zones, then on the winner's zones, both timed
+  setBub(prog,"✦ Verifying the winner (<b>"+esc(best.name)+"</b>) on <b>all zones</b> (matched baseline)…");
+  await rpc("assign",{cmd:"set",id:"sampleSel",value:"0"});
+  await pollState("assign", function(s){ return s.odStats && /matrix|trips|pairs/i.test(s.odStats); }, 7000);
+  switchApp("viewer"); await waitReady("viewer");
+  if(!best.cfg.custom && !best.cfg.gehx) await applyAggConfig(best.cfg);
+  var bagg=await fetchAgg(best.cfg);
+  switchApp("assign"); await waitReady("assign");
+  var bodr=await rpc("assign",{cmd:"aggod",pairs:bagg.pairs});        // build both matrices
+  await rpc("assign",{cmd:"odbase",which:"filt"});
+  var toa=nowMs(); await runAggAssign(); var origAllRT=(nowMs()-toa)/1000;
+  await rpc("assign",{cmd:"snapfull"});                               // matched all-zones reference
+  await rpc("assign",{cmd:"odbase",which:"agg"});
+  var twa=nowMs(); await runAggAssign(); var winAllRT=(nowMs()-twa)/1000;
+  var cmpAll=await rpc("assign",{cmd:"cmpfull"});
+  await rpc("assign",{cmd:"scnsave",key:best.key});      // refresh the winner's cache (all zones)
+  await rpc("assign",{cmd:"showdiff"}); highlightRail("assign");
+  if(cmpAll&&cmpAll.ok){ best.pctRmse=cmpAll.pctRmse; best.corr=cmpAll.corr; best.vhtErr=cmpAll.vhtErr; best.nLinks=cmpAll.nLinks; best.allZones=true; }
+  best.runtimeAll=winAllRT;
+  prog.remove();
+  var rows=results.map(function(r,i){
+    var rt=(typeof r.runtime==="number")? r.runtime.toFixed(1)+" s"+(ORIG_RT?" ("+(ORIG_RT/r.runtime).toFixed(1)+"×)":"") : "";
+    return '<div class="scnrow">'
+      +'<a href="#" class="scnlink" data-scn="'+esc(r.key||"")+'" data-name="'+esc(r.name)+'">'
+      + (i+1)+". "+(i===0?"<b>":"")+esc(r.name)+(i===0?"</b>":"")
+      +" — "+r.zones.toLocaleString()+" zones · RMSE "+r.pctRmse.toFixed(1)+"% · VHT "+r.vhtErr.toFixed(1)+"%"+(r.pctW1!=null?" · links≤1% "+r.pctW1.toFixed(0)+"%":"")+" · "+rt
+      +"</a>"
+      +'<button class="scnapply" data-apply="'+esc(r.key||"")+'" title="Apply this aggregation to the model (all zones)">apply ▸</button>'
+      +'</div>';
+  }).join("");
+  var scope = (STUDY_RECT && best.nLinks) ? " Error is measured only inside your <b>study area + 5 km buffer</b> ("+best.nLinks.toLocaleString()+" links)." : "";
+  var speed = origAllRT>0 ? " <b>Assignment runtime (all zones):</b> matched baseline "+origAllRT.toFixed(1)+" s → best aggregation "+winAllRT.toFixed(1)+" s ("+(origAllRT/Math.max(0.01,winAllRT)).toFixed(1)+"× faster)." : "";
+  var intern = (bodr&&bodr.ok&&bodr.internalised!=null) ? " It internalises <b>"+bodr.internalised.toLocaleString()+" trips</b> ("+(100*bodr.internalised/Math.max(1,bodr.internalised+bodr.keptTrips)).toFixed(1)+"% of demand) — those become intrazonal and leave the network model by design; the error below is measured on the remaining trips against a <b>demand-matched full-zone baseline</b>, so it is pure routing/loading error." : "";
+  var lnkTxt=(cmpAll&&cmpAll.ok&&cmpAll.pctW1!=null)?" At link level, <b>"+cmpAll.pctW1.toFixed(1)+"% of links stay within 1%</b> of their baseline flow (GEH&lt;5 on "+cmpAll.geh5.toFixed(1)+"%).":"";
+  var html="<b>Best: "+esc(best.name)+"</b> at "+best.zones.toLocaleString()+" zones — preserves the assigned flows best (<b>"+best.pctRmse.toFixed(1)+"% flow RMSE</b>, VHT error "+best.vhtErr.toFixed(1)+"%, corr "+best.corr.toFixed(3)+", verified on all zones)."+lnkTxt+intern+scope+speed+" The map shows the <b>before→after Δ plot</b>."
+    + aggChart(results,"runtime","Assignment runtime by method (vs original)"," s", ORIG_RT, "original "+(ORIG_RT?ORIG_RT.toFixed(1):"?")+" s")
+    + aggChart(results,"vhtErr","VHT error by method (lower = better)")
+    + aggChart(results,"pctRmse","Flow RMSE by method")
+    + "<div class='did' style='font-size:11px;color:#9fb0c8;margin-top:4px'>Scores = pure aggregation error: identical pre-sampled trips ("+SEARCH_SAMPLE+" origins), demand-matched baseline, BPR rerouting; runtimes are that ranking pass; the winner's numbers are re-measured on all zones. <b>Click a scenario</b> to load its Δ plot, or <b>apply ▸</b> to set it as the model.</div>"
+    + "<div class='did' style='max-height:180px;overflow:auto'>"+rows+"</div>";
+  return {html:html, chips:["Colour by V/C","What are the current KPIs?","Reset to full zones"]};
+}
+/* reset the Assignment back to the full (un-aggregated) zone system */
+async function resetZonesHandoff(){
+  switchApp("assign"); await waitReady("assign");
+  await pollState("assign", function(s){ return s.odStats; }, 7000);
+  var res=await rpc("assign",{cmd:"aggod",pairs:[]});
+  if(!res||!res.ok) return {html:"Couldn't reset — run an assignment first so the OD loads.", chips:["Run an assignment"]};
+  var run=await runAssign(null,"Restored the <b>full</b> zone system ("+res.origins.toLocaleString()+" origins) and re-ran.");
+  return run;
+}
+
+/* ===== PRELOADED UNIFIED COMPARISON: aggregation-method scores computed
+   offline over the WHOLE network (no study-area mask) at several zone targets
+   with the exact optimiser protocol — demand-matched baseline, identical
+   pre-sampled trips, BPR rerouting — and baked into the build so the results
+   can be read instantly without running the live search. ===== */
+var PRELOAD_AGG=null; /*__PRELOAD_AGG__*/
+function preShort(r){ var c=r.cfg||{};
+  if(c.gehx100||c.pairset) return "GEHX-100";
+  if(c.gehx) return "GEHX"+(c.target?" @"+c.target:"");
+  if(c.custom) return c.custom.toUpperCase()+(c.target?" @"+c.target:"");
+  return (c.method||"?").toUpperCase();
+}
+/* rank preloaded configs by the model-validation standard: highest GEH<5
+   share first, links-within-1% then VHT error as tiebreaks (older bakes
+   without link stats fall back to VHT only) */
+function preScore(a,b){
+  var ag=(a.geh5!=null), bg=(b.geh5!=null);
+  if(ag&&bg && b.geh5!==a.geh5) return b.geh5-a.geh5;
+  var aw=(a.pctW1!=null), bw=(b.pctW1!=null);
+  if(aw&&bw && b.pctW1!==a.pctW1) return b.pctW1-a.pctW1;
+  return a.vhtErr-b.vhtErr;
+}
+function preBestIdx(){
+  var P=PRELOAD_AGG; if(!P||!P.results||!P.results.length) return -1;
+  var bi=0; P.results.forEach(function(r,i){ if(preScore(r,P.results[bi])<0) bi=i; });
+  return bi;
+}
+function preRow(r, idx, rank, isBest){
+  var spd=(r.baseRt>0&&r.rt>0)?" · "+r.rt.toFixed(1)+" s ("+(r.baseRt/Math.max(0.01,r.rt)).toFixed(1)+"×)":"";
+  var g2=(r.pctG2!=null)?" · <b>GEH&lt;2: "+r.pctG2.toFixed(1)+"%</b>"+(r.maxGeh!=null?" (max "+r.maxGeh.toFixed(2)+")":""):"";
+  var lnk=(r.pctW1!=null)
+    ? " — "+r.zones.toLocaleString()+" zones · <b>GEH&lt;5: "+r.geh5.toFixed(1)+"%</b> · links ≤1%: "+r.pctW1.toFixed(1)+"%"+g2+" · VHT "+r.vhtErr.toFixed(2)+"% · intern "+r.internPct.toFixed(1)+"%"+spd
+    : " — "+r.zones.toLocaleString()+" zones · VHT "+r.vhtErr.toFixed(2)+"% · RMSE "+r.pctRmse.toFixed(1)+"% · corr "+r.corr.toFixed(3)+" · intern "+r.internPct.toFixed(1)+"%"+spd;
+  if(r.fw&&r.fw.geh5!=null) lnk+=" · <span style='color:#7df9ff' title='decision-grade spot check: Frank-Wolfe user equilibrium, all origins'>eqm GEH&lt;5: "+r.fw.geh5.toFixed(1)+"%</span>";
+  var canD=(r.dN!=null&&r.dN>0);
+  var ident=(!canD && r.maxGeh!=null && r.maxGeh===0);
+  var canZ=!!(r.cfg && (r.cfg.custom || r.cfg.gehx || r.cfg.method || r.cfg.pairset));   // every config can at least show its zone system
+  return '<div class="scnrow">'
+    +(canD
+      ? '<a href="#" class="prelink scnlink" data-pre="'+idx+'" title="Show this configuration\'s baked Δ plot on the map (and its zone system in the Viewer)">'
+      : (canZ
+        ? '<a href="#" class="prelink scnlink" data-pre="'+idx+'" title="'+(ident?"The aggregated assignment is bit-identical to full zones — no Δ exists. Click to show its merged zone system in the Viewer":"Show this method\'s merged zone system in the Viewer")+'">'
+        : '<span class="scnlink" style="cursor:default">'))
+    +rank+". "+(isBest?"<b>":"")+esc(r.name)+(isBest?"</b>":"")+lnk
+    +(canD?' <span style="color:#6f87a8">Δ ▸</span></a>'
+          :(canZ?(ident?' <span style="color:#2ecc71">≡ identical · zones ▸</span></a>':' <span style="color:#6f87a8">zones ▸</span></a>'):'</span>'))
+    +'<button class="scnapply" data-preapply="'+idx+'" title="Rebuild this aggregation live and apply it to the model (all zones, full demand)">apply ▸</button>'
+    +'</div>';
+}
+/* lazily decode the baked sparse Δ block (base64 → gzip → ArrayBuffer) */
+function preDiffBuf(){
+  if(window.__PREDIFFP) return window.__PREDIFFP;
+  window.__PREDIFFP=(async function(){
+    var el=document.getElementById("preload-diff"); if(!el) return null;
+    var b64=el.textContent.replace(/\s+/g,""); if(!b64) return null;
+    var bin=atob(b64), bytes=new Uint8Array(bin.length);
+    for(var i=0;i<bin.length;i++) bytes[i]=bin.charCodeAt(i);
+    return new Response(new Blob([bytes]).stream().pipeThrough(new DecompressionStream("gzip"))).arrayBuffer();
+  })();
+  return window.__PREDIFFP;
+}
+/* show a preloaded configuration's Δ plot straight from the baked data —
+   no assignment run needed; the map's Δ-filter bar works as usual */
+/* load a preloaded configuration's merged zone system into the Viewer and
+   show it (used directly for rows with no Δ — e.g. the provably-identical
+   GEHX @ 3150 — and as the zone-sync step after a Δ plot) */
+async function showPreZones(r){
+  await waitReady("viewer");
+  if(r.cfg && (r.cfg.custom || r.cfg.gehx || r.cfg.pairset)){
+    var agg=await fetchAgg(r.cfg);
+    if(agg && agg.ok && agg.pairs && agg.pairs.length){
+      var ap=await rpc("viewer",{cmd:"applypairs",pairs:agg.pairs,label:r.name,timeoutMs:60000});
+      if(ap&&ap.ok) return ap.zones;
+    }
+    return 0;
+  }
+  if(r.cfg && r.cfg.method){ await applyAggConfig(r.cfg); return r.zones||0; }
+  return 0;
+}
+async function showPreDiff(i){
+  var P=PRELOAD_AGG, r=P&&P.results&&P.results[i];
+  if(!r) return;
+  if(r.dN==null||!r.dN){
+    // no baked Δ (identical, or Δ never exported) — show the ZONE SYSTEM instead
+    var ident=(r.maxGeh!=null && r.maxGeh===0);
+    var mz=addMsg("cop","Building the merged zone system for <b>"+esc(r.name)+"</b>…");
+    try{
+      var nz=await showPreZones(r);
+      switchApp("viewer"); try{ selectTool("zones"); }catch(eT){}
+      highlightRail("viewer");
+      if(!nz) throw new Error("the Viewer couldn't rebuild this aggregation — run an assignment first if it needs the network graph");
+      setBub(mz,"The <b>Network Viewer</b> now shows <b>"+esc(r.name)+"</b> — its merged zone system ("+nz.toLocaleString()+" zones)."+(ident?" This configuration's assignment is <b>bit-identical</b> to full zones (GEH 0 on every link), so there is no Δ plot to show — the zone map IS the whole story.":" It has no baked Δ plot — use <b>apply ▸</b> to compute one live."));
+    }catch(e){ setBub(mz,"Couldn't show that zone system: "+esc(String(e&&e.message||e))+"."); }
+    return;
+  }
+  var m=addMsg("cop","Loading the baked Δ plot for <b>"+esc(r.name)+"</b>…");
+  try{
+    var ab=await preDiffBuf();
+    if(!ab) throw new Error("no baked Δ block in this build");
+    var n=r.dN, off=r.dOff;
+    var idx=new Uint32Array(ab, off, n), dvq=new Int16Array(ab, off+4*n, n), fvq=new Uint16Array(ab, off+6*n, n);
+    var dv=new Float32Array(n), fv=new Float32Array(n);
+    for(var j=0;j<n;j++){ dv[j]=dvq[j]*r.dvS; fv[j]=fvq[j]*r.fvS; }
+    switchApp("assign"); await waitReady("assign");
+    // a freshly-created Assignment frame may still be decoding its network —
+    // retry until the link graph exists (a few seconds at most)
+    var res=null;
+    for(var att=0; att<25; att++){
+      res=await rpc("assign",{cmd:"showbaked",idx:idx,dv:dv,fv:fv,dmax:r.dmax,timeoutMs:30000});
+      if(res&&res.ok) break;
+      await aggSleep(400);
+    }
+    highlightRail("assign");
+    if(!res||!res.ok) throw new Error((res&&res.err)||"display failed");
+    // ALSO load this method's merged zones into the Viewer, so switching to
+    // the Zones view shows the aggregation itself (not just its Δ)
+    var zoneNote="";
+    try{
+      var nz2=await showPreZones(r);
+      if(nz2) zoneNote=" The <b>Network Viewer</b> now shows this method's merged zone system ("+nz2.toLocaleString()+" zones) — switch tabs to see it.";
+    }catch(e2){ /* zone sync is best-effort; the Δ plot already succeeded */ }
+    setBub(m,"Baked <b>Δ plot</b> for <b>"+esc(r.name)+"</b> — <span style='color:#2ecc71'>green</span> links gain flow under this aggregation, <span style='color:#e74c3c'>red</span> lose, vs its demand-matched full-zone baseline. "+n.toLocaleString()+" links with |Δ| ≥ "+(P.minAbs||1)+" veh are baked in; use the map's filter bar to hide small differences."+zoneNote+" <b>apply ▸</b> makes it the live model.");
+  }catch(e){ setBub(m,"Couldn't show that Δ plot: "+esc(String(e&&e.message||e))+"."); }
+}
+async function showPreloadedComparison(){
+  openDock();
+  var P=PRELOAD_AGG;
+  if(!P||!P.results||!P.results.length)
+    return {html:"No preloaded comparison is baked into this build — I can run the live search instead.", chips:["Find best aggregation"]};
+  var best=preBestIdx();
+  // group the results by target zone count (app methods have their own natural counts)
+  var groups={}, order=[];
+  P.results.forEach(function(r,i){
+    var g=(r.cfg&&r.cfg.gehx100)? "GEHX-100 — certified: every carrying link below GEH 2 (measure-and-repair)"
+        : (r.cfg&&r.cfg.target)? r.cfg.target+"-zone target" : "App methods (natural zone counts)";
+    if(!groups[g]){ groups[g]=[]; order.push(g); }
+    groups[g].push({r:r,i:i});
+  });
+  order.sort(function(a,b){ return (a.indexOf("GEHX-100")===0?-1:0)-(b.indexOf("GEHX-100")===0?-1:0); });
+  var hasW1=P.results.some(function(r){ return r.pctW1!=null; });
+  var proto=(P.method==="fw")?"<b>Frank-Wolfe user equilibrium</b> (converged to gap &lt; 0.01%)":(P.method==="msa")?"MSA equilibrium":"BPR incremental rerouting";
+  if(P.vdfCap) proto+=", capacity-restrained (v/c bounded at "+P.vdfCap+" in both runs) with re-dimensioned access capacity at merged zones";
+  var dem=(P.sampleN>0)?"the identical "+P.sampleN+"-origin pre-sampled trips":"<b>the full demand — all origins, no sampling</b>";
+  var html="<b>Preloaded aggregation comparison — unified (whole network).</b> For every method "+dem+" are assigned on full zones (demand-matched baseline) and on the aggregated zones with "+proto+", and the error is measured over the <b>entire network</b> — no study-area mask."
+    +(hasW1?" Ranked by <b>GEH&lt;5</b> — the standard model-validation criterion (share of links passing GEH&lt;5; the usual acceptance bar is 85%). <b>links ≤1%</b> is the stricter share of links whose flow moves by no more than 1% of its baseline (1-veh floor). Click a row to see its <b>baked Δ plot</b> instantly — rows marked <b>zones ▸</b> show their merged zone system in the Viewer."+(P.results.some(function(r){return r.fw;})?" Rows with an <span style='color:#7df9ff'>eqm</span> tag also carry a <b>Frank-Wolfe equilibrium spot check</b> (all origins, decision-grade).":""):"");
+  order.forEach(function(g){
+    var arr=groups[g].slice().sort(function(a,b){ return preScore(a.r,b.r); });
+    html+="<div class='did' style='margin-top:7px;font-weight:700;color:#d7e1f2'>"+esc(g)+"</div>"
+        +"<div class='did'>"+arr.map(function(e,k){ return preRow(e.r, e.i, k+1, e.i===best); }).join("")+"</div>";
+  });
+  var chartData=P.results.map(function(r){ return {name:preShort(r), vhtErr:r.vhtErr, offG:(r.geh5!=null?100-r.geh5:null)}; });
+  var chartTop=chartData.filter(function(d){ return d.offG!=null; }).sort(function(a,b){ return a.offG-b.offG; }).slice(0,20);
+  var chartTitle="Links failing GEH<5 (lower = better)"+(chartData.length>20?" — best 20 of "+chartData.length:"");
+  html+=(hasW1?aggChart(chartTop,"offG",chartTitle):aggChart(chartData,"vhtErr","VHT error — all preloaded configs (lower = better)"))
+      +"<div class='did' style='font-size:11px;color:#9fb0c8;margin-top:4px'>intern % = demand internalised (becomes intrazonal and leaves the network by design); runtimes are the aggregated run vs its matched baseline. <b>Click a row (Δ ▸)</b> to show its baked difference plot — no run needed; <b>apply ▸</b> rebuilds it live on all zones with full demand.</div>";
+  return {html:html, chips:["Apply the best preloaded","Find best aggregation","Reset to full zones"]};
+}
+/* rebuild a preloaded configuration live and set it as the model (all zones,
+   full demand, matched-baseline verified — same as the optimiser's winner) */
+async function applyPreloaded(idx){
+  var P=PRELOAD_AGG, r=P&&P.results&&P.results[idx];
+  if(!r){ addMsg("cop","I can't find that preloaded configuration — say <b>preloaded comparison</b> to list them."); return; }
+  var msg=addMsg("cop","Rebuilding <b>"+esc(r.name)+"</b> and applying it to the model on all zones…");
+  switchApp("viewer"); await waitReady("viewer");
+  if(!r.cfg.custom && !r.cfg.gehx) await applyAggConfig(r.cfg);
+  var agg=await fetchAgg(r.cfg);
+  if(!agg||!agg.ok||!agg.merged){ setBub(msg,"Couldn't rebuild that aggregation — open the Viewer and try again."); return; }
+  // reflect the merged zone system in the Viewer's Zones view too
+  if(agg.pairs && agg.pairs.length && (r.cfg.custom || r.cfg.gehx || r.cfg.pairset)){
+    try{ await rpc("viewer",{cmd:"applypairs",pairs:agg.pairs,label:r.name,timeoutMs:30000}); }catch(e0){}
+  }
+  switchApp("assign"); await waitReady("assign");
+  await rpc("assign",{cmd:"set",id:"methodSel",value:(P.method||"bpr")});   // same protocol the scores used
+  await rpc("assign",{cmd:"set",id:"sampleSel",value:"0"});
+  await pollState("assign", function(s){ return s.odStats && /matrix|trips|pairs/i.test(s.odStats); }, 7000);
+  await rpc("assign",{cmd:"setarea",rect:null});                // verify over the whole network
+  if(P.vdfCap) await rpc("assign",{cmd:"vdfcap",v:P.vdfCap});   // capacity-restrained, like the baked scores
+  await rpc("assign",{cmd:"aggod",pairs:agg.pairs});            // full demand, both matrices
+  var runMs=(P.method==="fw")?2400000:240000;   // equilibrium on all origins takes minutes
+  setBub(msg,"Applying <b>"+esc(r.name)+"</b> — running the demand-matched baseline on all zones"+(P.method==="fw"?" (user equilibrium — this takes several minutes)":"")+"…");
+  await rpc("assign",{cmd:"odbase",which:"filt"});
+  var t0=nowMs(); await runAggAssign(runMs); var baseRt=(nowMs()-t0)/1000;
+  await rpc("assign",{cmd:"snapfull"});
+  await rpc("assign",{cmd:"odbase",which:"agg"});
+  setBub(msg,"Applying <b>"+esc(r.name)+"</b> — baseline done ("+baseRt.toFixed(1)+" s), running the aggregated assignment…");
+  var t1=nowMs(); await runAggAssign(runMs); var rt=(nowMs()-t1)/1000;
+  var cmp=await rpc("assign",{cmd:"cmpfull"});
+  var key="pre"+idx;
+  await rpc("assign",{cmd:"scnsave",key:key});
+  await rpc("assign",{cmd:"showdiff"}); highlightRail("assign");
+  if(P.vdfCap) await rpc("assign",{cmd:"vdfcap",v:0});          // don't leak the cap into normal runs
+  AGG_BYKEY[key]={name:r.name, cfg:r.cfg, key:key, zones:agg.zones};
+  var err=(cmp&&cmp.ok)?" Verified on all zones with full demand: <b>"+(cmp.pctW1!=null?cmp.pctW1.toFixed(1)+"% of links within 1%</b> · GEH&lt;5 "+cmp.geh5.toFixed(1)+"% · ":"</b>")+"VHT error "+cmp.vhtErr.toFixed(2)+"% · corr "+cmp.corr.toFixed(3)+".":"";
+  setBub(msg,"Applied <b>"+esc(r.name)+"</b> — "+agg.zones.toLocaleString()+" zones. Assignment "+rt.toFixed(1)+" s vs "+baseRt.toFixed(1)+" s matched baseline ("+(baseRt/Math.max(0.01,rt)).toFixed(1)+"× faster)."+err+" The map shows the before→after Δ plot.");
+  addChips(msg,["Colour by V/C","Rank corridors","Reset to full zones"]);
+}
+
+
+/* ===== METRO PLANNER (copilot side): propose stations on the density spine,
+   let the user drag them on the map, estimate ridership from the OD ===== */
+/* named areas (UTM 40N anchors + radius) the metro planner understands */
+var METRO_PLACES=[
+  {keys:["abu dhabi","metro area","the metro","city"], name:"Abu Dhabi metro area", x:233000, y:2704000, r:22000},
+  {keys:["al ain","alain"],            name:"Al Ain",        x:371000, y:2679000, r:16000},
+  {keys:["dhafra","al dhafra","madinat zayed","western region"], name:"Al Dhafra (Madinat Zayed)", x:159000, y:2617000, r:30000},
+  {keys:["ruwais"],                    name:"Al Ruwais",     x:66000,  y:2666000, r:15000},
+  {keys:["reem island","al reem","reem"], name:"Reem Island", x:237000, y:2710000, r:3000},
+  {keys:["saadiyat"],                  name:"Saadiyat Island", x:238800, y:2714000, r:4500},
+  {keys:["yas"],                       name:"Yas Island",    x:256900, y:2709000, r:5000},
+  {keys:["musaffah","mussafah"],       name:"Musaffah",      x:246500, y:2694000, r:8000},
+  {keys:["khalifa city"],              name:"Khalifa City",  x:253700, y:2701000, r:7000},
+  {keys:["baniyas","bani yas"],        name:"Baniyas",       x:260500, y:2688000, r:6000},
+  {keys:["shahama"],                   name:"Al Shahama",    x:265200, y:2716000, r:7000}
+];
+function metroPlace(text){
+  var t=(text||"").toLowerCase();
+  for(var i=1;i<METRO_PLACES.length;i++){    // named places first (skip the generic metro entry)
+    var p=METRO_PLACES[i];
+    for(var k=0;k<p.keys.length;k++) if(t.indexOf(p.keys[k])>=0) return p;
+  }
+  return null;
+}
+/* route the current stations along the road network (snap + Dijkstra legs) */
+async function routeMetro(){
+  try{
+    var g=await rpc("viewer",{cmd:"metroget"});
+    if(!g||!g.ok) return null;
+    await ensureAssignGraph();
+    var r=await rpc("assign",{cmd:"metroroute",stations:g.stations,timeoutMs:60000});
+    if(r&&r.ok){ await rpc("viewer",{cmd:"metrosetpath",snapped:r.snapped,legs:r.legs,timeoutMs:30000}); return r; }
+  }catch(e){}
+  return null;
+}
+async function proposeMetro(text){
+  openDock();
+  var n=14; var mm=(text||"").match(/(\d{1,2})\s*station/); if(mm) n=+mm[1];
+  var place=metroPlace(text);
+  if(place && !mm) n=(place.r<=5000)?8:(place.r<=9000?10:14);
+  switchApp("viewer"); await waitReady("viewer");
+  var r=await rpc("viewer",{cmd:"metroplan",n:n,anchor:place?{x:place.x,y:place.y,r:place.r}:null,timeoutMs:30000});
+  highlightRail("viewer");
+  if(!r||!r.ok) return {html:"I couldn't plan a metro"+(place?" in "+esc(place.name):"")+": "+esc((r&&r.err)||"unknown")+".", chips:["Propose a metro","Propose a metro in Al Ain"]};
+  var msg=addMsg("cop","Snapping stations to the road network and routing the line along real roads…");
+  var rt=await routeMetro();
+  msg.remove();
+  var where=place?("in <b>"+esc(place.name)+"</b> — planned from that area's own population and demand"):"along the densest metropolitan corridor";
+  var lenTxt=rt&&rt.lenKm?rt.lenKm+" km along roads":r.lenKm+" km";
+  return {html:"<b>Proposed a "+r.n+"-station metro ("+lenTxt+")</b> "+where+". Stations sit on the population + demand density spine, snapped to the road network; each shows its <b>1 km catchment</b> (dashed ring), the zone centroids it captures, and the <b>total population</b> it serves."
+    +"<div class='did'>Drag any station — catchments and populations update live, and the line re-routes along roads when you release. Then ask me to <b>evaluate metro ridership</b>. Try “propose a metro in Al Ain”, “…in Dhafra”, “…on Reem Island”, or “…with 20 stations”.</div>",
+    chips:["Evaluate metro ridership","Propose a metro in Al Ain","Clear the metro"]};
+}
+async function evalMetro(){
+  openDock();
+  var g=await rpc("viewer",{cmd:"metroget"});
+  if(!g||!g.ok) return {html:"There is no metro on the map yet — say <b>propose a metro</b> first.", chips:["Propose a metro"]};
+  var msg=addMsg("cop","Estimating ridership from the OD matrix…");
+  await ensureAssignGraph();
+  var r=await rpc("assign",{cmd:"metroeval",stations:g.stations,timeoutMs:60000});
+  msg.remove();
+  if(!r||!r.ok) return {html:"Couldn't evaluate: "+esc((r&&r.err)||"unknown")+".", chips:["Propose a metro"]};
+  var rows=r.board.map(function(b,i){ return {name:"M"+(i+1), b:b}; });
+  var top=rows.slice().sort(function(a,b){ return b.b-a.b; }).slice(0,3)
+    .map(function(o){ return o.name+" ("+o.b.toLocaleString()+")"; }).join(", ");
+  var html="<b>Estimated ridership: "+r.riders.toLocaleString()+" daily boardings</b> — "
+    +r.share+"% of all "+"trips in the OD matrix — over "+r.stations+" stations and "+r.lenKm+" km ("
+    +r.perKm.toLocaleString()+" riders/km). Busiest stations: "+top+"."
+    +aggChart(rows,"b","Daily boardings by station"," ")
+    +"<div class='did' style='font-size:11px;color:#9fb0c8'>Method: every OD pair whose two ends fall in station catchments (walk ≤ 800 m at full weight, feeder/PnR ≤ 2 km at 0.35) is diverted by a line-haul distance curve (5–30% by trip length). A sketch-level direct-demand estimate — drag stations and re-evaluate to compare alignments.</div>";
+  return {html:html, chips:["Propose a metro","Clear the metro","Evaluate metro ridership"]};
+}
+async function clearMetro(){
+  await rpc("viewer",{cmd:"metroclear"});
+  return {html:"Removed the metro proposal from the map.", chips:["Propose a metro"]};
+}
+
+/* ===== NETWORK EVOLUTION (2025 → 2040): the dual-year road network is baked
+   into the Viewer, so the copilot just flips view modes (2040 full / 2040 roads
+   / 2025 roads / Differences) and reads the upgrade-corridor list. ===== */
+async function evoMode(mode, label, chips){
+  switchApp("viewer"); await waitReady("viewer");
+  var r=await rpc("viewer",{cmd:"evomode",mode:mode,timeoutMs:120000});
+  highlightRail("viewer");
+  if(!r||!r.ok) return {html:"I couldn't switch the view: "+esc((r&&r.err)||"baked network unavailable")+".", chips:["Show differences"]};
+  return {html:label, chips:chips||["Show 2025 network","Show 2040 network","Show differences","Full 2040 view"]};
+}
+async function networkEvolution(){
+  openDock();
+  switchApp("viewer"); await waitReady("viewer");
+  var prog=addMsg("cop","✦ <b>Network evolution</b> — decoding the 2025/2040 network and finding the upgrades…");
+  var res=await rpc("viewer",{cmd:"evoanalyze",timeoutMs:120000});
+  if(!res||!res.ok){ prog.remove(); return {html:"I couldn't load the baked network: "+esc((res&&res.err)||"unknown error")+".", chips:["Show differences"]}; }
+  var s=res.stats;
+  var list=await rpc("viewer",{cmd:"evolist",limit:25});
+  prog.remove(); highlightRail("viewer");
+  var rows="";
+  if(list&&list.ok){ rows=list.top.map(function(c){
+    var col=c.kind==="new"?"#39d353":(c.kind==="widen"?"#38bdf8":"#fbbf24");
+    var bits=[]; if(c.nRamp)bits.push(c.nRamp+" ramp"); if(c.nJunc)bits.push(c.nJunc+" signal/junction"); if(c.nMinor)bits.push(c.nMinor+" slip/approach");
+    var extra=bits.length?(" · incl. "+bits.join(" + ")+" links"):"";
+    return '<div class="scnrow"><a href="#" class="evolink" data-evo="'+c.id+'" data-name="'+esc(c.kindLbl+" · "+c.cls)+'">'
+      +'<span style="color:'+col+'">●</span> '+(c.id+1)+". "+esc(c.kindLbl)+" · "+esc(c.cls)
+      +" — "+c.n+" links · "+c.lenKm.toFixed(1)+" km · "+c.laneKm.toFixed(1)+" lane-km"+extra+"</a></div>"; }).join(""); }
+  var html="<b>2025 → 2040 upgrades.</b> The 2040 plan adds <b>"+s.nUp.toLocaleString()+" upgrade links</b> over the 2025 network — "
+    +"<span style='color:#39d353'>"+s.nNew.toLocaleString()+" new roads</span>, "
+    +"<span style='color:#38bdf8'>"+s.nWiden.toLocaleString()+" widenings</span>, "
+    +"<span style='color:#fbbf24'>"+s.nType.toLocaleString()+" type upgrades</span>. "
+    +"Grouped into <b>"+s.nCorr.toLocaleString()+" corridors</b> (contiguous links of the same kind + road class), shown on the map "
+    +"(<span style='color:#39d353'>green</span>=new, <span style='color:#38bdf8'>cyan</span>=widen, <span style='color:#fbbf24'>amber</span>=type-up). Use the toggle at the top of the map for <b>2040 / 2025 / Differences</b>."
+    +"<div class='did' style='font-size:11px;color:#9fb0c8;margin-top:4px'>Biggest schemes by lane-km — click one to zoom & highlight it:</div>"
+    +"<div class='did' style='max-height:200px;overflow:auto'>"+rows+"</div>";
+  return {html:html, chips:["Show 2025 network","Show 2040 network","Assess corridor benefits","Full 2040 view"]};
+}
+async function inspectCorridor(id,name){
+  switchApp("viewer"); await waitReady("viewer");
+  await rpc("viewer",{cmd:"evoshow",id:id,zoom:true});
+  highlightRail("viewer");
+  var m=addMsg("cop","Highlighted project <b>"+(id+1)+"</b> ("+esc(name||"")+") and zoomed to it — the white-haloed links are the scheme.");
+  addChips(m,["Evaluate this project"]);
+}
+/* evaluate ONE selected project: 2025 do-minimum vs 2025+this scheme on the
+   2040 demand — the standalone benefit of just that project. */
+async function assessOneCorridor(id){
+  openDock();
+  switchApp("viewer"); await waitReady("viewer");
+  var ana=await rpc("viewer",{cmd:"evoanalyze",timeoutMs:120000});
+  if(!ana||!ana.ok) return {html:"I couldn't load the evolution data.", chips:["Show differences"]};
+  if(id==null||id<0){ var selR=await rpc("viewer",{cmd:"evosel"}); id=(selR&&selR.ok)?selR.sel:-1; }
+  if(id==null||id<0) return {html:"No project is selected — open <b>Differences</b> and click a coloured scheme on the map first (or pick one from the corridor list).", chips:["Show differences"]};
+  var list=await rpc("viewer",{cmd:"evolist",limit:id+1});
+  var info=(list&&list.ok&&list.top[id])?list.top[id]:null;
+  var cl=await rpc("viewer",{cmd:"evocorlinks",id:id});
+  var upsR=await rpc("viewer",{cmd:"evoups",timeoutMs:60000});
+  if(!info||!cl||!cl.ok||!upsR||!upsR.ok) return {html:"Couldn't read that project's links.", chips:["Show differences"]};
+  await rpc("viewer",{cmd:"evoshow",id:id,zoom:false});
+  var name=info.kindLbl+" · "+info.cls;
+  var prog=addMsg("cop","✦ <b>Evaluating project "+(id+1)+"</b> ("+esc(name)+", "+info.laneKm.toFixed(1)+" lane-km) — assigning the 2040 demand on the <b>2025 base</b>, then with <b>this scheme added</b>…");
+  switchApp("assign"); await waitReady("assign");
+  await rpc("assign",{cmd:"set",id:"sampleSel",value:"500"});
+  await rpc("assign",{cmd:"set",id:"methodSel",value:"bpr"});
+  await pollState("assign", function(s){ return s.odStats && /matrix|trips|pairs/i.test(s.odStats); }, 8000);
+  await rpc("assign",{cmd:"aggod",pairs:[]});
+  var ini=await rpc("assign",{cmd:"apprinit",ups:upsR.ups,timeoutMs:60000});
+  if(!ini||!ini.ok){ prog.remove(); return {html:"Couldn't initialise the appraisal: "+esc((ini&&ini.err)||"no network")+".", chips:["Show differences"]}; }
+  await rpc("assign",{cmd:"apprset",restore:[]});
+  await runAggAssign();
+  var base=await rpc("assign",{cmd:"metrics"});
+  setBub(prog,"✦ <b>Evaluating project "+(id+1)+"</b> — do-minimum done, now adding the scheme…");
+  await rpc("assign",{cmd:"apprset",restore:cl.links});
+  await runAggAssign();
+  var withIt=await rpc("assign",{cmd:"metrics"});
+  await rpc("assign",{cmd:"apprclear"});
+  prog.remove(); highlightRail("assign");
+  if(!base||!base.ok||!(base.vht>0)||!withIt||!withIt.ok)
+    return {html:"The evaluation runs didn't produce metrics — run an assignment once and try again.", chips:["Run a BPR assignment"]};
+  var saved=base.vht-withIt.vht, pct=100*saved/base.vht, ce=saved/Math.max(0.1,info.laneKm);
+  var html="<b>Project "+(id+1)+" — "+esc(name)+"</b> ("+info.n+" links · "+info.lenKm.toFixed(1)+" km · "+info.laneKm.toFixed(1)+" lane-km)."
+    +"<div class='did'>Do-minimum (2025 base, 2040 demand): <b>"+Math.round(base.vht).toLocaleString()+"</b> veh-h"
+    +"<br>With this scheme: <b>"+Math.round(withIt.vht).toLocaleString()+"</b> veh-h"
+    +"<br>Standalone benefit: <b>"+Math.round(saved).toLocaleString()+" veh-h saved</b> ("+pct.toFixed(2)+"% of network VHT) · "+ce.toFixed(1)+" veh-h per lane-km</div>"
+    +"<div class='did' style='font-size:11px;color:#9fb0c8'>500-origin sample, BPR rerouting, v/c capped — use for ranking and screening, not absolute appraisal. The scheme stays highlighted on the map.</div>";
+  return {html:html, chips:["Rank 2040 improvements","Show differences","What are the current KPIs?"]};
+}
+/* horizontal "higher = better" bar chart for appraisal benefits */
+function apprChart(rows, title){
+  var data=rows.slice().sort(function(a,b){ return b.v-a.v; }), n=data.length;
+  if(!n) return "";
+  var barH=15,gap=5,padT=22,padL=6,labelW=120,chartW=326,plotW=chartW-labelW-58-padL;
+  var h=padT+4+n*(barH+gap), max=Math.max(1,Math.max.apply(null,data.map(function(d){return Math.max(0,d.v);})));
+  var s='<svg width="'+chartW+'" height="'+h+'" viewBox="0 0 '+chartW+' '+h+'" style="max-width:100%;margin-top:6px">';
+  s+='<text x="'+padL+'" y="13" fill="#d7e1f2" font-size="11" font-weight="700">'+esc(title)+'</text>';
+  data.forEach(function(d,i){ var y=padT+i*(barH+gap), v=Math.max(0,d.v), bw=Math.max(2,plotW*Math.min(1,v/max));
+    var col=i===0?"#2ecc71":(v/max>0.4?"#54b9e8":"#7d8aa0");
+    s+='<text x="'+padL+'" y="'+(y+barH-3)+'" fill="#9fb0c8" font-size="9.5">'+esc(d.name.slice(0,22))+'</text>';
+    s+='<rect x="'+(padL+labelW)+'" y="'+y+'" width="'+bw.toFixed(1)+'" height="'+barH+'" rx="3" fill="'+col+'"/>';
+    s+='<text x="'+(padL+labelW+bw+4)+'" y="'+(y+barH-3)+'" fill="#cfe7ff" font-size="9.5">'+d.lbl+'</text>'; });
+  return s+'</svg>';
+}
+/* benefit appraisal: 2025 do-minimum baseline, then add each major corridor and
+   measure the VHT/VMT saved on the 2040 demand; rank by BCR (per lane-km). */
+async function assessCorridors(){
+  openDock();
+  switchApp("viewer"); await waitReady("viewer");
+  var ana=await rpc("viewer",{cmd:"evoanalyze",timeoutMs:120000});
+  if(!ana||!ana.ok) return {html:"I need the network decoded first — say <b>“compare 2025 and 2040”</b>.", chips:["Show differences"]};
+  var upsR=await rpc("viewer",{cmd:"evoups",timeoutMs:60000});
+  var list=await rpc("viewer",{cmd:"evolist",limit:200});
+  if(!upsR||!upsR.ok||!upsR.ups||!list||!list.ok) return {html:"Couldn't read the upgrade corridors.", chips:["Show differences"]};
+  var N=Math.min(12, list.top.length), top=list.top.slice(0,N), corLinks=[];
+  for(var ci=0;ci<top.length;ci++){ var cl=await rpc("viewer",{cmd:"evocorlinks",id:top[ci].id}); corLinks.push((cl&&cl.ok&&cl.links)?cl.links:[]); }
+  var APPR_SAMPLE="500";
+  var prog=addMsg("cop","✦ <b>Corridor benefit appraisal</b> — building the <b>2025 base</b> and assigning the 2040 demand (do-something vs do-minimum, top "+N+" schemes on a fast sample; a few minutes)…");
+  switchApp("assign"); await waitReady("assign");
+  await rpc("assign",{cmd:"set",id:"sampleSel",value:APPR_SAMPLE});
+  // BPR (4-increment) so demand reroutes around removed/reduced links — free-flow
+  // can't reroute and blows up on the cut-down 2025 network; full equilibrium is
+  // too slow for a dozen runs. BPR is the fast, stable middle ground.
+  await rpc("assign",{cmd:"set",id:"methodSel",value:"bpr"});
+  await pollState("assign", function(s){ return s.odStats && /matrix|trips|pairs/i.test(s.odStats); }, 8000);
+  await rpc("assign",{cmd:"aggod",pairs:[]});
+  var ini=await rpc("assign",{cmd:"apprinit",ups:upsR.ups,timeoutMs:60000});
+  if(!ini||!ini.ok){ prog.remove(); return {html:"Couldn't initialise the appraisal: "+esc((ini&&ini.err)||"no network")+".", chips:["Show differences"]}; }
+  await rpc("assign",{cmd:"apprset",restore:[]});      // 2025 do-minimum
+  await runAggAssign();
+  var base=await rpc("assign",{cmd:"metrics"});
+  if(!base||!base.ok||!(base.vht>0)){ prog.remove(); return {html:"The 2025-base assignment didn't produce metrics — run an assignment first, then retry.", chips:["Run a Frank-Wolfe assignment"]}; }
+  var results=[];
+  for(var i=0;i<top.length;i++){
+    setBub(prog,"✦ <b>Corridor benefit appraisal</b> — "+esc(top[i].kindLbl)+" · "+esc(top[i].cls)+" ("+(i+1)+"/"+N+")…");
+    await rpc("assign",{cmd:"apprset",restore:corLinks[i]});
+    await runAggAssign();
+    var mt=await rpc("assign",{cmd:"metrics"});
+    var dVHT=base.vht-((mt&&mt.vht)||base.vht), cost=Math.max(0.1, top[i].laneKm||1);
+    results.push({ id:top[i].id, name:top[i].kindLbl+" · "+top[i].cls, laneKm:top[i].laneKm, lenKm:top[i].lenKm,
+      vhtSaved:dVHT, bcr:dVHT/cost });
+  }
+  await rpc("assign",{cmd:"apprclear"});
+  results.sort(function(a,b){ return b.bcr-a.bcr; });
+  prog.remove(); highlightRail("assign");
+  var best=results[0];
+  // implementation priority program: ranked by cost-effectiveness, with the
+  // cumulative benefit and lane-km build-out as each priority is delivered
+  var cumV=0, cumC=0;
+  var rows=results.map(function(r,i){
+    cumV+=Math.max(0,r.vhtSaved); cumC+=r.laneKm;
+    return '<div class="scnrow"><a href="#" class="evolink" data-evo="'+r.id+'" data-name="'+esc(r.name)+'">'
+      +'<b style="color:#ffd60a">P'+(i+1)+'</b> '+(i===0?"<b>":"")+esc(r.name)+(i===0?"</b>":"")
+      +" — "+Math.round(r.vhtSaved).toLocaleString()+" veh-h · "+r.laneKm.toFixed(1)+" ln-km · "+r.bcr.toFixed(1)+" veh-h/ln-km"
+      +'<br><span style="color:#7e90b5;font-size:10px">cumulative: '+Math.round(cumV).toLocaleString()+" veh-h saved for "+cumC.toFixed(1)+" lane-km built</span>"
+      +"</a></div>"; }).join("");
+  var chart=apprChart(results.map(function(r){ return {name:r.name, v:Math.max(0,r.vhtSaved), lbl:Math.round(r.vhtSaved).toLocaleString()}; }), "VHT saved by corridor (veh-h, higher = better)");
+  var html="<b>Priority program — 2040 improvements.</b> Each scheme (mainline + its attached ramps/interchange/signal links) was added <b>alone</b> to the <b>2025 base</b> and the 2040 demand assigned; schemes are ranked into priorities P1…P"+results.length+" by <b>cost-effectiveness</b> (veh-h saved per lane-km — a BCR proxy: it matches a benefit-cost ranking when cost scales with lane-km and one value of time applies). "
+    +"<b>P1: "+esc(best.name)+"</b> — saves <b>"+Math.round(best.vhtSaved).toLocaleString()+" veh-hours</b> for "+best.laneKm.toFixed(1)+" lane-km ("+best.bcr.toFixed(1)+" veh-h per lane-km)."
+    +chart
+    +"<div class='did' style='font-size:11px;color:#9fb0c8;margin-top:4px'>Click a priority to highlight its corridor on the map. Method notes: standalone impacts — scheme interactions are not captured, so re-appraise after committing the early priorities for a sequenced program. "+APPR_SAMPLE+"-origin demand-preserving sample; BPR incremental rerouting (not full equilibrium); v/c capped at 4; 2040-only roads modelled as near-zero capacity; type-upgrade speeds approximated via capacity. Use for ranking, not absolute appraisal.</div>"
+    +"<div class='did' style='max-height:220px;overflow:auto'>"+rows+"</div>";
+  return {html:html, chips:["Show differences","Show 2040 network","What are the current KPIs?"]};
+}
+
+/* ---------- app switch + mode chip ---------- */
+var MODEICON={viewer:"🗺️",assign:"🚦"}, MODENAME={viewer:"Network",assign:"Assignment"};
+function switchApp(key){
+  if(!APPS[key]) return;
+  var prev=activeApp;
+  activeApp=key;
+  for(var k in APPS){ document.getElementById("wrap-"+k).classList.toggle("on",k===key); }
+  document.getElementById("modename").textContent=MODENAME[key]||APPS[key].label;
+  var mc=document.querySelector("#modechip .ic"); if(mc) mc.textContent=MODEICON[key]||"🗺️";
+  ensureFrame(key);
+  if(prev && prev!==key) syncView(prev, key);   // carry the map zoom/centre across
+  if(key==="assign") syncXlayers();             // share the Viewer's extra layers
+  waitReady(key);
+  afterLayoutChange();                          // re-measure canvas → accurate selection
+  updateCtx();
+}
+/* transfer the Viewer-only layers (connectors / walk / PnR / PT) into the
+   Assignment once, so both draw the same full network. */
+var _xlDone=false;
+async function syncXlayers(){
+  if(_xlDone) return;
+  await waitReady("viewer"); await waitReady("assign");
+  var r=await rpc("viewer",{cmd:"getxl"});
+  if(r && r.ok && r.layers){ await rpc("assign",{cmd:"setxl",layers:r.layers}); _xlDone=true; }
+}
+/* copy the map centre+scale from the app we're leaving to the one we're entering,
+   so the network stays at the same place/zoom (both use the same world coords). */
+var _viewTok=0;
+async function syncView(prev, key){
+  var tok=++_viewTok;
+  if(!APPS[prev] || !APPS[prev].ready) return;
+  var v=await rpc(prev,{cmd:"getview"});
+  if(!v || !v.ok) return;
+  await waitReady(key);
+  await new Promise(function(r){ setTimeout(r,160); });   // let the shown iframe resize first
+  if(tok!==_viewTok) return;                              // superseded by a newer switch
+  await rpc(key,{cmd:"setview",cx:v.cx,cy:v.cy,sc:v.sc});
+}
+function updateCtx(){
+  document.getElementById("ctxapp").textContent=APPS[activeApp].label;
+  document.getElementById("ctxdot").classList.toggle("live",!!APPS[activeApp].ready);
+}
+
+/* ---------- left rail: tools reveal contextual panels, map-first by default ---------- */
+var TOOLS={
+  net:{app:"viewer"}, zones:{app:"viewer"},
+  metro:{app:"viewer"}, projects:{app:"viewer"},
+  assign:{app:"assign",section:"run"},
+  demand:{app:"assign",section:"demand model"},
+  display:{app:"assign",section:"display"},
+  rec:{app:"assign",section:"recommend"},
+  scn:{app:"assign",section:"scenario"},
+  ana:{app:"assign",section:"analysis"},
+  insights:{app:null},
+  settings:{app:"assign",section:"settings"}
+};
+/* every step explains itself and carries its key actions — this is what makes
+   the pipeline discoverable instead of buried in chat */
+var METRO_MANUAL=false;
+function act(lbl,fn,cls){ return {lbl:lbl, fn:fn, cls:cls||""}; }
+function say(t){ return function(){ openDock(); submit(t); }; }
+var STEPS={
+  net:{t:"Network Explorer", d:"Browse the 2040 model, the 2025 base and everything that changes between them.",
+    a:[act("2025 base",say("show 2025 network")), act("Differences",say("show differences")), act("★ Rank improvements",say("rank 2040 improvements"),"primary")]},
+  zones:{t:"Zone System", d:"Aggregate zones and pick the method that keeps link flows honest.",
+    a:[act("Preloaded comparison",say("preloaded comparison")), act("✦ Find best method",say("find best aggregation"),"primary"), act("What is GEHX-100?",say("what is gehx-100"))]},
+  demand:{t:"Demand", d:"The OD matrix: 12.6M daily trips. Inspect, grow or swap the demand.",
+    a:[act("Demand structure",say("demand structure"))]},
+  assign:{t:"Assignment", d:"Load the demand on the network, then read volumes, V/C, LOS and Δ plots.",
+    a:[act("▶ Run",function(){ rpc("assign",{cmd:"click",id:"runBtn"}); },"primary"), act("Colour by V/C",say("colour by v/c")), act("Rank corridors",say("rank corridors"))]},
+  display:{t:"Display", d:"Colour modes, filters and what the map shows."},
+  metro:{t:"Metro Planner", d:"Site a line by hand or let the AI propose it, then estimate ridership from real demand.",
+    a:[act("✦ AI propose",function(){
+        var ar=document.getElementById("mtArea"), n=document.getElementById("mtN");
+        var txt="propose a metro"+(ar&&ar.value?" in "+ar.value:"")+(n&&n.value?" with "+n.value+" stations":"");
+        openDock(); submit(txt);
+      },"primary"),
+      {sel:"mtArea", opts:[["","densest area"],["Al Ain","Al Ain"],["Dhafra","Al Dhafra"],["Reem island","Reem Island"],["Saadiyat","Saadiyat"],["Yas","Yas Island"],["Musaffah","Musaffah"],["Khalifa city","Khalifa City"],["Baniyas","Baniyas"],["Shahama","Shahama"],["Ruwais","Ruwais"]]},
+      {sel:"mtN", opts:[["","stations: auto"],["8","8 stations"],["10","10 stations"],["14","14 stations"],["18","18 stations"],["22","22 stations"]]},
+      act("✏️ Manual mode",async function(btn){
+        METRO_MANUAL=!METRO_MANUAL;
+        switchApp("viewer"); await waitReady("viewer");
+        await rpc("viewer",{cmd:"metromanual",on:METRO_MANUAL});
+        renderStepBar("metro");
+        if(METRO_MANUAL){ openDock(); addMsg("cop","<b>Manual mode is on</b> — click the map to place stations in sequence, drag to move one, double-click to remove it. The line re-routes along roads after every change. Ask me to <b>evaluate metro ridership</b> whenever you're ready."); }
+      },"tog"),
+      act("Evaluate ridership",say("evaluate metro ridership")),
+      act("Clear",function(){ METRO_MANUAL=false; openDock(); submit("clear the metro"); })]},
+  projects:{t:"2040 Projects", d:"Every 2025→2040 upgrade, grouped into schemes — select one on the map to appraise it alone.",
+    a:[act("Show differences",say("show differences")), act("★ Rank improvements",say("rank 2040 improvements"),"primary"), act("Assess all benefits",say("assess corridor benefits"))]},
+  rec:{t:"Solve", d:"Let the engine recommend upgrades and build a budget-constrained programme.",
+    a:[act("Find solutions",say("find solutions"),"primary"), act("Programme",function(){ openProgram(); })]},
+  scn:{t:"Scenario", d:"Draft roads, tweak capacity and test what-ifs against the base."},
+  ana:{t:"Analysis", d:"KPIs, screenlines and the numbers behind the maps.",
+    a:[act("Current KPIs",say("what are the current KPIs?"))]},
+  insights:{t:"Insights", d:"Everything the Brain has precomputed and everything it can explain.",
+    a:[act("Preloaded comparison",say("preloaded comparison"),"primary"), act("Current KPIs",say("what are the current KPIs?")), act("Network evolution",say("network evolution")), act("What can you do?",say("what can you do?"))]},
+  settings:{t:"Settings", d:"Engine parameters and defaults."}
+};
+function renderStepBar(id){
+  var bar=document.getElementById("stepBar"), st=STEPS[id];
+  if(!st){ bar.classList.remove("show"); return; }
+  document.getElementById("stepTitle").textContent=st.t;
+  document.getElementById("stepDesc").textContent=st.d||"";
+  var box=document.getElementById("stepActs"); box.innerHTML="";
+  (st.a||[]).forEach(function(a){
+    if(a.sel){ var sel=document.createElement("select"); sel.id=a.sel;
+      a.opts.forEach(function(o){ var op=document.createElement("option"); op.value=o[0]; op.textContent=o[1]; sel.appendChild(op); });
+      box.appendChild(sel); return; }
+    var b=document.createElement("button"); b.textContent=a.lbl; b.className=a.cls;
+    if(a.cls==="tog"&&id==="metro"&&METRO_MANUAL) b.classList.add("on");
+    b.addEventListener("click",function(){ a.fn(b); });
+    box.appendChild(b);
+  });
+  bar.classList.add("show");
+  try{ document.getElementById("modename").textContent=st.t; }catch(e){}
+}
+var currentTool=null;
+function highlightRail(id){
+  document.querySelectorAll("#rail .ritem[data-tool]").forEach(function(b){ b.classList.toggle("on",b.dataset.tool===id); });
+  document.getElementById("zoneBar").classList.toggle("show", id==="zones");
+}
+async function applyViewerPanels(){
+  if(!APPS.viewer.frame) return;
+  await rpc("viewer",{cmd:"bodyclass",name:"studio-hide-layers",on:currentTool!=="net"});
+  await rpc("viewer",{cmd:"bodyclass",name:"studio-hide-agg",   on:currentTool!=="zones"});
+}
+async function selectTool(id){
+  var t=TOOLS[id]; if(!t) return;
+  if(currentTool===id) return clearTool();      // toggle off → clean map
+  currentTool=id; highlightRail(id); renderStepBar(id);
+  if(t.app){ switchApp(t.app); await waitReady(t.app); }
+  if(t.app==="assign"){ await rpc("assign",{cmd:"section",text:t.section}); }
+  else if(t.app==="viewer"){ await applyViewerPanels(); }
+  if(id==="projects"){ await rpc("viewer",{cmd:"evomode",mode:"diff",timeoutMs:120000}); }
+  if(id==="insights"){ openDock(); }
+}
+async function clearTool(){
+  currentTool=null; highlightRail(null); renderStepBar(null);
+  if(APPS.assign.frame) await rpc("assign",{cmd:"bodyclass",name:"collapsed",on:true});
+  if(APPS.viewer.frame) await applyViewerPanels();
+}
+document.querySelectorAll("#rail .ritem[data-tool]").forEach(function(b){
+  b.addEventListener("click",function(){ selectTool(b.dataset.tool); });
+});
+document.getElementById("railCop").addEventListener("click",function(){
+  if(document.body.classList.contains("dock-closed")) openDock(); else closeDock();
+});
+document.getElementById("zbAssign").addEventListener("click",function(){ openDock(); submit("assign on the aggregated zones"); });
+document.getElementById("zbFull").addEventListener("click",function(){ openDock(); submit("reset to full zones"); });
+document.getElementById("zbBest").addEventListener("click",function(){ openDock(); submit("find best aggregation"); });
+
+/* ---------- draggable / reorderable solution program ---------- */
+var PROG=[], dragI=null, progP=document.getElementById("progPanel");
+function fmtVH(n){ n=Math.round(n); return Math.abs(n)>=1000?(n/1000).toFixed(1)+"k":(""+n); }
+async function openProgram(auto){
+  switchApp("assign"); await waitReady("assign");
+  if(!auto){ progP.classList.add("show"); renderProgList(!PROG.length); }   // show immediately
+  var r=null;
+  for(var i=0;i<8;i++){ r=await rpc("assign",{cmd:"getprog"}); if(r&&r.ok) break; await new Promise(function(res){setTimeout(res,400);}); }
+  if(!r||!r.ok){ if(!auto && !PROG.length) renderProgList(true); return; }
+  PROG=r.picks||[]; progP.classList.add("show"); renderProgList();
+}
+function progTotals(){ var v=0,c=0; PROG.forEach(function(p){ v+=p.stepSaved||0; c+=p.stepCost||0; }); return {vht:v,cost:c,bcr:c>0?v/c:0}; }
+function renderProgList(empty){
+  var box=document.getElementById("progItems"); box.innerHTML="";
+  document.getElementById("progMeta").textContent = (empty||!PROG.length)?"":(PROG.length+" project"+(PROG.length===1?"":"s"));
+  if(empty || !PROG.length){
+    var e=document.createElement("div"); e.id="progEmpty";
+    e.innerHTML="No program yet. In <b>Solve</b>, tick <b>build program</b>, set a <b>Budget</b> and run <b>Find solutions</b> — then reopen this.";
+    box.appendChild(e); document.getElementById("progTot").textContent=""; return;
+  }
+  PROG.forEach(function(p,idx){
+    var it=document.createElement("div"); it.className="pitem"; it.draggable=true; it.dataset.i=idx;
+    it.innerHTML='<span class="pgrip" title="drag to reorder">⠿</span>'+
+      '<div class="pbody"><b>'+(idx+1)+'. '+esc(p.type)+'</b> <span class="psub">· corridor '+p.rank+'</span>'+
+      '<br><span class="psub">'+fmtVH(p.stepSaved)+' veh-h · '+(p.stepCost||0).toFixed(1)+' lane-km · '+((p.stepCost>0)?(p.stepSaved/p.stepCost).toFixed(0)+' veh-h/ln-km':"—")+'</span></div>'+
+      '<div class="pmove"><button data-up title="up">▲</button><button data-dn title="down">▼</button></div>'+
+      '<button class="pdrop" title="remove">✕</button>';
+    it.querySelector("[data-up]").addEventListener("click",function(){ if(idx>0){ var t=PROG[idx-1];PROG[idx-1]=PROG[idx];PROG[idx]=t; renderProgList(); } });
+    it.querySelector("[data-dn]").addEventListener("click",function(){ if(idx<PROG.length-1){ var t=PROG[idx+1];PROG[idx+1]=PROG[idx];PROG[idx]=t; renderProgList(); } });
+    it.querySelector(".pdrop").addEventListener("click",function(){ PROG.splice(idx,1); renderProgList(); });
+    it.addEventListener("dragstart",function(e){ dragI=idx; it.classList.add("drag"); try{e.dataTransfer.effectAllowed="move";e.dataTransfer.setData("text","x");}catch(_){} });
+    it.addEventListener("dragend",function(){ it.classList.remove("drag"); document.querySelectorAll(".pitem.over").forEach(function(x){x.classList.remove("over");}); });
+    it.addEventListener("dragover",function(e){ e.preventDefault(); it.classList.add("over"); });
+    it.addEventListener("dragleave",function(){ it.classList.remove("over"); });
+    it.addEventListener("drop",function(e){ e.preventDefault(); it.classList.remove("over"); if(dragI==null||dragI===idx) return; var m=PROG.splice(dragI,1)[0]; PROG.splice(idx,0,m); dragI=null; renderProgList(); });
+    box.appendChild(it);
+  });
+  var t=progTotals();
+  document.getElementById("progTot").innerHTML="Total <b>"+fmtVH(t.vht)+"</b> veh-h · "+t.cost.toFixed(1)+" lane-km · "+(t.bcr>0?t.bcr.toFixed(0)+" veh-h/ln-km":"–");
+}
+async function progApply(){
+  if(!PROG.length) return;
+  switchApp("assign"); await waitReady("assign");
+  await rpc("assign",{cmd:"applyprog",picks:PROG});
+  currentTool="scn"; highlightRail("scn");
+  await rpc("assign",{cmd:"section",text:"scenario"});
+  await rpc("assign",{cmd:"click",id:"scnRunBtn"});
+  progP.classList.remove("show");
+  openDock();
+  var m=addMsg("cop","Applied your <b>"+PROG.length+"-project program</b> to the scenario and ran it. Colour by <b>Δ</b> to see the change.");
+  addChips(m,["Colour by Δ","What are the current KPIs?","Show program list"]);
+}
+document.getElementById("progApply").addEventListener("click",progApply);
+document.getElementById("progClose").addEventListener("click",function(){ progP.classList.remove("show"); });
+(function(){   /* move the whole panel by dragging its header */
+  var head=document.getElementById("progHead"), dragging=false, ox=0, oy=0;
+  head.addEventListener("pointerdown",function(e){
+    if(e.target.id==="progClose") return;
+    dragging=true; head.classList.add("grab"); var r=progP.getBoundingClientRect();
+    ox=e.clientX-r.left; oy=e.clientY-r.top; progP.style.right="auto"; progP.style.left=r.left+"px"; progP.style.top=r.top+"px";
+    try{ head.setPointerCapture(e.pointerId); }catch(_){}
+  });
+  head.addEventListener("pointermove",function(e){
+    if(!dragging) return;
+    progP.style.left=Math.max(72,Math.min(window.innerWidth-60,e.clientX-ox))+"px";
+    progP.style.top=Math.max(54,Math.min(window.innerHeight-40,e.clientY-oy))+"px";
+  });
+  head.addEventListener("pointerup",function(e){ dragging=false; head.classList.remove("grab"); try{ head.releasePointerCapture(e.pointerId); }catch(_){} });
+})();
+/* force the apps to re-measure their canvas after any layout change, so click
+   hit-testing (link/zone selection) stays exactly aligned with the cursor. */
+function forceResize(){
+  for(var k in APPS){ if(APPS[k].frame && APPS[k].ready){ try{ APPS[k].win.postMessage({steam:1,cmd:"resize",rid:0},"*"); }catch(e){} } }
+}
+function afterLayoutChange(){ setTimeout(forceResize,60); setTimeout(forceResize,260); }
+function openDock(){ document.body.classList.remove("dock-closed"); afterLayoutChange(); setTimeout(function(){ document.getElementById("q").focus(); },50); }
+function closeDock(){ document.body.classList.add("dock-closed"); afterLayoutChange(); }
+window.addEventListener("resize", function(){ setTimeout(forceResize,40); });
+document.getElementById("copBtn").addEventListener("click",openDock);
+document.getElementById("copFab").addEventListener("click",openDock);
+document.getElementById("dockClose").addEventListener("click",closeDock);
+
+/* =====================================================================
+   COPILOT
+   ===================================================================== */
+var log=document.getElementById("log");
+function esc(s){ return String(s).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];}); }
+/* load a cached scenario's before→after Δ plot when its row is clicked */
+async function inspectScenario(key, name){
+  if(!key) return;
+  switchApp("assign"); await waitReady("assign");
+  var r=await rpc("assign",{cmd:"showdiff",key:key});
+  highlightRail("assign");
+  if(r&&r.ok) addMsg("cop","Showing the before→after <b>Δ plot</b> for <b>"+esc(name||"that scenario")+"</b> on the map — <span style='color:#2ecc71'>green</span> links carry more flow after aggregation, <span style='color:#e74c3c'>red</span> less. Centroids stay hidden in difference view.");
+  else addMsg("cop","That scenario's flows aren't cached anymore — re-run <b>find best aggregation</b> to refresh the comparison.");
+}
+log.addEventListener("click",function(e){
+  if(!e.target.closest) return;
+  var ap=e.target.closest(".scnapply");
+  if(ap){ e.preventDefault();
+    if(ap.hasAttribute("data-preapply")) applyPreloaded(+ap.getAttribute("data-preapply"));
+    else applyScenario(ap.getAttribute("data-apply"));
+    return; }
+  var pl=e.target.closest(".prelink");
+  if(pl){ e.preventDefault(); showPreDiff(+pl.getAttribute("data-pre")); return; }
+  var ev=e.target.closest(".evolink");
+  if(ev){ e.preventDefault(); inspectCorridor(+ev.getAttribute("data-evo"), ev.getAttribute("data-name")); return; }
+  var a=e.target.closest(".scnlink");
+  if(a){ e.preventDefault(); inspectScenario(a.getAttribute("data-scn"), a.getAttribute("data-name")); }
+});
+
+function addMsg(role, html){
+  var m=document.createElement("div"); m.className="msg "+role;
+  m.innerHTML='<div class="ava">'+(role==="cop"?"✦":"🙂")+'</div><div class="bub">'+html+'</div>';
+  log.appendChild(m); log.scrollTop=log.scrollHeight;
+  return m;
+}
+function addChips(container, chips){
+  if(!chips||!chips.length) return;
+  var box=document.createElement("div"); box.className="chips";
+  chips.forEach(function(c){
+    var b=document.createElement("button"); b.className="sg"; b.textContent=c;
+    b.addEventListener("click",function(){ submit(c); });
+    box.appendChild(b);
+  });
+  container.querySelector(".bub").appendChild(box);
+  log.scrollTop=log.scrollHeight;
+}
+function thinking(){
+  var m=document.createElement("div"); m.className="msg cop typing";
+  m.innerHTML='<div class="ava">✦</div><div class="bub"><span class="dots"><span></span><span></span><span></span></span></div>';
+  log.appendChild(m); log.scrollTop=log.scrollHeight; return m;
+}
+
+/* ---- knowledge base (concept Q&A) ---- */
+var KB=[
+ {k:["preloaded","precomputed","baked results","what is the preloaded comparison"],
+  a:"The <b>preloaded comparison</b> is a set of aggregation-method scores computed offline over the <b>whole network</b> (no study-area mask) and baked into this build: several spatial methods (NN, WARD, K-means, HEX, quadtree, size-balanced) each at zone targets like 3150 / 2600 / 2050 / 1500, plus the app's M1 and M2. Every score uses the optimiser's exact protocol — identical pre-sampled trips, demand-matched full-zone baseline, BPR rerouting — and is reported at <b>link level</b>: the share of links whose flow stays within 1% of baseline, and the standard GEH&lt;5 share. Say <span class='k'>preloaded comparison</span> to read them instantly, <b>click a row</b> to see its baked Δ plot with no run, or <b>apply ▸</b> to make it the live model."},
+ {k:["nnd","demand weighted aggregation","why corridors differ","corridor differences","moved trips"],
+  a:"<b>Why do some corridors show big Δs under aggregation?</b> With a demand-matched baseline the only thing aggregation changes is <i>where merged zones' trips enter the network</i>. Diagnosis on this model showed every big-Δ corridor sits within ~400 m of one of the largest <b>demand-weighted centroid displacements</b> — e.g. pure nearest-neighbour merging at 2600 zones moved a 60,000-trip-end zone 1.6 km, forcing all its trips onto different connectors and flipping flow between parallel streets. <b>NND · demand-weighted</b> fixes this at the root: trip ends act as cluster mass (merge cost d²·w<sub>a</sub>w<sub>b</sub>/(w<sub>a</sub>+w<sub>b</sub>)), centroids and representatives are demand-weighted, so high-demand zones keep their own loading points and low-demand zones absorb the merging. All custom methods also gained demand-weighted representative placement."},
+ {k:["gehx","exact guard","exact aggregation","guaranteed aggregation","geh below 2","zero error aggregation"],
+  a:"<b>GEHX · exact-guard</b> is the aggregation method built for hard link-level guarantees. Stage 1 merges zones that share the same <b>network attachment node</b> — their trips already enter the model at the identical node, so the assignment is <b>provably unchanged (GEH = 0 on every link)</b>. Stage 2 (only if a deeper target demands it) merges the smallest-trip-end zones first into the nearest surviving zone; moving <i>w</i> trips can worsen any link by at most <i>w</i>, so the method reports the largest zone it had to move (maxW) as its exposure. On this network ~260 same-node merges plus ~370 near-zero-demand zones make <b>GEH &lt; 2 on all links provable down to ≈3,100 zones</b>; below that, relocating any real zone zeroes its own access street (GEH = √(2w) there), so no method can guarantee GEH &lt; 2 everywhere — GEHX minimises the violations instead and the report shows the measured GEH&lt;2 share and max GEH."},
+ {k:["metro","metro planner","how is ridership estimated","station catchment","metro in al ain","metro areas"],
+  a:"<b>Metro planner</b>: say <span class='k'>propose a metro</span> and the copilot sites stations along the <b>population + demand density spine</b> — the weighted principal axis of the dense core, with each station at the local density centroid of its corridor segment (≥ 900 m spacing; “with 20 stations” sets the count). <b>Drag stations on the map</b> to refine the alignment, then say <span class='k'>evaluate metro ridership</span>: every OD pair with both ends inside station catchments (walk ≤ 800 m full weight, feeder ≤ 2 km at 0.35) is diverted by a line-haul distance curve, giving daily boardings per station, total riders and riders/km — a sketch-level direct-demand estimate for comparing alignments, not a full mode-choice model. Named areas it understands: Abu Dhabi metro, Al Ain, Al Dhafra / Madinat Zayed, Ruwais, Reem Island, Saadiyat, Yas, Musaffah, Khalifa City, Baniyas, Shahama."},
+ {k:["gehx-100","gehx100","certified aggregation","100 percent geh","all links below geh 2"],
+  a:"<b>GEHX-100</b> is the maximum-compression zone system <b>certified to keep every carrying link below GEH 2</b>. It is built by measure-and-repair: aggregate deep with GEHX, run the exact demand-matched comparison, find the links at GEH ≥ 2, un-merge the zones near them, and repeat until none remain — the final pass measures max GEH 1.99 over the whole network. A rule-based guarantee is impossible (small demand moves can flip an unrelated route choice and cascade), so certification is by measurement, and the certified merge list is baked into this build verbatim — <b>apply ▸</b> reproduces it exactly."},
+ {k:["geh","geh statistic","geh 5","model validation criterion"],
+  a:"<b>GEH</b> is the standard model-validation statistic for comparing two link flows: <code>GEH = √(2(a−b)² / (a+b))</code> — a self-scaling blend of absolute and relative error. The usual acceptance criterion is <b>GEH &lt; 5 on at least 85% of links</b>. The preloaded comparison and the aggregation optimiser both report the GEH&lt;5 share, so you can judge an aggregation the same way you'd judge a model calibration. Note that <b>100% of links within 1%</b> is unattainable under any real aggregation: merging zones moves their loading points, so the links at the old connection points must change — the practical question is what share of the network stays within tolerance."},
+ {k:["bpr","bureau of public roads","volume delay","congestion function"],
+  a:"<b>BPR</b> is the Bureau of Public Roads volume–delay function: <code>t = t0 · (1 + α·(v/c)^β)</code>, usually α=0.15, β=4. Travel time stays near free-flow until volume approaches capacity, then rises sharply. In the Assignment app, the <span class='k'>BPR (4 inc)</span> method loads demand in four increments using this curve; <span class='k'>Frank-Wolfe</span> and <span class='k'>MSA</span> use it inside an equilibrium loop."},
+ {k:["frank-wolfe","frank wolfe","fw","convex combination"],
+  a:"<b>Frank-Wolfe</b> solves a true user equilibrium. Each iteration finds an all-or-nothing direction, then takes the optimal step (line search) toward it, mixing the new and old flows. It drives the <b>relative gap</b> down — the gap measures how far you are from equilibrium, where no driver can switch to a faster route."},
+ {k:["msa","method of successive averages","successive averages"],
+  a:"<b>MSA</b> (Method of Successive Averages) is a simpler equilibrium method: at iteration <i>n</i> it blends the new all-or-nothing flows with the current flows using a fixed 1/<i>n</i> weight. Robust but converges slower than Frank-Wolfe's optimal step."},
+ {k:["aon","all-or-nothing","all or nothing","free-flow","free flow"],
+  a:"<b>All-or-nothing / free-flow</b> assignment loads every O–D trip onto the single shortest path at free-flow speed, ignoring congestion. It's the fastest method and a good sanity check, but it over-concentrates flow because it never reroutes around jams."},
+ {k:["v/c","vc","volume to capacity","volume-to-capacity","volume capacity"],
+  a:"<b>V/C</b> is volume ÷ capacity on a link. Below ~0.85 traffic flows freely; near 1.0 it's at capacity; above 1.0 the link is over-saturated. Colour the Assignment map by <span class='k'>V/C</span> to see bottlenecks."},
+ {k:["los","level of service","a-f","grade"],
+  a:"<b>LOS</b> (Level of Service) grades a link A–F — here derived from its V/C ratio: A is free-flow, E is at capacity, F is breakdown/stop-and-go. Use the <span class='k'>LOS</span> colour mode to communicate conditions to non-engineers."},
+ {k:["equilibrium","user equilibrium","wardrop","nash"],
+  a:"<b>User equilibrium</b> (Wardrop's first principle) is the state where every used route between an O–D pair has equal, minimal travel time — no driver can unilaterally find a faster path. Frank-Wolfe and MSA iterate toward it; the relative gap reports how close you are."},
+ {k:["gap","relative gap","convergence"],
+  a:"The <b>relative gap</b> measures convergence of an equilibrium assignment: the gap between the current total travel time and the lower bound from an all-or-nothing pass. Smaller is better; the convergence chart under <span class='k'>Run</span> plots it per iteration."},
+ {k:["vht","vehicle hours"],
+  a:"<b>VHT</b> = Vehicle-Hours Travelled, the sum of (volume × travel time) over all links — total time the network spends moving. Congestion-relief projects are judged by how much VHT they save."},
+ {k:["vmt","vehicle miles","vehicle kilometres","vehicle km"],
+  a:"<b>VMT/VKT</b> = Vehicle-Miles (or Kilometres) Travelled, the sum of (volume × length). It tracks total travel demand served and pairs with VHT to give average network speed (VMT ÷ VHT)."},
+ {k:["aggregation","aggregate zones","merge zones","taz","zone system","zoning"],
+  a:"The Network Viewer's <b>zone aggregation</b> tools merge fine TAZs (Traffic Analysis Zones) into a coarser system while protecting model accuracy. Methods M1–M5 use land use, districts, low-OD pairing, hybrids and size/density; <span class='k'>Distance change</span> and <span class='k'>Intrazonal demand</span> bound the error introduced. Guardrails stop merges across regions, sectors, freeways, etc. Ask me to <span class='k'>find the best aggregation</span> and I'll test every method against a full-zone assignment and pick the one with the lowest flow error."},
+ {k:["adjacent","adjacent-first","nearest neighbour","nearest neighbor","nn method","single linkage","kruskal","k-means","kmeans","grid cells","hex","hexagonal","quadtree","ward","k-center","kcenter","balanced zones","rings","sectors","spatial aggregation","proximity","contiguous zones","next to each other","new methods","custom methods"],
+  a:"Nine <b>proximity-first</b> aggregation methods merge zones <b>next to each other first</b>, all selectable in the Zones <span class='k'>Method</span> dropdown with a <span class='k'>keep at most N zones</span> target: <span class='k'>NN · adjacent-first</span> (closest pair merges first, then the next closest), <span class='k'>WARD</span> (merges the pair with the least variance increase — compact and balanced), <span class='k'>KM · k-means</span> (compact clusters), <span class='k'>KC · k-center</span> (farthest-point seeds — even coverage, bounds the worst-case zone radius), <span class='k'>GRID</span> / <span class='k'>HEX</span> (square / hexagonal spatial cells sized to hit the target), <span class='k'>QT · quadtree</span> (adaptive cells — fine where zones are dense, coarse in the desert), <span class='k'>BAL</span> (size-balanced merging), and <span class='k'>RING · rings × sectors</span> (classic radial sketch-planning around the activity centre). All join the <span class='k'>find best aggregation</span> search and are scored by flow RMSE / VHT error against the full-zone assignment."},
+ {k:["study area","study-area","adaptive aggregation","ax method","focus area","area of interest","local detail"],
+  a:"<b>AX · study-area adaptive</b> is a method I add to the search: it keeps <b>full zonal resolution inside your current map view</b> (the study area) and merges only the zones outside it. Because the densest, highest-flow links sit in the study area and their centroid loadings are preserved exactly, it drives the assignment error to its minimum where you care — usually the lowest flow RMSE of any method at a comparable zone count. Zoom to the area you're studying, then ask me to <span class='k'>find the best aggregation</span>."},
+ {k:["network evolution","2025","2040","upgrades","corridor","corridors","horizon","scheme","schemes","new roads","widening","appraisal","do-something","do-minimum"],
+  a:"<b>Network evolution</b> compares the <b>2025 and 2040 networks</b>, which are baked into the app from the project shapefile (fields <code>LINK_/LTYPE_/LANE_</code> per year). I find every <b>major upgrade</b> 2025→2040 — <span style='color:#39d353'>new roads</span>, <span style='color:#38bdf8'>widenings</span> and <span style='color:#fbbf24'>type upgrades</span> on freeways/expressways and interchanges — group them into <b>corridors</b> (contiguous links of the same kind &amp; class), and show them with the map toggle (<span class='k'>2040 / 2025 / Differences</span>). I can then appraise each corridor <b>do-something vs do-minimum</b>: add it to the 2025 base, assign 2040 demand, measure the veh-hours saved, and rank schemes by cost-effectiveness. Say <span class='k'>compare 2025 and 2040</span> or <span class='k'>assess corridor benefits</span>."},
+ {k:["taz","traffic analysis zone","centroid","centroids"],
+  a:"A <b>TAZ</b> (Traffic Analysis Zone) is the spatial unit of travel demand; its <b>centroid</b> is the point where all of a zone's trips load onto the network through connectors. This model has 3,692 centroids."},
+ {k:["od","o-d","origin-destination","matrix","demand matrix","trip table"],
+  a:"An <b>OD matrix</b> (origin–destination / trip table) holds the number of trips from each origin zone to each destination zone. The Assignment app loads it (or builds one from land use) and routes it onto the network. Load a CSV of <code>O,D,trips</code> for decision-grade results."},
+ {k:["desire line","desire lines","od flow","flow line"],
+  a:"<b>OD desire lines</b> draw straight origin→destination links weighted by trips, showing raw demand independent of the road network. Toggle them in the Network Viewer's <span class='k'>Colour zones by…</span> row."},
+ {k:["gravity","deterrence","beta","trip distribution","distribute"],
+  a:"The Assignment app's <b>demand model</b> generates trip ends from land use, then distributes them with a <b>gravity model</b>: trips ∝ productions × attractions × exp(−β·distance). A larger deterrence <b>β</b> means trips stay shorter/more local."},
+ {k:["screenline","screen line","cordon"],
+  a:"A <b>screenline</b> is a line you draw across the network; the tool sums the volume of every link crossing it — used to validate a corridor's total throughput or compare scenarios. Use the <span class='k'>Screenline</span> tool in the Assignment app's Scenario section."},
+ {k:["select link","select-link","selectlink"],
+  a:"<b>Select-link</b> analysis picks one link and shows all the O–D flows that use it — answering “where does the traffic on this road come from and go to?” Pick the <span class='k'>Select-link</span> tool, then tap a link."},
+ {k:["capacity","lanes","speed","settings"],
+  a:"Link <b>capacity</b> (veh/hr) and free-flow <b>speed</b> come from road class and lane count. Edit them — and the BPR α/β — under <span class='k'>Settings</span> in the Assignment app; re-run afterwards to apply."},
+ {k:["recommend","recommendation","rank corridors","find solutions","bcr","benefit cost","benefit-cost","budget","prioritise","prioritize","best value","cost effective"],
+  a:"<b>Recommend &amp; solve</b> ranks congested corridors by delay, generates upgrade options (add lanes, widen the bottleneck, parallel relief road), then <i>reassigns</i> each to measure the real VHT it saves. It prioritises by <b>cost-effectiveness</b> — VHT saved per lane-km built. That is a <i>proxy</i> for a true benefit–cost ratio (which needs monetised time savings and scheme costs); the ranking matches a BCR ranking when cost scales with lane-km and a single value of time applies. Set a <span class='k'>Budget</span> (lane-km) and the <b>build program</b> option assembles the project set that fits the budget by marginal cost-effectiveness."},
+ {k:["scenario","upgrade","widen","add lane","new road","build road"],
+  a:"In the Assignment app's <b>Scenario</b> section you can <span class='k'>Upgrade</span> a link (add lanes), <span class='k'>Draw road</span> (place a new road between two taps), then <span class='k'>Run scenario</span> to re-assign and measure VHT/VMT change versus the base case. Save named scenarios to compare."},
+ {k:["pnr","park and ride","park-and-ride","pt","transit","walk"],
+  a:"The base network includes 152,879 road links plus public-transport (PT), walk and Park-and-Ride (PnR) layers. Toggle them with the layer chips at the top of the Network Viewer."}
+];
+
+/* ---- action intents: each maps language → app + bridge ops ---- */
+function A(o){ return o; }
+var ACTIONS=[
+ /* cross-app handoff: aggregate zones in the Viewer, assign on them */
+ A({app:null, keys:["apply aggregation to assignment","assign on aggregated zones","assign on the aggregated zones","use aggregated zones","aggregated zones in assignment","run on aggregated zones","run on the aggregated zones","send zones to assignment","push zones to assignment","assign aggregated zones","use the aggregated zones"],
+    run:applyAggregationHandoff}),
+ A({app:null, keys:["find best aggregation","best aggregation","best aggregation method","optimise aggregation","optimize aggregation","try aggregation methods","compare aggregation methods","which aggregation is best","best way to aggregate","best aggregation for"],
+    run:findBestAggregation}),
+ A({app:null, keys:["propose a metro","metro proposal","plan a metro","suggest a metro","design a metro","propose metro","new metro line","metro line proposal"],
+    run:proposeMetro}),
+ A({app:null, keys:["evaluate metro ridership","metro ridership","evaluate the metro","estimate ridership","evaluate metro","ridership estimate","metro demand"],
+    run:evalMetro}),
+ A({app:null, keys:["clear the metro","clear metro","remove the metro","remove metro","delete metro"],
+    run:clearMetro}),
+ A({app:null, keys:["preloaded comparison","preloaded results","preloaded aggregation","show preloaded comparison","show comparison results","comparison results","precomputed comparison","precomputed results","aggregation comparison results","unified comparison","aggregation results","baked comparison","preloaded comparison results"],
+    run:showPreloadedComparison}),
+ A({app:null, keys:["apply the best preloaded","apply best preloaded","apply the best preloaded aggregation","use the best preloaded"],
+    run:function(){ var bi=preBestIdx(); if(bi<0) return Promise.resolve({html:"No preloaded comparison is baked into this build.", chips:["Find best aggregation"]}); return applyPreloaded(bi).then(function(){ return {html:"That's the best preloaded configuration applied — details above."}; }); }}),
+ A({app:null, keys:["full zone system","reset zones","restore zones","un-aggregate","full zones","original zones","reset zone system"],
+    run:resetZonesHandoff}),
+ /* network evolution 2025 → 2040 (baked dual-year network) */
+ A({app:null, keys:["compare 2025 and 2040","network evolution","compare networks","2025 vs 2040","2025 versus 2040","show upgrades","find upgrades","check upgrades","upgrades 2025 2040","network upgrades","show corridors","group corridors","upgrade corridors","compare 2025 2040","evolution","show differences","show the differences","difference network","show diff network"],
+    run:networkEvolution}),
+ A({app:null, keys:["show 2025 network","open 2025 network","open the 2025 network","2025 network","show 2025","view 2025","open 2025","base network","show base network","the base network","open base network","show the base network","base year network","base year","current network","existing network"],
+    run:function(){ return evoMode("b2025","Showing the <b>2025 base network</b>."); }}),
+ A({app:null, keys:["show 2040 network","show 2040 roads","2040 roads","2040 road network"],
+    run:function(){ return evoMode("b2040","Showing the <b>2040</b> road network (same style as 2025 for a like-for-like compare)."); }}),
+ A({app:null, keys:["open 2040 network","open the 2040 network","2040 network","view 2040","open 2040","full 2040 view","full network view","normal view","back to normal","exit evolution","full model view"],
+    run:function(){ return evoMode("off","Back to the <b>full 2040</b> model view."); }}),
+ A({app:null, keys:["assess corridor benefits","appraise corridors","benefit of each project","assess the benefits","project priorities","prioritise projects","prioritize projects","rank projects","scheme benefits","appraise upgrades","assess upgrades","rank 2040 improvements","rank improvements","rank the improvements","rank schemes"],
+    run:assessCorridors}),
+ A({app:null, keys:["evaluate this project","evaluate this corridor","evaluate selected","evaluate the selected project","evaluate project","evaluate corridor","evaluate this scheme","evaluate scheme","test this project","benefit of this project"],
+    run:function(){ return assessOneCorridor(-1); }}),
+ A({app:"viewer", keys:["open the zones tool","open zones","zones tool","show aggregation","aggregation panel","open aggregation"],
+    say:"Opened the <b>Zones</b> aggregation tool.", run:function(){ selectTool("zones"); return Promise.resolve(true); }}),
+ /* navigation */
+ A({app:null, keys:["network viewer","viewer","the map","zone tool","aggregation app","first app","left tab"],
+    imp:true, say:"Switched to the <b>Network Viewer</b>.", run:function(){ switchApp("viewer"); return Promise.resolve(true); }}),
+ A({app:null, keys:["assignment app","assignment","traffic model","assign tab","traffic app","second app","equilibrium app"],
+    imp:true, say:"Switched to the <b>Assignment</b> app.", run:function(){ switchApp("assign"); return Promise.resolve(true); }}),
+
+ /* ---- Network Viewer ---- */
+ A({app:"viewer", keys:["metro","abu dhabi metro","metro area"], say:"Zoomed to the Metro area.", ops:[["click","vmetro"]]}),
+ A({app:"viewer", keys:["al ain","alain"], say:"Zoomed to Al Ain.", ops:[["click","valain"]]}),
+ A({app:"viewer", keys:["full network","fit network","whole network","reset view","fit all","zoom to fit","entire network"],
+    say:"Fit the full network in view.", ops:[["click","vfull"]]}),
+ A({app:"viewer", keys:["zoom in"], say:"Zoomed in.", ops:[["click","zin"]]}),
+ A({app:"viewer", keys:["zoom out"], say:"Zoomed out.", ops:[["click","zout"]]}),
+ A({app:"viewer", keys:["method m1","m1","land use and distance"], say:"Aggregation method set to <b>M1 · Land use + distance</b>.", ops:[["set","methodSel","m1"]]}),
+ A({app:"viewer", keys:["method m2","m2","districts"], say:"Aggregation method set to <b>M2 · Districts</b>.", ops:[["set","methodSel","m2"]]}),
+ A({app:"viewer", keys:["method m3","m3","low od"], say:"Aggregation method set to <b>M3 · Low OD</b>.", ops:[["set","methodSel","m3"]]}),
+ A({app:"viewer", keys:["method m4","m4","hybrid"], say:"Aggregation method set to <b>M4 · Hybrid</b>.", ops:[["set","methodSel","m4"]]}),
+ A({app:"viewer", keys:["method m5","m5","size","density"], say:"Aggregation method set to <b>M5 · Size / density</b>.", ops:[["set","methodSel","m5"]]}),
+ A({app:"viewer", keys:["distance change","geometry method","by distance"], say:"Aggregation method set to <b>Distance change (geometry)</b>.", ops:[["set","methodSel","distance"]]}),
+ A({app:"viewer", keys:["intrazonal demand","demand method"], say:"Aggregation method set to <b>Intrazonal demand</b>.", ops:[["set","methodSel","demand"]]}),
+ A({app:"viewer", keys:["adjacent first method","nearest neighbour method","nn aggregation","adjacent zones method"], say:"Aggregation method set to <b>NN · Adjacent-first</b> — closest zones merge first.", ops:[["set","methodSel","nn"]]}),
+ A({app:"viewer", keys:["demand weighted method","nnd method","demand aware method","trip weighted method"], say:"Aggregation method set to <b>NND · Demand-weighted adjacent</b> — trip ends act as cluster mass, so high-demand zones keep their own loading points and low-demand zones merge first.", ops:[["set","methodSel","nnd"]]}),
+ A({app:"viewer", keys:["ward method","variance method"], say:"Aggregation method set to <b>WARD · Variance-minimising</b>.", ops:[["set","methodSel","ward"]]}),
+ A({app:"viewer", keys:["k-means method","kmeans method","compact clusters"], say:"Aggregation method set to <b>KM · K-means compact</b>.", ops:[["set","methodSel","kmeans"]]}),
+ A({app:"viewer", keys:["k-center method","kcenter method","coverage method"], say:"Aggregation method set to <b>KC · K-center coverage</b>.", ops:[["set","methodSel","kcenter"]]}),
+ A({app:"viewer", keys:["grid method","square cells method"], say:"Aggregation method set to <b>GRID · Square cells</b>.", ops:[["set","methodSel","grid"]]}),
+ A({app:"viewer", keys:["hex method","hexagonal method","hex cells"], say:"Aggregation method set to <b>HEX · Hexagonal cells</b>.", ops:[["set","methodSel","hex"]]}),
+ A({app:"viewer", keys:["quadtree method","adaptive cells method","quad method"], say:"Aggregation method set to <b>QT · Quadtree adaptive</b>.", ops:[["set","methodSel","quad"]]}),
+ A({app:"viewer", keys:["balanced method","size balanced method"], say:"Aggregation method set to <b>BAL · Size-balanced</b>.", ops:[["set","methodSel","bal"]]}),
+ A({app:"viewer", keys:["rings method","sectors method","ring sector method","radial method"], say:"Aggregation method set to <b>RING · Rings × sectors</b>.", ops:[["set","methodSel","ring"]]}),
+ A({app:"viewer", keys:["colour by district","color by district","shade district"], say:"Colouring zones by <b>district</b>.", ops:[["set","shadeSel","district"]]}),
+ A({app:"viewer", keys:["colour by land use","color by land use","shade land use","colour landuse"], say:"Colouring zones by <b>land use</b>.", ops:[["set","shadeSel","landuse"]]}),
+ A({app:"viewer", keys:["colour by productions","color by productions","productions"], say:"Colouring zones by <b>productions</b>.", ops:[["set","shadeSel","prod"]]}),
+ A({app:"viewer", keys:["colour by attractions","color by attractions","attractions"], say:"Colouring zones by <b>attractions</b>.", ops:[["set","shadeSel","attr"]]}),
+ A({app:"viewer", keys:["productions plus attractions","p + a","p plus a","p+a"], say:"Colouring zones by <b>P + A</b>.", ops:[["set","shadeSel","pa"]]}),
+ A({app:"viewer", keys:["no shading","clear colour","clear color","colour none"], say:"Cleared zone colouring.", ops:[["set","shadeSel","none"]]}),
+ A({app:"viewer", keys:["desire lines","od desire","show od flow","flow lines"], say:"Toggled <b>OD desire lines</b>.", ops:[["check","odFlowChk",true]]}),
+ A({app:"viewer", keys:["show bars","p/a/lu","population bars","bars"], say:"Toggled the <b>P / A / LU / Pop</b> bars.", ops:[["check","barsChk",true]]}),
+ A({app:"viewer", keys:["study area","study mode"], say:"Switched to <b>Study area</b> aggregation mode.", ops:[["seg","#fmode","study"]]}),
+ A({app:"viewer", keys:["uniform mode","uniform"], say:"Switched to <b>Uniform</b> aggregation mode.", ops:[["seg","#fmode","uniform"]]}),
+ A({app:"viewer", keys:["lasso","select zones","draw selection"], say:"Lasso tool armed — drag on the map to select zones.", ops:[["seg","#fmode","study"],["click","lassoBtn"]]}),
+ A({app:"viewer", keys:["clear selection","clear zones"], say:"Cleared the selection.", ops:[["click","clearBtn"]]}),
+ A({app:"viewer", keys:["od stats","od delta","od change stats"], say:"Computed OD Δ statistics — see the readout in the panel.", ops:[["click","odBtn"]], readAfter:["odout"]}),
+ A({app:"viewer", keys:["export","download","export zones"], say:"Opened the export dialog.", ops:[["click","expBtn"]]}),
+ A({app:"viewer", keys:["load network","import network","add network","load panel"], say:"Opened the <b>Load network</b> panel.", ops:[["click","loadToggle"]]}),
+
+ /* ---- Assignment ---- */
+ /* method-specific runs are listed before the generic run so they win ties */
+ A({app:"assign", keys:["free-flow assignment","free flow assignment","all or nothing","aon","run free flow"],
+    run:function(){ return runAssign("aon","Ran a <b>free-flow</b> assignment."); }}),
+ A({app:"assign", keys:["bpr assignment","run bpr","bpr"],
+    run:function(){ return runAssign("bpr","Ran a <b>BPR</b> (4-increment) assignment."); }}),
+ A({app:"assign", keys:["frank-wolfe","frank wolfe","equilibrium assignment","user equilibrium","run equilibrium","fw"],
+    run:function(){ return runAssign("fw","Ran a <b>Frank-Wolfe</b> equilibrium assignment."); }}),
+ A({app:"assign", keys:["msa","successive averages"],
+    run:function(){ return runAssign("msa","Ran an <b>MSA</b> equilibrium assignment."); }}),
+ A({app:"assign", keys:["run assignment","run the model","run it","run model","assign traffic","go run","just run"],
+    run:function(){ return runAssign(null,"Ran the assignment."); }}),
+ A({app:"assign", keys:["colour by volume","color by volume","show volume","volume"], say:"Colouring by <b>volume</b>.", ops:[["seg","#modeSeg","vol"]]}),
+ A({app:"assign", keys:["colour by v/c","color by vc","show vc","v/c map","vc"], say:"Colouring by <b>V/C</b>.", ops:[["seg","#modeSeg","vc"]]}),
+ A({app:"assign", keys:["colour by los","color by los","level of service map","los"], say:"Colouring by <b>LOS</b>.", ops:[["seg","#modeSeg","los"]]}),
+ A({app:"assign", keys:["scenario difference","show delta","difference map","diff"], say:"Colouring by scenario <b>Δ</b>.", ops:[["seg","#modeSeg","diff"]]}),
+ A({app:"assign", keys:["all-ones","all ones","test matrix"], say:"Demand set to the <b>all-ones</b> test matrix.", ops:[["set","demandSel","ones"]]}),
+ A({app:"assign", keys:["loaded matrix","use od matrix","real demand"], say:"Demand set to the <b>loaded OD matrix</b>.", ops:[["set","demandSel","od"]]}),
+ A({app:"assign", keys:["am peak","peak period","peak hour"], say:"Period set to <b>AM peak</b> (24h ÷ 10).", ops:[["set","periodSel","0.1"]]}),
+ A({app:"assign", keys:["24 hour","24-hour","daily total","whole day"], say:"Period set to <b>24-hour total</b>.", ops:[["set","periodSel","1"]]}),
+ A({app:"assign", keys:["off-peak","off peak"], say:"Period set to <b>off-peak</b> (÷ 12).", ops:[["set","periodSel","0.08"]]}),
+ A({app:"assign", keys:["build demand","demand model","generate demand","trips from land use"],
+    say:"Building the demand model from land use…", ops:[["open","demand model"],["click","buildDemandBtn"]], readAfter:["demStats"]}),
+ A({app:"assign", keys:["rank corridors","recommend","rank","worst corridors","congested corridors"],
+    run:function(){ return rankOrSolve("recBtn","Ranked corridors by congested delay."); }}),
+ A({app:"assign", keys:["find solutions","solve","fix congestion","propose solutions","suggest fixes"],
+    run:function(){ return rankOrSolve("solveBtn","Searched for solutions — re-assigned and measured VHT saved."); }}),
+ A({app:null, keys:["show program list","program list","show the program","open program","program panel","drag program","reorder program","edit program","move program"],
+    say:"Opened the <b>program list</b> — drag ⠿ to reorder, ✕ to drop a project, drag the header to move it, then <b>Apply</b>.",
+    run:function(){ openProgram(); return Promise.resolve(true); }}),
+ A({app:"assign", keys:["upgrade tool","upgrade mode","add lanes","widen"], say:"<b>Upgrade</b> tool armed — tap a link to add lanes.", ops:[["open","scenario"],["seg","#editSeg","upgrade"]]}),
+ A({app:"assign", keys:["draw road","draw mode","new road tool"], say:"<b>Draw road</b> tool armed — tap two points to place a road.", ops:[["open","scenario"],["seg","#editSeg","draw"]]}),
+ A({app:"assign", keys:["select-link tool","select link tool","selectlink"], say:"<b>Select-link</b> tool armed — tap a link to see its O–D flows.", ops:[["open","scenario"],["seg","#editSeg","select"]]}),
+ A({app:"assign", keys:["screenline tool","screen line tool","draw screenline"], say:"<b>Screenline</b> tool armed — draw a line to sum crossing volume.", ops:[["open","scenario"],["seg","#editSeg","screen"]]}),
+ A({app:"assign", keys:["run scenario","test scenario","assign scenario"], say:"Running the scenario…", ops:[["open","scenario"],["click","scnRunBtn"]], readAfter:["scnstats"]}),
+ A({app:"assign", keys:["clear edits","reset scenario","clear scenario"], say:"Cleared scenario edits.", ops:[["click","clearBtn"]]}),
+ A({app:"assign", keys:["top links","worst links","most congested links"], say:"Listed the top congested links.", ops:[["open","analysis"],["click","topBtn"]], readAfter:["analysisOut"]}),
+ A({app:"assign", keys:["histogram","v/c histogram","vc histogram","distribution"], say:"Built the V/C histogram.", ops:[["open","analysis"],["click","histBtn"]], readAfter:["analysisOut"]}),
+ A({app:"assign", keys:["class summary","by class","road class summary"], say:"Built the class summary.", ops:[["open","analysis"],["click","classBtn"]], readAfter:["analysisOut"]}),
+ A({app:"assign", keys:["connectivity","connected","diagnostics"], say:"Ran connectivity diagnostics.", ops:[["open","analysis"],["click","connBtn"]], readAfter:["analysisOut"]}),
+ A({app:"assign", keys:["export csv","download csv","export results"], say:"Exported results to CSV.", ops:[["open","analysis"],["click","exportBtn"]]}),
+ A({app:"assign", keys:["light theme","light mode"], say:"Switched to the <b>light</b> theme.", ops:[["set","themeSel","light"]]}),
+ A({app:"assign", keys:["dark theme","dark mode"], say:"Switched to the <b>dark</b> theme.", ops:[["set","themeSel","dark"]]}),
+ A({app:"assign", keys:["high contrast","contrast theme"], say:"Switched to the <b>high contrast</b> theme.", ops:[["set","themeSel","contrast"]]}),
+ A({app:"assign", keys:["colour-blind","color-blind","colour blind","colorblind"], say:"Toggled <b>colour-blind safe</b> palette.", ops:[["check","cbChk",true]]}),
+ A({app:"assign", keys:["settings","capacity settings","bpr settings"], say:"Opened the <b>Settings</b> section.", ops:[["open","settings"]]}),
+ A({app:"assign", keys:["help","quick guide","how does this work"], say:"Opened the in-app help.", ops:[["click","helpBtn"]]})
+];
+
+/* state-question intents */
+var STATE=[
+ {keys:["results","kpi","kpis","how did it go","what happened","vht now","current vht","how congested","over capacity","summary of results","network performance","stats"],
+  app:"assign", run:reportAssign},
+ {keys:["what's selected","whats selected","selection","how many zones","network stats","zone count","centroids"],
+  app:"viewer", run:reportViewer}
+];
+
+/* meta intents */
+var META=[
+ {keys:["what can you do","help me","capabilities","commands","what can i ask","how do i use you","what do you do"], run:helpReply},
+ {keys:["what is this","what is steam","what are these apps","overview","explain this app","what is this tool"], run:overviewReply},
+ {keys:["hello","hi","hey","yo","good morning","good evening"], run:function(){ return Promise.resolve({html:"Hi — I'm the STEAM Copilot. I can run either app for you and explain the modelling. Try a chip below or ask me anything.", chips:["What can you do?","Run a Frank-Wolfe assignment","Zoom to the Metro area","Explain V/C"]}); }},
+ {keys:["thanks","thank you","cheers","nice","great","cool"], run:function(){ return Promise.resolve({html:"Anytime. Want me to rank the congested corridors or test a scenario next?", chips:["Rank corridors","Find solutions","Colour by V/C"]}); }}
+];
+
+/* ---------- matcher ---------- */
+var Q_CUE=/\b(what|why|how|explain|define|describe|tell me|meaning of|difference|which|when|who)\b/;
+var IMP_CUE=/\b(run|show|go|switch|open|colou?r|set|zoom|fit|toggle|build|rank|find|solve|draw|upgrade|select|export|enable|turn|use|make|give me|let'?s|display|jump|take me)\b/;
+function norm(s){ return " "+s.toLowerCase().replace(/[^a-z0-9/+\s.-]/g," ").replace(/\s+/g," ")+" "; }
+function hasWord(t, w){ return t.indexOf(" "+w+" ")>=0; }
+/* a key phrase matches when ALL its words appear (any order); longest phrase wins */
+function scoreKeys(t, keys){
+  var best=0;
+  for(var i=0;i<keys.length;i++){
+    var phrase=keys[i].toLowerCase().trim();
+    var words=phrase.split(/\s+/).filter(Boolean), all=true;
+    for(var j=0;j<words.length;j++){ if(!hasWord(t,words[j])){ all=false; break; } }
+    if(all && phrase.length>best) best=phrase.length;
+  }
+  return best;
+}
+function classify(text){
+  var t=norm(text), isQ=Q_CUE.test(t), isImp=IMP_CUE.test(t);
+  var cands=[];
+  META.forEach(function(r){ var s=scoreKeys(t,r.keys); if(s) cands.push({type:"meta",r:r,s:s+2}); });
+  STATE.forEach(function(r){ var s=scoreKeys(t,r.keys); if(s) cands.push({type:"state",r:r,s:s+1}); });
+  ACTIONS.forEach(function(r){ var s=scoreKeys(t,r.keys); if(s){ if(isImp) s+=4; if(isQ&&!isImp) s-=3; cands.push({type:"action",r:r,s:s}); } });
+  KB.forEach(function(r){ var s=scoreKeys(t,r.k); if(s){ if(isQ) s+=4; cands.push({type:"kb",r:r,s:s}); } });
+  cands.sort(function(a,b){ return b.s-a.s; });
+  return cands.length?cands[0]:null;
+}
+
+/* ---------- formatting helpers for state ---------- */
+function fmtState(obj, fields){
+  var rows=[];
+  fields.forEach(function(f){ var v=obj[f.id]; if(v) rows.push("<li><span class='k'>"+f.label+":</span> "+esc(v)+"</li>"); });
+  return rows.length? "<ul>"+rows.join("")+"</ul>" : "";
+}
+async function reportAssign(){
+  switchApp("assign");
+  var s=await snapshot("assign");
+  var kpi=s.kpi||"", status=s.status||"", gap=s.gapOut||"";
+  if(!kpi && !status){
+    return {html:"The Assignment app hasn't produced results yet. Want me to run one now?", chips:["Run a Frank-Wolfe assignment","Run BPR","Run free-flow"]};
+  }
+  var html="Here's the current Assignment state:";
+  html+=fmtState({kpi:kpi,status:status,gap:gap},[{id:"kpi",label:"KPIs"},{id:"gap",label:"Gap"},{id:"status",label:"Status"}]);
+  return {html:html, chips:["Rank corridors","Colour by V/C","Top links","Find solutions"]};
+}
+async function reportViewer(){
+  switchApp("viewer");
+  var s=await snapshot("viewer");
+  var html="Network Viewer state:";
+  html+=fmtState(s,[{id:"netstats",label:"Network"},{id:"agglbl",label:"Aggregation"},{id:"selinfo",label:"Selection"},{id:"odout",label:"OD Δ"}]);
+  if(!s.netstats && !s.agglbl) html="The Network Viewer is loaded. Pick an aggregation method or a colour scheme and I'll run it.";
+  return {html:html, chips:["Colour by district","Zoom to the Metro area","OD Δ stats"]};
+}
+
+/* ---------- meta replies ---------- */
+function helpReply(){
+  return Promise.resolve({html:
+   "I'm wired into <b>both</b> apps and switch between them automatically. I can:"+
+   "<ul>"+
+   "<li><span class='k'>Drive the Assignment app</span> — run free-flow / BPR / Frank-Wolfe / MSA, colour by volume·V/C·LOS·Δ, rank corridors, find solutions, run scenarios, analysis &amp; export.</li>"+
+   "<li><span class='k'>Drive the Network Viewer</span> — zoom to Metro / Al Ain, set aggregation methods M1–M5, colour zones, OD desire lines, lasso a study area, OD Δ stats.</li>"+
+   "<li><span class='k'>Connect the two</span> — aggregate zones in the Viewer, then say “assign on the aggregated zones” and I'll re-aggregate the OD onto your merged zones and re-run.</li>"+
+   "<li><span class='k'>Read live results</span> — ask “what are the current KPIs?” and I'll report VHT, VMT, speed, over-capacity links.</li>"+
+   "<li><span class='k'>Explain the modelling</span> — BPR, equilibrium, V/C, LOS, gravity model, TAZ aggregation, screenlines, and more.</li>"+
+   "</ul>Just tell me what you want in plain English.",
+   chips:["Run a Frank-Wolfe assignment","Assign on the aggregated zones","Rank corridors","Explain BPR","What are the current KPIs?"]});
+}
+function overviewReply(){
+  return Promise.resolve({html:
+   "<b>STEAM AI Brain</b> is one strategic-modelling workflow over the 2040 network (152,879 road links + PT, walk &amp; PnR):"+
+   "<ul>"+
+   "<li>🗺️ <span class='k'>Network Viewer</span> — explore the network and aggregate the 3,692-zone TAZ system while controlling the error it introduces.</li>"+
+   "<li>🚦 <span class='k'>Assignment</span> — route an OD matrix onto the network (free-flow → user equilibrium), test road upgrades and new roads, and rank/solve congestion.</li>"+
+   "</ul>I'm the copilot tying them together. What would you like to do?",
+   chips:["What can you do?","Run an assignment","Open the Network Viewer"]});
+}
+
+/* ---------- main dispatch ---------- */
+async function handle(text){
+  var c=classify(text);
+  if(!c){
+    return {html:"I'm not sure how to do that yet. I can run either app or explain the modelling — try one of these:",
+            chips:["What can you do?","Run a Frank-Wolfe assignment","Rank corridors","Explain V/C"]};
+  }
+  if(c.type==="meta")  return await c.r.run();
+  if(c.type==="kb")    return {html:c.r.a, chips:kbChips(text)};
+  if(c.type==="state") return await c.r.run();
+
+  /* action */
+  var r=c.r;
+  if(r.run){ var rr=await r.run(text); if(rr && rr.html) return rr; return {html:r.say||"Done.", done:true}; }
+  var key=r.app;
+  if(key && key!==activeApp) switchApp(key);
+  await drive(key, r.ops);
+  var resp={html:r.say||"Done.", done:true};
+  if(r.readAfter && r.readAfter.length){
+    await new Promise(function(res){ setTimeout(res, key==="assign"?700:250); });
+    var s=await snapshot(key);
+    var extra=[];
+    r.readAfter.forEach(function(id){ if(s[id]) extra.push("<span class='k'>"+id+":</span> "+esc(s[id].slice(0,220))); });
+    if(extra.length) resp.html += "<div class='did'>"+extra.join("<br>")+"</div>";
+  }
+  resp.chips = followups(key);
+  return resp;
+}
+function kbChips(text){
+  return ["Run an assignment","Colour by V/C","Rank corridors","What can you do?"];
+}
+function followups(key){
+  return key==="assign"
+    ? ["Colour by V/C","Rank corridors","What are the current KPIs?","Find solutions"]
+    : ["Colour by district","Zoom to Al Ain","OD desire lines","Open the Assignment app"];
+}
+
+/* ---------- submit / UI wiring ---------- */
+var busy=false;
+async function submit(text){
+  text=(text||"").trim(); if(!text||busy) return;
+  busy=true; document.getElementById("send").disabled=true;
+  addMsg("user", esc(text));
+  var t=thinking();
+  var resp;
+  try{ resp=await handle(text); }
+  catch(e){ resp={html:"Something went wrong handling that ("+esc(String(e&&e.message||e))+"). Try rephrasing?"}; }
+  t.remove();
+  var m=addMsg("cop", resp.html||"Done.");
+  if(resp.done){ /* already styled inline */ }
+  addChips(m, resp.chips);
+  busy=false; document.getElementById("send").disabled=false;
+  var q=document.getElementById("q"); q.focus();
+}
+var qEl=document.getElementById("q");
+function autosize(){ qEl.style.height="auto"; qEl.style.height=Math.min(qEl.scrollHeight,96)+"px"; }
+qEl.addEventListener("input",autosize);
+qEl.addEventListener("keydown",function(e){ if(e.key==="Enter"&&!e.shiftKey){ e.preventDefault(); var v=qEl.value; qEl.value=""; autosize(); submit(v); } });
+document.getElementById("send").addEventListener("click",function(){ var v=qEl.value; qEl.value=""; autosize(); submit(v); });
+
+/* quick chips */
+var QUICK=["What can you do?","Run a Frank-Wolfe assignment","Preloaded comparison","Rank corridors","Zoom to the Metro area","Explain BPR"];
+var qbox=document.getElementById("quick");
+QUICK.forEach(function(c){ var b=document.createElement("button"); b.className="sg"; b.textContent=c; b.addEventListener("click",function(){ submit(c); }); qbox.appendChild(b); });
+
+/* greeting */
+addMsg("cop","👋 I'm the <b>STEAM Copilot</b>. I run the <b>Network Viewer</b> and the <b>Assignment</b> app for you and explain the modelling behind them — all offline. Tell me what you want, or tap a suggestion.");
+addChips(log.lastChild,["What can you do?","Run an assignment","Zoom to the Metro area"]);
+
+/* boot: load the default viewer frame, open dock after a beat */
+ensureFrame("viewer"); waitReady("viewer").then(function(){ updateCtx();
+  setTimeout(function(){ ensureFrame("assign"); waitReady("assign"); }, 1200);   // warm the engine so steps switch instantly
+});
+setTimeout(openDock, 650);
+
+/* harness hooks for offline testing / preload generation (no user-facing use) */
+window.__STEAM={ rpc:rpc, waitReady:waitReady, switchApp:switchApp, pollState:pollState,
+  runAggAssign:runAggAssign, fetchAgg:fetchAgg, applyAggConfig:applyAggConfig, submit:submit };
+
+})();
+</script>
+</body>
+</html>
