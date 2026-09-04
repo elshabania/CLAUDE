@@ -911,6 +911,13 @@ export default function Page() {
               <div className="panel">
                 <div className="panel-header">
                   <span>Road Network &amp; Traffic</span>
+                  <a
+                    href="/advisor"
+                    style={{ fontSize: 12, color: "var(--accent-hi)", marginLeft: "auto", marginRight: 10 }}
+                    title="Automated mitigation development: screens lane additions on failing links and drafts the TIS report section"
+                  >
+                    Advisor →
+                  </a>
                   <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12 }}>
                     <input
                       type="checkbox"

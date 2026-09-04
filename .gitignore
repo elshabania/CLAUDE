@@ -46,3 +46,4 @@ scripts/.test-conn.mts
 scripts/.test-tis.mts
 scripts/.build-artifact.mts
 scripts/.artifact-out/
+scripts/.test-advisor.mts
