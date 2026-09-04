@@ -56,6 +56,9 @@ export default function AdvisorPage() {
   const [selected, setSelected] = useState<number | null>(null);
   const [focus, setFocus] = useState<MapFocus | null>(null);
   const [copied, setCopied] = useState(false);
+  // Mobile: the workflow panel becomes a bottom sheet that can collapse to a
+  // one-line bar so the plan gets the whole screen.
+  const [panelOpen, setPanelOpen] = useState(true);
 
   // ---- load the bundled masterplan on launch ----
   useEffect(() => {
@@ -198,6 +201,9 @@ export default function AdvisorPage() {
     return JSON.stringify(plan.overrides) !== JSON.stringify(overrides);
   }, [plan, demand, overrides]);
 
+  const isMobile = () =>
+    typeof window !== "undefined" && window.matchMedia("(max-width: 820px)").matches;
+
   const flyTo = useCallback(
     (linkIdx: number) => {
       if (!net) return;
@@ -205,9 +211,26 @@ export default function AdvisorPage() {
       const mi = (pts.length >> 2) * 2;
       setSelected(linkIdx);
       setFocus({ x: pts[mi], y: pts[mi + 1], scale: 2.2, token: Date.now() });
+      // On a phone the sheet covers half the screen — drop it so the flown-to
+      // measure is actually visible.
+      if (isMobile()) setPanelOpen(false);
     },
     [net]
   );
+
+  // Picking a link on the plan: surface the inspector (open the sheet on
+  // mobile and scroll it into view — it's the 5th section down).
+  const inspectorRef = useRef<HTMLDivElement | null>(null);
+  const onMapSelect = useCallback((li: number | null) => {
+    setSelected(li);
+    if (li != null && isMobile()) {
+      setPanelOpen(true);
+      setTimeout(
+        () => inspectorRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }),
+        60
+      );
+    }
+  }, []);
 
   function setLanes(linkIdx: number, lanes: number) {
     if (!net) return;
@@ -249,38 +272,43 @@ export default function AdvisorPage() {
     selLink != null ? overrides[selLink.id] ?? selLink.numLanes : 0;
 
   return (
-    <div
-      style={{
-        display: "grid",
-        gridTemplateColumns: "370px 1fr",
-        height: "100vh",
-        background: "var(--bg-0)",
-        color: "var(--text-1)",
-        fontSize: 13,
-        overflow: "hidden",
-      }}
-    >
-      {/* ================= sidebar ================= */}
-      <aside
-        style={{
-          borderRight: "1px solid var(--line)",
-          background: "var(--bg-1)",
-          overflowY: "auto",
-          padding: "16px 16px 40px",
-        }}
-      >
-        <div style={{ display: "flex", alignItems: "baseline", gap: 10 }}>
-          <h1 style={{ color: "var(--text-0)", fontSize: 16, margin: 0 }}>
-            TIS Mitigation Studio
-          </h1>
-          <Link href="/" style={{ color: "var(--accent-hi)", fontSize: 11, marginLeft: "auto" }}>
-            plan viewer →
-          </Link>
+    <div className="studio">
+      {/* ================= sidebar / mobile bottom sheet ================= */}
+      <aside className={`studio-side${panelOpen ? "" : " collapsed"}`}>
+        {/* Mobile-only sheet handle: title, headline result, expand/collapse. */}
+        <button
+          type="button"
+          className="studio-sheet-bar"
+          onClick={() => setPanelOpen(o => !o)}
+          aria-expanded={panelOpen}
+        >
+          <span style={{ color: "var(--text-0)", fontWeight: 600 }}>TIS Mitigation Studio</span>
+          <span style={{ color: "var(--text-3)", fontSize: 11, marginLeft: "auto" }}>
+            {solving
+              ? "solving…"
+              : baseline && mitigated
+                ? `delay ${f1(baseline.totals.delay)} → ${f1(mitigated.totals.delay)} · ${mitigated.totals.failingLinks} failing`
+                : baseline
+                  ? `${baseline.totals.failingLinks} failing links`
+                  : ""}
+          </span>
+          <span style={{ color: "var(--accent-hi)", fontSize: 14 }}>{panelOpen ? "▾" : "▴"}</span>
+        </button>
+
+        <div className="studio-desktop-head">
+          <div style={{ display: "flex", alignItems: "baseline", gap: 10 }}>
+            <h1 style={{ color: "var(--text-0)", fontSize: 16, margin: 0 }}>
+              TIS Mitigation Studio
+            </h1>
+            <Link href="/" style={{ color: "var(--accent-hi)", fontSize: 11, marginLeft: "auto" }}>
+              plan viewer →
+            </Link>
+          </div>
+          <p style={{ color: "var(--text-3)", fontSize: 11, margin: "6px 0 14px" }}>
+            Will the network cope, where does it fail, and which measures fix it —
+            developed automatically, shown on the plan.
+          </p>
         </div>
-        <p style={{ color: "var(--text-3)", fontSize: 11, margin: "6px 0 14px" }}>
-          Will the network cope, where does it fail, and which measures fix it —
-          developed automatically, shown on the plan.
-        </p>
 
         {/* ---- network ---- */}
         <Section title="1 · Network">
@@ -479,6 +507,7 @@ export default function AdvisorPage() {
         </Section>
 
         {/* ---- inspector ---- */}
+        <div ref={inspectorRef} style={{ scrollMarginTop: 52 }} />
         <Section title="5 · Link inspector">
           {selLink && selResult ? (
             <div style={{ lineHeight: 1.7 }}>
@@ -563,7 +592,7 @@ export default function AdvisorPage() {
       </aside>
 
       {/* ================= map ================= */}
-      <main style={{ position: "relative" }}>
+      <main className="studio-main">
         {net ? (
           <>
             <AdvisorMap
@@ -572,11 +601,12 @@ export default function AdvisorPage() {
               laneCounts={laneCounts}
               widened={widened}
               selected={selected}
-              onSelect={setSelected}
+              onSelect={onMapSelect}
               focus={focus}
             />
             {/* legend */}
             <div
+              className="studio-legend"
               style={{
                 position: "absolute",
                 left: 12,

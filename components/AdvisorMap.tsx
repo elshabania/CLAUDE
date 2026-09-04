@@ -208,17 +208,43 @@ export function AdvisorMap({
     draw();
   }, [focus, draw]);
 
-  // Canvas sizing (dpr-aware) + redraw on resize.
+  // Canvas sizing (dpr-aware) + redraw on resize. When the viewport changes
+  // size (mobile sheet collapsing, rotation, address bar) keep the world
+  // point at the centre of the view centred and scale proportionally, so the
+  // plan fills the new area instead of huddling in a corner.
+  const sizeRef = useRef<{ w: number; h: number } | null>(null);
   useEffect(() => {
     const wrap = wrapRef.current;
     const canvas = canvasRef.current;
     if (!wrap || !canvas) return;
     const resize = () => {
       const dpr = window.devicePixelRatio || 1;
-      canvas.width = Math.max(1, wrap.clientWidth * dpr);
-      canvas.height = Math.max(1, wrap.clientHeight * dpr);
-      canvas.style.width = `${wrap.clientWidth}px`;
-      canvas.style.height = `${wrap.clientHeight}px`;
+      const W = wrap.clientWidth;
+      const H = wrap.clientHeight;
+      const prev = sizeRef.current;
+      if (prev && W > 0 && H > 0 && (prev.w !== W || prev.h !== H)) {
+        const v = viewRef.current;
+        const cxWorld = (prev.w / 2 - v.tx) / v.scale;
+        const cyWorld = (v.ty - prev.h / 2) / v.scale;
+        // Scale by the change in FIT scale, so the user's zoom relative to
+        // "fit whole plan" is preserved: a portrait phone is width-limited,
+        // so opening/closing the bottom sheet (height only) leaves the zoom
+        // alone, while rotating the phone re-fits properly.
+        const { minX, minY, maxX, maxY } = propsRef.current.net.bounds;
+        const bw = Math.max(1, maxX - minX);
+        const bh = Math.max(1, maxY - minY);
+        const fit = (w: number, h: number) =>
+          Math.max(1e-6, Math.min((w - 60) / bw, (h - 60) / bh));
+        const f = fit(W, H) / fit(prev.w, prev.h);
+        v.scale *= f;
+        v.tx = W / 2 - cxWorld * v.scale;
+        v.ty = H / 2 + cyWorld * v.scale;
+      }
+      sizeRef.current = { w: W, h: H };
+      canvas.width = Math.max(1, W * dpr);
+      canvas.height = Math.max(1, H * dpr);
+      canvas.style.width = `${W}px`;
+      canvas.style.height = `${H}px`;
       draw();
     };
     resize();
@@ -228,13 +254,25 @@ export function AdvisorMap({
   }, [draw]);
 
   // ---- interaction ----
-  const pick = useCallback((px: number, py: number): number | null => {
+  // Single pointer: drag to pan, tap/click to pick. Two pointers (touch):
+  // pinch to zoom about the pinch midpoint while following it (pan).
+  const pointersRef = useRef(new Map<number, { x: number; y: number }>());
+  const pinchRef = useRef<{
+    dist: number;
+    mx: number;
+    my: number;
+    scale: number;
+    tx: number;
+    ty: number;
+  } | null>(null);
+
+  const pick = useCallback((px: number, py: number, tolPx: number): number | null => {
     const { net } = propsRef.current;
     const { scale, tx, ty } = viewRef.current;
     const sx = (wx: number) => wx * scale + tx;
     const sy = (wy: number) => -wy * scale + ty;
     let best: number | null = null;
-    let bestD = PICK_TOL_PX;
+    let bestD = tolPx;
     for (let li = 0; li < net.links.length; li++) {
       const pts = net.links[li].points;
       for (let i = 2; i < pts.length; i += 2) {
@@ -258,14 +296,53 @@ export function AdvisorMap({
     return best;
   }, []);
 
+  const localPt = (e: React.PointerEvent) => {
+    const rect = canvasRef.current!.getBoundingClientRect();
+    return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+  };
+
   const onPointerDown = useCallback((e: React.PointerEvent) => {
     (e.target as Element).setPointerCapture(e.pointerId);
+    const p = localPt(e);
+    pointersRef.current.set(e.pointerId, p);
     const v = viewRef.current;
-    dragRef.current = { sx: e.clientX, sy: e.clientY, tx: v.tx, ty: v.ty, moved: false };
+    if (pointersRef.current.size === 2) {
+      // Start pinch; abandon any single-finger drag/tap.
+      const [a, b] = [...pointersRef.current.values()];
+      pinchRef.current = {
+        dist: Math.hypot(b.x - a.x, b.y - a.y) || 1,
+        mx: (a.x + b.x) / 2,
+        my: (a.y + b.y) / 2,
+        scale: v.scale,
+        tx: v.tx,
+        ty: v.ty,
+      };
+      dragRef.current = null;
+    } else if (pointersRef.current.size === 1) {
+      dragRef.current = { sx: e.clientX, sy: e.clientY, tx: v.tx, ty: v.ty, moved: false };
+    }
   }, []);
 
   const onPointerMove = useCallback(
     (e: React.PointerEvent) => {
+      if (!pointersRef.current.has(e.pointerId)) return;
+      pointersRef.current.set(e.pointerId, localPt(e));
+      const pinch = pinchRef.current;
+      if (pinch && pointersRef.current.size >= 2) {
+        const [a, b] = [...pointersRef.current.values()];
+        const dist = Math.hypot(b.x - a.x, b.y - a.y) || 1;
+        const mx = (a.x + b.x) / 2;
+        const my = (a.y + b.y) / 2;
+        const f = dist / pinch.dist;
+        // Keep the world point under the initial midpoint under the current
+        // midpoint at the new scale.
+        const v = viewRef.current;
+        v.scale = pinch.scale * f;
+        v.tx = mx - (pinch.mx - pinch.tx) * f;
+        v.ty = my - (pinch.my - pinch.ty) * f;
+        draw();
+        return;
+      }
       const d = dragRef.current;
       if (!d) return;
       const dx = e.clientX - d.sx;
@@ -280,14 +357,28 @@ export function AdvisorMap({
 
   const onPointerUp = useCallback(
     (e: React.PointerEvent) => {
+      pointersRef.current.delete(e.pointerId);
+      if (pinchRef.current) {
+        // Pinch ends when fewer than two pointers remain; the lifted finger
+        // must not register as a tap.
+        if (pointersRef.current.size < 2) pinchRef.current = null;
+        dragRef.current = null;
+        return;
+      }
       const d = dragRef.current;
       dragRef.current = null;
       if (!d || d.moved) return;
-      const rect = canvasRef.current!.getBoundingClientRect();
-      onSelect(pick(e.clientX - rect.left, e.clientY - rect.top));
+      const p = localPt(e);
+      onSelect(pick(p.x, p.y, e.pointerType === "touch" ? 20 : PICK_TOL_PX));
     },
     [onSelect, pick]
   );
+
+  const onPointerCancel = useCallback((e: React.PointerEvent) => {
+    pointersRef.current.delete(e.pointerId);
+    if (pointersRef.current.size < 2) pinchRef.current = null;
+    dragRef.current = null;
+  }, []);
 
   const onWheel = useCallback(
     (e: React.WheelEvent) => {
@@ -312,6 +403,7 @@ export function AdvisorMap({
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
+        onPointerCancel={onPointerCancel}
         onWheel={onWheel}
       />
     </div>
