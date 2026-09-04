@@ -8,27 +8,31 @@
 // Method — deterministic approximate user equilibrium:
 //   * Graph: each Link is one arc per travel direction (one arc when oneWay,
 //     two arcs when two-way, each direction carrying half the lanes).
-//   * Demand: external gates = nodes with exactly one incident link (the
-//     points where the masterplan network connects outward / plot accesses).
-//     A uniform O-D matrix over all gate pairs, scaled to a user-set total
-//     two-way demand (veh/h). Deliberately simple and fully editable later;
-//     deterministic so A/B mitigation comparisons are clean.
+//   * Zones:
+//       - EXTERNAL zones = the network's gates. A gate node is a degree-1
+//         node; the two one-way carriageways of a dual road leave the plan as
+//         two gate nodes a few metres apart, so gates within ZONE_R are ONE
+//         zone, with entry nodes (an arc leaves) and exit nodes (an arc
+//         enters).
+//       - INTERNAL zones = every junction / lane-change node, weighted by its
+//         incident carriageway length (a proxy for plot frontage until
+//         land-use trip generation exists).
+//   * Demand (development traffic, veh/h): half INBOUND (external -> internal,
+//     the development's arrivals) and half OUTBOUND (internal -> external),
+//     spread over reachable zone pairs in proportion to internal weight and
+//     scaled so the whole demand is routed.
 //   * Volume-delay: BPR  t = t0 · (1 + 0.15·(v/c)^4).
 //   * Solver: MSA (method of successive averages) over all-or-nothing
-//     Dijkstra assignments — flows converge toward equilibrium and the
-//     result is reproducible run-to-run (no randomness anywhere).
-//   * LOS: HCM urban-street segment LOS from the speed ratio implied by the
-//     BPR travel time (speedRatio = t0/t) + V/C (lib/hcm.ts losSegment).
+//     Dijkstra assignments — reproducible run-to-run (no randomness).
+//   * LOS: planning link LOS from V/C bands (losVc).
 
 import type { LaneNetwork } from "@/lib/lane-network";
 import type { LOS } from "@/lib/hcm";
 
 /**
- * Planning-level link LOS from volume/capacity. Pure BPR speed ratio stays
- * above the HCM "A" threshold until extreme congestion because it excludes
- * junction control delay, so for a screening TIS we grade links on V/C bands
- * (standard planning practice). Junction-delay-based LOS can replace this
- * once junction control is modelled.
+ * Planning-level link LOS from volume/capacity (standard screening practice
+ * for a TIS). Junction-delay-based LOS can replace this once junction control
+ * is modelled.
  */
 export function losVc(vc: number): LOS {
   if (vc <= 0.3) return "A";
@@ -42,8 +46,11 @@ export function losVc(vc: number): LOS {
 /** Saturation flow per lane (veh/h) — urban arterial mid-block capacity. */
 export const LANE_CAPACITY = 900; // veh/h/lane mid-block (signal-constrained)
 
+/** Gate nodes within this distance are one external zone. */
+const ZONE_R = 60;
+
 export interface AssignmentOptions {
-  /** Total two-way demand across all gate pairs (veh/h). */
+  /** Total development demand, both directions summed (veh/h). */
   totalDemand: number;
   /** MSA iterations (default 15). */
   iterations?: number;
@@ -58,7 +65,7 @@ export interface LinkResult {
   volume: number;
   /** Worst-direction volume / capacity. */
   vc: number;
-  /** HCM segment LOS for the worst direction. */
+  /** Planning LOS for the worst direction. */
   los: LOS;
   /** Effective lanes used (after overrides). */
   lanesUsed: number;
@@ -66,7 +73,7 @@ export interface LinkResult {
 
 export interface AssignmentResult {
   perLink: LinkResult[];
-  /** Node ids used as external gates. */
+  /** Gate node ids (external connections) that took part in the assignment. */
   gates: number[];
   totals: {
     /** Vehicle-kilometres travelled per hour. */
@@ -142,6 +149,7 @@ export function runAssignment(
   const iterations = opts.iterations ?? 15;
   const ffs = opts.freeflowKmh ?? 50;
   const overrides = opts.laneOverrides ?? {};
+  const nNodes = net.nodes.length;
 
   // ---- Build directed arcs from links ----
   const arcs: Arc[] = [];
@@ -154,103 +162,130 @@ export function runAssignment(
       arcs.push({ from: link.fromNode, to: link.toNode, linkIdx: li, t0, cap: lanes * LANE_CAPACITY });
     } else {
       // Two-way undivided street: half the lanes per direction. Fractional
-      // lanes are fine for capacity math (3 lanes two-way = 1.5 lanes/dir),
-      // and they make the "add a lane" mitigation continuous instead of only
-      // mattering on even counts.
+      // lanes are fine for capacity math and keep "add a lane" continuous.
       const dirLanes = Math.max(0.5, lanes / 2);
       const cap = dirLanes * LANE_CAPACITY;
       arcs.push({ from: link.fromNode, to: link.toNode, linkIdx: li, t0, cap });
       arcs.push({ from: link.toNode, to: link.fromNode, linkIdx: li, t0, cap });
     }
   });
+  const out: number[][] = Array.from({ length: nNodes }, () => []);
+  const inn: number[][] = Array.from({ length: nNodes }, () => []);
+  arcs.forEach((a, ai) => {
+    if (a.from < nNodes && a.to < nNodes) { out[a.from].push(ai); inn[a.to].push(ai); }
+  });
 
-  // ---- Junction-crossing arcs ----
-  // Carriageway strips stop at the junction MOUTH (kerb radii break the
-  // parallel-edge pairing inside the junction box), so approach links of the
-  // same junction end at distinct nodes 10-60 m apart. The junction interior
-  // does carry traffic between those mouths — model it explicitly: a
-  // bidirectional crossing arc between every pair of nodes within
-  // JUNCTION_RADIUS, traversed at a junction crawl speed. linkIdx = -1 keeps
-  // these arcs out of the per-link results.
-  const JUNCTION_RADIUS = 50;
-  const CROSS_KMH = 20;
-  {
-    const G = JUNCTION_RADIUS;
-    const grid = new Map<string, number[]>();
-    net.nodes.forEach(n => {
-      const k = `${Math.floor(n.x / G)},${Math.floor(n.y / G)}`;
-      let a = grid.get(k);
-      if (!a) grid.set(k, (a = []));
-      a.push(n.id);
-    });
-    for (const n of net.nodes) {
-      const gx = Math.floor(n.x / G), gy = Math.floor(n.y / G);
-      for (let dx = -1; dx <= 1; dx++)
-        for (let dy = -1; dy <= 1; dy++)
-          for (const m of grid.get(`${gx + dx},${gy + dy}`) ?? []) {
-            if (m <= n.id) continue;
-            const o = net.nodes[m];
-            const d = Math.hypot(o.x - n.x, o.y - n.y);
-            if (d > JUNCTION_RADIUS) continue;
-            const t0 = Math.max(d, 5) / 1000 / CROSS_KMH;
-            const cap = 4 * LANE_CAPACITY;
-            arcs.push({ from: n.id, to: m, linkIdx: -1, t0, cap });
-            arcs.push({ from: m, to: n.id, linkIdx: -1, t0, cap });
-          }
+  // ---- External zones from gate nodes ----
+  const gateNodes = net.nodes.filter(n => n.links.length === 1).map(n => n.id);
+  const zoneParent = new Map<number, number>();
+  gateNodes.forEach(g => zoneParent.set(g, g));
+  const zfind = (x: number): number => {
+    let r = x;
+    while (zoneParent.get(r) !== r) r = zoneParent.get(r)!;
+    zoneParent.set(x, r);
+    return r;
+  };
+  for (let i = 0; i < gateNodes.length; i++)
+    for (let j = i + 1; j < gateNodes.length; j++) {
+      const a = net.nodes[gateNodes[i]], b = net.nodes[gateNodes[j]];
+      if (Math.hypot(a.x - b.x, a.y - b.y) <= ZONE_R) {
+        const ra = zfind(a.id), rb = zfind(b.id);
+        if (ra !== rb) zoneParent.set(ra, rb);
+      }
     }
+  interface ExtZone { entries: number[]; exits: number[] }
+  const extZones = new Map<number, ExtZone>();
+  for (const g of gateNodes) {
+    const r = zfind(g);
+    let z = extZones.get(r);
+    if (!z) extZones.set(r, (z = { entries: [], exits: [] }));
+    if (out[g].length > 0) z.entries.push(g);
+    if (inn[g].length > 0) z.exits.push(g);
+  }
+  const zones = [...extZones.values()];
+  const entryNodes = zones.flatMap(z => z.entries);
+  const exitNodes = zones.flatMap(z => z.exits);
+
+  // ---- Internal zones: junction / lane-change nodes weighted by frontage ----
+  const internal: number[] = [];
+  const weight = new Float64Array(nNodes);
+  for (const n of net.nodes) {
+    if (n.links.length < 2) continue;
+    internal.push(n.id);
+    weight[n.id] = n.links.reduce((s, li) => s + net.links[li].length, 0) / 2;
   }
 
-  // Adjacency
-  const nNodes = net.nodes.length;
-  const out: number[][] = Array.from({ length: nNodes }, () => []);
-  arcs.forEach((a, ai) => { if (a.from < nNodes && a.to < nNodes) out[a.from].push(ai); });
-
-  // ---- Gates: degree-1 nodes (network boundary connections / accesses) ----
-  const gates = net.nodes.filter(n => n.links.length === 1).map(n => n.id);
-
-  // Keep only gates that can reach ≥1 other gate (avoid wasting demand on
-  // isolated stubs). Cheap BFS reachability over arcs.
-  const reachable = (s: number): Set<number> => {
-    const seen = new Set<number>([s]);
+  // ---- Reachability (cost-independent): which O-D pairs can route ----
+  const reach = (s: number): Uint8Array => {
+    const seen = new Uint8Array(nNodes);
+    seen[s] = 1;
     const stack = [s];
     while (stack.length) {
       const n = stack.pop()!;
       for (const ai of out[n]) {
         const t = arcs[ai].to;
-        if (!seen.has(t)) { seen.add(t); stack.push(t); }
+        if (!seen[t]) { seen[t] = 1; stack.push(t); }
       }
     }
     return seen;
   };
-  const gateSet = new Set(gates);
-  const liveGates = gates.filter(g => {
-    const r = reachable(g);
-    for (const o of gateSet) if (o !== g && r.has(o)) return true;
-    return false;
-  });
 
-  const arcFlow = new Float64Array(arcs.length);
+  // Demand table: per origin node, list of {dest, veh/h}.
+  const od = new Map<number, { d: number; v: number }[]>();
+  const addOd = (o: number, d: number, v: number) => {
+    let arr = od.get(o);
+    if (!arr) od.set(o, (arr = []));
+    arr.push({ d, v });
+  };
   let routedDemand = 0;
+  const usedGates = new Set<number>();
+  if (opts.totalDemand > 0 && internal.length > 0 && zones.length > 0) {
+    // Inbound: every entry node -> every reachable internal node.
+    const inbound: { o: number; d: number; w: number }[] = [];
+    for (const e of entryNodes) {
+      const r = reach(e);
+      for (const i of internal) if (r[i] && i !== e) inbound.push({ o: e, d: i, w: weight[i] });
+    }
+    // Outbound: every internal node -> every reachable exit node.
+    const outbound: { o: number; d: number; w: number }[] = [];
+    for (const i of internal) {
+      const r = reach(i);
+      for (const x of exitNodes) if (r[x] && x !== i) outbound.push({ o: i, d: x, w: weight[i] });
+    }
+    const half = opts.totalDemand / 2;
+    const wIn = inbound.reduce((s, p) => s + p.w, 0);
+    const wOut = outbound.reduce((s, p) => s + p.w, 0);
+    // If only one direction is routable, give it the full demand.
+    const inShare = wIn > 0 && wOut > 0 ? half : wIn > 0 ? opts.totalDemand : 0;
+    const outShare = wIn > 0 && wOut > 0 ? half : wOut > 0 ? opts.totalDemand : 0;
+    for (const p of inbound) {
+      const v = (inShare * p.w) / wIn;
+      addOd(p.o, p.d, v);
+      routedDemand += v;
+      usedGates.add(p.o);
+    }
+    for (const p of outbound) {
+      const v = (outShare * p.w) / wOut;
+      addOd(p.o, p.d, v);
+      routedDemand += v;
+      usedGates.add(p.d);
+    }
+  }
 
-  if (liveGates.length >= 2 && opts.totalDemand > 0) {
-    // Uniform demand per ordered gate pair.
-    const pairs = liveGates.length * (liveGates.length - 1);
-    const perPair = opts.totalDemand / pairs;
-
+  // ---- MSA over all-or-nothing assignments ----
+  const arcFlow = new Float64Array(arcs.length);
+  if (od.size > 0) {
     const iterFlow = new Float64Array(arcs.length);
     const cost = new Float64Array(arcs.length);
-
+    const origins = [...od.keys()];
     for (let it = 1; it <= iterations; it++) {
-      // BPR costs from current flows
       for (let ai = 0; ai < arcs.length; ai++) {
         const a = arcs[ai];
         const vc = arcFlow[ai] / a.cap;
         cost[ai] = a.t0 * (1 + 0.15 * Math.pow(vc, 4));
       }
       iterFlow.fill(0);
-      // All-or-nothing: one Dijkstra per origin gate, assign to all dest gates.
-      let routed = 0;
-      for (const o of liveGates) {
+      for (const o of origins) {
         const distArr = new Float64Array(nNodes).fill(Infinity);
         const prevArc = new Int32Array(nNodes).fill(-1);
         distArr[o] = 0;
@@ -269,36 +304,30 @@ export function runAssignment(
             }
           }
         }
-        for (const d of liveGates) {
-          if (d === o || !isFinite(distArr[d])) continue;
-          // walk back, add perPair to each arc on the path
+        for (const { d, v } of od.get(o)!) {
+          if (!isFinite(distArr[d])) continue;
           let n = d;
           let guard = 0;
           while (n !== o && guard++ < 100000) {
             const ai = prevArc[n];
             if (ai < 0) break;
-            iterFlow[ai] += perPair;
+            iterFlow[ai] += v;
             n = arcs[ai].from;
           }
-          routed += perPair;
         }
       }
-      // MSA blend
       const w = 1 / it;
       for (let ai = 0; ai < arcs.length; ai++) {
         arcFlow[ai] = (1 - w) * arcFlow[ai] + w * iterFlow[ai];
       }
-      routedDemand = routed;
     }
   }
 
   // ---- Per-link results ----
   const perLink: LinkResult[] = net.links.map(() => ({ volume: 0, vc: 0, los: "A" as LOS, lanesUsed: 1 }));
-  // Track worst-direction vc per link
   const worstVc = new Float64Array(net.links.length);
   for (let ai = 0; ai < arcs.length; ai++) {
     const a = arcs[ai];
-    if (a.linkIdx < 0) continue; // junction-crossing arcs have no link
     const r = perLink[a.linkIdx];
     r.volume += arcFlow[ai];
     const vc = arcFlow[ai] / a.cap;
@@ -313,7 +342,7 @@ export function runAssignment(
     if (r.los === "E" || r.los === "F") failingLinks++;
     const lenKm = link.length / 1000;
     vkt += r.volume * lenKm;
-    const t0 = lenKm / (opts.freeflowKmh ?? 50);
+    const t0 = lenKm / ffs;
     const t = t0 * (1 + 0.15 * Math.pow(r.vc, 4));
     vht += r.volume * t;
     delay += r.volume * (t - t0);
@@ -321,7 +350,7 @@ export function runAssignment(
 
   return {
     perLink,
-    gates: liveGates,
+    gates: [...usedGates],
     totals: { vkt, vht, delay, failingLinks, routedDemand },
   };
 }

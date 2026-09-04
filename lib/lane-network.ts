@@ -30,6 +30,7 @@
 //   (5) Smooth the midline, build endpoint nodes, wire the graph.
 
 import type { ParsedDrawing, LaneArrow } from "@/lib/road-detect";
+import { buildGraph } from "@/lib/network-graph";
 
 /** Default lane width (m) used to infer lane count from strip width. */
 const LANE_WIDTH = 3.5;
@@ -477,224 +478,32 @@ export function buildLaneNetwork(
     rawLinks.push({ mids, width, numLanes, oneWay, arrowCount, dividerCount });
   }
 
-  // ---- (5b) Split links at T-junctions ----
-  // A minor road's strip ENDS at the major road's kerb line, but the major
-  // road's strip passes THROUGH the junction — so the minor link's endpoint
-  // lands mid-polyline on the major link. Without a node there the graph is
-  // disconnected at every T-junction. Fix: wherever another link's endpoint
-  // falls within JOIN_TOL of a link's interior, split that link.
-  {
-    const JOIN_TOL = 25;     // endpoint-to-interior attach distance
-    const END_EXCLUDE = 15;  // don't split within this of a link's own ends
-    // collect all endpoints
-    const endpoints: Pt[] = [];
-    for (const rl of rawLinks) {
-      if (rl.mids.length < 2) continue;
-      endpoints.push(rl.mids[0], rl.mids[rl.mids.length - 1]);
-    }
-    const epGrid = new Map<string, Pt[]>();
-    const epk = (x: number, y: number) => `${Math.floor(x / JOIN_TOL)},${Math.floor(y / JOIN_TOL)}`;
-    for (const e of endpoints) {
-      const k = epk(e.x, e.y);
-      let a = epGrid.get(k);
-      if (!a) epGrid.set(k, (a = []));
-      a.push(e);
-    }
-    const splitLinks: RawLink[] = [];
-    for (const rl of rawLinks) {
-      const m = rl.mids;
-      if (m.length < 6) { splitLinks.push(rl); continue; }
-      // arc length per vertex
-      const arc: number[] = [0];
-      for (let i = 1; i < m.length; i++) arc.push(arc[i - 1] + dist(m[i - 1], m[i]));
-      const total = arc[arc.length - 1];
-      // find split stations: vertices near a foreign endpoint
-      const splitIdx: number[] = [];
-      for (let i = 0; i < m.length; i++) {
-        if (arc[i] < END_EXCLUDE || total - arc[i] < END_EXCLUDE) continue;
-        const gx = Math.floor(m[i].x / JOIN_TOL), gy = Math.floor(m[i].y / JOIN_TOL);
-        let near = false;
-        for (let dx = -1; dx <= 1 && !near; dx++)
-          for (let dy = -1; dy <= 1 && !near; dy++)
-            for (const e of epGrid.get(`${gx + dx},${gy + dy}`) ?? []) {
-              // skip own endpoints
-              if ((e === m[0]) || (e === m[m.length - 1])) continue;
-              if (dist(e, m[i]) < JOIN_TOL) { near = true; break; }
-            }
-        if (near) splitIdx.push(i);
-      }
-      if (splitIdx.length === 0) { splitLinks.push(rl); continue; }
-      // collapse runs of consecutive near-vertices to their midpoint index,
-      // and enforce ≥15 m between splits
-      const chosen: number[] = [];
-      let runStart = splitIdx[0], prevI = splitIdx[0];
-      const flushRun = (endI: number) => {
-        const mid = Math.round((runStart + endI) / 2);
-        if (chosen.length === 0 || arc[mid] - arc[chosen[chosen.length - 1]] > 15) chosen.push(mid);
-      };
-      for (let k = 1; k < splitIdx.length; k++) {
-        if (splitIdx[k] - prevI > 3) { flushRun(prevI); runStart = splitIdx[k]; }
-        prevI = splitIdx[k];
-      }
-      flushRun(prevI);
-      // split mids at chosen indices
-      let start = 0;
-      for (const ci of chosen) {
-        const part = m.slice(start, ci + 1);
-        if (part.length >= 2 && polyLen(part) >= 8) {
-          splitLinks.push({ ...rl, mids: part });
-        }
-        start = ci;
-      }
-      const tail = m.slice(start);
-      if (tail.length >= 2 && polyLen(tail) >= 8) splitLinks.push({ ...rl, mids: tail });
-    }
-    rawLinks.length = 0;
-    rawLinks.push(...splitLinks);
-  }
-
-  // ---- (6) Nodes from endpoint clustering + graph wiring ----
-  // Junction node formation must SINGLE-LINKAGE cluster the link endpoints:
-  // a 4-arm junction's eight approach-mouth endpoints spread over 40-60 m,
-  // farther apart pairwise than any sane snap radius — but they chain
-  // (each mouth is within ~35 m of the next around the box). Union-find over
-  // endpoint pairs within NODE_SNAP gives one node per junction box.
-  const NODE_SNAP = 15;
-  const validLinks = rawLinks.filter(rl => rl.mids.length >= 2 && polyLen(rl.mids) >= 8);
-  type EndRef = { li: number; end: 0 | 1; p: Pt };
-  const endRefs: EndRef[] = [];
-  validLinks.forEach((rl, li) => {
-    endRefs.push({ li, end: 0, p: rl.mids[0] });
-    endRefs.push({ li, end: 1, p: rl.mids[rl.mids.length - 1] });
-  });
-  const parent = endRefs.map((_, i) => i);
-  const find = (a: number): number => {
-    while (parent[a] !== a) { parent[a] = parent[parent[a]]; a = parent[a]; }
-    return a;
-  };
-  const union = (a: number, b: number) => {
-    const ra = find(a), rb = find(b);
-    if (ra !== rb) parent[ra] = rb;
-  };
-  {
-    const G = NODE_SNAP;
-    const grid = new Map<string, number[]>();
-    endRefs.forEach((e, i) => {
-      const k = `${Math.floor(e.p.x / G)},${Math.floor(e.p.y / G)}`;
-      let a = grid.get(k);
-      if (!a) grid.set(k, (a = []));
-      a.push(i);
-    });
-    for (let i = 0; i < endRefs.length; i++) {
-      const e = endRefs[i];
-      const gx = Math.floor(e.p.x / G), gy = Math.floor(e.p.y / G);
-      for (let dx = -1; dx <= 1; dx++)
-        for (let dy = -1; dy <= 1; dy++)
-          for (const j of grid.get(`${gx + dx},${gy + dy}`) ?? []) {
-            if (j <= i) continue;
-            if (dist(e.p, endRefs[j].p) <= NODE_SNAP) union(i, j);
-          }
-    }
-  }
-  // One node per cluster at the cluster centroid.
-  const clusterNode = new Map<number, number>();
-  const nodes: LaneNode[] = [];
-  const nodeAccum: { sx: number; sy: number; n: number }[] = [];
-  for (let i = 0; i < endRefs.length; i++) {
-    const r = find(i);
-    let nid = clusterNode.get(r);
-    if (nid === undefined) {
-      nid = nodes.length;
-      clusterNode.set(r, nid);
-      nodes.push({ id: nid, x: 0, y: 0, links: [] });
-      nodeAccum.push({ sx: 0, sy: 0, n: 0 });
-    }
-    nodeAccum[nid].sx += endRefs[i].p.x;
-    nodeAccum[nid].sy += endRefs[i].p.y;
-    nodeAccum[nid].n++;
-  }
-  nodes.forEach((n, i) => {
-    n.x = nodeAccum[i].sx / nodeAccum[i].n;
-    n.y = nodeAccum[i].sy / nodeAccum[i].n;
-  });
+  // ---- (6) Graph construction ----
+  // Chain fragments into corridors, split at T-junctions, consolidate
+  // junction boxes, cluster ends into nodes, clean stubs. See network-graph.ts.
+  const { links, nodes } = buildGraph(rawLinks);
 
   let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
   let laneKm = 0, centerlineKm = 0, directedCount = 0, oneWayCount = 0;
-  const links: Link[] = [];
-  validLinks.forEach((rl, vi) => {
-    const length = polyLen(rl.mids);
-    const flat: number[] = [];
-    for (const q of rl.mids) {
-      flat.push(q.x, q.y);
-      if (q.x < minX) minX = q.x;
-      if (q.y < minY) minY = q.y;
-      if (q.x > maxX) maxX = q.x;
-      if (q.y > maxY) maxY = q.y;
+  for (const link of links) {
+    const p = link.points;
+    for (let i = 0; i < p.length; i += 2) {
+      if (p[i] < minX) minX = p[i];
+      if (p[i] > maxX) maxX = p[i];
+      if (p[i + 1] < minY) minY = p[i + 1];
+      if (p[i + 1] > maxY) maxY = p[i + 1];
     }
-    const fromNode = clusterNode.get(find(2 * vi))!;
-    const toNode = clusterNode.get(find(2 * vi + 1))!;
-    const li = links.length;
-    nodes[fromNode].links.push(li);
-    if (toNode !== fromNode) nodes[toNode].links.push(li);
-    laneKm += (length * rl.numLanes) / 1000;
-    centerlineKm += length / 1000;
-    if (rl.arrowCount > 0) directedCount++;
-    if (rl.oneWay) oneWayCount++;
-    links.push({
-      id: `link${li}`,
-      points: flat,
-      numLanes: rl.numLanes,
-      width: rl.width,
-      length,
-      oneWay: rl.oneWay,
-      arrowCount: rl.arrowCount,
-      dividerCount: rl.dividerCount,
-      fromNode,
-      toNode,
-    });
-  });
+    laneKm += (link.length * link.numLanes) / 1000;
+    centerlineKm += link.length / 1000;
+    if (link.arrowCount > 0) directedCount++;
+    if (link.oneWay) oneWayCount++;
+  }
   if (!isFinite(minX)) { minX = 0; minY = 0; maxX = 0; maxY = 0; }
 
   const junctionCount = nodes.filter(n => n.links.length >= 3).length;
-
-  // ---- Junction-interior connectors ----
-  // Nodes within JUNCTION_RADIUS of each other that aren't already directly
-  // joined by a link sit inside the same intersection. Stitch them with
-  // straight connectors so the network reads as a continuous graph (visually
-  // and in any downstream routing).
-  const JUNCTION_RADIUS = 40;
+  // Links now meet at shared junction nodes, so no interior connectors are
+  // needed. The field is kept for viewer compatibility.
   const connectors: JunctionConnector[] = [];
-  {
-    const directLinked = new Set<string>();
-    for (const link of links) {
-      if (link.fromNode === link.toNode) continue;
-      const a = Math.min(link.fromNode, link.toNode);
-      const b = Math.max(link.fromNode, link.toNode);
-      directLinked.add(`${a}|${b}`);
-    }
-    const G = JUNCTION_RADIUS;
-    const grid = new Map<string, number[]>();
-    nodes.forEach(n => {
-      const k = `${Math.floor(n.x / G)},${Math.floor(n.y / G)}`;
-      let a = grid.get(k);
-      if (!a) grid.set(k, (a = []));
-      a.push(n.id);
-    });
-    for (const n of nodes) {
-      if (n.links.length === 0) continue;
-      const gx = Math.floor(n.x / G), gy = Math.floor(n.y / G);
-      for (let dx = -1; dx <= 1; dx++)
-        for (let dy = -1; dy <= 1; dy++)
-          for (const mid of grid.get(`${gx + dx},${gy + dy}`) ?? []) {
-            if (mid <= n.id) continue;
-            const m = nodes[mid];
-            if (m.links.length === 0) continue;
-            if (Math.hypot(m.x - n.x, m.y - n.y) > JUNCTION_RADIUS) continue;
-            if (directLinked.has(`${n.id}|${mid}`)) continue;
-            connectors.push({ from: n.id, to: mid });
-          }
-    }
-  }
 
   return {
     links,

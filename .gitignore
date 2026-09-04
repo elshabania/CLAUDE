@@ -47,3 +47,5 @@ scripts/.test-tis.mts
 scripts/.build-artifact.mts
 scripts/.artifact-out/
 scripts/.test-advisor.mts
+scripts/.render-net.mts
+scripts/.test-assign.mts

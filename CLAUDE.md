@@ -31,14 +31,28 @@ means to that end, not the goal.
 - **CAD ingestion** (`lib/dxf-flatten.ts` + `lib/road-detect.ts`): full block
   expansion (INSERT transforms), arcs/solids/bulges, lane-direction arrow
   markers (block local +Y axis = travel heading), robust IQR bounds.
-- **Carriageway network** (`lib/lane-network.ts`): EDGE rails are chained and
-  paired into carriageway strips (midline = link centerline); numLanes from
+- **Carriageway strips** (`lib/lane-network.ts`): EDGE rails are chained and
+  paired into carriageway strips (midline = centerline); numLanes from
   divider count + width; one-way/two-way from arrow consistency; medians
-  rejected (no arrows/dividers + narrow); T-junction splitting; single-linkage
-  endpoint nodes. WSP plan: ~1,226 links / 35.7 km / 85.4 lane-km / 326 junctions.
+  rejected (no arrows/dividers + narrow).
+- **Network graph** (`lib/network-graph.ts`): strips -> proper node/link
+  model. Chains fragments into corridors across gaps (collinear, compatible
+  direction), splits corridors only at genuine lane-count changes, T-splits
+  perpendicular approaches, ray-extends dangling approaches into the junction
+  box, consolidates junctions (far carriageway of a dual road gets its node),
+  diameter-capped end clustering (one node per junction, no mega-nodes),
+  stub/self-loop/dust cleanup, degree-2 merge. WSP plan: ~300 links averaging
+  ~145 m / 44 km / ~105 lane-km / ~100 junctions, 83% in one component
+  (remaining pieces are CAD extraction gaps).
 - **TIS traffic engine** (`lib/assignment.ts`): deterministic MSA assignment
-  (Dijkstra + BPR) over the link graph with junction-crossing arcs; demand at
-  degree-1 gates; per-link volume, V/C, planning LOS (losVc). ~2 s per run.
+  (Dijkstra + BPR). Demand model: external zones = gate clusters (both
+  carriageways of a dual road = one zone, entry + exit nodes); internal zones
+  = junction/lane-change nodes weighted by frontage; development demand half
+  inbound / half outbound over reachable pairs, fully routed. ~30-50 ms/run.
+- **Mitigation advisor** (`lib/advisor.ts`) + **Mitigation Studio**
+  (`/advisor`, `components/AdvisorMap.tsx`): screens +1 lane on failing links,
+  greedy package build on a delay + failing-link objective, escalation,
+  verification, drafted TIS report. Mobile-friendly (bottom sheet, pinch).
 - **TIS UI** (app/page.tsx + CadViewer): demand slider, LOS-coloured links on
   the 2D plan, failing-link count, click-a-link inspector with **Add/Remove
   lane mitigation** -> instant re-solve + delta vs baseline (delay, failing).
