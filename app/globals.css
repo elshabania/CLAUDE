@@ -644,3 +644,88 @@ select:focus {
     max-width: calc(100vw - 16px);
   }
 }
+
+/* ============================================================
+   Main plan viewer (/) - phone layout. The viewport fills the
+   screen; the dock becomes a bottom sheet with a collapse handle.
+   ============================================================ */
+.dock-handle {
+  display: none;
+}
+@media (max-width: 820px) {
+  .app-root {
+    height: 100dvh;
+  }
+  .topbar {
+    gap: 8px;
+    padding: 0 8px;
+    overflow-x: auto;
+    white-space: nowrap;
+  }
+  .brand-sub {
+    display: none;
+  }
+  .tool-btn {
+    height: 36px;
+    min-width: 36px;
+  }
+  .workspace {
+    flex-direction: column;
+  }
+  .viewport {
+    order: 1;
+    flex: 1 1 0;
+    min-height: 0;
+  }
+  .dock {
+    order: 2;
+    width: 100% !important;
+    flex: 0 0 auto;
+    max-height: 45dvh;
+    overflow-y: auto;
+    border: none;
+    border-top: 1px solid var(--line);
+    box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.45);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .dock.collapsed {
+    overflow: hidden;
+  }
+  .dock.collapsed > *:not(.dock-handle) {
+    display: none;
+  }
+  .dock-handle {
+    display: flex;
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    width: 100%;
+    align-items: center;
+    gap: 10px;
+    min-height: 42px;
+    padding: 0 14px;
+    background: var(--panel-header);
+    border: none;
+    border-bottom: 1px solid var(--line);
+    color: var(--text-0);
+    font: inherit;
+    font-weight: 600;
+    font-size: 13px;
+    text-align: left;
+    cursor: pointer;
+  }
+  .dock .panel-body {
+    font-size: 13px;
+  }
+  .dock button,
+  .dock .btn {
+    min-height: 36px;
+  }
+  .dock input[type="range"] {
+    height: 30px;
+  }
+  .statusbar {
+    overflow-x: auto;
+    white-space: nowrap;
+  }
+}

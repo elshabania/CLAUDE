@@ -611,8 +611,36 @@ export function CadViewer({
   }, [drawing, transform, pageRotation, size.width, size.height, offscreenVersion, measure, laneNetwork, showLanes, linkColors, selectedLink]);
 
   const dragMovedRef = useRef(false);
+  // Touch: track every active pointer so a second finger turns the gesture
+  // into a pinch (zoom about the pinch midpoint, following it as a pan).
+  const pointersRef = useRef(new Map<number, { x: number; y: number }>());
+  const pinchRef = useRef<{
+    dist: number;
+    mx: number;
+    my: number;
+    scale: number;
+    tx: number;
+    ty: number;
+  } | null>(null);
+
   const onPointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
     e.currentTarget.setPointerCapture(e.pointerId);
+    const rect = e.currentTarget.getBoundingClientRect();
+    pointersRef.current.set(e.pointerId, { x: e.clientX - rect.left, y: e.clientY - rect.top });
+    if (pointersRef.current.size === 2) {
+      const [a, b] = [...pointersRef.current.values()];
+      pinchRef.current = {
+        dist: Math.hypot(b.x - a.x, b.y - a.y) || 1,
+        mx: (a.x + b.x) / 2,
+        my: (a.y + b.y) / 2,
+        scale: transform.scale,
+        tx: transform.tx,
+        ty: transform.ty,
+      };
+      dragRef.current = null;
+      dragMovedRef.current = true; // a pinch is never a click
+      return;
+    }
     dragRef.current = {
       x: e.clientX,
       y: e.clientY,
@@ -620,6 +648,12 @@ export function CadViewer({
       ty: transform.ty,
     };
     dragMovedRef.current = false;
+  };
+
+  const onPointerCancel = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    pointersRef.current.delete(e.pointerId);
+    if (pointersRef.current.size < 2) pinchRef.current = null;
+    dragRef.current = null;
   };
 
   /** Screen pixels -> drawing units, inverting pan + rotation. */
@@ -733,6 +767,25 @@ export function CadViewer({
 
   const onPointerMove = (e: React.PointerEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
+    // Pinch zoom (two active touch pointers).
+    if (pointersRef.current.has(e.pointerId) && canvas) {
+      const rect = canvas.getBoundingClientRect();
+      pointersRef.current.set(e.pointerId, { x: e.clientX - rect.left, y: e.clientY - rect.top });
+      const pinch = pinchRef.current;
+      if (pinch && pointersRef.current.size >= 2) {
+        const [a, b] = [...pointersRef.current.values()];
+        const d = Math.hypot(b.x - a.x, b.y - a.y) || 1;
+        const mx = (a.x + b.x) / 2;
+        const my = (a.y + b.y) / 2;
+        const f = d / pinch.dist;
+        setTransform({
+          scale: pinch.scale * f,
+          tx: mx - (pinch.mx - pinch.tx) * f,
+          ty: my - (pinch.my - pinch.ty) * f,
+        });
+        return;
+      }
+    }
     // Report cursor position in drawing units for the status bar, coalesced
     // to one update per animation frame so mouse-move doesn't spam parent
     // re-renders faster than the screen refreshes.
@@ -767,6 +820,13 @@ export function CadViewer({
 
   const onPointerUp = (e: React.PointerEvent<HTMLCanvasElement>) => {
     e.currentTarget.releasePointerCapture(e.pointerId);
+    pointersRef.current.delete(e.pointerId);
+    if (pinchRef.current) {
+      // Pinch ends when fewer than two fingers remain; a lifted finger is not a tap.
+      if (pointersRef.current.size < 2) pinchRef.current = null;
+      dragRef.current = null;
+      return;
+    }
     const wasDrag = dragMovedRef.current;
     dragRef.current = null;
     if (wasDrag) return;
@@ -850,6 +910,7 @@ export function CadViewer({
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
+        onPointerCancel={onPointerCancel}
         onPointerLeave={() => onSignals?.({ cursor: null, zoomPct: fitScaleRef.current > 0 ? (transform.scale / fitScaleRef.current) * 100 : 100 })}
         onWheel={onWheel}
         style={{

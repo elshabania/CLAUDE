@@ -116,6 +116,7 @@ export default function Page() {
   const [laneOverrides, setLaneOverrides] = useState<Record<string, number>>({});
   const [colorByLos, setColorByLos] = useState(true);
   const [selectedLink, setSelectedLink] = useState<number | null>(null);
+  const [dockOpen, setDockOpen] = useState(true);
   const [groupCategory, setGroupCategory] = useState<Record<string, RoadCategory>>({});
   const [visibleGroups, setVisibleGroups] = useState<Record<string, boolean>>({});
   const [visibleCategories, setVisibleCategories] = useState<
@@ -830,6 +831,19 @@ export default function Page() {
   // dimensions panel uses it.
   const rightDockWidth = tab === "highway" ? 440 : 0;
   const leftDockWidth = tab === "drawing" ? 300 : 0;
+  // Phones: the dock becomes a bottom sheet with a handle that collapses it
+  // so the plan gets the whole screen (desktop layout ignores this).
+  const dockHandle = (label: string) => (
+    <button
+      type="button"
+      className="dock-handle"
+      onClick={() => setDockOpen((o) => !o)}
+      aria-expanded={dockOpen}
+    >
+      <span>{label}</span>
+      <span style={{ marginLeft: "auto", color: "var(--accent-hi)" }}>{dockOpen ? "▾" : "▴"}</span>
+    </button>
+  );
 
   return (
     <ErrorBoundary>
@@ -882,7 +896,8 @@ export default function Page() {
       <div className="workspace">
         {/* LEFT DOCK */}
         {leftDockWidth > 0 && (
-          <div className="dock left" style={{ width: leftDockWidth }}>
+          <div className={`dock left${dockOpen ? "" : " collapsed"}`} style={{ width: leftDockWidth }}>
+            {dockHandle("Layers & traffic")}
             {tab === "drawing" && result && (
               <div className="panel">
                 <div className="panel-header">
@@ -1315,7 +1330,8 @@ export default function Page() {
 
         {/* RIGHT DOCK */}
         {rightDockWidth > 0 && (
-          <div className="dock right" style={{ width: rightDockWidth }}>
+          <div className={`dock right${dockOpen ? "" : " collapsed"}`} style={{ width: rightDockWidth }}>
+            {dockHandle("Highway dimensions")}
             {tab === "highway" && dims && (
               <div className="panel">
                 <div className="panel-header">
