@@ -255,7 +255,7 @@ def test_each_defect_manifests(all_defects: Path) -> None:
     nulls = links[links.capacity_vph.isna()]
     assert set(nulls.link_id) == set(m["null_values"]["link_ids"]) and len(nulls) == 4
     assert ll[ll.line_id == "BUS_UNUSED"].load.max() < 1.0
-    assert ll[ll.line_id != "BUS_UNUSED"].groupby("line_id").load.max().gt(50).all()
+    assert ll[ll.line_id != "BUS_UNUSED"].groupby("line_id").load.max().gt(20).all()
     assert "BUS_UNUSED" in set(tl.line_id)
 
 

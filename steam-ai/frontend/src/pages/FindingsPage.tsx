@@ -7,7 +7,6 @@ import { useCurrentRun } from '../app/RunContext';
 import { FindingDetail } from '../components/FindingDetail';
 import { SeverityBadge } from '../components/SeverityBadge';
 import { EmptyState, ErrorState, Loading } from '../components/States';
-import { locationLabel } from '../lib/format';
 
 type SortKey = 'severity' | 'check' | 'location' | 'executive' | 'significant';
 const SORT_KEYS: SortKey[] = ['severity', 'check', 'location', 'executive', 'significant'];

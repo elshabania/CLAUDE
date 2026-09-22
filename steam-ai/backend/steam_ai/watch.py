@@ -38,14 +38,23 @@ def mark_processed(export_dir: Path, status: str, error: str | None = None) -> N
     (Path(export_dir) / PROCESSED_MARKER).write_text(json.dumps(payload, indent=2), "utf-8")
 
 
+def sentinel_complete(sentinel: Path) -> bool:
+    """True once the sentinel parses as JSON (a half-written file is retried on the next poll)."""
+    try:
+        json.loads(sentinel.read_text("utf-8"))
+    except (OSError, ValueError):
+        return False
+    return True
+
+
 def find_ready(root: Path) -> list[Path]:
-    """Export directories under ``root`` (any depth) with a sentinel and no marker."""
+    """Export directories under ``root`` (any depth) with a complete sentinel and no marker."""
     root = Path(root)
     if not root.is_dir():
         return []
     ready = []
     for sentinel in sorted(root.rglob(schema.EXPORT_SENTINEL)):
-        if sentinel.is_file() and not is_processed(sentinel.parent):
+        if sentinel.is_file() and not is_processed(sentinel.parent) and sentinel_complete(sentinel):
             ready.append(sentinel.parent)
     return ready
 
@@ -118,8 +127,6 @@ def watch(
                 break
             wake.wait(timeout=poll_s)
             wake.clear()
-            if wake.is_set() is False and stop_event is not None and stop_event.is_set():
-                break
             time.sleep(0.05)  # let a sentinel writer finish closing the file
     except KeyboardInterrupt:
         pass

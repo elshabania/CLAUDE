@@ -20,9 +20,10 @@ from pathlib import Path
 
 import pytest
 
-_TEST_DATA_ROOT = os.environ.setdefault(
-    "STEAM_AI_DATA", tempfile.mkdtemp(prefix="steam_ai_test_data_")
-)
+# Always a fresh temporary root: never the developer's real STEAM_AI_DATA, which the
+# session fixture would otherwise delete at exit.
+_TEST_DATA_ROOT = tempfile.mkdtemp(prefix="steam_ai_test_data_")
+os.environ["STEAM_AI_DATA"] = _TEST_DATA_ROOT
 
 import steam_ai.paths  # noqa: E402
 import steam_ai.store  # noqa: E402
@@ -39,7 +40,7 @@ from steam_ai.synthetic import generate_run  # noqa: E402
 
 @pytest.fixture(scope="session")
 def data_dir() -> Iterable[Path]:
-    root = Path(os.environ["STEAM_AI_DATA"])
+    root = Path(_TEST_DATA_ROOT)
     root.mkdir(parents=True, exist_ok=True)
     assert steam_ai.paths.DATA_DIR == root
     yield root

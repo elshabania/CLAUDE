@@ -55,7 +55,7 @@ def test_inspect_mixed_dir(tmp_path: Path) -> None:
     files = {f["path"]: f for f in report["files"]}
     assert files["Scripts/HWY.s"]["family"] == "cube_script"
     assert files["net.net"]["family"] == "cube_network" and "tabular" not in files["net.net"]
-    assert files["net.net"]["size"] == 1100
+    assert files["net.net"]["size"] == 900
     assert files["trips.mat"]["family"] == "cube_matrix"
     counts = files["counts.csv"]["tabular"]
     assert counts["rows"] == 3

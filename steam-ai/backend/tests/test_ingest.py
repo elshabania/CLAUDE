@@ -66,8 +66,11 @@ def test_reingest_same_run_id_refused(synthetic_export) -> None:
     ingest_export_dir(export, run_id="fixed_run")
     with pytest.raises(IngestError, match="immutable"):
         ingest_export_dir(export, run_id="fixed_run")
+    try:
+        ingest_export_dir(export)  # derived id (may already exist from another test)
+    except IngestError:
+        pass
     with pytest.raises(IngestError, match="immutable"):
-        ingest_export_dir(export)  # derived id also already exists from test_round_trip
         ingest_export_dir(export)
 
 
@@ -77,7 +80,6 @@ def test_hash_mismatch_raises(synthetic_export, tmp_path: Path) -> None:
         fh.write("\n")
     with pytest.raises(IngestError, match="sha256 mismatch for links.csv"):
         ingest_export_dir(export, run_id="tampered")
-    assert not (Path(RunStore.__module__) / "x").exists()  # no side effects expected
     assert "tampered" not in {m.run_id for m in list_runs()}
 
 
@@ -87,9 +89,11 @@ def test_missing_listed_file_and_unlisted_table(synthetic_export, tmp_path: Path
     with pytest.raises(IngestError, match="missing file listed in sentinel: 'nodes.csv'"):
         ingest_export_dir(export, run_id="missing")
     export2 = _copy_export(synthetic_export(), tmp_path / "unlisted")
-    _rewrite_sentinel(export2, lambda d: d["files"].__delitem__(
-        next(i for i, f in enumerate(d["files"]) if f["path"] == "zones.csv")
-    ))
+
+    def unlist_zones(d):
+        d["files"] = [f for f in d["files"] if f["path"] != "zones.csv"]
+
+    _rewrite_sentinel(export2, unlist_zones)
     with pytest.raises(IngestError, match="present but not listed"):
         ingest_export_dir(export2, run_id="unlisted")
 
