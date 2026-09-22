@@ -9,7 +9,9 @@
 > [data contract](docs/data_contract.md), [assumptions and open questions](docs/assumptions.md),
 > [architecture and phased plan](docs/architecture.md), [Slice 1 status review](docs/status.md).
 > The application lives in [`steam-ai/`](steam-ai/README.md) and is built against
-> synthetic data until real STEAM runs are supplied.
+> synthetic data until real STEAM runs are supplied. A static demo of its web app in
+> mock mode is served at `/steam-ai/` on the deployed site (rebuild with
+> `npm run build:demo` in `steam-ai/frontend` and copy `dist-mock/` to `public/steam-ai/`).
 
 A Next.js app that reads road CAD drawings (DXF and DWG) and detects road
 geometry from layer naming conventions (centerline, edge of pavement, lane

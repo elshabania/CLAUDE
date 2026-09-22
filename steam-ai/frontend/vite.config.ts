@@ -2,8 +2,9 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
 // STEAM-AI frontend. Served by the FastAPI app from `dist/` at `/`.
+// VITE_BASE lets the mock demo be hosted under a sub-path (see build:demo).
 export default defineConfig({
-  base: '/',
+  base: process.env.VITE_BASE || '/',
   plugins: [react()],
   server: {
     port: 5173,

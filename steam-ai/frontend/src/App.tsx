@@ -40,7 +40,7 @@ function Frame() {
 export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <BrowserRouter>
+      <BrowserRouter basename={import.meta.env.BASE_URL.replace(/\/$/, '')}>
         <Routes>
           <Route element={<Frame />}>
             <Route path="/" element={<HomePage />} />
