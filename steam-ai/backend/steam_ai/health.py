@@ -19,27 +19,20 @@ from .store import RunStore
 _ORDER = [s.value for s in Severity]
 
 
-def _rel_gap_target() -> float:
-    params = (config.checks().get("checks", {}).get("convergence_and_noise", {})
-              .get("params", {}))
-    return float(params.get("rel_gap_target", 0.001))
+def _convergence_params() -> dict[str, Any]:
+    return dict(config.checks().get("checks", {}).get("convergence_and_noise", {})
+                .get("params", {}) or {})
 
 
 def _convergence_component(store: RunStore) -> tuple[float | None, str]:
     """Mean over stage x period of the per-period score; None when no data."""
     if not store.has("convergence"):
         return None, "no convergence table in this run"
-    target = _rel_gap_target()
-    df = store.query(
-        """
-        SELECT stage, period, value AS rel_gap FROM convergence c
-        WHERE metric = 'REL_GAP' AND iteration = (
-            SELECT MAX(iteration) FROM convergence x
-            WHERE x.metric = 'REL_GAP' AND x.stage = c.stage
-              AND COALESCE(x.period, '') = COALESCE(c.period, ''))
-        ORDER BY stage, period
-        """
-    )
+    from .checks.convergence_and_noise import final_rel_gap_sql
+
+    params = _convergence_params()
+    target = float(params.get("rel_gap_target", 0.001))
+    df = store.query(final_rel_gap_sql(params))
     if df.empty:
         return None, "no REL_GAP records in the convergence table"
     scores = []

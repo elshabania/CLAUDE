@@ -91,6 +91,7 @@ checks:
       geh_stable: 1.0           # %links with GEH<1 between final iterations
       geh_stable_share_target: 0.95
       noise_band_iterations: 3
+      stages: [HWY_ASSIGN, PT_ASSIGN]   # stages judged against rel_gap_target (demand loop excluded)
     severity:
       - { when: "rel_gap > 0.01", severity: Critical }
       - { when: "rel_gap > 0.001", severity: High }

@@ -83,7 +83,7 @@ export default function MapPage() {
     if (i === undefined) return null;
     const s = binary.startIndices[i], e = binary.startIndices[i + 1];
     const path: [number, number][] = [];
-    for (let k = s; k < e; k++) path.push([binary.positions[k * 2], binary.positions[k * 2 + 1]]);
+    for (let k = s; k < e; k++) path.push([binary.positions[k * 3], binary.positions[k * 3 + 1]]);
     return path;
   }, [binary, linkParam]);
 
@@ -118,13 +118,13 @@ export default function MapPage() {
             length: binary.length,
             startIndices: binary.startIndices,
             attributes: {
-              getPath: { value: binary.positions, size: 2 },
+              getPath: { value: binary.positions, size: 3 },
               getColor: { value: colors, size: 4 },
               getWidth: { value: widths, size: 1 },
             },
           },
           _pathType: 'open',
-          positionFormat: 'XY',
+          positionFormat: 'XYZ',
           widthUnits: 'pixels',
           widthMinPixels: 1,
           widthMaxPixels: 12,

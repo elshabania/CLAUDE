@@ -6,6 +6,7 @@ import type { RGB } from '../lib/scales';
 /** Binary attribute buffers for a deck.gl PathLayer; built once per links payload. */
 export interface LinkBinary {
   length: number;
+  /** XYZ triplets (z = 0), one per vertex */
   positions: Float64Array;
   startIndices: Uint32Array;
   props: LinkProperties[];
@@ -24,7 +25,7 @@ export function buildLinkBinary(fc: LinkCollection): LinkBinary {
   const n = fc.features.length;
   let nPts = 0;
   for (const f of fc.features) nPts += f.geometry.coordinates.length;
-  const positions = new Float64Array(nPts * 2);
+  const positions = new Float64Array(nPts * 3); // XYZ, z = 0 (matches deck's vertexPositions size)
   const startIndices = new Uint32Array(n + 1);
   const volume = new Float32Array(n);
   const vc = new Float32Array(n);
@@ -38,11 +39,12 @@ export function buildLinkBinary(fc: LinkCollection): LinkBinary {
   let p = 0;
   for (let i = 0; i < n; i++) {
     const f = fc.features[i];
-    startIndices[i] = p / 2;
+    startIndices[i] = p / 3;
     const coords = f.geometry.coordinates;
     for (const [x, y] of coords) {
       positions[p++] = x;
       positions[p++] = y;
+      positions[p++] = 0;
       if (x < minX) minX = x;
       if (x > maxX) maxX = x;
       if (y < minY) minY = y;
@@ -60,7 +62,7 @@ export function buildLinkBinary(fc: LinkCollection): LinkBinary {
     delay[i] = pr.delay_s ?? 0;
     maxSeverity[i] = pr.max_severity ? SEVERITY_RANK[pr.max_severity] : -1;
   }
-  startIndices[n] = p / 2;
+  startIndices[n] = p / 3;
   return {
     length: n,
     positions,

@@ -41,6 +41,7 @@ class MatrixSanity(Check):
         out += self._negatives(store, severity_rules)
         out += self._row_col(store, params, severity_rules)
         out += self._intrazonal(store, params, severity_rules)
+        out += self._intrazonal_zones(store, params, severity_rules)
         out += self._fractional(store, params, severity_rules)
         return out
 
@@ -179,6 +180,53 @@ class MatrixSanity(Check):
                     sources=[table_ref(store, "od", "trips")],
                     query=sql, discriminator="intrazonal_share",
                     method="intrazonal / total trips per purpose x mode (all periods)",
+                )
+            )
+        return out
+
+    def _intrazonal_zones(
+        self, store: RunStore, params: dict[str, Any], rules: list[dict[str, Any]]
+    ) -> list[Finding]:
+        share_max = float(params.get("intrazonal_share_max", 0.15))
+        min_total = float(params.get("min_zone_total_for_ratio", 50))
+        sql = f"""
+            SELECT origin AS zone_id, SUM(trips) AS total,
+                   SUM(CASE WHEN origin = destination THEN trips ELSE 0 END) AS intrazonal,
+                   SUM(CASE WHEN origin = destination THEN trips ELSE 0 END)
+                       / NULLIF(SUM(trips), 0) AS share
+            FROM od WHERE matrix_kind = 'DEMAND'
+            GROUP BY 1 HAVING share > {share_max} AND SUM(trips) >= {min_total}
+            ORDER BY share DESC, zone_id
+        """
+        df = store.query(sql)
+        if df.empty:
+            return []
+        locs = zone_locations(store, df["zone_id"])
+        out: list[Finding] = []
+        for r in df.itertuples():
+            share = float(r.share)
+            sev = evaluate_severity(rules, issue="intrazonal_share", intrazonal_share=share)
+            if sev is None:
+                continue
+            zid = int(r.zone_id)
+            out.append(
+                make_finding(
+                    run_id=store.run_id, check=self, severity=sev, location=locs[zid],
+                    executive_line=(
+                        f"{pct(share, 1)} of trips starting in zone {zid} stay inside it, "
+                        f"above the {pct(share_max)} ceiling."
+                    ),
+                    likely_cause="Intrazonal impedance far too low for this zone, or the zone "
+                    "is very large and should be split.",
+                    suggested_action="Check the zone's intrazonal time/distance and its size.",
+                    values={"issue": "intrazonal_share", "intrazonal_share": share,
+                            "intrazonal_trips": float(r.intrazonal),
+                            "total_trips": float(r.total)},
+                    thresholds={"intrazonal_share_max": share_max,
+                                "min_zone_total_for_ratio": min_total},
+                    sources=[table_ref(store, "od", "trips")],
+                    query=sql, discriminator="intrazonal_share",
+                    method="intrazonal / row total per origin zone (all DEMAND matrices)",
                 )
             )
         return out

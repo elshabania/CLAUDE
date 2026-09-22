@@ -23,6 +23,7 @@ from .base import (
     pct,
     period_label,
     refs_from_rows,
+    sql_str_list,
     table_ref,
 )
 
@@ -63,15 +64,7 @@ class ConvergenceAndNoise(Check):
     ) -> list[Finding]:
         target = float(params.get("rel_gap_target", 0.001))
         high = float(params.get("rel_gap_high", 0.01))
-        sql = """
-            SELECT stage, period, iteration, value AS rel_gap, source_file, source_row
-            FROM convergence c
-            WHERE metric = 'REL_GAP' AND iteration = (
-                SELECT MAX(iteration) FROM convergence x
-                WHERE x.metric = 'REL_GAP' AND x.stage = c.stage
-                  AND COALESCE(x.period, '') = COALESCE(c.period, ''))
-            ORDER BY stage, period
-        """
+        sql = final_rel_gap_sql(params)
         df = store.query(sql)
         out: list[Finding] = []
         for r in df.itertuples():
@@ -209,6 +202,24 @@ class ConvergenceAndNoise(Check):
         band = store.query(sql)
         store.write_noise_band(band)
         return int(len(band))
+
+
+def final_rel_gap_sql(params: dict[str, Any]) -> str:
+    """SQL for the last-iteration REL_GAP per stage x period, limited to ``params['stages']``.
+
+    Shared with :mod:`steam_ai.health` so both judge the same stages by the same gap.
+    """
+    stages = [str(s) for s in params.get("stages", ["HWY_ASSIGN", "PT_ASSIGN"]) or []]
+    stage_filter = f"AND stage IN ({sql_str_list(stages)})" if stages else ""
+    return f"""
+        SELECT stage, period, iteration, value AS rel_gap, source_file, source_row
+        FROM convergence c
+        WHERE metric = 'REL_GAP' {stage_filter} AND iteration = (
+            SELECT MAX(iteration) FROM convergence x
+            WHERE x.metric = 'REL_GAP' AND x.stage = c.stage
+              AND COALESCE(x.period, '') = COALESCE(c.period, ''))
+        ORDER BY stage, period
+    """
 
 
 def _stage_label(stage: Any) -> str:
