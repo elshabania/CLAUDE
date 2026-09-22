@@ -72,17 +72,18 @@ def _links(nodes: pd.DataFrame) -> pd.DataFrame:
     xy = {int(r.node_id): (float(r.x), float(r.y)) for r in nodes.itertuples()}
     rows = []
     link_id = 0
-    classes = ["FWY", "ART", "COL"]
+    # class by link id: 1 FWY, 7 FWY, 15 FWY, 22 COL, 31 FWY (matches the fixture findings)
+    classes = ["ART", "FWY", "COL", "FWY"]
     for i in range(GRID):
         for j in range(GRID):
-            for a, b in (
-                (_node_id(i, j), _node_id(i + 1, j)),
-                (_node_id(i, j), _node_id(i, j + 1)),
-            ):
-                if b not in xy:
-                    continue
+            pairs = []
+            if i + 1 < GRID:
+                pairs.append((_node_id(i, j), _node_id(i + 1, j)))
+            if j + 1 < GRID:
+                pairs.append((_node_id(i, j), _node_id(i, j + 1)))
+            for a, b in pairs:
                 link_id += 1
-                cls = classes[link_id % 3]
+                cls = classes[link_id % 4]
                 cap = {"FWY": 6000.0, "ART": 3000.0, "COL": 1500.0}[cls]
                 (x1, y1), (x2, y2) = xy[a], xy[b]
                 length = 1110.0 if x1 == x2 else 1020.0
@@ -302,7 +303,7 @@ def _findings(links: pd.DataFrame) -> list[dict]:
                 {
                     "measure_id": "m-003",
                     "title": "Restore capacity from class default",
-                    "description": "Set capacity_vph to 3000 (ART default).",
+                    "description": "Set capacity_vph to 6000 (FWY default).",
                     "estimated_effect": "Removes the blocked link",
                     "effect_values": {},
                     "method": "not_computable",

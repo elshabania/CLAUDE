@@ -13,7 +13,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Union
+from typing import Any
 
 from .. import __version__, config
 from ..models import KPI, Finding, Severity
@@ -231,8 +231,9 @@ def fmt_evidence(key: str, value: Any) -> str:
 def _location_text(f: Finding) -> str:
     loc = f.location
     base = loc.label or f"{loc.type.value} {loc.id}"
-    if f.evidence.period:
-        return f"{base}, {f.evidence.period}"
+    period = f.evidence.period
+    if period and period not in base.split():
+        return f"{base}, {period}"
     return base
 
 
