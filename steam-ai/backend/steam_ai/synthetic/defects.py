@@ -21,7 +21,16 @@ import pandas as pd
 
 from .assign import bpr_time
 from .demand import Demand, lengthen_trips
-from .network import CLASS_PARAMS, LAT_MAX, LAT_MIN, LON_MAX, LON_MIN, Network, linestring_wkt
+from .network import (
+    CLASS_PARAMS,
+    LAT_MAX,
+    LAT_MIN,
+    LON_MAX,
+    LON_MIN,
+    Network,
+    haversine_m,
+    linestring_wkt,
+)
 from .transit import Line
 
 ORPHAN_NODE_IDS = [9001, 9002, 9003]
@@ -287,8 +296,6 @@ def _new_link_row(
     lanes, cap_lane, ffs = CLASS_PARAMS[cls]
     ax, ay = xy[a]
     bx, by = xy.get(b, (ax + 0.004, ay + 0.002))
-    from .network import haversine_m
-
     length = length_m if length_m is not None else float(haversine_m(ax, ay, bx, by))
     return {
         "link_id": link_id,
