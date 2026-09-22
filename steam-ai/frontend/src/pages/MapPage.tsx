@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import type { Map as MLMap } from 'maplibre-gl';
 import { PathLayer, ScatterplotLayer } from '@deck.gl/layers';
-import type { Layer, PickingInfo } from '@deck.gl/core';
+import { COORDINATE_SYSTEM, type Layer, type PickingInfo } from '@deck.gl/core';
 import { useFindings, useLinkProfile, useLinks, useRun } from '../api/queries';
 import type { Finding, LinkProfile, LinkProperties } from '../api/types';
 import { SEVERITIES } from '../api/types';
@@ -83,7 +83,7 @@ export default function MapPage() {
     if (i === undefined) return null;
     const s = binary.startIndices[i], e = binary.startIndices[i + 1];
     const path: [number, number][] = [];
-    for (let k = s; k < e; k++) path.push([binary.positions[k * 3], binary.positions[k * 3 + 1]]);
+    for (let k = s; k < e; k++) path.push([binary.positions[k * 3] + binary.origin[0], binary.positions[k * 3 + 1] + binary.origin[1]]);
     return path;
   }, [binary, linkParam]);
 
@@ -125,6 +125,8 @@ export default function MapPage() {
           },
           _pathType: 'open',
           positionFormat: 'XYZ',
+          coordinateSystem: COORDINATE_SYSTEM.LNGLAT_OFFSETS,
+          coordinateOrigin: [binary.origin[0], binary.origin[1], 0],
           widthUnits: 'pixels',
           widthMinPixels: 1,
           widthMaxPixels: 12,

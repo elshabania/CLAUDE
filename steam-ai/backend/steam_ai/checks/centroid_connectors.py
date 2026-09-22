@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import Any
 
+import pandas as pd
+
 from ..models import Finding
 from ..store import RunStore
 from .base import (
@@ -73,7 +75,7 @@ class CentroidConnectors(Check):
         for _, r in df.iterrows():
             lid = int(r["link_id"])
             refs = refs_from_rows(df[df["link_id"] == lid], "links", "link_id")
-            if r["high_link"] is not None and not _isnan(r["high_link"]):
+            if not pd.isna(r["high_link"]):
                 sev = evaluate_severity(severity_rules, issue="connector_on_high_class",
                                         length_m=r["length_m"])
                 if sev is not None:
@@ -99,7 +101,7 @@ class CentroidConnectors(Check):
                             method="connector street-end node joined to links of high class",
                         )
                     )
-            if r["length_m"] is not None and float(r["length_m"]) > max_len:
+            if not pd.isna(r["length_m"]) and float(r["length_m"]) > max_len:
                 sev = evaluate_severity(severity_rules, issue="connector_too_long",
                                         length_m=r["length_m"])
                 if sev is not None:
@@ -125,14 +127,5 @@ class CentroidConnectors(Check):
         return out
 
 
-def _isnan(v: Any) -> bool:
-    try:
-        return v != v
-    except Exception:
-        return False
-
-
 def _int_or_none(v: Any) -> int | None:
-    if v is None or _isnan(v):
-        return None
-    return int(v)
+    return None if pd.isna(v) else int(v)
