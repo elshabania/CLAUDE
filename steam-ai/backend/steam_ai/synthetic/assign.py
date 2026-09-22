@@ -23,7 +23,7 @@ from .network import Network
 
 BPR_ALPHA = 0.15
 BPR_BETA = 4.0
-MSA_ITERATIONS = 4
+MSA_ITERATIONS = 6
 REPORTED_ITERATIONS = 20  # iterations reported in the convergence table
 NOISE_ITERATIONS = 3  # last iterations written to iteration_flows
 NOISE_SD = 0.004  # relative iteration-to-iteration noise in final volumes
@@ -32,7 +32,7 @@ USER_CLASSES = ["CAR", "LGV", "HGV", "ALL"]
 LGV_SHARE_OF_CAR = 0.12
 HGV_SHARE_OF_CAR = 0.03
 # background flow per lane per hour by class (external / unmodelled traffic)
-BACKGROUND_PER_LANE_HOUR = {"FWY": 220.0, "ART": 90.0, "COL": 35.0, "LOC": 12.0, "CONN": 0.0}
+BACKGROUND_PER_LANE_HOUR = {"FWY": 320.0, "ART": 80.0, "COL": 30.0, "LOC": 12.0, "CONN": 0.0}
 PERIOD_BACKGROUND_FACTOR = {"AM": 1.0, "MD": 0.7, "PM": 1.0, "EV": 0.5, "NT": 0.2}
 HGV_BACKGROUND_SHARE = {"FWY": 0.15, "ART": 0.06, "COL": 0.02, "LOC": 0.0, "CONN": 0.0}
 JUNCTION_DELAY_S = {"SIGNAL": (15.0, 25.0), "ROUNDABOUT": (5.0, 10.0), "PRIORITY": (3.0, 6.0)}

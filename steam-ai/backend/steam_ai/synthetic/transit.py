@@ -53,8 +53,8 @@ def default_lines(net: Network, *, extra_bus: bool = False, unused_bus: bool = F
         make_line("METRO_1", "METRO", [int(n) for n in g[:, net.fwy_col]]),
         make_line("BRT_1", "BRT", [int(n) for n in g[net.fwy_row, :]]),
     ]
-    art_rows = [r for r in net.art_rows() if 0 < r < net.grid - 1]
-    art_cols = [c for c in net.art_cols() if 0 < c < net.grid - 1]
+    art_rows = net.art_rows()[1:-1]  # inner ART corridors only
+    art_cols = net.art_cols()[1:-1]
     k = 1
     for r in art_rows:
         lines.append(make_line(f"BUS_{k}", "BUS", [int(n) for n in g[r, :]]))
@@ -63,8 +63,7 @@ def default_lines(net: Network, *, extra_bus: bool = False, unused_bus: bool = F
         lines.append(make_line(f"BUS_{k}", "BUS", [int(n) for n in g[:, c]]))
         k += 1
     if extra_bus:
-        edge_rows = [r for r in net.art_rows() if r in (0, net.grid - 1)]
-        r = edge_rows[-1] if edge_rows else net.grid - 1
+        r = net.art_rows()[-1]  # outermost ART row: a genuinely new corridor
         lines.append(make_line("BUS_NEW", "BUS", [int(n) for n in g[r, :]]))
     if unused_bus:
         # Duplicates the busiest ART column through the centre; loads are forced to ~0.
