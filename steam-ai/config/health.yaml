@@ -1,0 +1,28 @@
+# Run health score definition. Published verbatim in the UI.
+# score = 100 - sum over findings of penalty[severity], floored at 0,
+# then blended with a convergence component.
+definition: >
+  Health = 0.7 x Findings component + 0.3 x Convergence component.
+  Findings component = max(0, 100 - 25 x Critical - 8 x High - 2 x Medium - 0 x Info),
+  counting each distinct problem type (a check and the issue it found) once, at its
+  worst significant severity: a coding error repeated on 8,000 links is one problem.
+  Convergence component = 100 if every assignment period met the relative gap
+  target, scaled down linearly to 0 at ten times the target. When a run has no
+  convergence data, the findings component carries the full weight.
+  Grade: A >= 90, B >= 75, C >= 60, D >= 40, E below 40.
+# problem_type (default) or finding (penalise every finding)
+count_by: problem_type
+penalties:
+  Critical: 25
+  High: 8
+  Medium: 2
+  Info: 0
+weights:
+  findings: 0.7
+  convergence: 0.3
+grades:
+  A: 90
+  B: 75
+  C: 60
+  D: 40
+  E: 0

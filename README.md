@@ -4,6 +4,14 @@
 > standalone map app showing Abu Dhabi's main and local street network as
 > toggleable layers over a Google Maps basemap. Served at
 > `/abu-dhabi-streets` on the deployed site.
+>
+> **STEAM-AI** (ITC/T/PSA/1170/25, Task 15) design documents live in `docs/`:
+> [data contract](docs/data_contract.md), [assumptions and open questions](docs/assumptions.md),
+> [architecture and phased plan](docs/architecture.md), [Slice 1 status review](docs/status.md).
+> The application lives in [`steam-ai/`](steam-ai/README.md). A static demo of its
+> web app, showing the real STEAM v3.2.2 2025 and 2040 inputs plus two synthetic
+> runs, is served at `/steam-ai/` on the deployed site (rebuild with
+> `steam-ai/scripts/publish_demo.sh`).
 
 A Next.js app that reads road CAD drawings (DXF and DWG) and detects road
 geometry from layer naming conventions (centerline, edge of pavement, lane

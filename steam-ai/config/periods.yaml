@@ -1,0 +1,20 @@
+# STEAM time periods. Codes are PLACEHOLDERS until confirmed from real STEAM
+# output (docs/data_contract.md Section 8.3). Hours are used to convert
+# period volumes to hourly capacity ratios.
+periods:
+  - code: AM
+    label: AM peak
+    hours: 3.0
+  - code: MD
+    label: Midday
+    hours: 6.0
+  - code: PM
+    label: PM peak
+    hours: 3.0
+  - code: EV
+    label: Evening
+    hours: 4.0
+  - code: NT
+    label: Night
+    hours: 8.0
+peak_periods: [AM, PM]

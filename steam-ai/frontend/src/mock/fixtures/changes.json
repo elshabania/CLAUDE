@@ -1,0 +1,1011 @@
+{
+ "run_2035_ref_v4": {
+  "base_run_id": "run_2035_ref_v3",
+  "inputs": [
+   {
+    "file": "inputs/network/links.dbf",
+    "table": "links",
+    "change": "modified",
+    "rows_changed": 42,
+    "detail": "Lanes and capacity on 42 links (Saadiyat link road, Reem bridge widening)."
+   },
+   {
+    "file": "inputs/landuse/land_use_2035.csv",
+    "table": "land_use",
+    "change": "modified",
+    "rows_changed": 18,
+    "detail": "Employment in 18 zones of sector S3."
+   },
+   {
+    "file": "inputs/transit/lines_2035.lin",
+    "table": "transit_lines",
+    "change": "modified",
+    "rows_changed": 2,
+    "detail": "Lines B056 and B112 extended to Saadiyat."
+   },
+   {
+    "file": "inputs/parameters/register.csv",
+    "table": "parameters",
+    "change": "removed",
+    "rows_changed": null,
+    "detail": "Parameter register not exported for v4."
+   }
+  ],
+  "findings": {
+   "new": [
+    {
+     "finding_id": "F-0001",
+     "run_id": "run_2035_ref_v4",
+     "check_id": "link_volume_outliers",
+     "check_name": "Link volume outliers",
+     "severity": "Critical",
+     "location": {
+      "type": "link",
+      "id": "20014",
+      "label": "ART 1007→1006",
+      "lon": 54.422612,
+      "lat": 24.420569
+     },
+     "executive_line": "Link 20014 (ART, 2 lanes) carries 136% of its capacity in the AM peak, well beyond what the road can serve.",
+     "modeller_view": "V/C 1.36 on ART link 20014 (1007→1006) in AM, user_class ALL: volume 7344 over AM (2448 veh/h) against capacity 1800 veh/h. Peer group ART x CBD x AM median V/C 0.71. Congested speed 52.9 km/h against free-flow 80 km/h.",
+     "evidence": {
+      "values": {
+       "vc_ratio": 1.36,
+       "volume": 7344,
+       "capacity_vph": 1800,
+       "lanes": 2,
+       "cong_speed_kph": 52.9,
+       "abs_zscore": 4
+      },
+      "thresholds": {
+       "vc_critical": 1.3,
+       "vc_high": 1.1,
+       "vc_medium": 0.95,
+       "zscore_threshold": 3
+      },
+      "sources": [
+       {
+        "file": "outputs/loaded_AM.dbf",
+        "row": 1314,
+        "table": "link_flows",
+        "column": "volume"
+       },
+       {
+        "file": "inputs/network/links.dbf",
+        "row": 14,
+        "table": "links",
+        "column": "capacity_vph"
+       }
+      ],
+      "period": "AM",
+      "query": "SELECT f.link_id, f.volume, f.vc_ratio, l.capacity_vph, l.lanes\nFROM link_flows f JOIN links l USING (run_id, link_id)\nWHERE f.run_id = 'run_2035_ref_v4' AND f.period = 'AM' AND f.user_class = 'ALL'\n  AND f.link_id = '20014'"
+     },
+     "likely_cause": "Capacity coded below the observed cross-section, or a parallel route missing from the network so demand funnels onto this link.",
+     "suggested_action": "Verify lanes and capacity_vph against the aerial imagery and the 2035 committed scheme list; check that the parallel corridor is coded and connected.",
+     "measures": [
+      {
+       "measure_id": "M-0001-a",
+       "title": "Recode capacity to 4 lanes",
+       "description": "Set lanes = 4 and capacity_vph = 8000 on link 20014 to match the committed widening scheme (ITC scheme register #214).",
+       "estimated_effect": "V/C falls from 1.36 to about 1.02 in AM; downstream link 20016 gains around 900 veh over the period.",
+       "effect_values": {
+        "vc_after": 1.02,
+        "delta_volume_20016": 900
+       },
+       "method": "sketch_elasticity",
+       "confidence": "medium"
+      },
+      {
+       "measure_id": "M-0001-b",
+       "title": "Queue a STEAM rerun with the parallel arterial connected",
+       "description": "Node 1023 to 1024 arterial is coded one-way; a rerun with two-way coding will confirm whether demand reroutes.",
+       "estimated_effect": null,
+       "effect_values": {},
+       "method": "steam_rerun",
+       "confidence": "low"
+      }
+     ],
+     "is_significant": true,
+     "created_at": "2026-09-22T06:41:12Z"
+    },
+    {
+     "finding_id": "F-0002",
+     "run_id": "run_2035_ref_v4",
+     "check_id": "link_volume_outliers",
+     "check_name": "Link volume outliers",
+     "severity": "High",
+     "location": {
+      "type": "link",
+      "id": "20037",
+      "label": "FWY 1020→1021",
+      "lon": 54.347609,
+      "lat": 24.441502
+     },
+     "executive_line": "Link 20037 (FWY, 3 lanes) carries 118% of its capacity in the AM peak, above what the road can serve.",
+     "modeller_view": "V/C 1.18 on FWY link 20037 (1020→1021) in AM, user_class ALL: volume 21240 over AM (7080 veh/h) against capacity 6000 veh/h. Peer group FWY x SUBURBAN x AM median V/C 0.71. Congested speed 93 km/h against free-flow 120 km/h.",
+     "evidence": {
+      "values": {
+       "vc_ratio": 1.18,
+       "volume": 21240,
+       "capacity_vph": 6000,
+       "lanes": 3,
+       "cong_speed_kph": 93,
+       "abs_zscore": 3.75
+      },
+      "thresholds": {
+       "vc_critical": 1.3,
+       "vc_high": 1.1,
+       "vc_medium": 0.95,
+       "zscore_threshold": 3
+      },
+      "sources": [
+       {
+        "file": "outputs/loaded_AM.dbf",
+        "row": 1337,
+        "table": "link_flows",
+        "column": "volume"
+       },
+       {
+        "file": "inputs/network/links.dbf",
+        "row": 37,
+        "table": "links",
+        "column": "capacity_vph"
+       }
+      ],
+      "period": "AM",
+      "query": "SELECT f.link_id, f.volume, f.vc_ratio, l.capacity_vph, l.lanes\nFROM link_flows f JOIN links l USING (run_id, link_id)\nWHERE f.run_id = 'run_2035_ref_v4' AND f.period = 'AM' AND f.user_class = 'ALL'\n  AND f.link_id = '20037'"
+     },
+     "likely_cause": "Capacity coded below the observed cross-section, or a parallel route missing from the network so demand funnels onto this link.",
+     "suggested_action": "Verify lanes and capacity_vph against the aerial imagery and the 2035 committed scheme list; check that the parallel corridor is coded and connected.",
+     "measures": [
+      {
+       "measure_id": "M-0002-a",
+       "title": "Check the ramp meter assumption",
+       "description": "The 2035 reference assumes ramp metering on this freeway section; confirm the capacity uplift in the parameter register.",
+       "estimated_effect": "V/C about 1.08 if the uplift is applied.",
+       "effect_values": {
+        "vc_after": 1.08
+       },
+       "method": "surrogate",
+       "confidence": "low"
+      }
+     ],
+     "is_significant": true,
+     "created_at": "2026-09-22T06:41:12Z"
+    },
+    {
+     "finding_id": "F-0004",
+     "run_id": "run_2035_ref_v4",
+     "check_id": "convergence_and_noise",
+     "check_name": "Convergence and noise band",
+     "severity": "High",
+     "location": {
+      "type": "run",
+      "id": "run_2035_ref_v4",
+      "label": "PM assignment",
+      "lon": null,
+      "lat": null
+     },
+     "executive_line": "The PM highway assignment stopped before it settled, so PM link flows carry more noise than the other periods.",
+     "modeller_view": "Relative gap at the final iteration (40) for PM is 0.0012 against a target of 0.001. AM, MD, EV and NT met the target. 92.4% of links have GEH < 1 between iterations 38 and 40 (target 95%). Noise band widened to +/- 6% for PM link comparisons.",
+     "evidence": {
+      "values": {
+       "rel_gap": 0.0012,
+       "iterations": 40,
+       "stable_share": 0.924,
+       "period": "PM"
+      },
+      "thresholds": {
+       "rel_gap_target": 0.001,
+       "rel_gap_high": 0.01,
+       "geh_stable_share_target": 0.95
+      },
+      "sources": [
+       {
+        "file": "logs/assign_PM.log",
+        "row": 812,
+        "table": "convergence",
+        "column": "value"
+       }
+      ],
+      "period": "PM",
+      "query": "SELECT period, iteration, value AS rel_gap\nFROM convergence\nWHERE run_id = 'run_2035_ref_v4' AND metric = 'rel_gap' AND stage = 'highway'\nQUALIFY iteration = MAX(iteration) OVER (PARTITION BY period)"
+     },
+     "likely_cause": "Iteration cap of 40 reached before the gap target; PM demand is 8% higher than in the base run so more iterations are needed.",
+     "suggested_action": "Raise the PM iteration cap to 60 or tighten the step size; rerun PM only.",
+     "measures": [
+      {
+       "measure_id": "M-0004-a",
+       "title": "Rerun PM with 60 iterations",
+       "description": "Assignment-only rerun; roughly 25 minutes on the modelling server.",
+       "estimated_effect": "Relative gap expected below 0.001; PM noise band narrows to +/- 3%.",
+       "effect_values": {
+        "rel_gap_after": 0.0008
+       },
+       "method": "steam_rerun",
+       "confidence": "high"
+      }
+     ],
+     "is_significant": true,
+     "created_at": "2026-09-22T06:41:12Z"
+    },
+    {
+     "finding_id": "F-0010",
+     "run_id": "run_2035_ref_v4",
+     "check_id": "land_use_control_totals",
+     "check_name": "Land use control totals",
+     "severity": "High",
+     "location": {
+      "type": "sector",
+      "id": "S3",
+      "label": "Sector 3 (Reem and Maryah)",
+      "lon": 54.395,
+      "lat": 24.475
+     },
+     "executive_line": "Sector 3 has 6.4% more jobs than the agreed 2035 planning total, so its traffic will be overstated.",
+     "modeller_view": "Sum of employment over zones in sector S3 = 212,400 against control total 199,600 (diff share 0.064, tolerance 0.02). Population within tolerance (diff share 0.007).",
+     "evidence": {
+      "values": {
+       "variable": "employment",
+       "zone_sum": 212400,
+       "control_total": 199600,
+       "abs_diff_share": 0.064
+      },
+      "thresholds": {
+       "tolerance_share": 0.02,
+       "high": 0.05,
+       "critical": 0.1
+      },
+      "sources": [
+       {
+        "file": "inputs/landuse/land_use_2035.csv",
+        "row": 118,
+        "table": "land_use",
+        "column": "value"
+       },
+       {
+        "file": "inputs/landuse/control_totals_2035.csv",
+        "row": 3,
+        "table": "land_use",
+        "column": "control_total"
+       }
+      ],
+      "period": null,
+      "query": "SELECT z.sector_id, lu.variable, SUM(lu.value) AS zone_sum, MAX(lu.control_total) AS control_total\nFROM land_use lu JOIN zones z USING (run_id, zone_id)\nWHERE lu.run_id = 'run_2035_ref_v4'\nGROUP BY 1, 2\nHAVING ABS(zone_sum / control_total - 1) > 0.02"
+     },
+     "likely_cause": "The 2035 employment file predates the revised Reem Island phasing.",
+     "suggested_action": "Replace land_use_2035.csv rows for sector S3 with the revised phasing (DMT letter 2026-07-14) and rerun demand.",
+     "measures": [
+      {
+       "measure_id": "M-0010-a",
+       "title": "Scale sector S3 employment to the control total",
+       "description": "Apply a uniform factor 0.94 to employment in sector S3 zones.",
+       "estimated_effect": "About 4,100 fewer AM trips attracted to S3; V/C on the Reem bridge links falls by 0.05.",
+       "effect_values": {
+        "delta_trips_am": -4100,
+        "delta_vc_bridge": -0.05
+       },
+       "method": "sketch_elasticity",
+       "confidence": "medium"
+      }
+     ],
+     "is_significant": true,
+     "created_at": "2026-09-22T06:41:12Z"
+    }
+   ],
+   "resolved": [
+    {
+     "finding_id": "F-0009b",
+     "run_id": "run_2035_ref_v3",
+     "check_id": "centroid_connectors",
+     "check_name": "Centroid connectors",
+     "severity": "Medium",
+     "location": {
+      "type": "node",
+      "id": "1041",
+      "label": "Zone 388 centroid",
+      "lon": 54.352607,
+      "lat": 24.46678
+     },
+     "executive_line": "Zone 388 loaded its traffic straight onto the expressway.",
+     "modeller_view": "Centroid connector from zone 412 attaches at node 1027, which is a node of FWY link 20045. Connectors must attach to ART, COL or LOC links (high_class_links = FWY, EXP).",
+     "evidence": {
+      "values": {
+       "zone_id": "412",
+       "node_id": "1027",
+       "attached_link_class": "FWY",
+       "connector_length_m": 1840
+      },
+      "thresholds": {
+       "high_class_links": [
+        "FWY",
+        "EXP"
+       ],
+       "max_connector_length_m": 5000
+      },
+      "sources": [
+       {
+        "file": "inputs/network/links.dbf",
+        "row": 45,
+        "table": "links",
+        "column": "link_class"
+       },
+       {
+        "file": "inputs/network/nodes.dbf",
+        "row": 27,
+        "table": "nodes",
+        "column": "is_centroid"
+       }
+      ],
+      "period": null,
+      "query": "SELECT c.link_id, c.a_node, l.link_class\nFROM links c JOIN nodes n ON n.node_id = c.a_node AND n.is_centroid\nJOIN links l ON l.a_node = c.b_node OR l.b_node = c.b_node\nWHERE c.run_id = 'run_2035_ref_v4' AND l.link_class IN ('FWY','EXP')"
+     },
+     "likely_cause": "Connector snapped to the nearest node during network editing.",
+     "suggested_action": "Move the connector end to node 1017 on the parallel arterial.",
+     "measures": [],
+     "is_significant": true,
+     "created_at": "2026-09-22T06:41:12Z"
+    },
+    {
+     "finding_id": "F-0007b",
+     "run_id": "run_2035_ref_v3",
+     "check_id": "link_volume_outliers",
+     "check_name": "Link volume outliers",
+     "severity": "Medium",
+     "location": {
+      "type": "link",
+      "id": "20066",
+      "label": "ART 1013→1023",
+      "lon": 54.406432,
+      "lat": 24.454634
+     },
+     "executive_line": "Link 20066 was over capacity in the PM peak in v3.",
+     "modeller_view": "V/C 0.893 on COL link 20103 (1056→1057) in PM, user_class ALL: volume 3750 over PM (1250 veh/h) against capacity 1400 veh/h. Peer group COL x URBAN x PM median V/C 0.71. Congested speed 54.8 km/h against free-flow 60 km/h.",
+     "evidence": {
+      "values": {
+       "vc_ratio": 0.893,
+       "volume": 3750,
+       "capacity_vph": 1400,
+       "lanes": 2,
+       "cong_speed_kph": 54.8,
+       "abs_zscore": 3.35
+      },
+      "thresholds": {
+       "vc_critical": 1.3,
+       "vc_high": 1.1,
+       "vc_medium": 0.95,
+       "zscore_threshold": 3
+      },
+      "sources": [
+       {
+        "file": "outputs/loaded_AM.dbf",
+        "row": 1403,
+        "table": "link_flows",
+        "column": "volume"
+       },
+       {
+        "file": "inputs/network/links.dbf",
+        "row": 103,
+        "table": "links",
+        "column": "capacity_vph"
+       }
+      ],
+      "period": "PM",
+      "query": "SELECT f.link_id, f.volume, f.vc_ratio, l.capacity_vph, l.lanes\nFROM link_flows f JOIN links l USING (run_id, link_id)\nWHERE f.run_id = 'run_2035_ref_v4' AND f.period = 'PM' AND f.user_class = 'ALL'\n  AND f.link_id = '20103'"
+     },
+     "likely_cause": "Capacity coded below the observed cross-section, or a parallel route missing from the network so demand funnels onto this link.",
+     "suggested_action": "Verify lanes and capacity_vph against the aerial imagery and the 2035 committed scheme list; check that the parallel corridor is coded and connected.",
+     "measures": [],
+     "is_significant": true,
+     "created_at": "2026-09-22T06:41:12Z"
+    }
+   ],
+   "unchanged": [
+    {
+     "finding_id": "F-0003",
+     "run_id": "run_2035_ref_v4",
+     "check_id": "link_volume_outliers",
+     "check_name": "Link volume outliers",
+     "severity": "Medium",
+     "location": {
+      "type": "link",
+      "id": "20051",
+      "label": "FWY 1027→1028",
+      "lon": 54.442544,
+      "lat": 24.443102
+     },
+     "executive_line": "Link 20051 is over capacity in the PM peak, though by a margin common on this corridor.",
+     "modeller_view": "V/C 1.042 on FWY link 20051 (1027→1028) in PM, user_class ALL: volume 24998 over PM (8333 veh/h) against capacity 8000 veh/h. Peer group FWY x CBD x PM median V/C 0.71. Congested speed 102 km/h against free-flow 120 km/h.",
+     "evidence": {
+      "values": {
+       "vc_ratio": 1.042,
+       "volume": 24998,
+       "capacity_vph": 8000,
+       "lanes": 4,
+       "cong_speed_kph": 102,
+       "abs_zscore": 3.56
+      },
+      "thresholds": {
+       "vc_critical": 1.3,
+       "vc_high": 1.1,
+       "vc_medium": 0.95,
+       "zscore_threshold": 3
+      },
+      "sources": [
+       {
+        "file": "outputs/loaded_AM.dbf",
+        "row": 1351,
+        "table": "link_flows",
+        "column": "volume"
+       },
+       {
+        "file": "inputs/network/links.dbf",
+        "row": 51,
+        "table": "links",
+        "column": "capacity_vph"
+       }
+      ],
+      "period": "PM",
+      "query": "SELECT f.link_id, f.volume, f.vc_ratio, l.capacity_vph, l.lanes\nFROM link_flows f JOIN links l USING (run_id, link_id)\nWHERE f.run_id = 'run_2035_ref_v4' AND f.period = 'PM' AND f.user_class = 'ALL'\n  AND f.link_id = '20051'"
+     },
+     "likely_cause": "Capacity coded below the observed cross-section, or a parallel route missing from the network so demand funnels onto this link.",
+     "suggested_action": "Verify lanes and capacity_vph against the aerial imagery and the 2035 committed scheme list; check that the parallel corridor is coded and connected.",
+     "measures": [],
+     "is_significant": true,
+     "created_at": "2026-09-22T06:41:12Z"
+    },
+    {
+     "finding_id": "F-0005",
+     "run_id": "run_2035_ref_v4",
+     "check_id": "unrealistic_speeds_times",
+     "check_name": "Unrealistic speeds and times",
+     "severity": "Medium",
+     "location": {
+      "type": "link",
+      "id": "20166",
+      "label": "COL 1043→1053",
+      "lon": 54.422471,
+      "lat": 24.465339
+     },
+     "executive_line": "One collector road is modelled as faster than its own speed limit in the AM peak, which points to a coding error rather than real traffic.",
+     "modeller_view": "Congested speed 44.8 km/h exceeds free-flow speed 40 km/h by 12% (limit 5%). Volume-delay function VDF 7 applied where VDF 3 is used on all other COL links.",
+     "evidence": {
+      "values": {
+       "cong_speed_kph": 44.8,
+       "ffs_kph": 40,
+       "ratio": 1.12,
+       "vdf": 7
+      },
+      "thresholds": {
+       "max_speed_over_ffs_ratio": 1.05
+      },
+      "sources": [
+       {
+        "file": "outputs/loaded_AM.dbf",
+        "row": 1466,
+        "table": "link_flows",
+        "column": "cong_speed_kph"
+       },
+       {
+        "file": "inputs/network/links.dbf",
+        "row": 166,
+        "table": "links",
+        "column": "ffs_kph"
+       }
+      ],
+      "period": "AM",
+      "query": "SELECT f.link_id, f.cong_speed_kph, l.ffs_kph, f.cong_speed_kph / l.ffs_kph AS ratio\nFROM link_flows f JOIN links l USING (run_id, link_id)\nWHERE f.run_id = 'run_2035_ref_v4' AND f.period = 'AM' AND f.user_class = 'ALL'\n  AND f.cong_speed_kph > 1.05 * l.ffs_kph"
+     },
+     "likely_cause": "Wrong volume-delay function assigned to the link.",
+     "suggested_action": "Set VDF 3 on link 20166 and rerun AM.",
+     "measures": [],
+     "is_significant": true,
+     "created_at": "2026-09-22T06:41:12Z"
+    },
+    {
+     "finding_id": "F-0006",
+     "run_id": "run_2035_ref_v4",
+     "check_id": "link_volume_outliers",
+     "check_name": "Link volume outliers",
+     "severity": "Medium",
+     "location": {
+      "type": "link",
+      "id": "20088",
+      "label": "EXP 1048→1047",
+      "lon": 54.436168,
+      "lat": 24.464577
+     },
+     "executive_line": "Link 20088 is close to its capacity in the AM peak; worth a look but not unusual for an urban arterial.",
+     "modeller_view": "V/C 0.97 on EXP link 20088 (1048→1047) in AM, user_class ALL: volume 15714 over AM (5238 veh/h) against capacity 5400 veh/h. Peer group EXP x CBD x AM median V/C 0.71. Congested speed 88.3 km/h against free-flow 100 km/h.",
+     "evidence": {
+      "values": {
+       "vc_ratio": 0.97,
+       "volume": 15714,
+       "capacity_vph": 5400,
+       "lanes": 3,
+       "cong_speed_kph": 88.3,
+       "abs_zscore": 3.46
+      },
+      "thresholds": {
+       "vc_critical": 1.3,
+       "vc_high": 1.1,
+       "vc_medium": 0.95,
+       "zscore_threshold": 3
+      },
+      "sources": [
+       {
+        "file": "outputs/loaded_AM.dbf",
+        "row": 1388,
+        "table": "link_flows",
+        "column": "volume"
+       },
+       {
+        "file": "inputs/network/links.dbf",
+        "row": 88,
+        "table": "links",
+        "column": "capacity_vph"
+       }
+      ],
+      "period": "AM",
+      "query": "SELECT f.link_id, f.volume, f.vc_ratio, l.capacity_vph, l.lanes\nFROM link_flows f JOIN links l USING (run_id, link_id)\nWHERE f.run_id = 'run_2035_ref_v4' AND f.period = 'AM' AND f.user_class = 'ALL'\n  AND f.link_id = '20088'"
+     },
+     "likely_cause": "Capacity coded below the observed cross-section, or a parallel route missing from the network so demand funnels onto this link.",
+     "suggested_action": "Verify lanes and capacity_vph against the aerial imagery and the 2035 committed scheme list; check that the parallel corridor is coded and connected.",
+     "measures": [],
+     "is_significant": true,
+     "created_at": "2026-09-22T06:41:12Z"
+    },
+    {
+     "finding_id": "F-0007",
+     "run_id": "run_2035_ref_v4",
+     "check_id": "link_volume_outliers",
+     "check_name": "Link volume outliers",
+     "severity": "Medium",
+     "location": {
+      "type": "link",
+      "id": "20103",
+      "label": "COL 1056→1057",
+      "lon": 54.43628,
+      "lat": 24.476685
+     },
+     "executive_line": "Link 20103 runs near capacity in the PM peak, in line with its neighbours.",
+     "modeller_view": "V/C 0.893 on COL link 20103 (1056→1057) in PM, user_class ALL: volume 3750 over PM (1250 veh/h) against capacity 1400 veh/h. Peer group COL x URBAN x PM median V/C 0.71. Congested speed 54.8 km/h against free-flow 60 km/h.",
+     "evidence": {
+      "values": {
+       "vc_ratio": 0.893,
+       "volume": 3750,
+       "capacity_vph": 1400,
+       "lanes": 2,
+       "cong_speed_kph": 54.8,
+       "abs_zscore": 3.35
+      },
+      "thresholds": {
+       "vc_critical": 1.3,
+       "vc_high": 1.1,
+       "vc_medium": 0.95,
+       "zscore_threshold": 3
+      },
+      "sources": [
+       {
+        "file": "outputs/loaded_AM.dbf",
+        "row": 1403,
+        "table": "link_flows",
+        "column": "volume"
+       },
+       {
+        "file": "inputs/network/links.dbf",
+        "row": 103,
+        "table": "links",
+        "column": "capacity_vph"
+       }
+      ],
+      "period": "PM",
+      "query": "SELECT f.link_id, f.volume, f.vc_ratio, l.capacity_vph, l.lanes\nFROM link_flows f JOIN links l USING (run_id, link_id)\nWHERE f.run_id = 'run_2035_ref_v4' AND f.period = 'PM' AND f.user_class = 'ALL'\n  AND f.link_id = '20103'"
+     },
+     "likely_cause": "Capacity coded below the observed cross-section, or a parallel route missing from the network so demand funnels onto this link.",
+     "suggested_action": "Verify lanes and capacity_vph against the aerial imagery and the 2035 committed scheme list; check that the parallel corridor is coded and connected.",
+     "measures": [],
+     "is_significant": true,
+     "created_at": "2026-09-22T06:41:12Z"
+    },
+    {
+     "finding_id": "F-0008",
+     "run_id": "run_2035_ref_v4",
+     "check_id": "link_volume_outliers",
+     "check_name": "Link volume outliers",
+     "severity": "Medium",
+     "location": {
+      "type": "link",
+      "id": "20122",
+      "label": "ART 1041→1031",
+      "lon": 54.355362,
+      "lat": 24.453553
+     },
+     "executive_line": "Link 20122 carries almost no traffic although the roads around it are busy, which suggests it is disconnected or mis-coded.",
+     "modeller_view": "V/C 0.02 on ART link 20122 (1041→1031) in AM, user_class ALL: volume 162 over AM (54 veh/h) against capacity 2700 veh/h. Peer group ART x SUBURBAN x AM median V/C 0.71. Congested speed 80 km/h against free-flow 80 km/h.",
+     "evidence": {
+      "values": {
+       "vc_ratio": 0.02,
+       "volume": 162,
+       "capacity_vph": 2700,
+       "lanes": 3,
+       "cong_speed_kph": 80,
+       "abs_zscore": 2.13
+      },
+      "thresholds": {
+       "vc_critical": 1.3,
+       "vc_high": 1.1,
+       "vc_medium": 0.95,
+       "zscore_threshold": 3
+      },
+      "sources": [
+       {
+        "file": "outputs/loaded_AM.dbf",
+        "row": 1422,
+        "table": "link_flows",
+        "column": "volume"
+       },
+       {
+        "file": "inputs/network/links.dbf",
+        "row": 122,
+        "table": "links",
+        "column": "capacity_vph"
+       }
+      ],
+      "period": "AM",
+      "query": "SELECT f.link_id, f.volume, f.vc_ratio, l.capacity_vph, l.lanes\nFROM link_flows f JOIN links l USING (run_id, link_id)\nWHERE f.run_id = 'run_2035_ref_v4' AND f.period = 'AM' AND f.user_class = 'ALL'\n  AND f.link_id = '20122'"
+     },
+     "likely_cause": "Turn prohibition or missing connector at node 1041 leaves the link unreachable.",
+     "suggested_action": "Inspect turn penalties at the A node and confirm the link direction.",
+     "measures": [],
+     "is_significant": true,
+     "created_at": "2026-09-22T06:41:12Z"
+    },
+    {
+     "finding_id": "F-0009",
+     "run_id": "run_2035_ref_v4",
+     "check_id": "centroid_connectors",
+     "check_name": "Centroid connectors",
+     "severity": "Medium",
+     "location": {
+      "type": "node",
+      "id": "1027",
+      "label": "Zone 412 centroid",
+      "lon": 54.435311,
+      "lat": 24.442047
+     },
+     "executive_line": "Zone 412 loads its traffic straight onto the freeway, which is not how people would actually reach the road network.",
+     "modeller_view": "Centroid connector from zone 412 attaches at node 1027, which is a node of FWY link 20045. Connectors must attach to ART, COL or LOC links (high_class_links = FWY, EXP).",
+     "evidence": {
+      "values": {
+       "zone_id": "412",
+       "node_id": "1027",
+       "attached_link_class": "FWY",
+       "connector_length_m": 1840
+      },
+      "thresholds": {
+       "high_class_links": [
+        "FWY",
+        "EXP"
+       ],
+       "max_connector_length_m": 5000
+      },
+      "sources": [
+       {
+        "file": "inputs/network/links.dbf",
+        "row": 45,
+        "table": "links",
+        "column": "link_class"
+       },
+       {
+        "file": "inputs/network/nodes.dbf",
+        "row": 27,
+        "table": "nodes",
+        "column": "is_centroid"
+       }
+      ],
+      "period": null,
+      "query": "SELECT c.link_id, c.a_node, l.link_class\nFROM links c JOIN nodes n ON n.node_id = c.a_node AND n.is_centroid\nJOIN links l ON l.a_node = c.b_node OR l.b_node = c.b_node\nWHERE c.run_id = 'run_2035_ref_v4' AND l.link_class IN ('FWY','EXP')"
+     },
+     "likely_cause": "Connector snapped to the nearest node during network editing.",
+     "suggested_action": "Move the connector end to node 1017 on the parallel arterial.",
+     "measures": [],
+     "is_significant": true,
+     "created_at": "2026-09-22T06:41:12Z"
+    },
+    {
+     "finding_id": "F-0011",
+     "run_id": "run_2035_ref_v4",
+     "check_id": "transit_line_integrity",
+     "check_name": "Transit line integrity",
+     "severity": "Medium",
+     "location": {
+      "type": "line",
+      "id": "B056",
+      "label": "Bus 56",
+      "lon": 54.372,
+      "lat": 24.441
+     },
+     "executive_line": "Bus route 56 is coded with a 150 minute gap between buses, far above anything the operator runs.",
+     "modeller_view": "headway_p1 (AM) = 150 min for line B056, mode BUS. Allowed range 2 to 120 min; mode maximum for BUS is 120 min.",
+     "evidence": {
+      "values": {
+       "line_id": "B056",
+       "mode": "BUS",
+       "headway_p1": 150
+      },
+      "thresholds": {
+       "headway_min_range": [
+        2,
+        120
+       ],
+       "modes_headway_max_BUS": 120
+      },
+      "sources": [
+       {
+        "file": "inputs/transit/lines_2035.lin",
+        "row": 1421,
+        "table": "transit_lines",
+        "column": "headway_p1"
+       }
+      ],
+      "period": "AM",
+      "query": "SELECT line_id, mode, headway_p1\nFROM transit_lines\nWHERE run_id = 'run_2035_ref_v4' AND (headway_p1 < 2 OR headway_p1 > 120)"
+     },
+     "likely_cause": "Headway typed in seconds-per-two-buses or a placeholder left in the line file.",
+     "suggested_action": "Confirm the AM headway with the ITC bus service plan (likely 15 min) and correct the .lin file.",
+     "measures": [],
+     "is_significant": true,
+     "created_at": "2026-09-22T06:41:12Z"
+    },
+    {
+     "finding_id": "F-0012",
+     "run_id": "run_2035_ref_v4",
+     "check_id": "unused_transit_services",
+     "check_name": "Unused transit services",
+     "severity": "Medium",
+     "location": {
+      "type": "line",
+      "id": "B112",
+      "label": "Bus 112",
+      "lon": 54.43,
+      "lat": 24.428
+     },
+     "executive_line": "Bus route 112 runs almost empty although it passes through busy areas.",
+     "modeller_view": "Load factor 0.038 (AM) for line B112 against a minimum of 0.05; catchment demand within 1 km = 3,900 trips. Change vs base run is inside the noise band (+/- 0.01).",
+     "evidence": {
+      "values": {
+       "line_id": "B112",
+       "load_factor": 0.038,
+       "catchment_demand": 3900,
+       "base_load_factor": 0.041
+      },
+      "thresholds": {
+       "min_load_factor": 0.05,
+       "min_catchment_demand": 500
+      },
+      "sources": [
+       {
+        "file": "outputs/transit_loads_AM.csv",
+        "row": 2210,
+        "table": "line_loads",
+        "column": "load"
+       }
+      ],
+      "period": "AM",
+      "query": "SELECT line_id, SUM(load) / SUM(vehicle_capacity * 60.0 / headway_p1) AS load_factor\nFROM line_loads JOIN transit_lines USING (run_id, line_id)\nWHERE run_id = 'run_2035_ref_v4' AND period = 'AM'\nGROUP BY line_id HAVING load_factor < 0.05"
+     },
+     "likely_cause": "Also below threshold in the base run; a known low-demand service.",
+     "suggested_action": "No action for this run; review in the service plan.",
+     "measures": [],
+     "is_significant": false,
+     "created_at": "2026-09-22T06:41:12Z"
+    },
+    {
+     "finding_id": "F-0013",
+     "run_id": "run_2035_ref_v4",
+     "check_id": "null_and_id_integrity",
+     "check_name": "Null and ID integrity",
+     "severity": "Medium",
+     "location": {
+      "type": "run",
+      "id": "run_2035_ref_v4",
+      "label": "nodes table",
+      "lon": null,
+      "lat": null
+     },
+     "executive_line": "A small number of network nodes are missing a junction type, which affects how delays are computed at those points.",
+     "modeller_view": "14 of 3,812 node rows (0.37%) have NULL junction_control. No missing node or zone references.",
+     "evidence": {
+      "values": {
+       "table": "nodes",
+       "column": "junction_control",
+       "null_rows": 14,
+       "rows": 3812,
+       "null_share": 0.0037,
+       "missing_node_refs": 0,
+       "missing_zone_refs": 0
+      },
+      "thresholds": {
+       "null_share_high": 0.01,
+       "null_share_medium": 0
+      },
+      "sources": [
+       {
+        "file": "inputs/network/nodes.dbf",
+        "row": null,
+        "table": "nodes",
+        "column": "junction_control"
+       }
+      ],
+      "period": null,
+      "query": "SELECT COUNT(*) FILTER (WHERE junction_control IS NULL) AS null_rows, COUNT(*) AS rows\nFROM nodes WHERE run_id = 'run_2035_ref_v4'"
+     },
+     "likely_cause": "Nodes added for the 2035 schemes were not given a junction type.",
+     "suggested_action": "Fill junction_control for the 14 nodes listed in the modeller view.",
+     "measures": [],
+     "is_significant": true,
+     "created_at": "2026-09-22T06:41:12Z"
+    },
+    {
+     "finding_id": "F-0014",
+     "run_id": "run_2035_ref_v4",
+     "check_id": "matrix_sanity",
+     "check_name": "Matrix sanity",
+     "severity": "Info",
+     "location": {
+      "type": "matrix",
+      "id": "DEMAND/HBW/CAR/AM",
+      "label": "Home-based work, car, AM",
+      "lon": null,
+      "lat": null
+     },
+     "executive_line": "The AM car commuting matrix contains many tiny fractional values, a harmless side effect of the way trips are split between modes.",
+     "modeller_view": "61% of non-zero cells in DEMAND HBW CAR AM are below 0.01 trips. No negative cells; intrazonal share 0.07.",
+     "evidence": {
+      "values": {
+       "matrix_kind": "DEMAND",
+       "purpose": "HBW",
+       "mode": "CAR",
+       "period": "AM",
+       "share_cells_below_0_01": 0.61,
+       "negative_cells": 0,
+       "intrazonal_share": 0.07
+      },
+      "thresholds": {
+       "intrazonal_share_max": 0.15
+      },
+      "sources": [
+       {
+        "file": "outputs/demand_AM.mat",
+        "row": null,
+        "table": "od",
+        "column": "trips"
+       }
+      ],
+      "period": "AM",
+      "query": "SELECT AVG(CASE WHEN trips < 0.01 THEN 1.0 ELSE 0.0 END) AS share_small\nFROM od WHERE run_id = 'run_2035_ref_v4' AND matrix_kind = 'DEMAND' AND purpose = 'HBW' AND mode = 'CAR' AND period = 'AM'"
+     },
+     "likely_cause": "Mode choice applied to a full matrix without a floor.",
+     "suggested_action": "None needed; consider rounding below 0.001 at export to reduce file size.",
+     "measures": [],
+     "is_significant": true,
+     "created_at": "2026-09-22T06:41:12Z"
+    },
+    {
+     "finding_id": "F-0015",
+     "run_id": "run_2035_ref_v4",
+     "check_id": "trip_length_distribution",
+     "check_name": "Trip length distribution",
+     "severity": "Info",
+     "location": {
+      "type": "matrix",
+      "id": "DEMAND/HBO/PT/MD",
+      "label": "Home-based other, PT, midday",
+      "lon": null,
+      "lat": null
+     },
+     "executive_line": "Midday public transport trips are about 4% longer than in the base run, a change too small to matter.",
+     "modeller_view": "Mean trip length 9.8 km vs 9.4 km in run_2035_ref_v3 (diff share 0.043; medium threshold 0.15). Within the noise band estimated from base-vs-base reruns (+/- 5%).",
+     "evidence": {
+      "values": {
+       "mean_km": 9.8,
+       "base_mean_km": 9.4,
+       "mean_diff_share": 0.043
+      },
+      "thresholds": {
+       "max_mean_diff_share": 0.15,
+       "max_mean_diff_share_high": 0.3
+      },
+      "sources": [
+       {
+        "file": "outputs/demand_MD.mat",
+        "row": null,
+        "table": "od",
+        "column": "trips"
+       },
+       {
+        "file": "outputs/skims_MD_PT.mat",
+        "row": null,
+        "table": "skims",
+        "column": "value"
+       }
+      ],
+      "period": "MD",
+      "query": "SELECT SUM(o.trips * s.value) / SUM(o.trips) AS mean_km\nFROM od o JOIN skims s ON s.skim_kind = 'DIST' AND s.mode = o.mode AND s.period = o.period\n  AND s.origin = o.origin AND s.destination = o.destination\nWHERE o.run_id = 'run_2035_ref_v4' AND o.purpose = 'HBO' AND o.mode = 'PT' AND o.period = 'MD'"
+     },
+     "likely_cause": "Longer bus route 56 after the Saadiyat extension.",
+     "suggested_action": "None.",
+     "measures": [],
+     "is_significant": false,
+     "created_at": "2026-09-22T06:41:12Z"
+    }
+   ]
+  },
+  "kpis": [
+   {
+    "kpi_id": "total_vkt_am",
+    "name": "Vehicle-km travelled, AM",
+    "unit": "veh-km",
+    "base_value": 17910200,
+    "value": 18432600,
+    "delta": 522400,
+    "delta_share": 0.0292,
+    "is_significant": true
+   },
+   {
+    "kpi_id": "share_links_over_capacity_am",
+    "name": "Share of links with V/C above 1.0, AM",
+    "unit": "share",
+    "base_value": 0.052,
+    "value": 0.061,
+    "delta": 0.009,
+    "delta_share": 0.1731,
+    "is_significant": true
+   },
+   {
+    "kpi_id": "mean_cong_speed_am",
+    "name": "Volume-weighted congested speed, AM",
+    "unit": "km/h",
+    "base_value": 49.1,
+    "value": 47.8,
+    "delta": -1.3,
+    "delta_share": -0.0265,
+    "is_significant": true
+   },
+   {
+    "kpi_id": "total_trips_am",
+    "name": "Total demand trips, AM",
+    "unit": "trips",
+    "base_value": 1241900,
+    "value": 1284300,
+    "delta": 42400,
+    "delta_share": 0.0341,
+    "is_significant": true
+   },
+   {
+    "kpi_id": "pt_share_am",
+    "name": "PT mode share, AM",
+    "unit": "share",
+    "base_value": 0.121,
+    "value": 0.118,
+    "delta": -0.003,
+    "delta_share": -0.0248,
+    "is_significant": false
+   },
+   {
+    "kpi_id": "mean_trip_length_km",
+    "name": "Mean trip length, all periods",
+    "unit": "km",
+    "base_value": 12.4,
+    "value": 12.6,
+    "delta": 0.2,
+    "delta_share": 0.0161,
+    "is_significant": false
+   }
+  ]
+ },
+ "run_2035_ref_v3": {
+  "base_run_id": null
+ }
+}

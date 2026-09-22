@@ -1,0 +1,234 @@
+{
+ "run_2035_ref_v4": [
+  {
+   "kpi_id": "total_vkt_am",
+   "name": "Vehicle-km travelled, AM",
+   "value": 18432600,
+   "unit": "veh-km",
+   "period": "AM",
+   "definition": "Sum of link volume x length for user_class ALL in the AM period.",
+   "sources": [
+    {
+     "file": "config/kpis.yaml",
+     "row": null,
+     "table": "total_vkt_am",
+     "column": "sql"
+    },
+    {
+     "file": "outputs/loaded_AM.dbf",
+     "row": null,
+     "table": "link_flows",
+     "column": null
+    }
+   ]
+  },
+  {
+   "kpi_id": "share_links_over_capacity_am",
+   "name": "Share of links with V/C above 1.0, AM",
+   "value": 0.061,
+   "unit": "share",
+   "period": "AM",
+   "definition": "Links with vc_ratio > 1.0 divided by all links carrying flow, AM, user_class ALL.",
+   "sources": [
+    {
+     "file": "config/kpis.yaml",
+     "row": null,
+     "table": "share_links_over_capacity_am",
+     "column": "sql"
+    },
+    {
+     "file": "outputs/loaded_AM.dbf",
+     "row": null,
+     "table": "link_flows",
+     "column": null
+    }
+   ]
+  },
+  {
+   "kpi_id": "mean_cong_speed_am",
+   "name": "Volume-weighted congested speed, AM",
+   "value": 47.8,
+   "unit": "km/h",
+   "period": "AM",
+   "definition": "Sum(volume x congested speed) / Sum(volume) for AM, user_class ALL.",
+   "sources": [
+    {
+     "file": "config/kpis.yaml",
+     "row": null,
+     "table": "mean_cong_speed_am",
+     "column": "sql"
+    },
+    {
+     "file": "outputs/loaded_AM.dbf",
+     "row": null,
+     "table": "link_flows",
+     "column": null
+    }
+   ]
+  },
+  {
+   "kpi_id": "total_trips_am",
+   "name": "Total demand trips, AM",
+   "value": 1284300,
+   "unit": "trips",
+   "period": "AM",
+   "definition": "Sum of all DEMAND matrix cells in the AM period, all purposes and modes.",
+   "sources": [
+    {
+     "file": "config/kpis.yaml",
+     "row": null,
+     "table": "total_trips_am",
+     "column": "sql"
+    },
+    {
+     "file": "outputs/loaded_AM.dbf",
+     "row": null,
+     "table": "od",
+     "column": null
+    }
+   ]
+  },
+  {
+   "kpi_id": "pt_share_am",
+   "name": "PT mode share, AM",
+   "value": 0.118,
+   "unit": "share",
+   "period": "AM",
+   "definition": "PT demand trips divided by all demand trips, AM.",
+   "sources": [
+    {
+     "file": "config/kpis.yaml",
+     "row": null,
+     "table": "pt_share_am",
+     "column": "sql"
+    },
+    {
+     "file": "outputs/loaded_AM.dbf",
+     "row": null,
+     "table": "od",
+     "column": null
+    }
+   ]
+  },
+  {
+   "kpi_id": "mean_trip_length_km",
+   "name": "Mean trip length, all periods",
+   "value": 12.6,
+   "unit": "km",
+   "period": null,
+   "definition": "Trip-weighted mean of the DIST skim over DEMAND matrix cells.",
+   "sources": [
+    {
+     "file": "config/kpis.yaml",
+     "row": null,
+     "table": "mean_trip_length_km",
+     "column": "sql"
+    },
+    {
+     "file": "outputs/demand_*.mat",
+     "row": null,
+     "table": "od",
+     "column": null
+    }
+   ]
+  }
+ ],
+ "run_2035_ref_v3": [
+  {
+   "kpi_id": "total_vkt_am",
+   "name": "Vehicle-km travelled, AM",
+   "value": 17910200,
+   "unit": "veh-km",
+   "period": "AM",
+   "definition": "Sum of link volume x length for user_class ALL in the AM period.",
+   "sources": [
+    {
+     "file": "config/kpis.yaml",
+     "row": null,
+     "table": "total_vkt_am",
+     "column": "sql"
+    }
+   ]
+  },
+  {
+   "kpi_id": "share_links_over_capacity_am",
+   "name": "Share of links with V/C above 1.0, AM",
+   "value": 0.052,
+   "unit": "share",
+   "period": "AM",
+   "definition": "Links with vc_ratio > 1.0 divided by all links carrying flow, AM, user_class ALL.",
+   "sources": [
+    {
+     "file": "config/kpis.yaml",
+     "row": null,
+     "table": "share_links_over_capacity_am",
+     "column": "sql"
+    }
+   ]
+  },
+  {
+   "kpi_id": "mean_cong_speed_am",
+   "name": "Volume-weighted congested speed, AM",
+   "value": 49.1,
+   "unit": "km/h",
+   "period": "AM",
+   "definition": "Sum(volume x congested speed) / Sum(volume) for AM, user_class ALL.",
+   "sources": [
+    {
+     "file": "config/kpis.yaml",
+     "row": null,
+     "table": "mean_cong_speed_am",
+     "column": "sql"
+    }
+   ]
+  },
+  {
+   "kpi_id": "total_trips_am",
+   "name": "Total demand trips, AM",
+   "value": 1241900,
+   "unit": "trips",
+   "period": "AM",
+   "definition": "Sum of all DEMAND matrix cells in the AM period, all purposes and modes.",
+   "sources": [
+    {
+     "file": "config/kpis.yaml",
+     "row": null,
+     "table": "total_trips_am",
+     "column": "sql"
+    }
+   ]
+  },
+  {
+   "kpi_id": "pt_share_am",
+   "name": "PT mode share, AM",
+   "value": 0.121,
+   "unit": "share",
+   "period": "AM",
+   "definition": "PT demand trips divided by all demand trips, AM.",
+   "sources": [
+    {
+     "file": "config/kpis.yaml",
+     "row": null,
+     "table": "pt_share_am",
+     "column": "sql"
+    }
+   ]
+  },
+  {
+   "kpi_id": "mean_trip_length_km",
+   "name": "Mean trip length, all periods",
+   "value": 12.4,
+   "unit": "km",
+   "period": null,
+   "definition": "Trip-weighted mean of the DIST skim over DEMAND matrix cells.",
+   "sources": [
+    {
+     "file": "config/kpis.yaml",
+     "row": null,
+     "table": "mean_trip_length_km",
+     "column": "sql"
+    }
+   ]
+  }
+ ]
+}

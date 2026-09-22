@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "STEAM-AI checks configuration",
+  "type": "object",
+  "required": ["checks"],
+  "properties": {
+    "defaults": {
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "max_findings_per_check": { "type": "integer", "minimum": 1 },
+        "group_issue_above": { "type": "integer", "minimum": 1 },
+        "group_keep_worst": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "checks": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["severity"],
+        "properties": {
+          "enabled": { "type": "boolean" },
+          "params": { "type": "object" },
+          "severity": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["when", "severity"],
+              "properties": {
+                "when": { "type": "string" },
+                "severity": { "enum": ["Critical", "High", "Medium", "Info"] }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

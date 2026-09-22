@@ -1,0 +1,158 @@
+{
+ "run_2035_ref_v4": {
+  "run_id": "run_2035_ref_v4",
+  "scenario_name": "2035 Reference Case v4",
+  "horizon_year": 2035,
+  "policy_set": "REF",
+  "base_run_id": "run_2035_ref_v3",
+  "ingested_at": "2026-09-22T06:38:04Z",
+  "source_root": "D:/STEAM/runs/2035_REF_v4",
+  "steam_version": "4.2.1",
+  "is_synthetic": true,
+  "status": "ingested",
+  "files": [
+   {
+    "path": "inputs/network/links.dbf",
+    "size": 18342112,
+    "sha256": "3f9c1a...b21e",
+    "table": "links"
+   },
+   {
+    "path": "inputs/network/nodes.dbf",
+    "size": 2214880,
+    "sha256": "8ad0e2...77c1",
+    "table": "nodes"
+   },
+   {
+    "path": "inputs/landuse/land_use_2035.csv",
+    "size": 812340,
+    "sha256": "c11f9b...0a4d",
+    "table": "land_use"
+   },
+   {
+    "path": "inputs/transit/lines_2035.lin",
+    "size": 1290011,
+    "sha256": "5e6b77...d9f0",
+    "table": "transit_lines"
+   },
+   {
+    "path": "outputs/loaded_AM.dbf",
+    "size": 41200340,
+    "sha256": "a9e4c0...14b2",
+    "table": "link_flows"
+   },
+   {
+    "path": "outputs/loaded_PM.dbf",
+    "size": 41198802,
+    "sha256": "e1d2a3...9c07",
+    "table": "link_flows"
+   },
+   {
+    "path": "outputs/demand_AM.mat",
+    "size": 522110400,
+    "sha256": "07bb1e...e2aa",
+    "table": "od"
+   },
+   {
+    "path": "logs/assign_PM.log",
+    "size": 91233,
+    "sha256": "6c6c6c...1234",
+    "table": "convergence"
+   }
+  ],
+  "tables": {
+   "links": 148912,
+   "nodes": 3812,
+   "zones": 3688,
+   "land_use": 25816,
+   "transit_lines": 214,
+   "transit_segments": 18930,
+   "link_flows": 2978240,
+   "line_loads": 94650,
+   "od": 41211900,
+   "skims": 68002000,
+   "convergence": 200,
+   "parameters": 88
+  },
+  "periods": [
+   "AM",
+   "MD",
+   "PM",
+   "EV",
+   "NT"
+  ],
+  "report_generated_at": "2026-09-22T06:41:40Z"
+ },
+ "run_2035_ref_v3": {
+  "run_id": "run_2035_ref_v3",
+  "scenario_name": "2035 Reference Case v3",
+  "horizon_year": 2035,
+  "policy_set": "REF",
+  "base_run_id": null,
+  "ingested_at": "2026-09-15T09:12:51Z",
+  "source_root": "D:/STEAM/runs/2035_REF_v3",
+  "steam_version": "4.2.1",
+  "is_synthetic": true,
+  "status": "ingested",
+  "files": [
+   {
+    "path": "inputs/network/links.dbf",
+    "size": 18342112,
+    "sha256": "3f9c1a...b21e",
+    "table": "links"
+   },
+   {
+    "path": "inputs/network/nodes.dbf",
+    "size": 2214880,
+    "sha256": "8ad0e2...77c1",
+    "table": "nodes"
+   },
+   {
+    "path": "inputs/landuse/land_use_2035.csv",
+    "size": 812340,
+    "sha256": "c11f9b...0a4d",
+    "table": "land_use"
+   },
+   {
+    "path": "inputs/transit/lines_2035.lin",
+    "size": 1290011,
+    "sha256": "5e6b77...d9f0",
+    "table": "transit_lines"
+   },
+   {
+    "path": "outputs/loaded_AM.dbf",
+    "size": 41200340,
+    "sha256": "a9e4c0...14b2",
+    "table": "link_flows"
+   },
+   {
+    "path": "outputs/loaded_PM.dbf",
+    "size": 41198802,
+    "sha256": "e1d2a3...9c07",
+    "table": "link_flows"
+   }
+  ],
+  "tables": {
+   "links": 148870,
+   "nodes": 3812,
+   "zones": 3688,
+   "land_use": 25816,
+   "transit_lines": 212,
+   "transit_segments": 18744,
+   "link_flows": 2977400,
+   "line_loads": 93800,
+   "od": 41000120,
+   "skims": 68002000,
+   "convergence": 200,
+   "parameters": 88
+  },
+  "periods": [
+   "AM",
+   "MD",
+   "PM",
+   "EV",
+   "NT"
+  ],
+  "report_generated_at": "2026-09-15T09:16:02Z"
+ }
+}

@@ -1,0 +1,20 @@
+{
+ "definition": "Health = 0.7 x Findings component + 0.3 x Convergence component. Findings component = max(0, 100 - 25 x Critical - 8 x High - 2 x Medium - 0 x Info), counting significant findings only. Convergence component = 100 if every assignment period met the relative gap target, scaled down linearly to 0 at ten times the target. Grade: A >= 90, B >= 75, C >= 60, D >= 40, E below 40.",
+ "penalties": {
+  "Critical": 25,
+  "High": 8,
+  "Medium": 2,
+  "Info": 0
+ },
+ "weights": {
+  "findings": 0.7,
+  "convergence": 0.3
+ },
+ "grades": {
+  "A": 90,
+  "B": 75,
+  "C": 60,
+  "D": 40,
+  "E": 0
+ }
+}
