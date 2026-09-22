@@ -83,8 +83,12 @@ def test_diagnostic_build_writes_both_and_audits(report_store) -> None:  # noqa:
     events = [e for e in audit.tail(20) if e["event"] == "report_generated"]
     assert events and events[-1]["run_id"] == report_store.run_id
     assert events[-1]["n_findings"] == 12
-    assert set(events[-1]["figures"]) == {"convergence", "findings_by_check", "network_map",
-                                          "vc_hist"}
+    assert set(events[-1]["figures"]) == {
+        "convergence",
+        "findings_by_check",
+        "network_map",
+        "vc_hist",
+    }
 
 
 def test_diagnostic_build_custom_out_dir(report_store, tmp_path: Path) -> None:  # noqa: F811

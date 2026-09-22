@@ -141,8 +141,14 @@ def test_method_notes_from_checks_yaml(report: ReportDoc) -> None:
     assert "vc_critical = 1.3" in lvo[2]
     assert "Critical when vc_ratio >= 1.30" in lvo[3]
     glossary = _tables_with_caption(report, "Glossary")[0]
-    assert {r[0] for r in glossary.rows} >= {"V/C", "GEH", "Relative gap", "Noise band",
-                                              "Centroid connector", "Screenline"}
+    assert {r[0] for r in glossary.rows} >= {
+        "V/C",
+        "GEH",
+        "Relative gap",
+        "Noise band",
+        "Centroid connector",
+        "Screenline",
+    }
 
 
 def test_figures_included(report: ReportDoc) -> None:
