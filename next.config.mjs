@@ -9,8 +9,9 @@ const nextConfig = {
     return [
       { source: "/abu-dhabi-streets", destination: "/abu-dhabi-streets/index.html" },
       { source: "/abu-dhabi-streets/", destination: "/abu-dhabi-streets/index.html" },
-      // STEAM-AI web app demo (mock mode, synthetic fixtures) is a static SPA build
-      // in public/steam-ai; unmatched client routes fall back to its index.html.
+      // STEAM-AI web app demo (static mode: a snapshot of the API in
+      // public/steam-ai/data) is a static SPA build in public/steam-ai; files are
+      // served first, unmatched client routes fall back to its index.html.
       { source: "/steam-ai", destination: "/steam-ai/index.html" },
       { source: "/steam-ai/:path*", destination: "/steam-ai/index.html" },
     ];

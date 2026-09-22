@@ -36,7 +36,10 @@ def test_row_column_imbalance() -> None:
     od = t["od"]
     od.loc[(od["origin"] == 1) & (od["destination"] != 1), "trips"] *= 20
     od.loc[(od["destination"] == 1) & (od["origin"] != 1), "trips"] *= 0.1
-    fs = [f for f in run_check(CHECK, t) if f.evidence.values["issue"] == "row_col_imbalance"]
+    # four zones: every one is unbalanced, which the default reads as a PA matrix;
+    # lift that threshold to test the per-zone findings
+    fs = [f for f in run_check(CHECK, t, params={"pa_format_share": 1.0})
+          if f.evidence.values["issue"] == "row_col_imbalance"]
     # with four zones, zone 1's row/column scaling also unbalances its neighbours;
     # zone 1 must be the worst and the only one producing more than it attracts
     by_zone = {f.location.id: f for f in fs}
@@ -49,6 +52,20 @@ def test_row_column_imbalance() -> None:
     assert f.evidence.values["ratio"] == max(x.evidence.values["ratio"] for x in fs)
     assert all(x.evidence.values["productions"] < x.evidence.values["attractions"]
                for x in fs if x.location.id != "1")
+
+
+def test_widespread_imbalance_reads_as_pa_matrix() -> None:
+    t = mini_tables()
+    od = t["od"]
+    od.loc[(od["origin"] == 1) & (od["destination"] != 1), "trips"] *= 20
+    od.loc[(od["destination"] == 1) & (od["origin"] != 1), "trips"] *= 0.1
+    fs = run_check(CHECK, t)
+    issues = [f.evidence.values["issue"] for f in fs]
+    assert "row_col_imbalance" not in issues
+    pa = [f for f in fs if f.evidence.values["issue"] == "pa_format_suspected"]
+    assert len(pa) == 1 and pa[0].severity.value == "Info"
+    assert pa[0].location.type.value == "matrix"
+    assert pa[0].evidence.values["share_imbalanced"] > 0.25
 
 
 def test_intrazonal_share_per_matrix() -> None:

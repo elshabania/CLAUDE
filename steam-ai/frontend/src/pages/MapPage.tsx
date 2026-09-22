@@ -13,15 +13,17 @@ import { EmptyState, ErrorState, Loading } from '../components/States';
 import { FlowsByPeriodChart } from '../components/charts';
 import { SourcesList } from '../components/Sources';
 import { fmtNumber } from '../lib/format';
-import { legendStops, METRIC_SCALES, rgbToHex, type RGB } from '../lib/scales';
+import { CLASS_STYLE, legendStops, METRIC_SCALES, rgbToHex, type RGB } from '../lib/scales';
 import { resolveSeverityRgb, SEVERITY_RADIUS_PX } from '../lib/severity';
-import { buildColors, buildLinkBinary, buildWidths, maxOf, type MetricKey } from '../map/binary';
+import { buildColors, buildWidths, maxOf, type MetricKey } from '../map/binary';
 import { cssToken } from '../map/basemap';
 import { MapView } from '../map/MapView';
 
 const DEFAULT_PERIOD = 'AM';
 const DEFAULT_VIEW = { lon: 54.4, lat: 24.45, zoom: 11.5 };
-const METRICS: MetricKey[] = ['volume', 'vc', 'speed', 'delay', 'findings'];
+const METRICS: MetricKey[] = ['volume', 'vc', 'speed', 'delay', 'class', 'lanes', 'findings'];
+/** Metrics that need assignment results; hidden for inputs-only runs. */
+const FLOW_METRICS: MetricKey[] = ['volume', 'vc', 'speed', 'delay'];
 
 interface Hover {
   x: number;
@@ -40,7 +42,7 @@ export default function MapPage() {
     return p.length ? p : [DEFAULT_PERIOD];
   }, [run.data]);
   const period = params.get('period') && periods.includes(params.get('period')!) ? params.get('period')! : periods.includes(DEFAULT_PERIOD) ? DEFAULT_PERIOD : periods[0];
-  const metric = (METRICS.includes(params.get('metric') as MetricKey) ? params.get('metric') : 'vc') as MetricKey;
+  const metricParam = params.get('metric') as MetricKey | null;
   const showFindings = params.get('findings') !== '0';
   const linkParam = params.get('link');
   const findingParam = params.get('finding');
@@ -65,7 +67,19 @@ export default function MapPage() {
   const findings = useFindings(runId, { limit: 2000 });
   const profile = useLinkProfile(runId, linkParam);
 
-  const binary = useMemo(() => (links.data ? buildLinkBinary(links.data) : null), [links.data]);
+  const binary = links.data ?? null;
+  const hasFlows = binary ? binary.hasFlows : true;
+  const metrics = useMemo(() => (hasFlows ? METRICS : METRICS.filter((m) => !FLOW_METRICS.includes(m))), [hasFlows]);
+  const metric: MetricKey = metricParam && metrics.includes(metricParam) ? metricParam : hasFlows ? 'vc' : 'class';
+  const classesPresent = useMemo(() => {
+    if (!binary) return [];
+    const seen = new Set<number>();
+    for (let i = 0; i < binary.length; i++) seen.add(binary.classIdx[i]);
+    const order = Object.keys(CLASS_STYLE);
+    return binary.classes
+      .filter((_, k) => seen.has(k))
+      .sort((a, b) => (order.indexOf(a) < 0 ? 99 : order.indexOf(a)) - (order.indexOf(b) < 0 ? 99 : order.indexOf(b)));
+  }, [binary]);
   const sevRgb = useMemo(() => resolveSeverityRgb(), []);
   const colors = useMemo(() => (binary ? buildColors(binary, metric, sevRgb) : null), [binary, metric, sevRgb]);
   const maxVolume = useMemo(() => (binary ? maxOf(binary.volume) : 0), [binary]);
@@ -162,6 +176,9 @@ export default function MapPage() {
     return out;
   }, [binary, colors, widths, highlightPath, accentRgb, showFindings, mappedFindings, sevRgb, findingParam]);
 
+  // Legend starts collapsed on phones, where it would cover half the map.
+  const [legendOpen, setLegendOpen] = useState(() => typeof window === 'undefined' || !window.matchMedia('(max-width: 720px)').matches);
+
   // Hover tooltip
   const [hover, setHover] = useState<Hover | null>(null);
   const onHover = useCallback(
@@ -171,7 +188,7 @@ export default function MapPage() {
         return;
       }
       if (info.layer?.id === 'links' && binary && info.index >= 0) {
-        setHover({ x: info.x, y: info.y, link: binary.props[info.index] });
+        setHover({ x: info.x, y: info.y, link: binary.prop(info.index) });
       } else if (info.layer?.id === 'findings') {
         setHover({ x: info.x, y: info.y, finding: info.object as Finding });
       } else setHover(null);
@@ -185,7 +202,7 @@ export default function MapPage() {
         setParams(
           (prev) => {
             const next = new URLSearchParams(prev);
-            next.set('link', binary.props[info.index].link_id);
+            next.set('link', binary.prop(info.index).link_id);
             next.delete('finding');
             next.delete('lon');
             next.delete('lat');
@@ -270,7 +287,7 @@ export default function MapPage() {
   if (!runId) return <div className="main"><EmptyState>No runs have been ingested yet.</EmptyState></div>;
 
   const scale = METRIC_SCALES[metric];
-  const legend = metric === 'findings' ? null : legendStops(scale, 6);
+  const legend = metric === 'findings' || metric === 'class' ? null : legendStops(scale, 6);
 
   return (
     <div className="map-page">
@@ -278,20 +295,26 @@ export default function MapPage() {
 
       <div className="map-controls">
         <div className="map-card">
-          <label className="field">
-            Period
-            <select className="select" value={period} onChange={(e) => setParam('period', e.target.value)} aria-label="Period">
-              {periods.map((p) => (
-                <option key={p} value={p}>
-                  {p}
-                </option>
-              ))}
-            </select>
-          </label>
+          {hasFlows ? (
+            <label className="field">
+              Period
+              <select className="select" value={period} onChange={(e) => setParam('period', e.target.value)} aria-label="Period">
+                {periods.map((p) => (
+                  <option key={p} value={p}>
+                    {p}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : (
+            <p className="small muted" style={{ margin: 0 }}>
+              No assignment results in this run: volumes, V/C and speeds are not available.
+            </p>
+          )}
           <label className="field">
             Colour by
             <select className="select" value={metric} onChange={(e) => setParam('metric', e.target.value)} aria-label="Metric">
-              {METRICS.map((m) => (
+              {metrics.map((m) => (
                 <option key={m} value={m}>
                   {METRIC_SCALES[m].label}
                 </option>
@@ -304,11 +327,12 @@ export default function MapPage() {
           </label>
         </div>
 
-        <div className="map-card" aria-label="Legend">
-          <div className="legend__title">
-            {scale.label} · {period}
-            {metric !== 'findings' ? <span className="muted"> ({scale.unit})</span> : null}
-          </div>
+        <details className="map-card legend" aria-label="Legend" open={legendOpen} onToggle={(e) => setLegendOpen((e.target as HTMLDetailsElement).open)}>
+          <summary className="legend__title">
+            {scale.label}
+            {hasFlows && FLOW_METRICS.includes(metric) ? ` · ${period}` : ''}
+            {metric !== 'findings' && metric !== 'class' ? <span className="muted"> ({scale.unit})</span> : null}
+          </summary>
           {legend ? (
             <>
               <div className="legend__ramp" aria-hidden="true">
@@ -322,6 +346,15 @@ export default function MapPage() {
                 ))}
               </div>
             </>
+          ) : metric === 'class' ? (
+            classesPresent.map((c) => (
+              <div className="legend__row" key={c}>
+                <span className="legend__swatch" style={{ background: rgbToHex((CLASS_STYLE[c] ?? CLASS_STYLE.OTHER).rgb) }} />
+                <span>
+                  {c} <span className="muted">{CLASS_STYLE[c]?.label ?? ''}</span>
+                </span>
+              </div>
+            ))
           ) : (
             SEVERITIES.map((s) => (
               <div className="legend__row" key={s}>
@@ -332,7 +365,7 @@ export default function MapPage() {
           )}
           <div className="legend__row" style={{ marginBlockStart: '0.4rem' }}>
             <span className="legend__swatch" style={{ background: 'var(--ink-3)', blockSize: 1 }} />
-            <span className="muted">width = volume, up to {fmtNumber(maxVolume)} veh</span>
+            <span className="muted">{hasFlows ? `width = volume, up to ${fmtNumber(maxVolume)} veh` : 'width = road class'}</span>
           </div>
           {showFindings ? (
             <div className="legend__row">
@@ -340,7 +373,7 @@ export default function MapPage() {
               <span className="muted">dots = findings, size by severity</span>
             </div>
           ) : null}
-        </div>
+        </details>
       </div>
 
       {hover ? (
@@ -349,10 +382,19 @@ export default function MapPage() {
             <table>
               <tbody>
                 <tr><td>link</td><td className="mono">{hover.link.link_id}</td></tr>
-                <tr><td>class</td><td>{hover.link.link_class} · {hover.link.lanes} lanes</td></tr>
-                <tr><td>volume</td><td>{fmtNumber(hover.link.volume)} veh</td></tr>
-                <tr><td>V/C</td><td>{hover.link.vc_ratio.toFixed(2)}</td></tr>
-                <tr><td>speed</td><td>{fmtNumber(hover.link.cong_speed_kph)} km/h</td></tr>
+                <tr><td>class</td><td>{hover.link.link_class} · {fmtNumber(hover.link.lanes)} lanes</td></tr>
+                {hover.link.volume != null ? (
+                  <>
+                    <tr><td>volume</td><td>{fmtNumber(hover.link.volume)} veh</td></tr>
+                    <tr><td>V/C</td><td>{fmtNumber(hover.link.vc_ratio, 2)}</td></tr>
+                    <tr><td>speed</td><td>{fmtNumber(hover.link.cong_speed_kph)} km/h</td></tr>
+                  </>
+                ) : (
+                  <>
+                    <tr><td>capacity</td><td>{fmtNumber(hover.link.capacity_vph)} veh/h</td></tr>
+                    <tr><td>free-flow</td><td>{fmtNumber(hover.link.ffs_kph)} km/h</td></tr>
+                  </>
+                )}
                 {hover.link.n_findings ? (
                   <tr><td>findings</td><td>{hover.link.n_findings} · {hover.link.max_severity}</td></tr>
                 ) : null}
@@ -429,7 +471,7 @@ function LinkProfileView({ p, periods, runId, highlightFinding }: { p: LinkProfi
     <>
       <div className="finding-meta">
         <span>
-          {a.link_class} · {a.lanes} lane{a.lanes === 1 ? '' : 's'} · {fmtNumber(a.length_m)} m
+          {a.link_class} · {fmtNumber(a.lanes)} lane{a.lanes === 1 ? '' : 's'} · {fmtNumber(a.length_m)} m
         </span>
         <span className="muted">
           {a.a_node} → {a.b_node}
@@ -442,15 +484,17 @@ function LinkProfileView({ p, periods, runId, highlightFinding }: { p: LinkProfi
           <tr><th scope="row">Area type</th><td>{a.area_type}</td></tr>
           {a.sector_id ? <tr><th scope="row">Sector</th><td>{a.sector_id}</td></tr> : null}
           {a.junction_type ? <tr><th scope="row">Junction</th><td>{a.junction_type}</td></tr> : null}
-          {a.oneway !== undefined ? <tr><th scope="row">One-way</th><td>{a.oneway ? 'yes' : 'no'}</td></tr> : null}
+          {a.oneway != null ? <tr><th scope="row">One-way</th><td>{a.oneway ? 'yes' : 'no'}</td></tr> : null}
+          {a.ltype != null ? <tr><th scope="row">STEAM LTYPE</th><td className="num">{a.ltype}</td></tr> : null}
         </tbody>
       </table>
 
       <div>
         <div className="label">Volume by period</div>
-        {p.flows.length ? <FlowsByPeriodChart flows={p.flows} periods={allPeriods} /> : <p className="muted small">No flows.</p>}
+        {p.flows.length ? <FlowsByPeriodChart flows={p.flows} periods={allPeriods} /> : <p className="muted small">No assignment results for this run.</p>}
       </div>
 
+      {p.flows.length ? (
       <div>
         <div className="label">Flows by period and user class</div>
         <div className="table-wrap">
@@ -489,6 +533,7 @@ function LinkProfileView({ p, periods, runId, highlightFinding }: { p: LinkProfi
           </table>
         </div>
       </div>
+      ) : null}
 
       <div>
         <div className="label">Findings on this link ({p.findings.length})</div>

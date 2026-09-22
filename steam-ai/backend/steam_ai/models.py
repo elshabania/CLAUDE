@@ -148,3 +148,7 @@ class RunManifest(BaseModel):
     files: list[dict[str, Any]] = Field(default_factory=list)  # path, size, sha256, table
     tables: dict[str, int] = Field(default_factory=dict)  # table -> row count
     periods: list[str] = Field(default_factory=list)
+    # Where the data came from, in one line, and anything a reader must know
+    # about it (for example "inputs only: no STEAM assignment outputs").
+    provenance: str | None = None
+    notes: list[str] = Field(default_factory=list)

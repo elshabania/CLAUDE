@@ -27,10 +27,10 @@ def test_clean_run_scores_100() -> None:
 def test_penalties_count_significant_findings_only() -> None:
     store = make_run("r", mini_tables())
     findings = [
-        dummy_finding("a", "Critical", loc_id="1"),
-        dummy_finding("a", "High", loc_id="2"),
-        dummy_finding("a", "Medium", loc_id="3", is_significant=False),
-        dummy_finding("a", "Info", loc_id="4"),
+        dummy_finding("a", "Critical", loc_id="1", values={"issue": "p1"}),
+        dummy_finding("a", "High", loc_id="2", values={"issue": "p2"}),
+        dummy_finding("a", "Medium", loc_id="3", is_significant=False, values={"issue": "p3"}),
+        dummy_finding("a", "Info", loc_id="4", values={"issue": "p4"}),
     ]
     h = health.compute(store, _results(findings))
     assert h.components[0].score == pytest.approx(100 - 25 - 8)
@@ -72,9 +72,19 @@ def test_without_convergence_table_findings_carry_full_weight() -> None:
     assert "unavailable" in h.components[0].detail
 
 
+def test_one_problem_type_is_penalised_once_at_its_worst_severity() -> None:
+    store = make_run("r", mini_tables())
+    findings = [dummy_finding("a", "High", loc_id=str(i), values={"issue": "x"})
+                for i in range(40)]
+    findings.append(dummy_finding("a", "Critical", loc_id="99", values={"issue": "x"}))
+    h = health.compute(store, _results(findings))
+    assert h.components[0].score == pytest.approx(100 - 25)
+    assert "1 distinct problem type" in h.components[0].detail
+
+
 def test_findings_component_floors_at_zero() -> None:
     store = make_run("r", mini_tables())
-    findings = [dummy_finding("a", "Critical", loc_id=str(i)) for i in range(5)]
+    findings = [dummy_finding(f"c{i}", "Critical", loc_id=str(i)) for i in range(5)]
     h = health.compute(store, _results(findings))
     assert h.components[0].score == 0.0
     assert h.score == pytest.approx(30.0)

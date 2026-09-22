@@ -22,6 +22,10 @@ export function TopBar() {
         <span className="badge-synthetic" title="This run was generated for testing, not a STEAM output">
           Synthetic data
         </span>
+      ) : run?.provenance ? (
+        <span className="badge-provenance" title={run.provenance}>
+          {/no steam outputs/i.test(run.provenance) ? 'STEAM inputs only' : 'STEAM run'}
+        </span>
       ) : null}
       <div className="topbar__run">
         <label htmlFor="run-select">Run</label>

@@ -45,6 +45,20 @@ def synth(
     typer.echo(f"synthetic export written to {path} (defects: {sorted(dset) or 'none'})")
 
 
+@app.command("import-steam")
+def import_steam(
+    ref_dir: Path = typer.Argument(Path(__file__).resolve().parents[2] / "reference" / "steam_v322",
+                                   help="Folder with the recovered STEAM v3.2.2 blobs"),
+    out_root: Path = typer.Option(None, help="Where to write the exports (default: watch dir)"),
+) -> None:
+    """Write 2025 and 2040 export directories from the recovered STEAM v3.2.2 inputs."""
+    from .importers.steam_v322 import build_both
+
+    out = build_both(ref_dir, out_root or watch_dir())
+    for year, path in out.items():
+        typer.echo(f"{year}: {path}")
+
+
 @app.command()
 def inspect(path: Path, markdown: bool = typer.Option(True)) -> None:
     """Inventory a directory of STEAM files (data_contract.md Section 3)."""
@@ -103,6 +117,18 @@ def report(run_id: str) -> None:
 
     out = build(RunStore(run_id))
     typer.echo("\n".join(f"{k}: {v}" for k, v in out.items()))
+
+
+@app.command()
+def snapshot(
+    out: Path = typer.Argument(..., help="Output directory (replaced)"),
+    run: list[str] = typer.Option(None, help="Run ids to include (default: all)"),
+) -> None:
+    """Write the API's responses as static files for the web app's static mode."""
+    from .snapshot import write_snapshot
+
+    for rid, info in write_snapshot(out, run or None).items():
+        typer.echo(f"{rid:40s} {info['links']:>8,} links  {', '.join(info['files'])}")
 
 
 @app.command()

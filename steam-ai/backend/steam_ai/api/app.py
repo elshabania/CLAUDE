@@ -6,8 +6,10 @@ import json
 from pathlib import Path
 from typing import Any
 
+import pandas as pd
 from fastapi import Depends, FastAPI, HTTPException, Query
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.middleware.gzip import GZipMiddleware
+from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
@@ -16,11 +18,13 @@ from ..jobs import QUEUE
 from ..models import Severity
 from ..paths import FRONTEND_DIST
 from ..store import RunNotFound, RunStore, list_runs
+from . import linkbin
 
 API_PREFIX = "/api/v1"
 
 app = FastAPI(title="STEAM-AI API", version=__version__, docs_url="/api/docs",
               openapi_url="/api/openapi.json")
+app.add_middleware(GZipMiddleware, minimum_size=4096, compresslevel=6)
 
 
 # --- helpers ------------------------------------------------------------------
@@ -59,6 +63,7 @@ def runs() -> list[dict[str, Any]]:
             "horizon_year": m.horizon_year, "policy_set": m.policy_set,
             "base_run_id": m.base_run_id, "ingested_at": m.ingested_at.isoformat(),
             "status": m.status, "is_synthetic": m.is_synthetic, "health": health,
+            "provenance": m.provenance,
             "tables": m.tables, "periods": m.periods,
         })
     return out
@@ -98,7 +103,7 @@ def run_findings(
         items = [f for f in items if f.location.type.value == location_type]
     if significant_only:
         items = [f for f in items if f.is_significant]
-    items.sort(key=lambda f: (f.severity.rank, f.check_id, f.location.id))
+    items.sort(key=lambda f: (f.severity.rank, f.check_id))
     total = len(items)
     page = items[offset: offset + limit]
     return {"total": total, "items": [f.model_dump(mode="json") for f in page]}
@@ -207,54 +212,49 @@ def run_changes(store: RunStore = Depends(get_store)) -> dict[str, Any]:
 
 # --- network views --------------------------------------------------------------
 
-_LINK_SQL = """
-SELECT l.link_id, l.a_node, l.b_node, l.link_class, l.area_type, l.lanes,
-       l.capacity_vph, l.ffs_kph, l.length_m, l.geometry_wkt,
-       f.volume, f.vc_ratio, f.cong_speed_kph, f.delay_s
-FROM links l
-LEFT JOIN link_flows f
-  ON f.link_id = l.link_id AND f.period = ? AND f.user_class = 'ALL'
-"""
-
-
 def _wkt_line_to_coords(wkt: str) -> list[list[float]]:
     body = wkt.strip()[len("LINESTRING"):].strip().strip("()")
     return [[float(x), float(y)] for x, y in (p.split() for p in body.split(","))]
 
 
+def _num(v: Any) -> Any:
+    return None if v is None or v != v else v
+
+
 @app.get(f"{API_PREFIX}/runs/{{run_id}}/links")
 def run_links(store: RunStore = Depends(get_store), period: str = "AM",
               metric: str = "vc") -> JSONResponse:
-    df = store.query(_LINK_SQL, [period])
-    counts: dict[int, tuple[int, int]] = {}
-    for f in store.findings():
-        if f.location.type.value == "link":
-            try:
-                lid = int(f.location.id)
-            except ValueError:
-                continue
-            n, worst = counts.get(lid, (0, 99))
-            counts[lid] = (n + 1, min(worst, f.severity.rank))
+    """GeoJSON links. Runs without assignment results (inputs only) return
+    null flow properties; the map then colours by link class."""
+    df, has_flows = linkbin.link_frame(store, period)
+    counts = linkbin.finding_counts(store)
     rank_to_sev = {0: "Critical", 1: "High", 2: "Medium", 3: "Info"}
     features = []
     for r in df.itertuples(index=False):
+        if not isinstance(r.geometry_wkt, str):
+            continue
         n, worst = counts.get(int(r.link_id), (0, 99))
         features.append({
             "type": "Feature",
             "geometry": {"type": "LineString", "coordinates": _wkt_line_to_coords(r.geometry_wkt)},
             "properties": {
                 "link_id": int(r.link_id), "a_node": int(r.a_node), "b_node": int(r.b_node),
-                "link_class": r.link_class, "area_type": r.area_type, "lanes": r.lanes,
-                "capacity_vph": r.capacity_vph, "ffs_kph": r.ffs_kph, "length_m": r.length_m,
-                "volume": None if r.volume != r.volume else r.volume,
-                "vc_ratio": None if r.vc_ratio != r.vc_ratio else r.vc_ratio,
-                "cong_speed_kph": None if r.cong_speed_kph != r.cong_speed_kph else r.cong_speed_kph,
-                "delay_s": None if r.delay_s != r.delay_s else r.delay_s,
+                "link_class": r.link_class, "area_type": r.area_type, "lanes": _num(r.lanes),
+                "capacity_vph": _num(r.capacity_vph), "ffs_kph": _num(r.ffs_kph),
+                "length_m": _num(r.length_m),
+                "volume": _num(r.volume), "vc_ratio": _num(r.vc_ratio),
+                "cong_speed_kph": _num(r.cong_speed_kph), "delay_s": _num(r.delay_s),
                 "n_findings": n, "max_severity": rank_to_sev.get(worst),
             },
         })
     return JSONResponse({"type": "FeatureCollection", "period": period, "metric": metric,
-                         "features": features})
+                         "has_flows": has_flows, "features": features})
+
+
+@app.get(f"{API_PREFIX}/runs/{{run_id}}/links.bin")
+def run_links_bin(store: RunStore = Depends(get_store), period: str = "AM") -> Response:
+    """The same links as a compact binary buffer (see ``linkbin``); what the map loads."""
+    return Response(linkbin.encode(store, period), media_type="application/octet-stream")
 
 
 @app.get(f"{API_PREFIX}/runs/{{run_id}}/links/{{link_id}}")
@@ -265,7 +265,7 @@ def link_profile(link_id: int, store: RunStore = Depends(get_store)) -> dict[str
     flows = store.query(
         "SELECT period, user_class, volume, vc_ratio, cong_speed_kph, delay_s, cong_time_s, "
         "source_file, source_row FROM link_flows WHERE link_id = ? ORDER BY period, user_class",
-        [link_id])
+        [link_id]) if store.has("link_flows") else pd.DataFrame()
     findings = [f.model_dump(mode="json") for f in store.findings()
                 if f.location.type.value == "link" and f.location.id == str(link_id)]
     band = None
@@ -312,10 +312,16 @@ def run_zones(store: RunStore = Depends(get_store)) -> dict[str, Any]:
     df = store.query(sql)
     feats = []
     for r in df.itertuples(index=False):
-        body = r.geometry_wkt.strip()[len("POLYGON"):].strip().strip("()")
-        ring = [[float(x), float(y)] for x, y in (p.split() for p in body.split(","))]
-        feats.append({"type": "Feature",
-                      "geometry": {"type": "Polygon", "coordinates": [ring]},
+        # Zones without boundaries (e.g. the recovered STEAM v3.2.2 inputs) are points.
+        if isinstance(r.geometry_wkt, str) and r.geometry_wkt.startswith("POLYGON"):
+            body = r.geometry_wkt.strip()[len("POLYGON"):].strip().strip("()")
+            ring = [[float(x), float(y)] for x, y in (p.split() for p in body.split(","))]
+            geom: dict[str, Any] = {"type": "Polygon", "coordinates": [ring]}
+        elif _num(r.centroid_x) is not None and _num(r.centroid_y) is not None:
+            geom = {"type": "Point", "coordinates": [r.centroid_x, r.centroid_y]}
+        else:
+            continue
+        feats.append({"type": "Feature", "geometry": geom,
                       "properties": {"zone_id": int(r.zone_id), "sector_id": r.sector_id,
                                      "district": r.district, "region": r.region,
                                      "pop": r.pop, "emp": r.emp}})

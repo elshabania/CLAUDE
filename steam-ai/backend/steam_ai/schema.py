@@ -43,6 +43,7 @@ LINKS = pa.schema(
         ("oneway", pa.bool_()),
         ("toll_point", pa.bool_()),
         ("junction_type", pa.string()),  # NONE | SIGNAL | ROUNDABOUT | PRIORITY
+        ("ltype", pa.int32()),  # raw STEAM link-type code (LTYPE_yyyy), when exported
         ("sector_id", pa.string()),
         ("geometry_wkt", pa.string()),  # LINESTRING in WGS84
         ("source_file", pa.string()),
@@ -228,7 +229,11 @@ TABLES: dict[str, pa.Schema] = {
 
 # Tables that a run may legitimately lack (checks needing them are skipped and
 # say so in their result).
-OPTIONAL_TABLES = {"control_totals", "line_loads", "skims", "iteration_flows", "parameters"}
+# Only the network skeleton is mandatory. A run exported from STEAM inputs alone
+# (no assignment outputs yet) is valid: checks that need a missing table are
+# reported as skipped, never failed.
+REQUIRED_TABLES = {"links", "nodes", "zones"}
+OPTIONAL_TABLES = set(TABLES) - REQUIRED_TABLES
 
 # --- Export contract ----------------------------------------------------------
 # The modeller-run export script writes one CSV per table, named <table>.csv,

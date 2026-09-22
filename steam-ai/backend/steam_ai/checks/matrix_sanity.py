@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from ..models import Finding, Location, LocationType
+from ..models import Finding, Location, LocationType, Severity
 from ..store import RunStore
 from .base import (
     Check,
@@ -109,6 +109,42 @@ class MatrixSanity(Check):
         df = store.query(sql)
         if df.empty:
             return []
+        # A production-attraction (PA) matrix is unbalanced by construction: home
+        # zones produce, work and school zones attract. When the imbalance is this
+        # widespread, per-zone findings would only restate the matrix format, so
+        # the check reports that once and stops.
+        pa_share = float(params.get("pa_format_share", 0.25))
+        n_zones = int(store.scalar(f"""
+            SELECT COUNT(*) FROM (
+              SELECT zone_id FROM (
+                SELECT origin AS zone_id, trips FROM od WHERE matrix_kind = 'DEMAND'
+                UNION ALL
+                SELECT destination, trips FROM od WHERE matrix_kind = 'DEMAND')
+              GROUP BY 1 HAVING SUM(trips) >= {min_total})""") or 0)
+        share = len(df) / n_zones if n_zones else 0.0
+        if n_zones and share > pa_share:
+            return [make_finding(
+                run_id=store.run_id, check=self, severity=Severity.INFO,
+                location=Location(type=LocationType.MATRIX, id="DEMAND",
+                                  label="All demand matrices"),
+                executive_line=(
+                    f"Trips leaving and entering differ more than {ratio_max:g} to one in "
+                    f"{fmt(len(df))} of {fmt(n_zones)} zones ({pct(share, 0)}), the pattern "
+                    "of a production-attraction matrix. Per-zone imbalance is not flagged; "
+                    "confirm the matrix format."),
+                likely_cause="The matrix is in production-attraction form (trips by home and "
+                "activity end) rather than origin-destination form.",
+                suggested_action="Confirm the format with the export. If it is meant to be an "
+                "origin-destination matrix, check the PA-to-OD conversion.",
+                values={"issue": "pa_format_suspected", "zones_imbalanced": len(df),
+                        "zones_checked": n_zones, "share_imbalanced": share,
+                        "worst_zones": [int(z) for z in df["zone_id"].head(20)]},
+                thresholds={"row_col_ratio_max": ratio_max, "pa_format_share": pa_share,
+                            "min_zone_total_for_ratio": min_total},
+                sources=[table_ref(store, "od", "trips")], query=sql,
+                discriminator="pa_format",
+                method="share of zones whose row and column totals differ beyond the ratio",
+            )]
         locs = zone_locations(store, df["zone_id"])
         out: list[Finding] = []
         for r in df.itertuples():

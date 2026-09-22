@@ -23,6 +23,11 @@ export function fmtKpi(value: number | null | undefined, unit: string): string {
       return `${compact(value)} veh-km`;
     case 'trips':
       return `${compact(value)} trips`;
+    case 'people':
+    case 'jobs':
+      return `${compact(value)} ${unit}`;
+    case 'lane-km':
+      return `${nf0.format(value)} lane-km`;
     default:
       return `${nf2.format(value)} ${unit}`.trim();
   }

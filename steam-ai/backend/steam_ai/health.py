@@ -67,16 +67,27 @@ def compute(store: RunStore, results: list[CheckResult]) -> HealthScore:
     grades = cfg["grades"]
 
     counts = {s: 0 for s in _ORDER}
+    by_type = str(cfg.get("count_by", "problem_type")) == "problem_type"
+    worst: dict[tuple[str, str], Severity] = {}
     penalty_total = 0.0
     for r in results:
         for f in r.findings:
             counts[f.severity.value] = counts.get(f.severity.value, 0) + 1
-            if f.is_significant:
+            if not f.is_significant:
+                continue
+            if by_type:
+                key = (f.check_id, str(f.evidence.values.get("issue") or f.check_id))
+                if key not in worst or f.severity.rank < worst[key].rank:
+                    worst[key] = f.severity
+            else:
                 penalty_total += penalties.get(f.severity.value, 0.0)
+    if by_type:
+        penalty_total = sum(penalties.get(s.value, 0.0) for s in worst.values())
     findings_score = max(0.0, 100.0 - penalty_total)
     sig = sum(1 for r in results for f in r.findings if f.is_significant)
+    unit = f"{len(worst)} distinct problem type(s) across " if by_type else ""
     findings_detail = (
-        f"100 - {penalty_total:g} penalty over {sig} significant finding(s) "
+        f"100 - {penalty_total:g} penalty over {unit}{sig} significant finding(s) "
         + "(" + ", ".join(f"{k} {v}" for k, v in counts.items() if v) + ")"
         if sig else "no significant findings"
     )

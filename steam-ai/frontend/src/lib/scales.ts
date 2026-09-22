@@ -39,7 +39,7 @@ export function sample(stops: RGB[], t: number): RGB {
 }
 
 export interface MetricScale {
-  key: 'volume' | 'vc' | 'speed' | 'delay' | 'findings';
+  key: 'volume' | 'vc' | 'speed' | 'delay' | 'lanes' | 'class' | 'findings';
   label: string;
   unit: string;
   /** Domain published in the legend; values beyond are clamped. */
@@ -89,6 +89,24 @@ export const METRIC_SCALES: Record<MetricScale['key'], MetricScale> = {
     stops: VIRIDIS,
     format: (v) => Math.round(v).toString(),
   },
+  lanes: {
+    key: 'lanes',
+    label: 'Lanes',
+    unit: 'per direction',
+    domain: [1, 6],
+    higherIsWorse: false,
+    stops: VIRIDIS,
+    format: (v) => Math.round(v).toString(),
+  },
+  class: {
+    key: 'class',
+    label: 'Link class',
+    unit: 'category',
+    domain: [0, 1],
+    higherIsWorse: false,
+    stops: VIRIDIS,
+    format: (v) => String(v),
+  },
   findings: {
     key: 'findings',
     label: 'Findings',
@@ -119,3 +137,21 @@ export function legendStops(scale: MetricScale, n = 6): { value: number; color: 
 export function divergingColor(t: number): RGB {
   return sample(DIVERGING, (Math.min(1, Math.max(-1, t)) + 1) / 2);
 }
+
+/**
+ * Link class palette (categorical, ordered by road hierarchy) and line width
+ * when the run has no volumes to scale widths by. Same colours as the report map.
+ */
+export const CLASS_STYLE: Record<string, { rgb: RGB; width: number; label: string }> = {
+  FWY: { rgb: [178, 24, 43], width: 3.2, label: 'Freeway' },
+  EXP: { rgb: [214, 96, 77], width: 2.8, label: 'Expressway' },
+  RAMP: { rgb: [232, 163, 61], width: 2, label: 'Ramp' },
+  ART: { rgb: [59, 117, 175], width: 2, label: 'Arterial' },
+  COL: { rgb: [120, 165, 206], width: 1.4, label: 'Collector' },
+  RUR: { rgb: [140, 170, 110], width: 1.2, label: 'Rural' },
+  LOC: { rgb: [150, 150, 150], width: 0.8, label: 'Local' },
+  JUNC: { rgb: [170, 140, 200], width: 0.8, label: 'Junction' },
+  CONN: { rgb: [120, 120, 120], width: 0.8, label: 'Connector' },
+  UNK: { rgb: [230, 60, 200], width: 1.4, label: 'Unknown' },
+  OTHER: { rgb: [170, 172, 168], width: 0.8, label: 'Other' },
+};

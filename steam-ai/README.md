@@ -7,9 +7,11 @@ After every STEAM run it tells a modeller what is wrong, why it matters, what
 to do about it and what is likely to happen next, and lets a non-technical
 decision maker get the same answers in plain language.
 
-**Status: Slice 1 complete, built and reviewed against synthetic data.** No
-real STEAM run has been ingested yet. Every screen and report shows a
-SYNTHETIC DATA banner until a real run is processed. See `../docs/status.md`
+**Status: Slice 1 complete, built on synthetic data and now run on real STEAM
+v3.2.2 inputs** (2025 and 2040 network, 2040 zones, land use and demand;
+`steam-ai import-steam`). No STEAM assignment output has been ingested yet.
+Synthetic runs show a SYNTHETIC DATA banner; the real runs are marked
+"STEAM inputs only". See `../docs/status.md`
 for what works, what does not, and what was assumed, and
 `../docs/assumptions.md` for the open questions.
 

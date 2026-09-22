@@ -39,7 +39,7 @@ def run_checks(run_id: str, *, make_report: bool = True, only: list[str] | None 
         findings = [f for r in results for f in r.findings]
         findings = solutions.propose(store, findings)
         findings = noise.apply_noise_band(findings, store)
-        findings.sort(key=lambda f: (f.severity.rank, f.check_id, f.location.id))
+        findings.sort(key=lambda f: (f.severity.rank, f.check_id))
         store.write_findings(findings)
         store.write_check_results(results)
         store.write_health(health.compute(store, results))

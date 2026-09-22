@@ -8,7 +8,9 @@
       "type": "object",
       "properties": {
         "enabled": { "type": "boolean" },
-        "max_findings_per_check": { "type": "integer", "minimum": 1 }
+        "max_findings_per_check": { "type": "integer", "minimum": 1 },
+        "group_issue_above": { "type": "integer", "minimum": 1 },
+        "group_keep_worst": { "type": "integer", "minimum": 0 }
       }
     },
     "checks": {

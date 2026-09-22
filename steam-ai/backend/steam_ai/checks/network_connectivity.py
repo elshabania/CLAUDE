@@ -42,7 +42,7 @@ class NetworkConnectivity(Check):
         out += self._orphans(store, severity_rules)
         out += self._dead_links(store, params, severity_rules)
         out += self._dead_ends(store, severity_rules)
-        out += self._components(store, severity_rules)
+        out += self._components(store, params, severity_rules)
         return out
 
     def _orphans(self, store: RunStore, rules: list[dict[str, Any]]) -> list[Finding]:
@@ -161,7 +161,9 @@ class NetworkConnectivity(Check):
             )
         return out
 
-    def _components(self, store: RunStore, rules: list[dict[str, Any]]) -> list[Finding]:
+    def _components(
+        self, store: RunStore, params: dict[str, Any], rules: list[dict[str, Any]]
+    ) -> list[Finding]:
         sql = "SELECT a_node, b_node FROM links WHERE a_node IS NOT NULL AND b_node IS NOT NULL"
         edges = store.query(sql)
         if edges.empty:
@@ -177,30 +179,65 @@ class NetworkConnectivity(Check):
         sev = evaluate_severity(rules, issue="disconnected_component", count=len(others))
         if sev is None:
             return []
+        # One pass for all fragments: members, representative node, example links.
+        # (Querying per fragment took ~40 s on a 150K-link network.)
+        frag = labels[labels["component"] != main].sort_values(["component", "node_id"])
+        members_by = {c: g["node_id"].to_numpy() for c, g in frag.groupby("component", sort=False)}
+        reps = {c: int(m[0]) for c, m in members_by.items()}
+        locs = node_locations(store, list(reps.values()))
+        lk = store.query("SELECT link_id, a_node, source_file, source_row FROM links "
+                         "WHERE a_node IS NOT NULL")
+        lk = lk.merge(frag.rename(columns={"node_id": "a_node"}), on="a_node")
+        lk = lk.sort_values(["component", "link_id"]).groupby("component").head(20)
+        links_by = {c: g for c, g in lk.groupby("component", sort=False)}
+        gaps = _fragment_gaps(store, labels, main)
+        touch_m = float(params.get("touch_tolerance_m", 1.0))
+        near_m = float(params.get("near_gap_m", 50.0))
         out = []
         for comp, size in others.items():
-            members = labels.loc[labels["component"] == comp, "node_id"].sort_values()
-            rep = int(members.iloc[0])
-            loc = node_locations(store, [rep])[rep]
-            loc = Location(type=LocationType.NODE, id=loc.id, lon=loc.lon, lat=loc.lat,
-                           label=f"Island of {int(size)} nodes (e.g. node {rep})")
-            ex_links = store.query(
-                "SELECT link_id, source_file, source_row FROM links "
-                f"WHERE a_node IN ({','.join(str(int(m)) for m in members.head(50))}) "
-                "ORDER BY link_id LIMIT 20"
-            )
+            members = members_by[comp]
+            rep = reps[comp]
+            base_loc = locs[rep]
+            loc = Location(type=LocationType.NODE, id=base_loc.id, lon=base_loc.lon,
+                           lat=base_loc.lat, label=f"Island of {int(size)} nodes (e.g. node {rep})")
+            ex_links = links_by.get(comp, lk.iloc[0:0])
+            gap_m, frag_node, main_node = gaps.get(comp, (None, None, None))
+            issue = "disconnected_component"
+            line = (f"A group of {fmt(size)} nodes is cut off from the rest of the network "
+                    f"(main network: {fmt(sizes.iloc[0])} nodes)")
+            cause = ("A missing link between the island and the main network, or a coding "
+                     "error in end-node ids.")
+            action = ("Add or fix the connecting link(s); trips to zones on the island cannot "
+                      "be assigned.")
+            if gap_m is not None and gap_m <= touch_m:
+                issue = "node_id_mismatch"
+                sev_m = evaluate_severity(rules, issue=issue, count=1) or sev
+                line = (f"A group of {fmt(size)} nodes meets the main network at the same "
+                        f"point but under a different node number (node {frag_node} sits on "
+                        f"node {main_node})")
+                cause = "Two node numbers were coded at one location, so the links never join."
+                action = (f"Merge node {frag_node} into node {main_node} (or renumber the "
+                          "links that use it) and re-check connectivity.")
+            else:
+                sev_m = sev
+                if gap_m is not None and gap_m <= near_m:
+                    line += (f"; its nearest node ({frag_node}) is {fmt(gap_m)} m from main-"
+                             f"network node {main_node}")
+                    cause = ("A junction or connecting link is missing at the gap, so the "
+                             "fragment stops short of the main network.")
+                    action = (f"Add the connecting link between node {frag_node} and node "
+                              f"{main_node}, or confirm the gap is intended.")
             out.append(
                 make_finding(
-                    run_id=store.run_id, check=self, severity=sev, location=loc,
-                    executive_line=f"A group of {fmt(size)} nodes is cut off from the rest of "
-                    f"the network (main network: {fmt(sizes.iloc[0])} nodes).",
-                    likely_cause="A missing link between the island and the main network, or "
-                    "a coding error in end-node ids.",
-                    suggested_action="Add or fix the connecting link(s); trips to zones on the "
-                    "island cannot be assigned.",
-                    values={"issue": "disconnected_component", "component_size": int(size),
+                    run_id=store.run_id, check=self, severity=sev_m, location=loc,
+                    executive_line=line + ".",
+                    likely_cause=cause,
+                    suggested_action=action,
+                    values={"issue": issue, "component_size": int(size),
+                            "gap_to_main_m": gap_m, "fragment_node": frag_node,
+                            "nearest_main_node": main_node,
                             "main_component_size": int(sizes.iloc[0]),
-                            "example_nodes": [int(m) for m in members.head(20)],
+                            "example_nodes": [int(m) for m in members[:20]],
                             "example_links": [int(v) for v in ex_links["link_id"]]},
                     thresholds={},
                     sources=refs_from_rows(ex_links, "links", "link_id"),
@@ -209,7 +246,39 @@ class NetworkConnectivity(Check):
                     method="union-find over undirected link graph",
                 )
             )
+        # Fragments are ranked largest first so the grouping keeps the biggest ones.
+        out.sort(key=lambda f: -int(f.evidence.values["component_size"]))
         return out
+
+
+def _fragment_gaps(
+    store: RunStore, labels: pd.DataFrame, main: Any
+) -> dict[Any, tuple[float, int, int]]:
+    """Per fragment: distance in metres from its closest node to the main network,
+    that fragment node, and the nearest main-network node.
+
+    Uses a local equirectangular projection of the node coordinates (lon/lat);
+    over the extent of one emirate the error is well under a metre at the
+    distances that matter here (tens of metres).
+    """
+    nodes = store.query("SELECT node_id, x, y FROM nodes WHERE x IS NOT NULL AND y IS NOT NULL")
+    if nodes.empty:
+        return {}
+    from scipy.spatial import cKDTree
+
+    nodes = nodes.merge(labels, on="node_id")
+    lat0 = float(nodes["y"].mean())
+    kx = 111_320.0 * np.cos(np.radians(lat0))
+    xy = np.column_stack([nodes["x"].to_numpy() * kx, nodes["y"].to_numpy() * 110_540.0])
+    is_main = (nodes["component"] == main).to_numpy()
+    if not is_main.any() or is_main.all():
+        return {}
+    tree = cKDTree(xy[is_main])
+    d, j = tree.query(xy[~is_main])
+    frag = nodes[~is_main].assign(d=d, main_node=nodes["node_id"].to_numpy()[is_main][j])
+    best = frag.loc[frag.groupby("component")["d"].idxmin()]
+    return {r.component: (round(float(r.d), 1), int(r.node_id), int(r.main_node))
+            for r in best.itertuples()}
 
 
 def _weak_components(a: np.ndarray, b: np.ndarray) -> pd.DataFrame:

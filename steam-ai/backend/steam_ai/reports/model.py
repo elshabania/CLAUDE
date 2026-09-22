@@ -726,7 +726,11 @@ def _maps_and_charts(figures: Mapping[str, tuple[Path, str]]) -> list[Block]:
         if fig is None:
             continue
         any_fig = True
-        blocks.append(Figure(fig[0], captions[key], source_ref=fig[1]))
+        caption = captions[key]
+        if key == "network_map" and "link_flows" not in fig[1]:
+            caption = ("Network map: links by class (the run has no assignment results), "
+                       "Critical and High finding locations marked")
+        blocks.append(Figure(fig[0], caption, source_ref=fig[1]))
     if not any_fig:
         blocks.append(
             Paragraph(

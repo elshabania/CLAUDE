@@ -161,6 +161,9 @@ def _sha256(path: Path) -> str:
     return h.hexdigest()
 
 
+_SYNTH_EMPTY = {"links": ("ltype",)}
+
+
 def _write_csv(out_dir: Path, name: str, df: pd.DataFrame) -> int:
     """Write one table CSV with schema column order and source_file/source_row filled."""
     sch = schema.TABLES[name]
@@ -169,6 +172,10 @@ def _write_csv(out_dir: Path, name: str, df: pd.DataFrame) -> int:
     df["source_file"] = file_name
     if "source_row" in sch.names:
         df["source_row"] = np.arange(1, len(df) + 1, dtype=np.int64)
+    # STEAM-specific extras the synthetic network does not model (e.g. LTYPE) stay empty.
+    for col in _SYNTH_EMPTY.get(name, ()):
+        if col not in df.columns:
+            df[col] = None
     missing = [f.name for f in sch if f.name not in df.columns]
     if missing:
         raise RuntimeError(f"synthetic table {name} lacks columns {missing}")

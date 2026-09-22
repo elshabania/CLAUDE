@@ -4,9 +4,54 @@ Date: 2026-09-22. Written after running the tests, processing two synthetic
 runs end to end, and reviewing the result as a sceptical senior modeller and
 as a first-time user, as the build prompt requires after each slice.
 
-**Everything below was exercised on synthetic data only.** No real STEAM run,
-observed dataset or ITC report template has been seen. Every screen, report
-and API response carries a SYNTHETIC DATA marker until a real run is processed.
+Sections below "What works" were first written against synthetic data. The
+section that follows records what changed once real STEAM v3.2.2 inputs were
+brought in. Synthetic runs still carry a SYNTHETIC DATA marker everywhere.
+
+## Real STEAM v3.2.2 inputs (added 2026-09-22)
+
+The raw GDB and shapefiles were not recoverable, but derived copies of the
+STEAM v3.2.2 inputs from earlier work in this repository were
+(`steam-ai/reference/steam_v322/`):
+
+- the highway network for 2025 and 2040 in one file (158,063 links; 136,509
+  exist in 2025 and 152,879 in 2040), with A/B nodes, lanes, STEAM LTYPE and
+  full link geometry in UTM 40N;
+- the 2040 zone system (3,712 zones with coordinates, 108 districts), land
+  use (population, employment, students) and the 24-hour demand matrix
+  (2,225,004 non-zero cells, 12.73 M trips).
+
+`steam-ai import-steam` turns these into two export directories
+(`STEAM_V322_2025`, `STEAM_V322_2040`, base = 2025) that go through the normal
+ingest, checks, health, KPIs and report. **These are inputs only: there are no
+assignment results, skims, transit or convergence**, so volume, V/C and
+speed checks are skipped and the app says so. Link class, capacity and
+free-flow speed are derived from LTYPE and lanes with placeholder per-lane
+values (`importers/steam_v322.py`); one-way status is not recorded in the
+source, so it is left unknown unless both directions are coded.
+
+What the checks found on the real network:
+
+- **2025: health 57 (D).** Six local links coded with 0 lanes, hence zero
+  capacity (Critical); 14 links with an LTYPE outside the known ranges, so no
+  capacity or speed (Medium); 2,416 fragments cut off from the main network,
+  of which 73 touch it at the same point under a different node number.
+- **2040: health 84 (B).** The zero-lane links are fixed; 2,753 fragments,
+  94 of them node-number mismatches; the demand matrix is imbalanced in 45%
+  of zones, which reads as a production-attraction matrix and is reported
+  once as Info.
+
+Changes made so the app copes with a real network: large populations of one
+issue are grouped (the ten worst listed, one summary finding carries the
+count), the health score counts distinct problem types rather than
+occurrences, a fragment's distance to the main network is measured and
+fragments on top of a main-network node are reported as node-number
+mismatches with the two node ids, the connectivity check was batched (41 s to
+2 s), the map loads links as a compact binary (4 MB gzipped for 153K links)
+and colours by link class when a run has no flows, and the report map falls
+back to link class. The hosted demo at `/steam-ai/` now shows these two real
+runs alongside the synthetic pair, from a static snapshot of the API
+(`steam-ai/scripts/publish_demo.sh`).
 
 ## What works
 
@@ -44,19 +89,18 @@ and API response carries a SYNTHETIC DATA marker until a real run is processed.
   the real backend.
 - **REST API** with OpenAPI docs, a job queue for ingestion, and an
   append-only audit log.
-- **Tests**: 215 backend tests pass; the frontend typechecks, lints and
+- **Tests**: 236 backend tests pass; the frontend typechecks, lints and
   builds.
 
 ## What does not work yet, or is not proven
 
-- **Nothing is proven on real STEAM output.** The export contract is defined
+- **Nothing is proven on real STEAM *output*.** Real inputs are in (above);
+  assignment results, skims and transit are not. The export contract is defined
   and implemented by the synthetic generator, but the Cube or CubePy export
   script that writes it from a real run does not exist yet. That is the first
   task once sample data arrives.
-- **Scale is untested.** The synthetic network is about 1,000 links. The
-  design targets 150K links, but there is no full-scale performance test yet.
-  The map already uses binary attributes; the API still serves links as
-  GeoJSON, which will need tiling at full scale.
+- **Scale is tested on inputs only.** The real 153K-link network ingests,
+  checks (about 4 s) and renders on a phone; flows at that scale are untested.
 - **Noise band is computed but not yet applied to suppress comparison
   findings**: `is_significant` is always true on the current synthetic runs
   because no comparison finding sits inside the band. The mechanism exists;
@@ -86,8 +130,9 @@ and API response carries a SYNTHETIC DATA marker until a real run is processed.
 
 ## Outstanding items, in priority order
 
-1. Sample data: two real run directories, then the export script and a
-   confirmed `docs/data_contract.md`.
+1. Sample data: two real run directories with assignment results, then the
+   export script and a confirmed `docs/data_contract.md`. Confirm the LTYPE to
+   class mapping and per-lane capacities used for the v3.2.2 import.
 2. MMR and MFR templates.
 3. Observed data extracts and date range.
 4. Deployment target confirmation (OS, outbound access) and a run of

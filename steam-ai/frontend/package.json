@@ -13,7 +13,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "eslint src",
     "fixtures": "node scripts/gen-fixtures.mjs",
-    "build:demo": "VITE_USE_MOCK=1 VITE_BASE=/steam-ai/ vite build --outDir dist-mock"
+    "build:demo": "VITE_STATIC_DATA=/steam-ai/data VITE_BASE=/steam-ai/ vite build --outDir dist-demo"
   },
   "dependencies": {
     "@deck.gl/core": "9.4.0",

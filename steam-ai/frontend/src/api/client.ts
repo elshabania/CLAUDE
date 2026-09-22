@@ -1,7 +1,9 @@
 /**
  * Typed fetch wrapper for the STEAM-AI REST API (docs/api.md).
- * With VITE_USE_MOCK=1 the request is answered by src/mock/handler.ts.
+ * With VITE_USE_MOCK=1 the request is answered by src/mock/handler.ts; with
+ * VITE_STATIC_DATA=<prefix> by src/static/handler.ts from a `steam-ai snapshot`.
  */
+import { buildLinkBinary, decodeLinkBinary, type LinkBinary } from '../map/binary';
 import type {
   CheckDefinition,
   CheckResult,
@@ -20,6 +22,7 @@ import type {
 
 export const API_BASE: string = (import.meta.env.VITE_API_BASE as string | undefined) || '/api/v1';
 export const USE_MOCK: boolean = import.meta.env.VITE_USE_MOCK === '1' || import.meta.env.VITE_USE_MOCK === 'true';
+export const STATIC_DATA: string = (import.meta.env.VITE_STATIC_DATA as string | undefined) || '';
 
 export class ApiError extends Error {
   status: number;
@@ -49,6 +52,10 @@ export function buildUrl(path: string, query?: Query): string {
 let mockFetch: ((url: string, init?: RequestInit) => Promise<Response>) | null = null;
 
 async function getFetch() {
+  if (STATIC_DATA) {
+    if (!mockFetch) mockFetch = (await import('../static/handler')).staticFetch;
+    return mockFetch;
+  }
   if (!USE_MOCK) return fetch;
   if (!mockFetch) {
     const mod = await import('../mock/handler');
@@ -82,7 +89,25 @@ export async function apiGet<T>(path: string, query?: Query, init?: RequestInit)
 
 /** Absolute URL for a binary download served by the API (reports). */
 export function fileUrl(path: string): string {
-  return `${API_BASE}${path}`;
+  return STATIC_DATA ? `${STATIC_DATA.replace(/\/$/, '')}${path}` : `${API_BASE}${path}`;
+}
+
+/**
+ * The run's links as map buffers. The API sends a compact binary (links.bin);
+ * the mock fixtures are GeoJSON and are converted in the browser.
+ */
+export async function fetchLinkBinary(runId: string, period: string): Promise<LinkBinary> {
+  if (STATIC_DATA) return (await import('../static/handler')).linkBinary(runId, period);
+  if (USE_MOCK) return buildLinkBinary(await api.links(runId, period));
+  const url = buildUrl(`/runs/${encodeURIComponent(runId)}/links.bin`, { period });
+  let res: Response;
+  try {
+    res = await fetch(url);
+  } catch (e) {
+    throw new ApiError(0, url, `Network error: ${(e as Error).message}`);
+  }
+  if (!res.ok) throw new ApiError(res.status, url, res.statusText || `HTTP ${res.status}`);
+  return decodeLinkBinary(await res.arrayBuffer());
 }
 
 export const api = {

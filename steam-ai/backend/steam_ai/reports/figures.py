@@ -179,6 +179,14 @@ def _finding_points(store: RunStore, links: pd.DataFrame) -> pd.DataFrame:
     return pd.DataFrame(rows, columns=["lon", "lat", "severity"])
 
 
+# Link class -> (colour, line width) for inputs-only runs; drawn in this order.
+_CLASS_STYLE = {
+    "LOC": ("#d4d4d4", 0.25), "RUR": ("#b9c7a8", 0.4), "JUNC": ("#c9b8d8", 0.3),
+    "COL": ("#9ab7d3", 0.5), "ART": ("#3b75af", 0.8), "RAMP": ("#e8a33d", 0.8),
+    "FWY": ("#b2182b", 1.4), "EXP": ("#d6604d", 1.2),
+}
+
+
 def network_map(store: RunStore, period: str = "AM") -> tuple[Path, str] | None:
     """Links coloured by V/C (viridis), Critical and High finding locations marked."""
     if not store.has("links"):
@@ -196,6 +204,8 @@ def network_map(store: RunStore, period: str = "AM") -> tuple[Path, str] | None:
 
     segments = []
     colours = []
+    seg_class: list[str] = []
+    seg_counts: list[int] = []
     for r in links.itertuples():
         try:
             geom = shapely_wkt.loads(r.geometry_wkt)
@@ -203,11 +213,15 @@ def network_map(store: RunStore, period: str = "AM") -> tuple[Path, str] | None:
             continue
         lines = [geom] if geom.geom_type == "LineString" else list(getattr(geom, "geoms", []))
         v = float(vc.get(r.link_id, np.nan)) if vc is not None else np.nan
+        k = 0
         for ln in lines:
             if ln.geom_type != "LineString":
                 continue
             segments.append(np.asarray(ln.coords)[:, :2])
             colours.append(v)
+            k += 1
+        seg_class.append(str(r.link_class))
+        seg_counts.append(k)
     if not segments:
         return None
 
@@ -228,7 +242,21 @@ def network_map(store: RunStore, period: str = "AM") -> tuple[Path, str] | None:
         cb = fig.colorbar(lc, ax=ax, fraction=0.035, pad=0.02, extend="max")
         cb.set_label(f"V/C ratio, {period}, user class ALL", fontsize=8, color=INK)
         cb.ax.tick_params(labelsize=7, colors=INK)
-    if (~has_vc).any():
+    by_class = not has_vc.any()
+    if by_class:
+        # Inputs-only run (no assignment): draw the network by link class so the
+        # map still shows the hierarchy the checks talk about.
+        cls_of = [c for c, seg_n in zip(seg_class, seg_counts, strict=True) for _ in range(seg_n)]
+        for cls, (colour, width) in _CLASS_STYLE.items():
+            sel = [s for s, c in zip(segments, cls_of, strict=True) if c == cls]
+            if sel:
+                ax.add_collection(LineCollection(sel, colors=colour, linewidths=width,
+                                                 label=cls))
+        rest = [s for s, c in zip(segments, cls_of, strict=True) if c not in _CLASS_STYLE]
+        if rest:
+            ax.add_collection(LineCollection(rest, colors="#c8c8c8", linewidths=0.3,
+                                             label="other"))
+    elif (~has_vc).any():
         ax.add_collection(
             LineCollection(
                 [s for s, ok in zip(segments, has_vc, strict=False) if not ok],
@@ -257,8 +285,10 @@ def network_map(store: RunStore, period: str = "AM") -> tuple[Path, str] | None:
         )
 
     all_xy = np.vstack(segments)
-    lon_min, lat_min = all_xy.min(axis=0)
-    lon_max, lat_max = all_xy.max(axis=0)
+    # Frame the bulk of the network: a few long external-station links would
+    # otherwise shrink the modelled area to a corner of the figure.
+    lon_min, lat_min = np.percentile(all_xy, 0.5, axis=0)
+    lon_max, lat_max = np.percentile(all_xy, 99.5, axis=0)
     pad_x = max((lon_max - lon_min) * 0.05, 1e-4)
     pad_y = max((lat_max - lat_min) * 0.05, 1e-4)
     ax.set_xlim(lon_min - pad_x, lon_max + pad_x)
@@ -268,6 +298,8 @@ def network_map(store: RunStore, period: str = "AM") -> tuple[Path, str] | None:
     ax.set_xlabel("Longitude")
     ax.set_ylabel("Latitude")
     ax.set_title(
+        "Network by link class (no assignment results in this run), with Critical and High "
+        "finding locations" if by_class else
         f"Network V/C, {period} peak, with Critical and High finding locations",
         fontsize=10,
         loc="left",
@@ -285,10 +317,12 @@ def network_map(store: RunStore, period: str = "AM") -> tuple[Path, str] | None:
     )
     if ax.get_legend_handles_labels()[0]:
         ax.legend(
-            frameon=False, fontsize=8, loc="upper center", bbox_to_anchor=(0.5, -0.08), ncol=3
+            frameon=False, fontsize=8, loc="upper center", bbox_to_anchor=(0.5, -0.11), ncol=4
         )
     _style(ax)
     path = _save(fig, _fig_dir(store) / "network_map.png")
+    if by_class:
+        return path, "[src: links table (geometry_wkt, link_class); findings.json]"
     return path, (
         f"[src: links table (geometry_wkt); link_flows table period {period} "
         f"user_class ALL; findings.json]"

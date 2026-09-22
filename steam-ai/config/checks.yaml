@@ -7,6 +7,10 @@
 defaults:
   enabled: true
   max_findings_per_check: 200
+  # An issue type found more often than this is summarised in one finding,
+  # keeping the most severe occurrences as individual findings.
+  group_issue_above: 25
+  group_keep_worst: 10
 
 checks:
   null_and_id_integrity:
@@ -29,8 +33,11 @@ checks:
     params:
       min_capacity_vph: 1.0
       min_ffs_kph: 5.0
+      touch_tolerance_m: 1.0     # fragment node this close to a main-network node = same point
+      near_gap_m: 50             # gaps up to this are reported with the nodes to join
     severity:
       - { when: "issue == 'zero_capacity' or issue == 'zero_speed'", severity: Critical }
+      - { when: "issue == 'node_id_mismatch'", severity: High }
       - { when: "issue == 'orphan_node'", severity: Medium }
       - { when: "issue == 'oneway_dead_end'", severity: High }
       - { when: "issue == 'disconnected_component'", severity: High }
@@ -104,6 +111,7 @@ checks:
       intrazonal_share_max: 0.15
       row_col_ratio_max: 5.0    # productions vs attractions for a zone
       min_zone_total_for_ratio: 50
+      pa_format_share: 0.25       # above this share of imbalanced zones, treat as a PA matrix
       fractional_cell_max_trips: 0.01   # a cell with 0 < trips < this is an artefact
       fractional_share_min: 0.01        # report (Info) when >= this share of cells are artefacts
     severity:

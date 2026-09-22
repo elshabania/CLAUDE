@@ -150,6 +150,9 @@ export interface RunManifest {
   periods: string[];
   /** Optional: when the diagnostic report was last generated (not in models.py yet). */
   report_generated_at?: string | null;
+  /** What the run contains and where it came from (e.g. inputs only, no STEAM outputs). */
+  provenance?: string | null;
+  notes?: string[];
 }
 
 /** GET /runs/{id}: manifest plus health. */
@@ -167,6 +170,8 @@ export interface RunSummary {
   status: string;
   is_synthetic: boolean;
   health?: { score: number; grade: string } | null;
+  provenance?: string | null;
+  periods?: string[];
 }
 
 export interface FindingsPage {
@@ -221,13 +226,14 @@ export interface LinkProperties {
   b_node: string;
   link_class: string;
   area_type: string;
-  lanes: number;
-  capacity_vph: number;
-  ffs_kph: number;
-  volume: number;
-  vc_ratio: number;
-  cong_speed_kph: number;
-  delay_s: number;
+  lanes: number | null;
+  capacity_vph: number | null;
+  ffs_kph: number | null;
+  /** Flow fields are null for runs without assignment results (inputs only). */
+  volume: number | null;
+  vc_ratio: number | null;
+  cong_speed_kph: number | null;
+  delay_s: number | null;
   n_findings: number;
   max_severity: Severity | null;
 }
@@ -263,13 +269,15 @@ export interface LinkAttributes {
   link_id: string;
   a_node: string;
   b_node: string;
-  length_m: number;
+  length_m: number | null;
   link_class: string;
   area_type: string;
-  lanes: number;
-  capacity_vph: number;
-  ffs_kph: number;
-  oneway?: boolean;
+  lanes: number | null;
+  capacity_vph: number | null;
+  ffs_kph: number | null;
+  /** null when the source does not record direction. */
+  oneway?: boolean | null;
+  ltype?: number | null;
   toll_point?: boolean;
   junction_type?: string | null;
   sector_id?: string | null;

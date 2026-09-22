@@ -158,6 +158,8 @@ def ingest_export_dir(
             files=files,
             tables=counts,
             periods=periods,
+            provenance=sentinel.get("provenance"),
+            notes=[str(n) for n in sentinel.get("notes", [])],
         )
         (target / "manifest.json").write_text(manifest.model_dump_json(indent=2), "utf-8")
     except Exception:

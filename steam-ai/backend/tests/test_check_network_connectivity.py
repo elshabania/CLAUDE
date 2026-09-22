@@ -100,3 +100,38 @@ def test_disconnected_component() -> None:
     assert f.evidence.values["main_component_size"] == 13
     assert f.evidence.values["example_links"] == [98]
     assert f.location.id == "70" and "2 nodes" in f.executive_line
+
+
+def _main_node_xy(t: dict) -> tuple[int, float, float]:
+    nid = int(t["links"]["a_node"].iloc[0])
+    row = t["nodes"].set_index("node_id").loc[nid]
+    return nid, float(row["x"]), float(row["y"])
+
+
+def test_fragment_on_top_of_main_node_is_node_id_mismatch() -> None:
+    t = mini_tables()
+    main_id, x, y = _main_node_xy(t)
+    _add_nodes(t, [70], x=x, y=y)  # same point, different number
+    _add_nodes(t, [71], x=x + 0.001, y=y)
+    _add_link(t, 98, 70, 71)
+    fs = run_check(CHECK, t)
+    assert len(fs) == 1
+    v = fs[0].evidence.values
+    assert v["issue"] == "node_id_mismatch" and fs[0].severity.value == "High"
+    assert v["fragment_node"] == 70 and v["nearest_main_node"] == main_id
+    assert v["gap_to_main_m"] < 1.0
+    assert f"Merge node 70 into node {main_id}" in fs[0].suggested_action
+
+
+def test_fragment_near_main_network_reports_the_gap() -> None:
+    t = mini_tables()
+    main_id, x, y = _main_node_xy(t)
+    _add_nodes(t, [70], x=x + 0.0002, y=y)  # ~20 m east
+    _add_nodes(t, [71], x=x + 0.003, y=y)
+    _add_link(t, 98, 70, 71)
+    fs = run_check(CHECK, t)
+    v = fs[0].evidence.values
+    assert v["issue"] == "disconnected_component"
+    assert 15 < v["gap_to_main_m"] < 25
+    assert v["nearest_main_node"] == main_id
+    assert "m from main-network node" in fs[0].executive_line

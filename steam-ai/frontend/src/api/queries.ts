@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { api } from './client';
+import { api, fetchLinkBinary } from './client';
 import type { FindingsQuery } from './types';
 
 const STALE = 60_000;
@@ -41,7 +41,7 @@ export const useKpis = (runId?: string) =>
 export const useLinks = (runId?: string, period?: string) =>
   useQuery({
     queryKey: ['links', runId, period],
-    queryFn: () => api.links(runId!, period!),
+    queryFn: () => fetchLinkBinary(runId!, period!),
     enabled: !!runId && !!period,
     staleTime: 5 * STALE,
     gcTime: 10 * STALE,

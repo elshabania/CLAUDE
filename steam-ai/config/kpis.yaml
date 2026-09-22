@@ -46,3 +46,33 @@ kpis:
         ON s.skim_kind = 'DIST' AND s.mode = o.mode AND s.period = o.period
        AND s.origin = o.origin AND s.destination = o.destination
       WHERE o.matrix_kind = 'DEMAND'
+  - id: network_km
+    name: Link length, each direction
+    unit: km
+    definition: Sum of link length over all highway links (each direction counted).
+    sql: >
+      SELECT SUM(length_m) / 1000.0 AS value FROM links
+  - id: lane_km
+    name: Lane-km, all roads
+    unit: lane-km
+    definition: Sum of link length x lanes over all highway links.
+    sql: >
+      SELECT SUM(length_m * lanes) / 1000.0 AS value FROM links
+  - id: fwy_lane_km
+    name: Lane-km, freeways
+    unit: lane-km
+    definition: Sum of link length x lanes over links of class FWY.
+    sql: >
+      SELECT SUM(length_m * lanes) / 1000.0 AS value FROM links WHERE link_class = 'FWY'
+  - id: daily_trips
+    name: Total demand trips, all periods
+    unit: trips
+    definition: Sum of all DEMAND matrix cells, every purpose, mode and period.
+    sql: >
+      SELECT SUM(trips) AS value FROM od WHERE matrix_kind = 'DEMAND'
+  - id: population
+    name: Population
+    unit: people
+    definition: Sum of the POP land-use variable over all zones.
+    sql: >
+      SELECT SUM(value) AS value FROM land_use WHERE variable = 'POP'
