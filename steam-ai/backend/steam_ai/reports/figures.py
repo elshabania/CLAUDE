@@ -150,7 +150,7 @@ def vc_histogram(
         _style(ax)
         ax.grid(False, axis="x")
     axes_list[0].set_ylabel("Links")
-    fig.suptitle("Link V/C distribution, user class ALL", fontsize=10, x=0.01, ha="left")
+    fig.suptitle("Link V/C distribution, user class ALL", fontsize=10, x=0.01, ha="left", y=1.04)
     path = _save(fig, _fig_dir(store) / "vc_histogram.png")
     return path, f"[src: link_flows table; user_class ALL; periods {', '.join(present)}]"
 
@@ -284,7 +284,9 @@ def network_map(store: RunStore, period: str = "AM") -> tuple[Path, str] | None:
         arrowprops={"arrowstyle": "-|>", "color": INK},
     )
     if ax.get_legend_handles_labels()[0]:
-        ax.legend(frameon=False, fontsize=8, loc="lower left")
+        ax.legend(
+            frameon=False, fontsize=8, loc="upper center", bbox_to_anchor=(0.5, -0.08), ncol=3
+        )
     _style(ax)
     path = _save(fig, _fig_dir(store) / "network_map.png")
     return path, (
