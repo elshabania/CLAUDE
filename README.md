@@ -7,8 +7,9 @@
 >
 > **STEAM-AI** (ITC/T/PSA/1170/25, Task 15) design documents live in `docs/`:
 > [data contract](docs/data_contract.md), [assumptions and open questions](docs/assumptions.md),
-> [architecture and phased plan](docs/architecture.md). No STEAM-AI code exists yet;
-> see the open questions before starting Slice 0.
+> [architecture and phased plan](docs/architecture.md), [Slice 1 status review](docs/status.md).
+> The application lives in [`steam-ai/`](steam-ai/README.md) and is built against
+> synthetic data until real STEAM runs are supplied.
 
 A Next.js app that reads road CAD drawings (DXF and DWG) and detects road
 geometry from layer naming conventions (centerline, edge of pavement, lane

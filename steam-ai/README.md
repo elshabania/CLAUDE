@@ -7,9 +7,11 @@ After every STEAM run it tells a modeller what is wrong, why it matters, what
 to do about it and what is likely to happen next, and lets a non-technical
 decision maker get the same answers in plain language.
 
-**Status: Slice 1, built against synthetic data.** No real STEAM run has been
-ingested yet. Every screen and report shows a SYNTHETIC DATA banner until a
-real run is processed. See `../docs/assumptions.md` for the open questions.
+**Status: Slice 1 complete, built and reviewed against synthetic data.** No
+real STEAM run has been ingested yet. Every screen and report shows a
+SYNTHETIC DATA banner until a real run is processed. See `../docs/status.md`
+for what works, what does not, and what was assumed, and
+`../docs/assumptions.md` for the open questions.
 
 ## Layout
 

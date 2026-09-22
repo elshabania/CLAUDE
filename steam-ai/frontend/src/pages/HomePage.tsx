@@ -226,6 +226,11 @@ function ChangesPanel({ c, runId }: { c: RunChanges; runId: string }) {
   const resolved = Array.isArray(fn?.resolved) ? fn!.resolved : [];
   const unchanged = fn ? (Array.isArray(fn.unchanged) ? fn.unchanged.length : fn.unchanged) : 0;
   const kpis = c.kpis ?? [];
+  // Keep the panel scannable: show the highest-ranked few and point to the full table.
+  const CAP = 8;
+  const newShown = newF.slice(0, CAP);
+  const resolvedShown = resolved.slice(0, CAP);
+  const findingsHref = `/runs/${encodeURIComponent(runId)}/findings`;
   return (
     <div className="changes">
       <div>
@@ -252,7 +257,7 @@ function ChangesPanel({ c, runId }: { c: RunChanges; runId: string }) {
           Findings · {newF.length} new · {resolved.length} resolved · {unchanged} unchanged
         </h3>
         <ul className="change-list">
-          {newF.map((f) => (
+          {newShown.map((f) => (
             <li key={f.finding_id}>
               <span className="change-kind change-kind--added">new</span>
               <span>
@@ -261,7 +266,12 @@ function ChangesPanel({ c, runId }: { c: RunChanges; runId: string }) {
               </span>
             </li>
           ))}
-          {resolved.map((f) => (
+          {newF.length > CAP ? (
+            <li className="muted">
+              and {fmtNumber(newF.length - CAP)} more new findings · <Link to={findingsHref}>all findings</Link>
+            </li>
+          ) : null}
+          {resolvedShown.map((f) => (
             <li key={f.finding_id}>
               <span className="change-kind change-kind--removed">resolved</span>
               <span className="muted">
@@ -269,6 +279,9 @@ function ChangesPanel({ c, runId }: { c: RunChanges; runId: string }) {
               </span>
             </li>
           ))}
+          {resolved.length > CAP ? (
+            <li className="muted">and {fmtNumber(resolved.length - CAP)} more resolved findings</li>
+          ) : null}
           {!newF.length && !resolved.length ? <li className="muted">No findings appeared or disappeared.</li> : null}
         </ul>
       </div>

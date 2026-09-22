@@ -210,8 +210,40 @@ def fmt_kpi(kpi: KPI) -> str:
     return f"{fmt(kpi.value)} {kpi.unit}".strip()
 
 
+_EVIDENCE_MAX_CHARS = 160
+_EVIDENCE_MAX_ITEMS = 3
+
+
+def compact(value: Any, max_items: int = _EVIDENCE_MAX_ITEMS,
+            max_chars: int = _EVIDENCE_MAX_CHARS) -> str:
+    """Short, page-safe text for a list or dict evidence value.
+
+    Long per-item lists (for example every explained sector pair) live in
+    findings.json; the table shows the count and the first few items so a cell
+    can never grow taller than a page.
+    """
+    if isinstance(value, dict):
+        items = [f"{k}={compact(v, max_items, max_chars)}" for k, v in value.items()]
+        text = ", ".join(items[:max_items])
+        if len(items) > max_items:
+            text += f", ... ({len(items)} keys)"
+    elif isinstance(value, (list, tuple)):
+        items = [compact(v, max_items, max_chars) if isinstance(v, (dict, list, tuple))
+                 else fmt(v) for v in value[:max_items]]
+        text = ", ".join(items)
+        if len(value) > max_items:
+            text = f"{len(value)} items: {text}, ... (full list in findings.json)"
+    else:
+        text = fmt(value)
+    if len(text) > max_chars:
+        text = text[: max_chars - 3] + "..."
+    return text
+
+
 def fmt_evidence(key: str, value: Any) -> str:
     k = key.lower()
+    if isinstance(value, (dict, list, tuple)):
+        return compact(value)
     if isinstance(value, (bool, str)) or value is None:
         return fmt(value)
     if "vc" in k or k.endswith("ratio"):

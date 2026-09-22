@@ -141,5 +141,7 @@ does not, and what was assumed.
 
 ## 7. Current position
 
-Slice 0 cannot start until the five Section 2 inputs are supplied
-(`assumptions.md` Q1 to Q5). No application code has been written, by design.
+Slices 0 and 1 are built and reviewed on synthetic data (see `status.md`).
+The client confirmed no sample data was available and asked to proceed. The
+first real run needs the export script (data_contract.md 8.1) and a confirmed
+data contract; everything downstream reads internal tables only.

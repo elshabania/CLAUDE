@@ -71,6 +71,7 @@ checks:
       vc_high: 1.10
       vc_medium: 0.95
       zscore_threshold: 3.0       # within link_class x area_type x period
+      min_vc_for_outlier: 0.25    # z-score outliers count only above this V/C
       min_group_size: 20
       low_volume_share_of_group_median: 0.02  # "too low" relative to peers
       user_class: ALL

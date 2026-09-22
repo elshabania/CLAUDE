@@ -45,6 +45,9 @@ class LinkVolumeOutliers(Check):
         min_n = int(params.get("min_group_size", 20))
         low_share = float(params.get("low_volume_share_of_group_median", 0.02))
         vc_medium = float(params.get("vc_medium", 0.95))
+        # A statistical outlier only counts when the link carries a meaningful share of its
+        # capacity; otherwise near-empty peer groups (rural locals) flag every used link.
+        min_vc_outlier = float(params.get("min_vc_for_outlier", 0.25))
         exclude = [str(c) for c in params.get("exclude_link_classes", ["CONN"])]
         hours = config.period_hours()
         hours_values = ", ".join(
@@ -87,7 +90,9 @@ class LinkVolumeOutliers(Check):
                 FROM d JOIN m USING (link_class, area_type, period)
             )
             SELECT * FROM scored
-            WHERE vc_ratio >= {vc_medium} OR ABS(zscore) >= {z_thr} OR too_low
+            WHERE vc_ratio >= {vc_medium}
+               OR (ABS(zscore) >= {z_thr} AND COALESCE(vc_ratio, 0) >= {min_vc_outlier})
+               OR too_low
             ORDER BY vc_ratio DESC NULLS LAST, ABS(zscore) DESC NULLS LAST
         """
         df = store.query(sql)
@@ -102,6 +107,7 @@ class LinkVolumeOutliers(Check):
             "vc_critical": params.get("vc_critical"), "vc_high": params.get("vc_high"),
             "vc_medium": vc_medium, "zscore_threshold": z_thr, "min_group_size": min_n,
             "low_volume_share_of_group_median": low_share,
+            "min_vc_for_outlier": min_vc_outlier,
         }
         out: list[Finding] = []
         for r in df.itertuples():
