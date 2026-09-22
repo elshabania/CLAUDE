@@ -7,3 +7,13 @@ out
 .DS_Store
 .turbo
 tsconfig.tsbuildinfo
+
+# STEAM-AI
+steam-ai/backend/.venv/
+steam-ai/data/
+steam-ai/backend/**/__pycache__/
+steam-ai/backend/.pytest_cache/
+steam-ai/backend/.ruff_cache/
+steam-ai/backend/*.egg-info/
+steam-ai/frontend/node_modules/
+steam-ai/frontend/dist/

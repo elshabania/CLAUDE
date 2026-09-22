@@ -35,9 +35,14 @@ Item 3 is blank, and the repository holds no STEAM data. **No reader code will
 be written until two complete run directories are available**, per the prompt's
 own rule.
 
-**Assumption:** none possible. Until data arrives, work proceeds only on the
-synthetic miniature dataset, clearly labelled synthetic in every screen.
-**If wrong:** nothing to unwind. The synthetic dataset stays for CI.
+**Decision (2026-09-22):** the client confirmed no sample data is available
+now and asked to proceed with what exists. Slices 0 and 1 are therefore built
+against the synthetic miniature dataset, labelled SYNTHETIC in every screen,
+report and API response. The export contract (data_contract.md 8.1) is the
+interface the real export script must meet; the first real run will be
+processed by the same pipeline with no code change if it does.
+**If the real files differ:** only the export script and the reader mapping
+change; checks, reports and the UI read internal tables only.
 
 ### Q4. Observed data
 

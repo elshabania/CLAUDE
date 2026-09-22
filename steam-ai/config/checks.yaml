@@ -1,0 +1,151 @@
+# Diagnostic check configuration. Modellers edit thresholds and severity
+# here; no code change is needed. Validated against schemas/checks.schema.json.
+#
+# Severity rules: each check maps a numeric "score" it computes to a severity
+# band. Bands are checked top-down; first match wins.
+
+defaults:
+  enabled: true
+  max_findings_per_check: 200
+
+checks:
+  null_and_id_integrity:
+    enabled: true
+    params:
+      required_columns:
+        links: [link_id, a_node, b_node, length_m, link_class, capacity_vph, ffs_kph]
+        nodes: [node_id, x, y]
+        zones: [zone_id]
+        link_flows: [link_id, period, user_class, volume]
+    severity:
+      - { when: "missing_node_refs > 0", severity: Critical }
+      - { when: "missing_zone_refs > 0", severity: Critical }
+      - { when: "null_share > 0.01", severity: High }
+      - { when: "null_share > 0", severity: Medium }
+
+  network_connectivity:
+    enabled: true
+    params:
+      min_capacity_vph: 1.0
+      min_ffs_kph: 5.0
+    severity:
+      - { when: "issue == 'zero_capacity' or issue == 'zero_speed'", severity: Critical }
+      - { when: "issue == 'orphan_node'", severity: Medium }
+      - { when: "issue == 'oneway_dead_end'", severity: High }
+
+  centroid_connectors:
+    enabled: true
+    params:
+      high_class_links: [FWY, EXP]
+      max_connector_length_m: 5000
+    severity:
+      - { when: "issue == 'connector_on_high_class'", severity: High }
+      - { when: "issue == 'connector_too_long'", severity: Medium }
+
+  transit_line_integrity:
+    enabled: true
+    params:
+      headway_min_range: [2, 120]
+      modes_headway_max: { METRO: 20, LRT: 30, BRT: 30, BUS: 120, RAIL: 120, TRAM: 30, FERRY: 120 }
+    severity:
+      - { when: "issue == 'broken_sequence'", severity: Critical }
+      - { when: "issue == 'headway_out_of_range'", severity: High }
+      - { when: "issue == 'node_not_in_network'", severity: Critical }
+
+  land_use_control_totals:
+    enabled: true
+    params:
+      tolerance_share: 0.02
+    severity:
+      - { when: "abs_diff_share > 0.10", severity: Critical }
+      - { when: "abs_diff_share > 0.05", severity: High }
+      - { when: "abs_diff_share > 0.02", severity: Medium }
+
+  link_volume_outliers:
+    enabled: true
+    params:
+      vc_critical: 1.30
+      vc_high: 1.10
+      vc_medium: 0.95
+      zscore_threshold: 3.0       # within link_class x area_type x period
+      min_group_size: 20
+      low_volume_share_of_group_median: 0.02  # "too low" relative to peers
+      user_class: ALL
+      periods: [AM, PM]
+    severity:
+      - { when: "vc_ratio >= 1.30", severity: Critical }
+      - { when: "vc_ratio >= 1.10", severity: High }
+      - { when: "abs_zscore >= 4.0", severity: High }
+      - { when: "vc_ratio >= 0.95 or abs_zscore >= 3.0", severity: Medium }
+
+  convergence_and_noise:
+    enabled: true
+    params:
+      rel_gap_target: 0.001
+      rel_gap_high: 0.01
+      geh_stable: 1.0           # %links with GEH<1 between final iterations
+      geh_stable_share_target: 0.95
+      noise_band_iterations: 3
+    severity:
+      - { when: "rel_gap > 0.01", severity: Critical }
+      - { when: "rel_gap > 0.001", severity: High }
+      - { when: "stable_share < 0.95", severity: Medium }
+
+  matrix_sanity:
+    enabled: true
+    params:
+      intrazonal_share_max: 0.15
+      row_col_ratio_max: 5.0    # productions vs attractions for a zone
+      min_zone_total_for_ratio: 50
+    severity:
+      - { when: "issue == 'negative_cells'", severity: Critical }
+      - { when: "issue == 'row_col_imbalance'", severity: High }
+      - { when: "issue == 'intrazonal_share'", severity: Medium }
+      - { when: "issue == 'fractional_artefact'", severity: Info }
+
+  trip_length_distribution:
+    enabled: true
+    params:
+      max_mean_diff_share: 0.15     # vs base run, per purpose x mode
+      max_mean_diff_share_high: 0.30
+      distance_bins_km: [0, 2, 5, 10, 20, 40, 80, 200]
+    severity:
+      - { when: "mean_diff_share > 0.30", severity: High }
+      - { when: "mean_diff_share > 0.15", severity: Medium }
+
+  unrealistic_speeds_times:
+    enabled: true
+    params:
+      min_cong_speed_kph: 5.0
+      max_speed_over_ffs_ratio: 1.05
+      max_delay_s: 900
+      periods: [AM, PM]
+    severity:
+      - { when: "issue == 'speed_above_ffs'", severity: High }
+      - { when: "issue == 'speed_below_floor'", severity: High }
+      - { when: "issue == 'delay_outlier'", severity: Medium }
+
+  parameter_drift:
+    enabled: true
+    params: {}
+    severity:
+      - { when: "drifted", severity: High }
+
+  unexplained_demand_shift:
+    enabled: true
+    params:
+      sector_shift_share: 0.10     # sector-to-sector trips change > 10%
+      catchment_km: 5.0            # an input change within this distance explains a shift
+    severity:
+      - { when: "shift_share > 0.25", severity: High }
+      - { when: "shift_share > 0.10", severity: Medium }
+
+  unused_transit_services:
+    enabled: true
+    params:
+      min_load_factor: 0.05
+      min_catchment_demand: 500
+      catchment_km: 1.0
+    severity:
+      - { when: "load_factor < 0.02", severity: High }
+      - { when: "load_factor < 0.05", severity: Medium }

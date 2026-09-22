@@ -1,0 +1,13 @@
+services:
+  steam-ai:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    ports: ["8000:8000"]
+    volumes: ["../data:/data"]
+  watcher:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    command: ["steam-ai", "watch", "/data/watch"]
+    volumes: ["../data:/data"]

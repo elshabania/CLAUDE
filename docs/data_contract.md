@@ -292,9 +292,18 @@ RunReader
   .parameters()    -> parameters
 ```
 
-Slice 1 implements `ExportedRunReader` over CSV, DBF and OMX written by a
+Slice 1 implements `ExportedRunReader` over CSV (DBF accepted) written by a
 modeller-run Voyager or CubePy export script. A native reader can replace it
 later behind the same interface.
+
+**Export contract (what the export script writes).** One file per internal
+table, named `<table>.csv` with exactly the columns in Section 8.2, plus
+`steam_ai_export_complete.json` written last, holding scenario name, horizon
+year, policy set, STEAM version, an `is_synthetic` flag, and the size and
+SHA-256 of every file. The ingester fires only on the sentinel and refuses
+an export whose hashes do not match. The synthetic generator
+(`steam_ai.synthetic.generate`) writes this exact layout, so the real export
+script has a working reference to copy.
 
 ### 8.2 Tables
 
@@ -357,3 +366,4 @@ vehicles per hour, WGS84 geometry stored as WKB with the source CRS recorded in
 | Date | Change |
 |---|---|
 | 2026-09-22 | Initial draft from tender only. No sample data. |
+| 2026-09-22 | Export contract fixed (CSV per table + sentinel). Synthetic generator implements it. Still no real data inspected. |

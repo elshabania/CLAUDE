@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": ["kpis"],
+  "properties": {
+    "kpis": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "name", "unit", "definition", "sql"],
+        "properties": {
+          "id": { "type": "string" },
+          "name": { "type": "string" },
+          "unit": { "type": "string" },
+          "definition": { "type": "string" },
+          "sql": { "type": "string" }
+        }
+      }
+    }
+  }
+}

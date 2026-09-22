@@ -1,0 +1,11 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": ["definition", "penalties", "weights", "grades"],
+  "properties": {
+    "definition": { "type": "string" },
+    "penalties": { "type": "object", "additionalProperties": { "type": "number" } },
+    "weights": { "type": "object", "additionalProperties": { "type": "number" } },
+    "grades": { "type": "object", "additionalProperties": { "type": "number" } }
+  }
+}
