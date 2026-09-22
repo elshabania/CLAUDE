@@ -3,7 +3,10 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-<title>STEAM AI Brain</title>
+<title>STEAM-AI Brain</title>
+<meta name="theme-color" content="#0B1220">
+<meta name="description" content="STEAM-AI: post-run diagnostics, scenario comparison, congestion forecasting and decision briefs for the STEAM model.">
+<link rel="manifest" href="manifest.webmanifest">
 <style>
   :root{
     --bg:#0a101c; --panel:#11192699; --solid:#0f1828; --line:#20304b; --txt:#e6edf7;
@@ -212,8 +215,9 @@
     .tab{padding:7px 11px}
   }
 </style>
+<style id="ai-shell-css">/*__AI_SHELL_CSS__*/</style>
 </head>
-<body class="dock-closed">
+<body class="dock-closed lvl-dir">
 
 <div id="bar">
   <div id="brand">
@@ -225,33 +229,53 @@
       <circle cx="13.4" cy="17.6" r="2.4" fill="url(#lg)"/>
       <path d="M8.6 9 L13.4 17.6 M17.4 7.6 L13.4 17.6 M8.6 9 L17.4 7.6" stroke="url(#lg)" stroke-width="1.3" fill="none"/>
     </svg>
-    <span class="wm">STEAM <span class="v">AI Brain</span></span> <small>transport intelligence · network · assignment · copilot</small></div>
+    <span class="wm">STEAM<span class="v">-AI</span>&nbsp;Brain</span></div>
+  <div id="ctxbar" aria-label="Analysis context">
+    <div class="cx"><span class="l">Run</span><span class="v" id="cxRun">STEAM 2040 Reference</span></div>
+    <div class="cx"><span class="l">Compared with</span><span class="v" id="cxCmp">None</span></div>
+    <div class="cx"><span class="l">Year</span><span class="v" id="cxYear">2040</span></div>
+    <div class="cx opt"><span class="l">Period</span><span class="v" id="cxPer">AM peak</span></div>
+    <div class="cx opt"><span class="l">Showing</span><span class="v" id="cxType"></span></div>
+  </div>
   <div id="modechip"><span class="ic">🗺️</span><span id="modename">Network</span></div>
   <div id="barRight">
+    <div class="seg" id="lvlSeg" role="group" aria-label="Reading level"><button data-l="dir">Director</button><button data-l="mod">Modeller</button></div>
+    <button id="hpill" title="Run readiness"><span id="hpillRing" class="ring"></span><span id="hpillTxt">… <small>readiness</small></span></button>
+    <button class="iconbtn" id="helpBtn" title="Guided tour" aria-label="Guided tour"></button>
+    <button class="iconbtn" id="themeBtn" title="Light / dark" aria-label="Toggle light or dark theme"></button>
     <button id="copBtn"><span class="pulse"></span>Copilot</button>
   </div>
 </div>
 
 <div id="main">
-  <nav id="rail" aria-label="Tools">
+  <nav id="rail" aria-label="Workspaces">
+    <button class="ritem ai" data-tool="ov"><span class="ic" data-i="ov"></span>Overview</button>
     <div class="rgrp">Explore</div>
-    <button class="ritem" data-tool="net"><span class="ic">🗺️</span>Network</button>
-    <button class="ritem" data-tool="zones"><span class="ic">⬡</span>Zones</button>
-    <div class="rgrp">Model</div>
-    <button class="ritem" data-tool="demand"><span class="ic">📈</span>Demand</button>
-    <button class="ritem" data-tool="assign"><span class="ic">🚦</span>Assign</button>
-    <button class="ritem" data-tool="display"><span class="ic">🎨</span>Display</button>
-    <div class="rgrp">Plan</div>
-    <button class="ritem" data-tool="metro"><span class="ic">🚇</span>Metro</button>
-    <button class="ritem" data-tool="projects"><span class="ic">🛣️</span>Projects</button>
-    <button class="ritem" data-tool="rec"><span class="ic">✨</span>Solve</button>
-    <button class="ritem" data-tool="scn"><span class="ic">🛠️</span>Scenario</button>
-    <div class="rgrp">Insights</div>
-    <button class="ritem" data-tool="ana"><span class="ic">📊</span>Analysis</button>
-    <button class="ritem" data-tool="insights"><span class="ic">💡</span>Insights</button>
-    <button class="ritem" data-tool="settings"><span class="ic">⚙️</span>Settings</button>
+    <button class="ritem" data-tool="net"><span class="ic" data-i="net"></span>Network</button>
+    <button class="ritem x-mob" data-tool="zones"><span class="ic" data-i="zones"></span>Zones</button>
+    <button class="ritem x-mob" data-tool="projects"><span class="ic" data-i="projects"></span>Projects</button>
+    <div class="rgrp">Diagnose</div>
+    <button class="ritem ai" data-tool="diag"><span class="ic" data-i="diag"></span>Diagnose<span class="bdg"></span></button>
+    <div class="rgrp">Scenarios</div>
+    <button class="ritem x-mob" data-tool="demand"><span class="ic" data-i="demand"></span>Demand</button>
+    <button class="ritem" data-tool="assign"><span class="ic" data-i="assign"></span>Assign</button>
+    <button class="ritem x-mob" data-tool="display"><span class="ic" data-i="display"></span>Display</button>
+    <button class="ritem x-mob" data-tool="rec"><span class="ic" data-i="rec"></span>Solve</button>
+    <button class="ritem x-mob" data-tool="scn"><span class="ic" data-i="scn"></span>Scenario</button>
+    <button class="ritem ai" data-tool="cmp"><span class="ic" data-i="cmp"></span>Compare</button>
+    <button class="ritem ai" data-tool="stress"><span class="ic" data-i="stress"></span>Stress</button>
+    <button class="ritem x-mob" data-tool="metro"><span class="ic" data-i="metro"></span>Metro</button>
+    <div class="rgrp">Forecast</div>
+    <button class="ritem ai" data-tool="fc"><span class="ic" data-i="fc"></span>Forecast</button>
+    <div class="rgrp">Brief</div>
+    <button class="ritem ai" data-tool="brief"><span class="ic" data-i="brief"></span>Briefings</button>
+    <div class="rgrp">Data</div>
+    <button class="ritem ai" data-tool="data"><span class="ic" data-i="data"></span>Data &amp; Models</button>
+    <button class="ritem x-mob" data-tool="ana"><span class="ic" data-i="ana"></span>Analysis</button>
+    <button class="ritem x-mob" data-tool="insights"><span class="ic" data-i="insights"></span>Insights</button>
+    <button class="ritem x-mob" data-tool="settings"><span class="ic" data-i="settings"></span>Settings</button>
     <div class="rspring"></div>
-    <button class="ritem cop" id="railCop"><span class="ic">✦</span>Copilot</button>
+    <button class="ritem cop" id="railCop"><span class="ic"></span>Copilot</button>
     <div id="railFoot"><span class="dotOK"></span>offline·ready</div>
   </nav>
   <div id="stage">
@@ -277,6 +301,17 @@
       <div id="progItems"></div>
       <div id="progFoot"><span id="progTot"></span><button id="progApply" class="zb-go">Apply &amp; run scenario</button></div>
     </div>
+    <section id="wsPanel" aria-label="Workspace">
+      <div id="wsHandle" aria-hidden="true"></div>
+      <div id="wsHead"><div><h2 id="wsTitle"></h2><p id="wsDesc"></p></div><button class="iconbtn x" id="wsClose" aria-label="Close workspace"></button></div>
+      <div id="wsTabs" role="tablist"></div>
+      <div id="wsBody"></div>
+    </section>
+    <aside id="inspector" aria-label="Inspector">
+      <div id="insHandle" aria-hidden="true"></div>
+      <div id="insHead"><h2 id="insTitle"></h2><button class="iconbtn x" id="insClose" aria-label="Close inspector"></button></div>
+      <div id="insBody"></div>
+    </aside>
   </div>
 
   <aside id="dock">
@@ -299,6 +334,10 @@
 </div>
 
 <button id="copFab"><span>✦</span> Ask Copilot</button>
+<div id="aimodal" role="dialog" aria-modal="true"><div class="box"><div class="hd"><b id="aimodalT"></b><span style="flex:1"></span><button class="iconbtn" id="aimodalX" aria-label="Close"></button></div><div class="bd" id="aimodalB"></div></div></div>
+<div id="toastAI" role="status" aria-live="polite"></div>
+<div id="tour"></div>
+<div id="printArea"></div>
 
 <!--APP_SOURCES-->
 
@@ -1318,6 +1357,8 @@ var TOOLS={
   scn:{app:"assign",section:"scenario"},
   ana:{app:"assign",section:"analysis"},
   insights:{app:null},
+  ov:{app:"assign",ws:true}, diag:{app:"assign",ws:true}, cmp:{app:"assign",ws:true}, stress:{app:"assign",ws:true},
+  fc:{app:"assign",ws:true}, brief:{app:"assign",ws:true}, data:{app:"assign",ws:true},
   settings:{app:"assign",section:"settings"}
 };
 /* every step explains itself and carries its key actions — this is what makes
@@ -1395,6 +1436,8 @@ async function selectTool(id){
   var t=TOOLS[id]; if(!t) return;
   if(currentTool===id) return clearTool();      // toggle off → clean map
   currentTool=id; highlightRail(id); renderStepBar(id);
+  if(t.ws){ switchApp("assign"); AIS.open(id); await waitReady("assign"); await rpc("assign",{cmd:"bodyclass",name:"collapsed",on:true}); return; }
+  if(typeof AIS!=="undefined") AIS.hide();
   if(t.app){ switchApp(t.app); await waitReady(t.app); }
   if(t.app==="assign"){ await rpc("assign",{cmd:"section",text:t.section}); }
   else if(t.app==="viewer"){ await applyViewerPanels(); }
@@ -1402,6 +1445,7 @@ async function selectTool(id){
   if(id==="insights"){ openDock(); }
 }
 async function clearTool(){
+  if(typeof AIS!=="undefined") AIS.hide();
   currentTool=null; highlightRail(null); renderStepBar(null);
   if(APPS.assign.frame) await rpc("assign",{cmd:"bodyclass",name:"collapsed",on:true});
   if(APPS.viewer.frame) await applyViewerPanels();
@@ -1818,6 +1862,8 @@ function helpReply(){
   return Promise.resolve({html:
    "I'm wired into <b>both</b> apps and switch between them automatically. I can:"+
    "<ul>"+
+   "<li><span class='k'>Review a run</span>: “top issues”, “explain F-003”, “links over capacity on freeways”, “zone 1204”, “severity index by district”.</li>"+
+   "<li><span class='k'>Forecast and test</span>: “hotspots in 2035”, “what if demand grows 10%?”, “what if we close this corridor?”, “compare scenarios”, “draft the forecast commentary”.</li>"+
    "<li><span class='k'>Drive the Assignment app</span> — run free-flow / BPR / Frank-Wolfe / MSA, colour by volume·V/C·LOS·Δ, rank corridors, find solutions, run scenarios, analysis &amp; export.</li>"+
    "<li><span class='k'>Drive the Network Viewer</span> — zoom to Metro / Al Ain, set aggregation methods M1–M5, colour zones, OD desire lines, lasso a study area, OD Δ stats.</li>"+
    "<li><span class='k'>Connect the two</span> — aggregate zones in the Viewer, then say “assign on the aggregated zones” and I'll re-aggregate the OD onto your merged zones and re-run.</li>"+
@@ -1838,6 +1884,7 @@ function overviewReply(){
 
 /* ---------- main dispatch ---------- */
 async function handle(text){
+  var ar=await AIS.route(text); if(ar) return ar;
   var c=classify(text);
   if(!c){
     return {html:"I'm not sure how to do that yet. I can run either app or explain the modelling — try one of these:",
@@ -1897,22 +1944,25 @@ qEl.addEventListener("keydown",function(e){ if(e.key==="Enter"&&!e.shiftKey){ e.
 document.getElementById("send").addEventListener("click",function(){ var v=qEl.value; qEl.value=""; autosize(); submit(v); });
 
 /* quick chips */
-var QUICK=["What can you do?","Run a Frank-Wolfe assignment","Preloaded comparison","Rank corridors","Zoom to the Metro area","Explain BPR"];
+var QUICK=["Top issues","Links over capacity","Hotspots in 2035","What if demand grows 10%?","Severity index by district","What can you do?"];
 var qbox=document.getElementById("quick");
 QUICK.forEach(function(c){ var b=document.createElement("button"); b.className="sg"; b.textContent=c; b.addEventListener("click",function(){ submit(c); }); qbox.appendChild(b); });
 
 /* greeting */
-addMsg("cop","👋 I'm the <b>STEAM Copilot</b>. I run the <b>Network Viewer</b> and the <b>Assignment</b> app for you and explain the modelling behind them — all offline. Tell me what you want, or tap a suggestion.");
-addChips(log.lastChild,["What can you do?","Run an assignment","Zoom to the Metro area"]);
+addMsg("cop","I'm the <b>STEAM-AI Copilot</b>. I answer by calling typed tools over the loaded STEAM data, and every answer shows those calls so you can open the table behind it. I also drive the Network Viewer and the Assignment engine. If the data cannot answer, I say so.");
+addChips(log.lastChild,["Top issues","Hotspots in 2035","What can you do?"]);
 
 /* boot: load the default viewer frame, open dock after a beat */
 ensureFrame("viewer"); waitReady("viewer").then(function(){ updateCtx();
   setTimeout(function(){ ensureFrame("assign"); waitReady("assign"); }, 1200);   // warm the engine so steps switch instantly
 });
-setTimeout(openDock, 650);
+if(window.innerWidth>1280) setTimeout(openDock, 900);
+
+/*__AI_SHELL_JS__*/
+AIS.boot();
 
 /* harness hooks for offline testing / preload generation (no user-facing use) */
-window.__STEAM={ rpc:rpc, waitReady:waitReady, switchApp:switchApp, pollState:pollState,
+window.__STEAM={ AIS:AIS, rpc:rpc, waitReady:waitReady, switchApp:switchApp, pollState:pollState,
   runAggAssign:runAggAssign, fetchAgg:fetchAgg, applyAggConfig:applyAggConfig, submit:submit };
 
 })();

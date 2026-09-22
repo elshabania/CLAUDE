@@ -1,4 +1,12 @@
-# STEAM 2040 Studio
+# STEAM-AI Brain (STEAM 2040 Studio)
+
+> **STEAM-AI (Task 15) is now built in.** The Brain opens on a run
+> **Overview** and adds **Diagnose**, **Compare**, **Stress tests**,
+> **Forecast**, **Briefings** and **Data & Models** workspaces over the same
+> map, with a Director / Modeller reading level, provenance on every value and
+> a Copilot that answers through typed tools. See
+> [STEAM-AI below](#steam-ai-task-15) and `docs/steam-ai/` at the repo root.
+
 
 A single, self-contained web app that **combines two STEAM 2040 strategic
 transport-model tools** — the *Network Viewer* and the *Traffic Assignment*
@@ -132,3 +140,37 @@ Or, within the Next.js app, open `/steam-2040-studio/` on the dev server.
   don't bundle, so the "loaded OD" source can be empty; the Copilot detects
   this and runs the all-ones engine test instead (illustrative magnitudes).
   Load an `O,D,trips` CSV in the Assignment app for decision-grade numbers.
+
+
+## STEAM-AI (Task 15)
+
+Everything runs in the browser on the STEAM 2040 network, land use and OD
+embedded in this page. Nothing is uploaded.
+
+| Workspace | What it does |
+|---|---|
+| **Overview** | Run readiness score (formula shown), severity counts, top five issues, what changed since the last review, KPIs, active studies. The last summary is cached for offline reading. |
+| **Diagnose** | 32-check library (network, land use, matrix, parameters, outputs, convergence, PT, junctions, scenario response). Every finding has a rule, a source file, a record, a likely cause, an action, an expected effect, a method and a confidence. Tap one to fly the map there. Accept / reject / assign dispositions. |
+| **Compare** | Base vs scenario with a per-link numerical tolerance from the last two equilibrium iterations; changes inside it are hidden by default. Busier / quieter / inside-tolerance counts, KPI table, districts, SCN-01 unexplained shifts. |
+| **Stress tests** | Demand growth, spike, closure, +1 lane and road-user charging, run through the assignment engine against a cached screening base (Frank-Wolfe, 250 sampled origins, reported travel time bounded at V/C 3). |
+| **Forecast** | Growth-response surrogate fitted from three engine runs and back-tested on a held-out run (beats or does not beat naive scaling, stated). Year slider 2026 to 2050, ranked hotspots with onset year, risk category from the growth range, "earlier than STEAM" and "beyond horizon" flags, driver decomposition, AI vs engine, congestion severity index by district and class, model card. |
+| **Briefings** | Pin findings, hotspots, links and stress tests as story blocks (map view, one sentence, evidence, action). Export DOCX, print/PDF, story JSON; issue an immutable snapshot. Diagnostic report, MMR and MFR drafts (DOCX). |
+| **Data & Models** | Inventory and loaded-network import, metric registry, model cards, open items and assumptions, integrations and feeds (JSON / GeoJSON, EPSG:32640), audit log, glossary and tour, Copilot LLM settings (off / Anthropic / Ollama). |
+
+Provenance labels: **Checked on file**, **Engine output** (in-app assignment
+of the STEAM 2040 OD, not a STEAM run), **STEAM output (imported)**,
+**Surrogate estimate**, **Screening estimate**, **Illustrative**.
+
+The app is installable (web manifest + service worker) and works offline
+after the first load.
+
+### Rebuild
+
+```bash
+cd build && python3 rebuild_ai.py
+```
+
+Source files: `build/container.html` (shell), `build/ai-shell.js` +
+`build/ai-shell.css` (workspaces, copilot tools, reports) and
+`build/ai-engine.js` (checks, tolerance, stress tests, surrogate, map
+overlay, injected into the Assignment engine).

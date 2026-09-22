@@ -5,10 +5,12 @@
 > toggleable layers over a Google Maps basemap. Served at
 > `/abu-dhabi-streets` on the deployed site.
 >
-> And: [**STEAM 2040 Studio**](public/steam-2040-studio/README.md) — a
-> self-contained app that combines the STEAM 2040 *Network Viewer* and
-> *Traffic Assignment* tools into one workspace with a fully integrated,
-> natural-language Copilot that drives both. Served at `/steam-2040-studio/`.
+> And: [**STEAM-AI Brain**](public/steam-2040-studio/README.md) (STEAM 2040
+> Studio): the STEAM 2040 *Network Viewer* and *Traffic Assignment* tools in
+> one workspace, now with the Task 15 STEAM-AI layer: run diagnostics,
+> noise-screened scenario comparison, stress tests, congestion forecasting,
+> decision briefs and a Copilot that answers through typed tools. Served at
+> `/steam-2040-studio/`. Design notes in [`docs/steam-ai/`](docs/steam-ai/).
 
 A Next.js app that reads road CAD drawings (DXF and DWG) and detects road
 geometry from layer naming conventions (centerline, edge of pavement, lane

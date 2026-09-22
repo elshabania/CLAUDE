@@ -1,0 +1,11 @@
+{
+  "name": "STEAM-AI Brain",
+  "short_name": "STEAM-AI",
+  "description": "Post-run diagnostics, scenario comparison, congestion forecasting and decision briefs for the STEAM model.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#0B1220",
+  "theme_color": "#0B1220",
+  "icons": [{ "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }]
+}
