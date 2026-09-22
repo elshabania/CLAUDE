@@ -18,7 +18,8 @@ import hashlib
 import math
 import re
 from functools import lru_cache
-from typing import Any, Iterable, Sequence
+from collections.abc import Iterable, Sequence
+from typing import Any
 
 import pandas as pd
 
@@ -159,7 +160,7 @@ def _eval(node: ast.AST, env: dict[str, Any]) -> Any:
         return -val if isinstance(node.op, ast.USub) else +val
     if isinstance(node, ast.Compare):
         left = _eval(node.left, env)
-        for op, comp in zip(node.ops, node.comparators):
+        for op, comp in zip(node.ops, node.comparators, strict=True):
             right = _eval(comp, env)
             if not _compare(op, left, right):
                 return False
@@ -442,16 +443,16 @@ def midpoint_from_wkt(wkt: str | None) -> tuple[float, float] | None:
     nums = [float(x) for x in _NUM.findall(wkt.split("(", 1)[-1])]
     if len(nums) < 2:
         return None
-    pts = list(zip(nums[0::2], nums[1::2]))
+    pts = list(zip(nums[0::2], nums[1::2], strict=False))
     if len(pts) == 1:
         return pts[0]
-    seg = [math.hypot(b[0] - a[0], b[1] - a[1]) for a, b in zip(pts, pts[1:])]
+    seg = [math.hypot(b[0] - a[0], b[1] - a[1]) for a, b in zip(pts, pts[1:], strict=False)]
     total = sum(seg)
     if total == 0:
         return pts[0]
     half = total / 2.0
     acc = 0.0
-    for (a, b), d in zip(zip(pts, pts[1:]), seg):
+    for (a, b), d in zip(zip(pts, pts[1:], strict=False), seg, strict=True):
         if acc + d >= half:
             t = (half - acc) / d if d else 0.0
             return (a[0] + t * (b[0] - a[0]), a[1] + t * (b[1] - a[1]))

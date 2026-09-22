@@ -156,11 +156,11 @@ def test_clean_convergence_and_noise(clean: Path) -> None:
 def test_clean_demand_skims_transit(clean: Path) -> None:
     od, sk = _read(clean, "od"), _read(clean, "skims")
     assert (od.trips > 0).all()
-    assert set(od.purpose) == {"HBW", "HBO", "NHB"} and set(od.mode) == {"CAR", "PT"}
+    assert set(od.purpose) == {"HBW", "HBO", "NHB"} and set(od["mode"]) == {"CAR", "PT"}
     assert set(od.matrix_kind) == {"DEMAND"}
     intra = od[od.origin == od.destination].trips.sum() / od.trips.sum()
     assert intra < 0.15
-    assert set(sk.skim_kind) == {"TIME", "DIST"} and set(sk.mode) == {"CAR", "PT"}
+    assert set(sk.skim_kind) == {"TIME", "DIST"} and set(sk["mode"]) == {"CAR", "PT"}
     assert len(sk) == 60 * 60 * 2 * 2 * 5
     tl, ts, ll = (
         _read(clean, "transit_lines"),
@@ -237,9 +237,9 @@ def test_each_defect_manifests(all_defects: Path) -> None:
     neg = od[od.trips < 0]
     cells = {tuple(c) for c in m["negative_matrix_cells"]["cells"]}
     assert set(zip(neg.origin, neg.destination, strict=True)) == cells
-    assert set(neg.purpose) == {"HBW"} and set(neg.mode) == {"CAR"} and set(neg.period) == {"AM"}
+    assert set(neg.purpose) == {"HBW"} and set(neg["mode"]) == {"CAR"} and set(neg.period) == {"AM"}
     zi = m["row_col_imbalance"]["zone_ids"][0]
-    car = od[od.mode == "CAR"]
+    car = od[od["mode"] == "CAR"]
     ratio = car[car.origin == zi].trips.sum() / car[car.destination == zi].trips.sum()
     assert ratio > 5.0
     zh = m["high_intrazonal"]["zone_ids"][0]
@@ -271,9 +271,13 @@ def test_trip_length_shift_lengthens_hbw_car(synthetic_export) -> None:
 
     def mean_len(path: Path) -> tuple[float, float]:
         od, sk = _read(path, "od"), _read(path, "skims")
-        d = sk[(sk.skim_kind == "DIST") & (sk.mode == "CAR") & (sk.period == "AM")]
-        hbw = od[(od.purpose == "HBW") & (od.mode == "CAR")].merge(d, on=["origin", "destination"])
-        hbo = od[(od.purpose == "HBO") & (od.mode == "CAR")].merge(d, on=["origin", "destination"])
+        d = sk[(sk.skim_kind == "DIST") & (sk["mode"] == "CAR") & (sk.period == "AM")]
+        hbw = od[(od.purpose == "HBW") & (od["mode"] == "CAR")].merge(
+            d, on=["origin", "destination"]
+        )
+        hbo = od[(od.purpose == "HBO") & (od["mode"] == "CAR")].merge(
+            d, on=["origin", "destination"]
+        )
         return (
             (hbw.trips * hbw.value).sum() / hbw.trips.sum(),
             (hbo.trips * hbo.value).sum() / hbo.trips.sum(),
@@ -308,12 +312,12 @@ def test_variants(synthetic_export) -> None:
     assert _read(unexp, "links").equals(_read(scen, "links"))
     sec = dict(zip(zones.zone_id, zones.sector_id, strict=True))
     od_s, od_u = _read(scen, "od"), _read(unexp, "od")
-    s4 = lambda df: df[df.origin.map(sec).eq("S4") & df.destination.map(sec).eq("S4")].trips.sum()  # noqa: E731
-    assert s4(od_u) / s4(od_s) == pytest.approx(1.3, rel=0.01)
-    other = lambda df: df[
-        df.origin.map(sec).eq("S1") & df.destination.map(sec).eq("S1")
-    ].trips.sum()  # noqa: E731
-    assert other(od_u) == pytest.approx(other(od_s), rel=1e-6)
+
+    def within(df: pd.DataFrame, sector: str) -> float:
+        return df[df.origin.map(sec).eq(sector) & df.destination.map(sec).eq(sector)].trips.sum()
+
+    assert within(od_u, "S4") / within(od_s, "S4") == pytest.approx(1.3, rel=0.01)
+    assert within(od_u, "S1") == pytest.approx(within(od_s, "S1"), rel=1e-6)
 
 
 def test_bad_arguments(tmp_path: Path) -> None:

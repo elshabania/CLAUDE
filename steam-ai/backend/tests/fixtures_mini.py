@@ -85,8 +85,8 @@ def mini_tables() -> dict[str, pd.DataFrame]:
             node_xy[nid] = (n["x"], n["y"])
             nid += 1
     # centroids near the corners (node 1 = bottom-left, 3 = bottom-right, 7 top-left, 9 top-right)
-    for cid, (col, row) in zip([101, 102, 103, 104], [(-0.5, -0.5), (2.5, -0.5), (-0.5, 2.5),
-                                                       (2.5, 2.5)]):
+    corners = [(-0.5, -0.5), (2.5, -0.5), (-0.5, 2.5), (2.5, 2.5)]
+    for cid, (col, row) in zip([101, 102, 103, 104], corners, strict=True):
         n = _node(cid, 0, 0, centroid=True)
         n["x"] = 54.0 + col * 0.01
         n["y"] = 24.0 + row * 0.01
@@ -110,7 +110,7 @@ def mini_tables() -> dict[str, pd.DataFrame]:
             links_rows.append(_link(lid, a, a + 3, "ART", node_xy, sector_of(a, a + 3)))
             lid += 1
     # connectors: corners 1, 3, 7, 9 (none touch the freeway)
-    for cid, road in zip([101, 102, 103, 104], [1, 3, 7, 9]):
+    for cid, road in zip([101, 102, 103, 104], [1, 3, 7, 9], strict=True):
         links_rows.append(_link(lid, cid, road, "CONN", node_xy, sector_of(road, road)))
         lid += 1
     links = pd.DataFrame(links_rows)
@@ -164,7 +164,7 @@ def mini_tables() -> dict[str, pd.DataFrame]:
         [
             {"line_id": "B1", "seq": k + 1, "from_node": a, "to_node": b, "is_stop": True,
              "source_file": "transit_segments.csv", "source_row": k + 1}
-            for k, (a, b) in enumerate(zip(seq_nodes, seq_nodes[1:]))
+            for k, (a, b) in enumerate(zip(seq_nodes, seq_nodes[1:], strict=False))
         ]
     )
     line_loads = pd.DataFrame(
@@ -179,17 +179,17 @@ def mini_tables() -> dict[str, pd.DataFrame]:
 
     flow_rows = []
     r = 1
-    for _, l in links.iterrows():
+    for _, lk in links.iterrows():
         for p in PERIODS:
-            if l["link_class"] == "CONN":
+            if lk["link_class"] == "CONN":
                 vol, vc = 500.0, 0.05
             else:
-                vol = l["capacity_vph"] * HOURS[p] * 0.5
+                vol = lk["capacity_vph"] * HOURS[p] * 0.5
                 vc = 0.5
             flow_rows.append(
-                {"link_id": l["link_id"], "period": p, "user_class": "ALL", "volume": vol,
-                 "vc_ratio": vc, "cong_time_s": l["length_m"] / (l["ffs_kph"] * 0.8) * 3.6,
-                 "cong_speed_kph": l["ffs_kph"] * 0.8, "delay_s": 30.0,
+                {"link_id": lk["link_id"], "period": p, "user_class": "ALL", "volume": vol,
+                 "vc_ratio": vc, "cong_time_s": lk["length_m"] / (lk["ffs_kph"] * 0.8) * 3.6,
+                 "cong_speed_kph": lk["ffs_kph"] * 0.8, "delay_s": 30.0,
                  "source_file": "link_flows.csv", "source_row": r}
             )
             r += 1

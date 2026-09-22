@@ -56,7 +56,7 @@ class TripLengthDistribution(Check):
         else:
             comp = run_mean.copy()
             comp["mean_km_base"] = [
-                _ref_lookup(reference, p, m) for p, m in zip(comp["purpose"], comp["mode"])
+                _ref_lookup(reference, p, m) for p, m in zip(comp["purpose"], comp["mode"], strict=True)
             ]
             comp["trips_base"] = None
             base_bins = pd.DataFrame(columns=run_bins.columns)
@@ -124,7 +124,7 @@ def _sqls(bins: list[float], unit_factor: float) -> tuple[str, str]:
     """
     edges = list(bins) + [1e12]
     values = ", ".join(f"({i}, {lo}, {hi})" for i, (lo, hi) in
-                       enumerate(zip(edges, edges[1:])))
+                       enumerate(zip(edges, edges[1:], strict=False)))
     bin_sql = f"""
         WITH b(bin_idx, lo, hi) AS (VALUES {values})
         SELECT o.purpose, o.mode, b.bin_idx, SUM(o.trips) AS trips

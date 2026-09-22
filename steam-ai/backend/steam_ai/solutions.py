@@ -8,7 +8,8 @@ a first-order arithmetic estimate is possible from the finding's own evidence
 
 from __future__ import annotations
 
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 from . import config
 from .models import EffectMethod, Finding, Measure, Severity
