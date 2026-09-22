@@ -64,6 +64,7 @@ class UnexplainedDemandShift(Check):
             return []
         changes = sector_change_summary(store, base, land_use_share=lu_share)
         out: list[Finding] = []
+        explained_rows: list[dict[str, Any]] = []
         for r in df.itertuples():
             share = None if r.shift_share is None or pd.isna(r.shift_share) \
                 else float(r.shift_share)
@@ -75,28 +76,26 @@ class UnexplainedDemandShift(Check):
             explanation = {s: changes[s] for s in (o, d) if s in changes}
             explained = bool(explanation)
             if explained:
-                sev: Severity | None = Severity.INFO
-            else:
-                sev = evaluate_severity(severity_rules, shift_share=share, explained=False)
+                # Explained shifts are expected behaviour: collect them into one Info
+                # summary instead of one finding per sector pair.
+                explained_rows.append({
+                    "origin_sector": o, "destination_sector": d,
+                    "run_trips": float(r.run_trips), "base_trips": float(r.base_trips),
+                    "delta_trips": float(r.delta), "shift_share": share,
+                    "explained_by": sorted(explanation)})
+                continue
+            sev = evaluate_severity(severity_rules, shift_share=share, explained=False)
             if sev is None:
                 continue
             direction = "more" if float(r.delta) > 0 else "fewer"
             line = (f"Trips from sector {o} to sector {d} are {pct(share, 0)} {direction} "
                     f"than in the base ({fmt(r.base_trips)} to {fmt(r.run_trips)})")
-            if explained:
-                changed = sorted(explanation)
-                line += (f", consistent with input changes in sector "
-                         f"{' and '.join(changed)}.")
-                cause = "Input changes in the sector: " + "; ".join(
-                    f"{s}: {', '.join(v[:3])}" for s, v in explanation.items())
-                action = "No action needed if the input changes were intended."
-            else:
-                line += ", with no change to land use, roads or transit in either sector."
-                cause = ("Demand responded to a change elsewhere (network speeds, "
-                         "parameters, or matrix processing) rather than to inputs in these "
-                         "sectors.")
-                action = ("Trace the change to skims or parameters; compare the base and "
-                          "scenario matrices for these sectors before reporting.")
+            line += ", with no change to land use, roads or transit in either sector."
+            cause = ("Demand responded to a change elsewhere (network speeds, "
+                     "parameters, or matrix processing) rather than to inputs in these "
+                     "sectors.")
+            action = ("Trace the change to skims or parameters; compare the base and "
+                      "scenario matrices for these sectors before reporting.")
             out.append(
                 make_finding(
                     run_id=store.run_id, check=self, severity=sev,
@@ -106,8 +105,7 @@ class UnexplainedDemandShift(Check):
                     values={"origin_sector": o, "destination_sector": d,
                             "run_trips": float(r.run_trips), "base_trips": float(r.base_trips),
                             "delta_trips": float(r.delta), "shift_share": share,
-                            "explained": explained, "explanation": explanation,
-                            "metric": "trips"},
+                            "explained": False, "explanation": {}, "metric": "trips"},
                     thresholds={"sector_shift_share": shift_share,
                                 "min_sector_pair_trips": min_trips,
                                 "explain_land_use_share": lu_share},
@@ -115,6 +113,37 @@ class UnexplainedDemandShift(Check):
                     query=sql, discriminator="sector_pair",
                     method="sector-to-sector DEMAND trips run vs base (all purposes, modes "
                     "and periods); explanation from changes.sector_change_summary",
+                )
+            )
+        if explained_rows:
+            n = len(explained_rows)
+            biggest = max(explained_rows, key=lambda x: abs(x["delta_trips"]))
+            sectors = sorted({s for x in explained_rows for s in x["explained_by"]})
+            out.append(
+                make_finding(
+                    run_id=store.run_id, check=self, severity=Severity.INFO,
+                    location=Location(type=LocationType.RUN, id=store.run_id,
+                                      label="Sector-to-sector demand"),
+                    executive_line=(
+                        f"{n} sector-to-sector demand shifts above {pct(shift_share, 0)} are "
+                        f"consistent with input changes in sector {', '.join(sectors)}; the "
+                        f"largest is {biggest['origin_sector']} to "
+                        f"{biggest['destination_sector']} "
+                        f"({fmt(biggest['base_trips'])} to {fmt(biggest['run_trips'])} trips)."
+                    ),
+                    likely_cause="Land use, network or transit inputs changed in the sectors "
+                    "concerned, so the demand response is expected.",
+                    suggested_action="No action needed if the input changes were intended; "
+                    "the per-pair list is in the evidence.",
+                    values={"n_explained_shifts": n, "explained_pairs": explained_rows,
+                            "metric": "trips"},
+                    thresholds={"sector_shift_share": shift_share,
+                                "min_sector_pair_trips": min_trips,
+                                "explain_land_use_share": lu_share},
+                    sources=[table_ref(store, "od", "trips"), table_ref(base, "od", "trips")],
+                    query=sql, discriminator="explained_summary",
+                    method="sector-to-sector DEMAND trips run vs base; shifts explained by "
+                    "changes.sector_change_summary are summarised here",
                 )
             )
         return out

@@ -18,17 +18,20 @@ def test_empty_line_with_nearby_demand() -> None:
     t = mini_tables()
     t["line_loads"]["load"] = 1.0  # 1.25% of capacity
     fs = run_check(CHECK, t, params={"min_catchment_demand": 300})
-    assert {(f.location.id, f.evidence.period) for f in fs} == {("B1", "AM"), ("B1", "PM")}
-    f = next(x for x in fs if x.evidence.period == "AM")
+    # One finding per line, aggregated across the periods with demand (AM and PM here).
+    assert [f.location.id for f in fs] == ["B1"]
+    f = fs[0]
     assert f.severity.value == "High"
     v = f.evidence.values
     assert v["load_factor"] == pytest.approx(1 / 80)
-    assert v["catchment_demand"] == 390.0  # zones 1, 2, 4 x (10 + 3 x 40) PT trips
+    assert v["catchment_demand"] == 780.0  # 390 per period (zones 1, 2, 4) x AM + PM
+    assert v["n_periods_with_demand"] == 2
+    assert {p["period"] for p in v["per_period"]} == {"AM", "PM"}
     assert v["n_catchment_zones"] == 3
     assert v["headway_min"] == 10.0 and v["mode"] == "BUS"
     assert f.location.type.value == "line" and f.location.lon is not None
     assert {s.table for s in f.evidence.sources} == {"line_loads", "od"}
-    assert "% full on average" in f.executive_line and "390 public transport" in f.executive_line
+    assert "% full on average" in f.executive_line and "780 public transport" in f.executive_line
 
 
 def test_demand_threshold_suppresses_finding() -> None:

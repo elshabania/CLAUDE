@@ -213,19 +213,32 @@ def _transit_integrity(store: RunStore, f: Finding) -> list[Measure]:
 
 def _unused_transit(store: RunStore, f: Finding) -> list[Measure]:
     v = f.evidence.values
-    headway = _num(v, "headway_min")
     route_km = _route_km(store, f.location.id)
-    period = f.evidence.period
-    hours = config.period_hours().get(period or "", 1.0)
+    hours = config.period_hours()
+    # The finding aggregates the line across the periods with demand; each period keeps
+    # its own headway, so the saving is summed per period and reported per day.
+    per_period = v.get("per_period") or []
+    if not per_period and f.evidence.period:
+        per_period = [{"period": f.evidence.period, "headway_min": _num(v, "headway_min")}]
     values: dict[str, float] = {}
     effect = None
     method = EffectMethod.NOT_COMPUTABLE
-    if headway and headway > 0 and route_km:
-        veh_km_saved = 0.5 * (60.0 / headway) * route_km * hours
+    saved_by_period: dict[str, float] = {}
+    if route_km:
+        for pp in per_period:
+            hw = pp.get("headway_min")
+            if hw and hw > 0:
+                saved_by_period[str(pp["period"])] = (
+                    0.5 * (60.0 / float(hw)) * route_km * hours.get(str(pp["period"]), 1.0))
+    if saved_by_period:
+        total = sum(saved_by_period.values())
+        headway = _num(v, "headway_min") or min(
+            float(pp["headway_min"]) for pp in per_period if pp.get("headway_min"))
         values = {"headway_before_min": headway, "headway_after_min": headway * 2,
-                  "vehicle_km_saved_per_period": veh_km_saved, "route_km": route_km}
-        effect = (f"saves about {veh_km_saved:,.0f} vehicle-km in {period} "
-                  "(half the current vehicle trips)")
+                  "vehicle_km_saved_per_day": total, "route_km": route_km,
+                  **{f"vehicle_km_saved_{p}": x for p, x in saved_by_period.items()}}
+        effect = (f"saves about {total:,.0f} vehicle-km per day across "
+                  f"{', '.join(saved_by_period)} (half the current vehicle trips)")
         method = EffectMethod.SKETCH_ELASTICITY
     return [
         _measure(

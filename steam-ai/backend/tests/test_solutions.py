@@ -82,8 +82,16 @@ def test_unused_service_measure_halves_frequency() -> None:
     assert "Halve the frequency" in titles
     halve = next(m for m in findings[0].measures if m.title == "Halve the frequency")
     assert halve.effect_values["headway_after_min"] == 20.0
-    assert halve.effect_values["vehicle_km_saved_per_period"] == pytest.approx(
-        0.5 * 6 * 4.0 * 3.0, rel=0.01)
+    # Summed over the periods the line serves, each with its own headway and hours.
+    from steam_ai import config as _config
+
+    hours = _config.period_hours()
+    expected = sum(0.5 * (60.0 / p["headway_min"]) * 4.0 * hours[p["period"]]
+                   for p in findings[0].evidence.values["per_period"])
+    assert expected > 0
+    assert halve.effect_values["vehicle_km_saved_per_day"] == pytest.approx(expected, rel=0.01)
+    assert halve.effect_values["vehicle_km_saved_AM"] == pytest.approx(0.5 * 6 * 4.0 * 3.0,
+                                                                        rel=0.01)
 
 
 def test_land_use_measure_gives_scale_factor() -> None:

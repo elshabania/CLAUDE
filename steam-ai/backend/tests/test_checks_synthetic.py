@@ -205,8 +205,8 @@ def test_unexplained_demand_shift_flags_only_the_unexplained_sector(
     for f in flagged:
         assert f.evidence.values["explained"] is False
         assert "S4" in {f.evidence.values["origin_sector"], f.evidence.values["destination_sector"]}
-    for f in explained:
-        assert f.evidence.values["explanation"]
+    assert len(explained) == 1  # explained shifts are summarised in one Info finding
+    assert explained[0].evidence.values["explained_pairs"]
     # the explained pairs involve the growth sectors S1/S2 or the new bus line
     scen = ingested_run(set(), variant="scenario", base_run_id=base.run_id)
     res2 = run_all(scen, base, only=["unexplained_demand_shift"])[0]

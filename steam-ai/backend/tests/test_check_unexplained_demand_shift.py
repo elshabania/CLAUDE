@@ -51,12 +51,15 @@ def test_land_use_change_explains_shift() -> None:
     lu = t["land_use"]
     lu.loc[(lu["zone_id"] == 1) & (lu["variable"] == "POP"), "value"] *= 1.1
     fs = run_check(CHECK, t, base_tables=mini_tables())
+    # Explained shifts are collapsed into one Info summary at run level.
     assert len(fs) == 1
     f = fs[0]
-    assert f.severity.value == "Info"
-    assert f.evidence.values["explained"] is True
-    assert "S1" in f.evidence.values["explanation"]
-    assert any("POP" in s for s in f.evidence.values["explanation"]["S1"])
+    assert f.severity.value == "Info" and f.location.type.value == "run"
+    v = f.evidence.values
+    assert v["n_explained_shifts"] == 1
+    pair = v["explained_pairs"][0]
+    assert (pair["origin_sector"], pair["destination_sector"]) == ("S1", "S2")
+    assert pair["explained_by"] == ["S1"]
     assert "consistent with input changes" in f.executive_line
 
 
@@ -66,8 +69,8 @@ def test_network_change_in_destination_sector_explains_shift() -> None:
     links = t["links"]
     links.loc[links["link_id"] == 2, "capacity_vph"] = 4000.0  # link 2 is in S2
     fs = run_check(CHECK, t, base_tables=mini_tables())
-    assert fs[0].severity.value == "Info"
-    assert list(fs[0].evidence.values["explanation"]) == ["S2"]
+    assert [f.severity.value for f in fs] == ["Info"]
+    assert fs[0].evidence.values["explained_pairs"][0]["explained_by"] == ["S2"]
 
 
 def test_tiny_land_use_change_does_not_explain() -> None:

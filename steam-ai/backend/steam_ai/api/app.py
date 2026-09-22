@@ -122,6 +122,53 @@ def run_kpis(store: RunStore = Depends(get_store)) -> list[dict[str, Any]]:
     return [k.model_dump(mode="json") for k in store.kpis()]
 
 
+def _input_diffs(raw: dict[str, Any]) -> list[dict[str, Any]]:
+    """Flatten changes.compute() detail into the InputDiff rows the UI lists."""
+    out: list[dict[str, Any]] = []
+    lu = raw.get("land_use") or {}
+    if lu.get("available"):
+        totals = [t for t in lu.get("totals") or [] if abs(t.get("delta") or 0) > 0]
+        if totals:
+            parts = [f"{t['variable']} {t['delta']:+,.0f} ({(t.get('delta_share') or 0) * 100:+.1f}%)"
+                     for t in totals[:6]]
+            out.append({"file": "land_use.csv", "table": "land_use", "change": "modified",
+                        "rows_changed": lu.get("n_sector_variables_changed"),
+                        "detail": "; ".join(parts)})
+    lk = raw.get("links") or {}
+    if lk.get("available"):
+        if lk.get("n_changed"):
+            out.append({"file": "links.csv", "table": "links", "change": "modified",
+                        "rows_changed": lk.get("n_changed"),
+                        "detail": (f"capacity on {lk.get('n_capacity_changed', 0)}, lanes on "
+                                   f"{lk.get('n_lanes_changed', 0)}, free-flow speed on "
+                                   f"{lk.get('n_ffs_changed', 0)} links")})
+        if lk.get("n_added"):
+            out.append({"file": "links.csv", "table": "links", "change": "added",
+                        "rows_changed": lk.get("n_added"), "detail": "new links"})
+        if lk.get("n_removed"):
+            out.append({"file": "links.csv", "table": "links", "change": "removed",
+                        "rows_changed": lk.get("n_removed"), "detail": "links removed"})
+    tr = raw.get("transit") or {}
+    if tr.get("available"):
+        for lid in tr.get("lines_added") or []:
+            out.append({"file": "transit_lines.csv", "table": "transit_lines",
+                        "change": "added", "rows_changed": 1, "detail": f"line {lid} added"})
+        for lid in tr.get("lines_removed") or []:
+            out.append({"file": "transit_lines.csv", "table": "transit_lines",
+                        "change": "removed", "rows_changed": 1, "detail": f"line {lid} removed"})
+        hc = tr.get("headway_changes") or []
+        if hc:
+            lines = sorted({str(h.get("line_id")) for h in hc})
+            out.append({"file": "transit_lines.csv", "table": "transit_lines",
+                        "change": "modified", "rows_changed": len(hc),
+                        "detail": "headways changed on " + ", ".join(lines[:8])})
+    for prm in raw.get("parameters") or []:
+        out.append({"file": "parameters.csv", "table": "parameters", "change": "modified",
+                    "rows_changed": 1,
+                    "detail": f"{prm.get('key')}: {prm.get('base_value')} -> {prm.get('run_value')}"})
+    return out
+
+
 @app.get(f"{API_PREFIX}/runs/{{run_id}}/changes")
 def run_changes(store: RunStore = Depends(get_store)) -> dict[str, Any]:
     base = store.base_store()
@@ -130,9 +177,32 @@ def run_changes(store: RunStore = Depends(get_store)) -> dict[str, Any]:
     from ..changes import compute
 
     try:
-        return compute(store, base)
+        raw = compute(store, base)
+        run_f = {f.finding_id: f.model_dump(mode="json") for f in store.findings()}
+        base_f = {f.finding_id: f.model_dump(mode="json") for f in base.findings()}
     finally:
         base.close()
+
+    def full(items: list[dict[str, Any]], pool: dict[str, Any]) -> list[dict[str, Any]]:
+        return [pool.get(i.get("finding_id"), i) for i in items]
+
+    fd = raw.get("findings") or {}
+    kpis = [{"kpi_id": k.get("kpi_id"), "name": k.get("name"), "unit": k.get("unit"),
+             "base_value": k.get("base"), "value": k.get("run"), "delta": k.get("delta"),
+             "delta_share": k.get("delta_share"), "is_significant": None}
+            for k in raw.get("kpis") or []]
+    return {
+        "run_id": store.run_id,
+        "base_run_id": raw.get("base_run_id"),
+        "inputs": _input_diffs(raw),
+        "findings": {"new": full(fd.get("new") or [], run_f),
+                     "resolved": full(fd.get("resolved") or [], base_f),
+                     "unchanged": full(fd.get("unchanged") or [], run_f),
+                     "n_new": fd.get("n_new"), "n_resolved": fd.get("n_resolved"),
+                     "n_unchanged": fd.get("n_unchanged")},
+        "kpis": kpis,
+        "detail": {k: raw.get(k) for k in ("land_use", "links", "transit", "parameters")},
+    }
 
 
 # --- network views --------------------------------------------------------------
@@ -203,9 +273,19 @@ def link_profile(link_id: int, store: RunStore = Depends(get_store)) -> dict[str
         nb = store.query("SELECT * FROM noise_band WHERE level='link' AND location_id = ?",
                          [str(link_id)])
         band = json.loads(nb.to_json(orient="records"))
-    return {"attributes": json.loads(attrs.to_json(orient="records"))[0],
-            "flows": json.loads(flows.to_json(orient="records")),
-            "findings": findings, "noise_band": band}
+    attr = json.loads(attrs.to_json(orient="records"))[0]
+    flow_rows = json.loads(flows.to_json(orient="records"))
+    sources = [{"file": attr.get("source_file"), "row": attr.get("source_row"),
+                "table": "links", "column": None}]
+    for r in flow_rows:
+        sources.append({"file": r.get("source_file"), "row": r.get("source_row"),
+                        "table": "link_flows", "column": "volume"})
+    geometry = None
+    if attr.get("geometry_wkt"):
+        geometry = {"type": "LineString", "coordinates": _wkt_line_to_coords(attr["geometry_wkt"])}
+    return {"link_id": str(link_id), "attributes": attr, "flows": flow_rows,
+            "findings": findings, "sources": sources, "geometry": geometry,
+            "noise_band": band}
 
 
 @app.get(f"{API_PREFIX}/runs/{{run_id}}/nodes/{{node_id}}")
