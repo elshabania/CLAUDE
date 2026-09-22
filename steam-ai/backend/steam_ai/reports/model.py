@@ -297,14 +297,13 @@ def _executive_summary(store: RunStore, ranked: list[Finding]) -> list[Block]:
             "(derived/health.json is missing)."))
     else:
         blocks.append(Paragraph(
-            f"Run health score: {fmt(health.score, 'pct').rstrip('%')} out of 100, "
-            f"grade {health.grade}.",
+            f"Run health score: {health.score:.1f} out of 100, grade {health.grade}.",
             source_ref=_src("health.json")))
         blocks.append(Paragraph(f"Definition: {health.definition.strip()}",
                                 source_ref=_src("config/health.yaml", "health.json")))
         if health.components:
-            rows = [[c.name.capitalize(), fmt(c.score, "pct").rstrip("%"),
-                     fmt(c.weight, "ratio"), c.detail] for c in health.components]
+            rows = [[c.name.capitalize(), f"{c.score:.1f}", fmt(c.weight, "ratio"), c.detail]
+                    for c in health.components]
             blocks.append(Table(["Component", "Score", "Weight", "Detail"], rows,
                                 caption="Health score components",
                                 source_ref=_src("health.json")))
