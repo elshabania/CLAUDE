@@ -7,8 +7,9 @@ needs is absent. Figures are written into ``store.derived_path("figures")``.
 from __future__ import annotations
 
 import math
+from collections.abc import Mapping
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any
 
 import matplotlib
 
@@ -69,10 +70,14 @@ def findings_by_severity_and_check(store: RunStore) -> tuple[Path, str] | None:
     if not findings:
         return None
     df = pd.DataFrame(
-        {"check": [f.check_name for f in findings], "severity": [f.severity.value for f in findings]}
+        {
+            "check": [f.check_name for f in findings],
+            "severity": [f.severity.value for f in findings],
+        }
     )
-    pivot = df.pivot_table(index="check", columns="severity", values="severity",
-                           aggfunc="count", fill_value=0)
+    pivot = df.pivot_table(
+        index="check", columns="severity", values="severity", aggfunc="count", fill_value=0
+    )
     for s in SEVERITY_ORDER:
         if s not in pivot.columns:
             pivot[s] = 0
@@ -85,10 +90,18 @@ def findings_by_severity_and_check(store: RunStore) -> tuple[Path, str] | None:
     y = np.arange(len(pivot))
     for s in SEVERITY_ORDER:
         vals = pivot[s].to_numpy(dtype=float)
-        ax.barh(y, vals, left=left, color=SEVERITY_COLOURS[s], label=s, height=0.6,
-                edgecolor="white", linewidth=1.0)
+        ax.barh(
+            y,
+            vals,
+            left=left,
+            color=SEVERITY_COLOURS[s],
+            label=s,
+            height=0.6,
+            edgecolor="white",
+            linewidth=1.0,
+        )
         left += vals
-    for yi, total in zip(y, left):
+    for yi, total in zip(y, left, strict=False):
         ax.text(total + 0.1, yi, f"{int(total)}", va="center", fontsize=8, color=INK)
     ax.set_yticks(y)
     ax.set_yticklabels(pivot.index, fontsize=8)
@@ -115,7 +128,9 @@ def _flows_all(store: RunStore, periods: list[str]) -> pd.DataFrame | None:
     return df if len(df) else None
 
 
-def vc_histogram(store: RunStore, periods: tuple[str, str] = ("AM", "PM")) -> tuple[Path, str] | None:
+def vc_histogram(
+    store: RunStore, periods: tuple[str, str] = ("AM", "PM")
+) -> tuple[Path, str] | None:
     """V/C distribution for the peak periods, user class ALL, one panel per period."""
     df = _flows_all(store, list(periods))
     if df is None:
@@ -126,7 +141,7 @@ def vc_histogram(store: RunStore, periods: tuple[str, str] = ("AM", "PM")) -> tu
     bins = np.arange(0.0, 1.6 + 1e-9, 0.1)
     fig, axes = plt.subplots(1, len(present), figsize=(3.8 * len(present), 3.0), sharey=True)
     axes_list = list(np.atleast_1d(axes))
-    for ax, p in zip(axes_list, present):
+    for ax, p in zip(axes_list, present, strict=False):
         vals = np.clip(df.loc[df.period == p, "vc_ratio"].to_numpy(dtype=float), 0, 1.6 - 1e-6)
         ax.hist(vals, bins=bins, color="#3b6ea8", edgecolor="white", linewidth=0.8)
         ax.axvline(1.0, color=SEVERITY_COLOURS["Critical"], linewidth=1.2, linestyle="--")
@@ -149,8 +164,11 @@ def _finding_points(store: RunStore, links: pd.DataFrame) -> pd.DataFrame:
         lon, lat = f.location.lon, f.location.lat
         if (lon is None or lat is None) and f.location.type.value == "link":
             if geoms is None:
-                geoms = {int(r.link_id): r.geometry_wkt for r in links.itertuples()
-                         if isinstance(r.geometry_wkt, str)}
+                geoms = {
+                    int(r.link_id): r.geometry_wkt
+                    for r in links.itertuples()
+                    if isinstance(r.geometry_wkt, str)
+                }
             w = geoms.get(int(f.location.id)) if f.location.id.isdigit() else None
             if w:
                 c = shapely_wkt.loads(w).centroid
@@ -199,17 +217,26 @@ def network_map(store: RunStore, period: str = "AM") -> tuple[Path, str] | None:
     if has_vc.any():
         cmap = plt.get_cmap("viridis")
         norm = matplotlib.colors.Normalize(vmin=0.0, vmax=VC_MAX)
-        lc = LineCollection([s for s, ok in zip(segments, has_vc) if ok],
-                            cmap=cmap, norm=norm, linewidths=2.2)
+        lc = LineCollection(
+            [s for s, ok in zip(segments, has_vc, strict=False) if ok],
+            cmap=cmap,
+            norm=norm,
+            linewidths=2.2,
+        )
         lc.set_array(vals[has_vc])
         ax.add_collection(lc)
         cb = fig.colorbar(lc, ax=ax, fraction=0.035, pad=0.02, extend="max")
         cb.set_label(f"V/C ratio, {period}, user class ALL", fontsize=8, color=INK)
         cb.ax.tick_params(labelsize=7, colors=INK)
     if (~has_vc).any():
-        ax.add_collection(LineCollection([s for s, ok in zip(segments, has_vc) if not ok],
-                                         colors="#c8c8c8", linewidths=1.0,
-                                         label="No flow data"))
+        ax.add_collection(
+            LineCollection(
+                [s for s, ok in zip(segments, has_vc, strict=False) if not ok],
+                colors="#c8c8c8",
+                linewidths=1.0,
+                label="No flow data",
+            )
+        )
 
     pts = _finding_points(store, links)
     markers = {"Critical": ("X", 110), "High": ("^", 80)}
@@ -217,8 +244,17 @@ def network_map(store: RunStore, period: str = "AM") -> tuple[Path, str] | None:
         sub = pts[pts.severity == sev]
         if sub.empty:
             continue
-        ax.scatter(sub.lon, sub.lat, marker=mk, s=size, color=SEVERITY_COLOURS[sev],
-                   edgecolor="white", linewidth=0.8, zorder=5, label=f"{sev} finding")
+        ax.scatter(
+            sub.lon,
+            sub.lat,
+            marker=mk,
+            s=size,
+            color=SEVERITY_COLOURS[sev],
+            edgecolor="white",
+            linewidth=0.8,
+            zorder=5,
+            label=f"{sev} finding",
+        )
 
     all_xy = np.vstack(segments)
     lon_min, lat_min = all_xy.min(axis=0)
@@ -231,17 +267,30 @@ def network_map(store: RunStore, period: str = "AM") -> tuple[Path, str] | None:
     ax.set_aspect(1.0 / max(math.cos(math.radians(mid_lat)), 1e-6))
     ax.set_xlabel("Longitude")
     ax.set_ylabel("Latitude")
-    ax.set_title(f"Network V/C, {period} peak, with Critical and High finding locations",
-                 fontsize=10, loc="left")
-    ax.annotate("N", xy=(0.97, 0.96), xytext=(0.97, 0.88), xycoords="axes fraction",
-                textcoords="axes fraction", ha="center", fontsize=9, color=INK,
-                arrowprops={"arrowstyle": "-|>", "color": INK})
+    ax.set_title(
+        f"Network V/C, {period} peak, with Critical and High finding locations",
+        fontsize=10,
+        loc="left",
+    )
+    ax.annotate(
+        "N",
+        xy=(0.97, 0.96),
+        xytext=(0.97, 0.88),
+        xycoords="axes fraction",
+        textcoords="axes fraction",
+        ha="center",
+        fontsize=9,
+        color=INK,
+        arrowprops={"arrowstyle": "-|>", "color": INK},
+    )
     if ax.get_legend_handles_labels()[0]:
         ax.legend(frameon=False, fontsize=8, loc="lower left")
     _style(ax)
     path = _save(fig, _fig_dir(store) / "network_map.png")
-    return path, (f"[src: links table (geometry_wkt); link_flows table period {period} "
-                  f"user_class ALL; findings.json]")
+    return path, (
+        f"[src: links table (geometry_wkt); link_flows table period {period} "
+        f"user_class ALL; findings.json]"
+    )
 
 
 def convergence_curves(store: RunStore) -> tuple[Path, str] | None:
@@ -261,13 +310,28 @@ def convergence_curves(store: RunStore) -> tuple[Path, str] | None:
     fig, ax = plt.subplots(figsize=(7.5, 3.6))
     for i, ((stage, period), g) in enumerate(df.groupby(["stage", "period"], sort=True)):
         label = f"{period}" if df.stage.nunique() == 1 else f"{stage} {period}"
-        ax.plot(g.iteration, g.value, linewidth=2.0, color=palette[i % len(palette)],
-                label=label, marker="o", markersize=3)
-        ax.annotate(label, xy=(g.iteration.iloc[-1], g.value.iloc[-1]), xytext=(4, 0),
-                    textcoords="offset points", fontsize=8, va="center", color=INK)
+        ax.plot(
+            g.iteration,
+            g.value,
+            linewidth=2.0,
+            color=palette[i % len(palette)],
+            label=label,
+            marker="o",
+            markersize=3,
+        )
+        ax.annotate(
+            label,
+            xy=(g.iteration.iloc[-1], g.value.iloc[-1]),
+            xytext=(4, 0),
+            textcoords="offset points",
+            fontsize=8,
+            va="center",
+            color=INK,
+        )
     if target is not None:
-        ax.axhline(float(target), color=MUTED, linestyle="--", linewidth=1.0,
-                   label=f"Target {target}")
+        ax.axhline(
+            float(target), color=MUTED, linestyle="--", linewidth=1.0, label=f"Target {target}"
+        )
     ax.set_yscale("log")
     ax.set_xlabel("Iteration")
     ax.set_ylabel("Relative gap")
@@ -278,16 +342,19 @@ def convergence_curves(store: RunStore) -> tuple[Path, str] | None:
     return path, "[src: convergence table (metric REL_GAP); config/checks.yaml rel_gap_target]"
 
 
-def build_all(store: RunStore,
-              reporting_cfg: Mapping[str, Any] | None = None) -> dict[str, tuple[Path, str]]:
+def build_all(
+    store: RunStore, reporting_cfg: Mapping[str, Any] | None = None
+) -> dict[str, tuple[Path, str]]:
     """Build every figure that the data allows; keys are stable for the report model."""
     rcfg = reporting_cfg if reporting_cfg is not None else config.reporting()
     diag = rcfg.get("diagnostic_report", {})
     out: dict[str, tuple[Path, str]] = {}
     if diag.get("include_charts", True):
-        for key, fn in (("findings_by_check", findings_by_severity_and_check),
-                        ("vc_hist", vc_histogram),
-                        ("convergence", convergence_curves)):
+        for key, fn in (
+            ("findings_by_check", findings_by_severity_and_check),
+            ("vc_hist", vc_histogram),
+            ("convergence", convergence_curves),
+        ):
             res = fn(store)
             if res is not None:
                 out[key] = res

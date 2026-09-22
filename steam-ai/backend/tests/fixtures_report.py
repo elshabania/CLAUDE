@@ -75,7 +75,10 @@ def _links(nodes: pd.DataFrame) -> pd.DataFrame:
     classes = ["FWY", "ART", "COL"]
     for i in range(GRID):
         for j in range(GRID):
-            for a, b in ((_node_id(i, j), _node_id(i + 1, j)), (_node_id(i, j), _node_id(i, j + 1))):
+            for a, b in (
+                (_node_id(i, j), _node_id(i + 1, j)),
+                (_node_id(i, j), _node_id(i, j + 1)),
+            ):
                 if b not in xy:
                     continue
                 link_id += 1
@@ -248,7 +251,10 @@ def _findings(links: pd.DataFrame) -> list[dict]:
     src = lambda f, row: {"file": f, "row": row, "table": None, "column": None}  # noqa: E731
     return [
         _finding(
-            "f-crit-001", *lvo, "Critical", _link_loc(links, 7),
+            "f-crit-001",
+            *lvo,
+            "Critical",
+            _link_loc(links, 7),
             "Link 7 carries 42% more traffic than its capacity in the AM peak.",
             "vc_ratio = 1.42 for link 7, period AM, user_class ALL; class threshold 1.30 "
             "(config/checks.yaml link_volume_outliers.vc_critical).",
@@ -280,7 +286,10 @@ def _findings(links: pd.DataFrame) -> list[dict]:
             period="AM",
         ),
         _finding(
-            "f-crit-002", "network_connectivity", "Network connectivity", "Critical",
+            "f-crit-002",
+            "network_connectivity",
+            "Network connectivity",
+            "Critical",
             _link_loc(links, 15),
             "Link 15 has zero capacity, so no traffic can use it.",
             "capacity_vph = 0 on link 15 (links.csv row 16); min_capacity_vph = 1.0.",
@@ -302,7 +311,10 @@ def _findings(links: pd.DataFrame) -> list[dict]:
             ],
         ),
         _finding(
-            "f-high-001", *lvo, "High", _link_loc(links, 22),
+            "f-high-001",
+            *lvo,
+            "High",
+            _link_loc(links, 22),
             "Link 22 is 18% over capacity in the PM peak.",
             "vc_ratio = 1.18 for link 22, period PM, user_class ALL; threshold 1.10.",
             {"vc_ratio": 1.18, "volume": 5310, "capacity_vph": 1500},
@@ -324,7 +336,10 @@ def _findings(links: pd.DataFrame) -> list[dict]:
             period="PM",
         ),
         _finding(
-            "f-high-002", "convergence_and_noise", "Convergence and noise", "High",
+            "f-high-002",
+            "convergence_and_noise",
+            "Convergence and noise",
+            "High",
             {"type": "run", "id": RUN_ID, "label": "PM assignment", "lon": None, "lat": None},
             "The PM highway assignment stopped before reaching the convergence target.",
             "Final REL_GAP = 0.005 at iteration 20 for HWY_ASSIGN PM; target 0.001, high 0.01.",
@@ -347,7 +362,10 @@ def _findings(links: pd.DataFrame) -> list[dict]:
             period="PM",
         ),
         _finding(
-            "f-high-003", "centroid_connectors", "Centroid connectors", "High",
+            "f-high-003",
+            "centroid_connectors",
+            "Centroid connectors",
+            "High",
             _link_loc(links, 41),
             "A zone connector joins the network directly onto a freeway.",
             "Connector link 41 attaches to node 100, which carries FWY link 1; "
@@ -370,7 +388,10 @@ def _findings(links: pd.DataFrame) -> list[dict]:
             ],
         ),
         _finding(
-            "f-med-001", *lvo, "Medium", _link_loc(links, 31),
+            "f-med-001",
+            *lvo,
+            "Medium",
+            _link_loc(links, 31),
             "Link 31 is close to capacity in the AM peak.",
             "vc_ratio = 0.97 for link 31, period AM; medium threshold 0.95.",
             {"vc_ratio": 0.97},
@@ -381,7 +402,10 @@ def _findings(links: pd.DataFrame) -> list[dict]:
             period="AM",
         ),
         _finding(
-            "f-med-002", "centroid_connectors", "Centroid connectors", "Medium",
+            "f-med-002",
+            "centroid_connectors",
+            "Centroid connectors",
+            "Medium",
             _link_loc(links, 42),
             "A zone connector is 6.2 km long, more than the 5 km limit.",
             "length_m = 6200 on connector link 42; max_connector_length_m = 5000.",
@@ -392,7 +416,10 @@ def _findings(links: pd.DataFrame) -> list[dict]:
             "Split the zone or add a loading point closer to the centroid.",
         ),
         _finding(
-            "f-med-003", "matrix_sanity", "Matrix sanity", "Medium",
+            "f-med-003",
+            "matrix_sanity",
+            "Matrix sanity",
+            "Medium",
             {"type": "zone", "id": "12", "label": "Zone 12", "lon": 54.415, "lat": 24.455},
             "Zone 12 keeps 21% of its trips inside the zone, above the 15% limit.",
             "intrazonal share = 0.21 for zone 12, HBW CAR AM; intrazonal_share_max = 0.15.",
@@ -404,7 +431,10 @@ def _findings(links: pd.DataFrame) -> list[dict]:
             period="AM",
         ),
         _finding(
-            "f-med-004", "unrealistic_speeds_times", "Unrealistic speeds and times", "Medium",
+            "f-med-004",
+            "unrealistic_speeds_times",
+            "Unrealistic speeds and times",
+            "Medium",
             _link_loc(links, 7),
             "Delay on link 7 exceeds 15 minutes in the AM peak.",
             "delay_s = 1020 on link 7 AM; max_delay_s = 900.",
@@ -416,9 +446,11 @@ def _findings(links: pd.DataFrame) -> list[dict]:
             period="AM",
         ),
         _finding(
-            "f-info-001", "matrix_sanity", "Matrix sanity", "Info",
-            {"type": "matrix", "id": "HBW_CAR_AM", "label": "HBW CAR AM", "lon": None,
-             "lat": None},
+            "f-info-001",
+            "matrix_sanity",
+            "Matrix sanity",
+            "Info",
+            {"type": "matrix", "id": "HBW_CAR_AM", "label": "HBW CAR AM", "lon": None, "lat": None},
             "The HBW car AM matrix contains small fractional cells.",
             "1240 cells below 0.01 trips in HBW CAR AM DEMAND.",
             {"cells_below_0_01": 1240},
@@ -429,9 +461,11 @@ def _findings(links: pd.DataFrame) -> list[dict]:
             period="AM",
         ),
         _finding(
-            "f-info-002", "matrix_sanity", "Matrix sanity", "Info",
-            {"type": "matrix", "id": "HBO_PT_PM", "label": "HBO PT PM", "lon": None,
-             "lat": None},
+            "f-info-002",
+            "matrix_sanity",
+            "Matrix sanity",
+            "Info",
+            {"type": "matrix", "id": "HBO_PT_PM", "label": "HBO PT PM", "lon": None, "lat": None},
             "The HBO PT PM matrix contains small fractional cells.",
             "860 cells below 0.01 trips in HBO PT PM DEMAND.",
             {"cells_below_0_01": 860},
@@ -442,7 +476,10 @@ def _findings(links: pd.DataFrame) -> list[dict]:
             period="PM",
         ),
         _finding(
-            "f-info-003", *lvo, "Info", _link_loc(links, 3),
+            "f-info-003",
+            *lvo,
+            "Info",
+            _link_loc(links, 3),
             "Link 3 flow moved slightly between the last iterations; within the noise band.",
             "Change of 2.1% between iterations 19 and 20 is inside the noise band (3.0%).",
             {"change_share": 0.021},
@@ -461,27 +498,61 @@ def _check_results(findings: list[dict]) -> list[dict]:
     for f in findings:
         counts[f["check_id"]] = counts.get(f["check_id"], 0) + 1
     spec = [
-        ("null_and_id_integrity", "Null and ID integrity", "ok", "No missing references.", 0.12,
-         200),
+        (
+            "null_and_id_integrity",
+            "Null and ID integrity",
+            "ok",
+            "No missing references.",
+            0.12,
+            200,
+        ),
         ("network_connectivity", "Network connectivity", "ok", None, 0.31, 42),
         ("centroid_connectors", "Centroid connectors", "ok", None, 0.05, 2),
-        ("transit_line_integrity", "Transit line integrity", "skipped",
-         "transit_lines table not present", 0.0, 0),
-        ("land_use_control_totals", "Land use control totals", "skipped",
-         "control_totals table not present", 0.0, 0),
+        (
+            "transit_line_integrity",
+            "Transit line integrity",
+            "skipped",
+            "transit_lines table not present",
+            0.0,
+            0,
+        ),
+        (
+            "land_use_control_totals",
+            "Land use control totals",
+            "skipped",
+            "control_totals table not present",
+            0.0,
+            0,
+        ),
         ("link_volume_outliers", "Link volume outliers", "ok", None, 0.44, 84),
-        ("convergence_and_noise", "Convergence and noise", "ok",
-         "PM did not reach the relative gap target.", 0.09, 40),
+        (
+            "convergence_and_noise",
+            "Convergence and noise",
+            "ok",
+            "PM did not reach the relative gap target.",
+            0.09,
+            40,
+        ),
         ("matrix_sanity", "Matrix sanity", "ok", None, 1.8, 40000),
-        ("trip_length_distribution", "Trip length distribution", "error",
-         "no base run to compare against", 0.01, 0),
+        (
+            "trip_length_distribution",
+            "Trip length distribution",
+            "error",
+            "no base run to compare against",
+            0.01,
+            0,
+        ),
         ("unrealistic_speeds_times", "Unrealistic speeds and times", "ok", None, 0.2, 84),
-        ("parameter_drift", "Parameter drift", "skipped", "parameters table not present", 0.0,
-         0),
-        ("unexplained_demand_shift", "Unexplained demand shift", "skipped",
-         "no base run", 0.0, 0),
-        ("unused_transit_services", "Unused transit services", "skipped",
-         "line_loads table not present", 0.0, 0),
+        ("parameter_drift", "Parameter drift", "skipped", "parameters table not present", 0.0, 0),
+        ("unexplained_demand_shift", "Unexplained demand shift", "skipped", "no base run", 0.0, 0),
+        (
+            "unused_transit_services",
+            "Unused transit services",
+            "skipped",
+            "line_loads table not present",
+            0.0,
+            0,
+        ),
     ]
     return [
         {
@@ -499,24 +570,41 @@ def _check_results(findings: list[dict]) -> list[dict]:
 
 def _health(findings: list[dict]) -> dict:
     sig = [f for f in findings if f["is_significant"]]
-    counts = {s: sum(1 for f in findings if f["severity"] == s)
-              for s in ("Critical", "High", "Medium", "Info")}
+    counts = {
+        s: sum(1 for f in findings if f["severity"] == s)
+        for s in ("Critical", "High", "Medium", "Info")
+    }
     pen = {"Critical": 25, "High": 8, "Medium": 2, "Info": 0}
     fc = max(0.0, 100.0 - sum(pen[f["severity"]] for f in sig))
     # PM rel gap 0.005: 1 - (0.005 - 0.001) / (0.01 - 0.001)
     cc = 100.0 * (1.0 - (0.005 - 0.001) / 0.009)
     score = 0.7 * fc + 0.3 * cc
-    grade = "A" if score >= 90 else "B" if score >= 75 else "C" if score >= 60 else (
-        "D" if score >= 40 else "E")
+    grade = (
+        "A"
+        if score >= 90
+        else "B"
+        if score >= 75
+        else "C"
+        if score >= 60
+        else ("D" if score >= 40 else "E")
+    )
     return {
         "run_id": RUN_ID,
         "score": round(score, 1),
         "grade": grade,
         "components": [
-            {"name": "findings", "score": round(fc, 1), "weight": 0.7,
-             "detail": "2 Critical, 3 High, 4 Medium significant findings"},
-            {"name": "convergence", "score": round(cc, 1), "weight": 0.3,
-             "detail": "PM final relative gap 0.005 against a target of 0.001"},
+            {
+                "name": "findings",
+                "score": round(fc, 1),
+                "weight": 0.7,
+                "detail": "2 Critical, 3 High, 4 Medium significant findings",
+            },
+            {
+                "name": "convergence",
+                "score": round(cc, 1),
+                "weight": 0.3,
+                "detail": "PM final relative gap 0.005 against a target of 0.001",
+            },
         ],
         "counts": counts,
         "definition": (
@@ -538,19 +626,34 @@ def _kpis(links: pd.DataFrame, flows: pd.DataFrame) -> list[dict]:
     speed = float((am.volume * am.cong_speed_kph).sum() / am.volume.sum())
     src = [{"file": "link_flows.csv", "row": None, "table": "link_flows", "column": None}]
     return [
-        {"kpi_id": "total_vkt_am", "name": "Vehicle-km travelled, AM", "value": vkt,
-         "unit": "veh-km", "period": "AM",
-         "definition": "Sum of link volume x length for user_class ALL in the AM period.",
-         "sources": src},
-        {"kpi_id": "share_links_over_capacity_am", "name": "Share of links with V/C above 1.0, AM",
-         "value": share, "unit": "share", "period": "AM",
-         "definition": "Links with vc_ratio > 1.0 divided by all links carrying flow, AM, "
-                       "user_class ALL.",
-         "sources": src},
-        {"kpi_id": "mean_cong_speed_am", "name": "Volume-weighted congested speed, AM",
-         "value": speed, "unit": "km/h", "period": "AM",
-         "definition": "Sum(volume x congested speed) / Sum(volume) for AM, user_class ALL.",
-         "sources": src},
+        {
+            "kpi_id": "total_vkt_am",
+            "name": "Vehicle-km travelled, AM",
+            "value": vkt,
+            "unit": "veh-km",
+            "period": "AM",
+            "definition": "Sum of link volume x length for user_class ALL in the AM period.",
+            "sources": src,
+        },
+        {
+            "kpi_id": "share_links_over_capacity_am",
+            "name": "Share of links with V/C above 1.0, AM",
+            "value": share,
+            "unit": "share",
+            "period": "AM",
+            "definition": "Links with vc_ratio > 1.0 divided by all links carrying flow, AM, "
+            "user_class ALL.",
+            "sources": src,
+        },
+        {
+            "kpi_id": "mean_cong_speed_am",
+            "name": "Volume-weighted congested speed, AM",
+            "value": speed,
+            "unit": "km/h",
+            "period": "AM",
+            "definition": "Sum(volume x congested speed) / Sum(volume) for AM, user_class ALL.",
+            "sources": src,
+        },
     ]
 
 

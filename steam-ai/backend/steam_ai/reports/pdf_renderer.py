@@ -20,12 +20,18 @@ from reportlab.platypus import (
     KeepTogether,
     ListFlowable,
     ListItem,
-    PageBreak as RLPageBreak,
-    Paragraph as RLParagraph,
     SimpleDocTemplate,
     Spacer,
-    Table as RLTable,
     TableStyle,
+)
+from reportlab.platypus import (
+    PageBreak as RLPageBreak,
+)
+from reportlab.platypus import (
+    Paragraph as RLParagraph,
+)
+from reportlab.platypus import (
+    Table as RLTable,
 )
 
 from .model import (
@@ -66,29 +72,78 @@ FIG_W = 16 * cm
 def _styles() -> dict[str, ParagraphStyle]:
     base = getSampleStyleSheet()
     s: dict[str, ParagraphStyle] = {}
-    s["body"] = ParagraphStyle("body", parent=base["Normal"], fontName=FONT, fontSize=10,
-                               leading=13.5, textColor=INK, spaceAfter=6)
+    s["body"] = ParagraphStyle(
+        "body",
+        parent=base["Normal"],
+        fontName=FONT,
+        fontSize=10,
+        leading=13.5,
+        textColor=INK,
+        spaceAfter=6,
+    )
     s["body_tight"] = ParagraphStyle("body_tight", parent=s["body"], spaceAfter=0)
-    s["src"] = ParagraphStyle("src", parent=s["body"], fontSize=7, leading=9, textColor=GREY,
-                              spaceAfter=6)
-    s["title"] = ParagraphStyle("title", parent=s["body"], fontName=FONT_BOLD, fontSize=24,
-                                leading=29, spaceAfter=6, spaceBefore=18)
-    s["subtitle"] = ParagraphStyle("subtitle", parent=s["body"], fontSize=13, leading=17,
-                                   spaceAfter=10)
-    s["meta"] = ParagraphStyle("meta", parent=s["body"], fontSize=9, leading=12, textColor=GREY,
-                               spaceAfter=12)
-    s["h1"] = ParagraphStyle("h1", parent=s["body"], fontName=FONT_BOLD, fontSize=16,
-                             leading=20, textColor=NAVY, spaceBefore=14, spaceAfter=8)
-    s["h2"] = ParagraphStyle("h2", parent=s["body"], fontName=FONT_BOLD, fontSize=13,
-                             leading=16, textColor=NAVY, spaceBefore=10, spaceAfter=6)
-    s["h3"] = ParagraphStyle("h3", parent=s["body"], fontName=FONT_BOLD, fontSize=11,
-                             leading=14, textColor=NAVY, spaceBefore=8, spaceAfter=4)
+    s["src"] = ParagraphStyle(
+        "src", parent=s["body"], fontSize=7, leading=9, textColor=GREY, spaceAfter=6
+    )
+    s["title"] = ParagraphStyle(
+        "title",
+        parent=s["body"],
+        fontName=FONT_BOLD,
+        fontSize=24,
+        leading=29,
+        spaceAfter=6,
+        spaceBefore=18,
+    )
+    s["subtitle"] = ParagraphStyle(
+        "subtitle", parent=s["body"], fontSize=13, leading=17, spaceAfter=10
+    )
+    s["meta"] = ParagraphStyle(
+        "meta", parent=s["body"], fontSize=9, leading=12, textColor=GREY, spaceAfter=12
+    )
+    s["h1"] = ParagraphStyle(
+        "h1",
+        parent=s["body"],
+        fontName=FONT_BOLD,
+        fontSize=16,
+        leading=20,
+        textColor=NAVY,
+        spaceBefore=14,
+        spaceAfter=8,
+    )
+    s["h2"] = ParagraphStyle(
+        "h2",
+        parent=s["body"],
+        fontName=FONT_BOLD,
+        fontSize=13,
+        leading=16,
+        textColor=NAVY,
+        spaceBefore=10,
+        spaceAfter=6,
+    )
+    s["h3"] = ParagraphStyle(
+        "h3",
+        parent=s["body"],
+        fontName=FONT_BOLD,
+        fontSize=11,
+        leading=14,
+        textColor=NAVY,
+        spaceBefore=8,
+        spaceAfter=4,
+    )
     s["cell"] = ParagraphStyle("cell", parent=s["body"], fontSize=8, leading=10, spaceAfter=0)
     s["cell_head"] = ParagraphStyle("cell_head", parent=s["cell"], fontName=FONT_BOLD)
-    s["caption"] = ParagraphStyle("caption", parent=s["body"], fontName=FONT_BOLD, fontSize=9,
-                                  leading=12, spaceAfter=2)
-    s["fig_caption"] = ParagraphStyle("fig_caption", parent=s["body"], fontName=FONT_ITALIC,
-                                      fontSize=9, leading=12, alignment=TA_CENTER, spaceAfter=2)
+    s["caption"] = ParagraphStyle(
+        "caption", parent=s["body"], fontName=FONT_BOLD, fontSize=9, leading=12, spaceAfter=2
+    )
+    s["fig_caption"] = ParagraphStyle(
+        "fig_caption",
+        parent=s["body"],
+        fontName=FONT_ITALIC,
+        fontSize=9,
+        leading=12,
+        alignment=TA_CENTER,
+        spaceAfter=2,
+    )
     s["callout"] = ParagraphStyle("callout", parent=s["body"], spaceAfter=0, leading=13.5)
     return s
 
@@ -115,7 +170,7 @@ def _col_widths(block: Table) -> list[float]:
         widths = [max(w, min_w) for w in widths]
         spare = [w - min_w for w in widths]
         spare_total = sum(spare) or 1.0
-        widths = [w - deficit * sp / spare_total for w, sp in zip(widths, spare)]
+        widths = [w - deficit * sp / spare_total for w, sp in zip(widths, spare, strict=False)]
     return widths
 
 
@@ -129,15 +184,19 @@ def _table(block: Table, s: dict[str, ParagraphStyle]) -> list:
         cells = list(row) + [""] * (n - len(row))
         data.append([RLParagraph(_esc(c), s["cell"]) for c in cells[:n]])
     tbl = RLTable(data, colWidths=_col_widths(block), repeatRows=1)
-    tbl.setStyle(TableStyle([
-        ("BACKGROUND", (0, 0), (-1, 0), HEADER_FILL),
-        ("GRID", (0, 0), (-1, -1), 0.4, colors.HexColor("#BFBFBF")),
-        ("VALIGN", (0, 0), (-1, -1), "TOP"),
-        ("LEFTPADDING", (0, 0), (-1, -1), 4),
-        ("RIGHTPADDING", (0, 0), (-1, -1), 4),
-        ("TOPPADDING", (0, 0), (-1, -1), 3),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
-    ]))
+    tbl.setStyle(
+        TableStyle(
+            [
+                ("BACKGROUND", (0, 0), (-1, 0), HEADER_FILL),
+                ("GRID", (0, 0), (-1, -1), 0.4, colors.HexColor("#BFBFBF")),
+                ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                ("LEFTPADDING", (0, 0), (-1, -1), 4),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 4),
+                ("TOPPADDING", (0, 0), (-1, -1), 3),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+            ]
+        )
+    )
     flow.append(tbl)
     if block.source_ref:
         flow.append(Spacer(1, 2))
@@ -158,8 +217,10 @@ def _figure(block: Figure, s: dict[str, ParagraphStyle]) -> list:
     if height > max_h:
         height = max_h
         width = height * iw / ih
-    items: list = [Image(str(path), width=width, height=height),
-                   RLParagraph(_esc(block.caption), s["fig_caption"])]
+    items: list = [
+        Image(str(path), width=width, height=height),
+        RLParagraph(_esc(block.caption), s["fig_caption"]),
+    ]
     if block.source_ref:
         items.append(RLParagraph(_esc(block.source_ref), s["src"]))
     else:
@@ -172,20 +233,31 @@ def _callout(block: Callout, s: dict[str, ParagraphStyle]) -> list:
     colour = "#C00000" if block.severity in ("draft", "Critical") else "#222222"
     text = f'<font color="{colour}"><b>{_esc(label)}:</b></font> {_esc(block.text)}'
     inner = RLTable([[RLParagraph(text, s["callout"])]], colWidths=[FRAME_W])
-    inner.setStyle(TableStyle([
-        ("BACKGROUND", (0, 0), (-1, -1), CALLOUT_FILL.get(block.severity, CALLOUT_FILL["note"])),
-        ("LEFTPADDING", (0, 0), (-1, -1), 8),
-        ("RIGHTPADDING", (0, 0), (-1, -1), 8),
-        ("TOPPADDING", (0, 0), (-1, -1), 6),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
-    ]))
+    inner.setStyle(
+        TableStyle(
+            [
+                (
+                    "BACKGROUND",
+                    (0, 0),
+                    (-1, -1),
+                    CALLOUT_FILL.get(block.severity, CALLOUT_FILL["note"]),
+                ),
+                ("LEFTPADDING", (0, 0), (-1, -1), 8),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 8),
+                ("TOPPADDING", (0, 0), (-1, -1), 6),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+            ]
+        )
+    )
     return [inner, Spacer(1, 8)]
 
 
 def _page_decorator(report: ReportDoc):
     meta = report.metadata
-    footer_text = (f"{report.title} | run {meta.run_id} | generated {meta.generated_at} "
-                   f"by STEAM-AI {meta.steam_ai_version}")
+    footer_text = (
+        f"{report.title} | run {meta.run_id} | generated {meta.generated_at} "
+        f"by STEAM-AI {meta.steam_ai_version}"
+    )
 
     def on_page(canvas, doc) -> None:
         canvas.saveState()
@@ -215,16 +287,27 @@ def render_pdf(report: ReportDoc, out_path: Path) -> Path:
     out_path = Path(out_path)
     out_path.parent.mkdir(parents=True, exist_ok=True)
     doc = SimpleDocTemplate(
-        str(out_path), pagesize=A4, leftMargin=MARGIN, rightMargin=MARGIN,
-        topMargin=MARGIN, bottomMargin=MARGIN, title=report.title,
-        author=f"STEAM-AI {report.metadata.steam_ai_version}", subject=report.subtitle,
+        str(out_path),
+        pagesize=A4,
+        leftMargin=MARGIN,
+        rightMargin=MARGIN,
+        topMargin=MARGIN,
+        bottomMargin=MARGIN,
+        title=report.title,
+        author=f"STEAM-AI {report.metadata.steam_ai_version}",
+        subject=report.subtitle,
     )
     meta = report.metadata
     story: list = [
         RLParagraph(_esc(report.title), s["title"]),
         RLParagraph(_esc(report.subtitle), s["subtitle"]),
-        RLParagraph(_esc(f"Generated {meta.generated_at} by STEAM-AI {meta.steam_ai_version}. "
-                         f"Ingested {meta.ingested_at}."), s["meta"]),
+        RLParagraph(
+            _esc(
+                f"Generated {meta.generated_at} by STEAM-AI {meta.steam_ai_version}. "
+                f"Ingested {meta.ingested_at}."
+            ),
+            s["meta"],
+        ),
     ]
     for block in report.blocks:
         if isinstance(block, Heading):
@@ -236,10 +319,18 @@ def render_pdf(report: ReportDoc, out_path: Path) -> Path:
             if block.source_ref:
                 story.append(RLParagraph(_esc(block.source_ref), s["src"]))
         elif isinstance(block, BulletList):
-            story.append(ListFlowable(
-                [ListItem(RLParagraph(_esc(i), s["body_tight"]), leftIndent=12)
-                 for i in block.items],
-                bulletType="bullet", start="-", bulletFontName=FONT, bulletFontSize=9))
+            story.append(
+                ListFlowable(
+                    [
+                        ListItem(RLParagraph(_esc(i), s["body_tight"]), leftIndent=12)
+                        for i in block.items
+                    ],
+                    bulletType="bullet",
+                    start="-",
+                    bulletFontName=FONT,
+                    bulletFontSize=9,
+                )
+            )
             story.append(Spacer(1, 6))
         elif isinstance(block, Table):
             story.extend(_table(block, s))

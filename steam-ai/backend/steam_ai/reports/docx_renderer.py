@@ -47,8 +47,13 @@ CALLOUT_FILL = {
 CALLOUT_LABEL = {"draft": "DRAFT", "synthetic": "SYNTHETIC DATA"}
 
 
-def _set_run_font(run, size_pt: float | None = None, colour: RGBColor | None = None,
-                  bold: bool | None = None, italic: bool | None = None) -> None:
+def _set_run_font(
+    run,
+    size_pt: float | None = None,
+    colour: RGBColor | None = None,
+    bold: bool | None = None,
+    italic: bool | None = None,
+) -> None:
     run.font.name = FONT
     rpr = run._element.get_or_add_rPr()
     rfonts = rpr.find(qn("w:rFonts"))
@@ -192,14 +197,14 @@ def _table(doc: Document, block: Table) -> None:
     repeat = OxmlElement("w:tblHeader")
     repeat.set(qn("w:val"), "true")
     tr_pr.append(repeat)
-    for cell, col in zip(hdr.cells, block.columns):
+    for cell, col in zip(hdr.cells, block.columns, strict=False):
         _shade(cell._tc.get_or_add_tcPr(), HEADER_FILL)
         cell.text = ""
         run = cell.paragraphs[0].add_run(str(col))
         _set_run_font(run, 9, INK, bold=True)
     for row in block.rows:
         cells = tbl.add_row().cells
-        for cell, value in zip(cells, list(row) + [""] * (n_cols - len(row))):
+        for cell, value in zip(cells, list(row) + [""] * (n_cols - len(row)), strict=False):
             cell.text = ""
             run = cell.paragraphs[0].add_run(str(value))
             _set_run_font(run, 9, INK)
@@ -257,8 +262,7 @@ def render_docx(report: ReportDoc, out_path: Path) -> Path:
             level = min(max(block.level, 1), 3)
             h = doc.add_heading(level=level)
             run = h.add_run(block.text)
-            _set_run_font(run, {1: 16, 2: 13, 3: 11}[level], RGBColor(0x1F, 0x3A, 0x5F),
-                          bold=True)
+            _set_run_font(run, {1: 16, 2: 13, 3: 11}[level], RGBColor(0x1F, 0x3A, 0x5F), bold=True)
         elif isinstance(block, Paragraph):
             p = doc.add_paragraph()
             if block.source_ref:
