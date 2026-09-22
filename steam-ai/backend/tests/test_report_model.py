@@ -187,8 +187,7 @@ def test_long_evidence_values_are_compacted() -> None:
     pairs = [{"origin_sector": f"S{i}", "destination_sector": "S2", "delta_trips": 100.0 * i}
              for i in range(40)]
     text = fmt_evidence("explained_pairs", pairs)
-    assert text.startswith("40 items:")
-    assert "findings.json" in text
+    assert text.startswith("40 items (full list in findings.json):")
     assert len(text) <= 160
     assert compact({"a": 1, "b": 2, "c": 3, "d": 4}).endswith("(4 keys)")
     assert fmt_evidence("vc_ratio", 1.3456) == "1.35"

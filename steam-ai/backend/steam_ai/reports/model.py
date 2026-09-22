@@ -230,9 +230,15 @@ def compact(value: Any, max_items: int = _EVIDENCE_MAX_ITEMS,
     elif isinstance(value, (list, tuple)):
         items = [compact(v, max_items, max_chars) if isinstance(v, (dict, list, tuple))
                  else fmt(v) for v in value[:max_items]]
-        text = ", ".join(items)
+        preview = ", ".join(items)
         if len(value) > max_items:
-            text = f"{len(value)} items: {text}, ... (full list in findings.json)"
+            # Count and pointer first so truncation only ever eats the preview.
+            head = f"{len(value)} items (full list in findings.json): "
+            room = max(10, max_chars - len(head))
+            if len(preview) > room:
+                preview = preview[: room - 3] + "..."
+            return head + preview
+        text = preview
     else:
         text = fmt(value)
     if len(text) > max_chars:
