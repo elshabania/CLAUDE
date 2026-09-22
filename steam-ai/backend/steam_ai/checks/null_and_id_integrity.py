@@ -231,7 +231,8 @@ class NullAndIdIntegrity(Check):
                 check=self,
                 severity=sev,
                 location=Location(type=LocationType.LINK, id=str(examples[0]),
-                                  label=f"link_flows: {n_links} unknown links (e.g. {examples[0]})"),
+                                  label=f"link_flows: {n_links} unknown links "
+                                  f"(e.g. {examples[0]})"),
                 executive_line=(
                     f"Assigned flows exist for {fmt(n_links)} links that are not in the network."
                 ),

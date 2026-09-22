@@ -48,7 +48,7 @@ class MatrixSanity(Check):
         sql = """
             SELECT purpose, mode, period, COUNT(*) AS n_cells, SUM(trips) AS neg_trips,
                    MIN(trips) AS min_trips, ANY_VALUE(source_file) AS source_file,
-                   LIST(origin || '-' || destination ORDER BY trips LIMIT 20) AS examples
+                   (LIST(origin || '-' || destination ORDER BY trips))[1:20] AS examples
             FROM od WHERE matrix_kind = 'DEMAND' AND trips < 0
             GROUP BY 1, 2, 3 ORDER BY 1, 2, 3
         """

@@ -168,7 +168,7 @@ def test_clean_demand_skims_transit(clean: Path) -> None:
         _read(clean, "line_loads"),
     )
     assert 6 <= tl.line_id.nunique() <= 10
-    assert {"BUS", "BRT", "METRO"} == set(tl.mode)
+    assert {"BUS", "BRT", "METRO"} == set(tl["mode"])
     assert tl.headway_min.between(2, 120).all()
     nodes = set(_read(clean, "nodes").node_id)
     assert set(ts.from_node) | set(ts.to_node) <= nodes

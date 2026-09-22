@@ -56,7 +56,8 @@ class TripLengthDistribution(Check):
         else:
             comp = run_mean.copy()
             comp["mean_km_base"] = [
-                _ref_lookup(reference, p, m) for p, m in zip(comp["purpose"], comp["mode"], strict=True)
+                _ref_lookup(reference, p, m)
+                for p, m in zip(comp["purpose"], comp["mode"], strict=True)
             ]
             comp["trips_base"] = None
             base_bins = pd.DataFrame(columns=run_bins.columns)
@@ -114,12 +115,13 @@ def _sqls(bins: list[float], unit_factor: float) -> tuple[str, str]:
         FROM od o JOIN skims s
           ON s.skim_kind = 'DIST' AND s.mode = o.mode AND s.period = o.period
          AND s.origin = o.origin AND s.destination = o.destination
-        WHERE o.matrix_kind = 'DEMAND' AND o.trips > 0
     """
+    where = "WHERE o.matrix_kind = 'DEMAND' AND o.trips > 0"
     mean_sql = f"""
         SELECT o.purpose, o.mode, COUNT(*) AS n_cells, SUM(o.trips) AS trips,
                SUM(o.trips * s.value * {unit_factor}) / NULLIF(SUM(o.trips), 0) AS mean_km
         {join}
+        {where}
         GROUP BY 1, 2 ORDER BY 1, 2
     """
     edges = list(bins) + [1e12]
@@ -130,6 +132,7 @@ def _sqls(bins: list[float], unit_factor: float) -> tuple[str, str]:
         SELECT o.purpose, o.mode, b.bin_idx, SUM(o.trips) AS trips
         {join}
         JOIN b ON s.value * {unit_factor} >= b.lo AND s.value * {unit_factor} < b.hi
+        {where}
         GROUP BY 1, 2, 3 ORDER BY 1, 2, 3
     """
     return mean_sql, bin_sql

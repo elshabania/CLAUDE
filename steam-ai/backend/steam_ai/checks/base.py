@@ -17,8 +17,8 @@ import ast
 import hashlib
 import math
 import re
-from functools import lru_cache
 from collections.abc import Iterable, Sequence
+from functools import lru_cache
 from typing import Any
 
 import pandas as pd
