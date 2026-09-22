@@ -1,0 +1,28 @@
+[
+ {
+  "run_id": "run_2035_ref_v4",
+  "scenario_name": "2035 Reference Case v4",
+  "horizon_year": 2035,
+  "base_run_id": "run_2035_ref_v3",
+  "ingested_at": "2026-09-22T06:38:04Z",
+  "status": "ingested",
+  "is_synthetic": true,
+  "health": {
+   "score": 53.8,
+   "grade": "D"
+  }
+ },
+ {
+  "run_id": "run_2035_ref_v3",
+  "scenario_name": "2035 Reference Case v3",
+  "horizon_year": 2035,
+  "base_run_id": null,
+  "ingested_at": "2026-09-15T09:12:51Z",
+  "status": "ingested",
+  "is_synthetic": true,
+  "health": {
+   "score": 81.4,
+   "grade": "B"
+  }
+ }
+]

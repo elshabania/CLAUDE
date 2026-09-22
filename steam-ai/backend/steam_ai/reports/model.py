@@ -256,10 +256,6 @@ def _best_measure(f: Finding) -> str:
     return text
 
 
-def _severity_word(s: Severity, n: int) -> str:
-    return f"{n} {s.value}" if n == 1 else f"{n} {s.value}"
-
-
 def _now_iso() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat()
 

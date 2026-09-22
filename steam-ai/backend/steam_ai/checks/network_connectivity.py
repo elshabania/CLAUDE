@@ -221,7 +221,6 @@ def _weak_components(a: np.ndarray, b: np.ndarray) -> pd.DataFrame:
     nodes, inv = np.unique(np.concatenate([a, b]), return_inverse=True)
     n = len(nodes)
     ia, ib = inv[: len(a)], inv[len(a):]
-    parent = np.arange(n)
     # Iterative min-label propagation: converges in O(diameter) passes.
     labels = np.arange(n)
     while True:
@@ -234,5 +233,4 @@ def _weak_components(a: np.ndarray, b: np.ndarray) -> pd.DataFrame:
         if np.array_equal(new, labels):
             break
         labels = new
-    del parent
     return pd.DataFrame({"node_id": nodes, "component": labels})

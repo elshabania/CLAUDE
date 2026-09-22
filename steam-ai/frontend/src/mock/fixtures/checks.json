@@ -1,0 +1,396 @@
+{
+ "run_2035_ref_v4": [
+  {
+   "check_id": "null_and_id_integrity",
+   "check_name": "Null and ID integrity",
+   "status": "ok",
+   "message": "1 finding",
+   "duration_s": 23.95,
+   "rows_examined": 3212,
+   "counts": {
+    "Critical": 0,
+    "High": 0,
+    "Medium": 1,
+    "Info": 0,
+    "total": 1
+   }
+  },
+  {
+   "check_id": "network_connectivity",
+   "check_name": "Network connectivity",
+   "status": "ok",
+   "message": "No findings",
+   "duration_s": 32.15,
+   "rows_examined": 152724,
+   "counts": {
+    "Critical": 0,
+    "High": 0,
+    "Medium": 0,
+    "Info": 0,
+    "total": 0
+   }
+  },
+  {
+   "check_id": "centroid_connectors",
+   "check_name": "Centroid connectors",
+   "status": "ok",
+   "message": "1 finding",
+   "duration_s": 19.99,
+   "rows_examined": 7376,
+   "counts": {
+    "Critical": 0,
+    "High": 0,
+    "Medium": 1,
+    "Info": 0,
+    "total": 1
+   }
+  },
+  {
+   "check_id": "transit_line_integrity",
+   "check_name": "Transit line integrity",
+   "status": "ok",
+   "message": "1 finding",
+   "duration_s": 25.28,
+   "rows_examined": 19144,
+   "counts": {
+    "Critical": 0,
+    "High": 0,
+    "Medium": 1,
+    "Info": 0,
+    "total": 1
+   }
+  },
+  {
+   "check_id": "land_use_control_totals",
+   "check_name": "Land use control totals",
+   "status": "ok",
+   "message": "1 finding",
+   "duration_s": 37.54,
+   "rows_examined": 25816,
+   "counts": {
+    "Critical": 0,
+    "High": 1,
+    "Medium": 0,
+    "Info": 0,
+    "total": 1
+   }
+  },
+  {
+   "check_id": "link_volume_outliers",
+   "check_name": "Link volume outliers",
+   "status": "ok",
+   "message": "6 findings",
+   "duration_s": 35.97,
+   "rows_examined": 297824,
+   "counts": {
+    "Critical": 1,
+    "High": 1,
+    "Medium": 4,
+    "Info": 0,
+    "total": 6
+   }
+  },
+  {
+   "check_id": "convergence_and_noise",
+   "check_name": "Convergence and noise band",
+   "status": "ok",
+   "message": "1 finding",
+   "duration_s": 16.72,
+   "rows_examined": 200,
+   "counts": {
+    "Critical": 0,
+    "High": 1,
+    "Medium": 0,
+    "Info": 0,
+    "total": 1
+   }
+  },
+  {
+   "check_id": "matrix_sanity",
+   "check_name": "Matrix sanity",
+   "status": "ok",
+   "message": "1 finding",
+   "duration_s": 16.29,
+   "rows_examined": 41211900,
+   "counts": {
+    "Critical": 0,
+    "High": 0,
+    "Medium": 0,
+    "Info": 1,
+    "total": 1
+   }
+  },
+  {
+   "check_id": "trip_length_distribution",
+   "check_name": "Trip length distribution",
+   "status": "ok",
+   "message": "1 finding",
+   "duration_s": 10.15,
+   "rows_examined": 41211900,
+   "counts": {
+    "Critical": 0,
+    "High": 0,
+    "Medium": 0,
+    "Info": 1,
+    "total": 1
+   }
+  },
+  {
+   "check_id": "unrealistic_speeds_times",
+   "check_name": "Unrealistic speeds and times",
+   "status": "ok",
+   "message": "1 finding",
+   "duration_s": 3.36,
+   "rows_examined": 297824,
+   "counts": {
+    "Critical": 0,
+    "High": 0,
+    "Medium": 1,
+    "Info": 0,
+    "total": 1
+   }
+  },
+  {
+   "check_id": "parameter_drift",
+   "check_name": "Parameter drift",
+   "status": "skipped",
+   "message": "Required table parameters missing: no parameter register exported for this run.",
+   "duration_s": 11.23,
+   "rows_examined": 0,
+   "counts": {
+    "Critical": 0,
+    "High": 0,
+    "Medium": 0,
+    "Info": 0,
+    "total": 0
+   }
+  },
+  {
+   "check_id": "unexplained_demand_shift",
+   "check_name": "Unexplained demand shift",
+   "status": "ok",
+   "message": "No findings",
+   "duration_s": 2.2,
+   "rows_examined": 1936,
+   "counts": {
+    "Critical": 0,
+    "High": 0,
+    "Medium": 0,
+    "Info": 0,
+    "total": 0
+   }
+  },
+  {
+   "check_id": "unused_transit_services",
+   "check_name": "Unused transit services",
+   "status": "ok",
+   "message": "1 finding",
+   "duration_s": 5.02,
+   "rows_examined": 214,
+   "counts": {
+    "Critical": 0,
+    "High": 0,
+    "Medium": 1,
+    "Info": 0,
+    "total": 1
+   }
+  }
+ ],
+ "run_2035_ref_v3": [
+  {
+   "check_id": "null_and_id_integrity",
+   "check_name": "Null and ID integrity",
+   "status": "ok",
+   "message": "1 finding",
+   "duration_s": 14.22,
+   "rows_examined": 3212,
+   "counts": {
+    "Critical": 0,
+    "High": 0,
+    "Medium": 1,
+    "Info": 0,
+    "total": 1
+   }
+  },
+  {
+   "check_id": "network_connectivity",
+   "check_name": "Network connectivity",
+   "status": "ok",
+   "message": "No findings",
+   "duration_s": 37.3,
+   "rows_examined": 152724,
+   "counts": {
+    "Critical": 0,
+    "High": 0,
+    "Medium": 0,
+    "Info": 0,
+    "total": 0
+   }
+  },
+  {
+   "check_id": "centroid_connectors",
+   "check_name": "Centroid connectors",
+   "status": "ok",
+   "message": "1 finding",
+   "duration_s": 9.03,
+   "rows_examined": 7376,
+   "counts": {
+    "Critical": 0,
+    "High": 0,
+    "Medium": 1,
+    "Info": 0,
+    "total": 1
+   }
+  },
+  {
+   "check_id": "transit_line_integrity",
+   "check_name": "Transit line integrity",
+   "status": "ok",
+   "message": "1 finding",
+   "duration_s": 24.58,
+   "rows_examined": 19144,
+   "counts": {
+    "Critical": 0,
+    "High": 0,
+    "Medium": 1,
+    "Info": 0,
+    "total": 1
+   }
+  },
+  {
+   "check_id": "land_use_control_totals",
+   "check_name": "Land use control totals",
+   "status": "ok",
+   "message": "No findings",
+   "duration_s": 11.49,
+   "rows_examined": 25816,
+   "counts": {
+    "Critical": 0,
+    "High": 0,
+    "Medium": 0,
+    "Info": 0,
+    "total": 0
+   }
+  },
+  {
+   "check_id": "link_volume_outliers",
+   "check_name": "Link volume outliers",
+   "status": "ok",
+   "message": "2 findings",
+   "duration_s": 35.7,
+   "rows_examined": 297824,
+   "counts": {
+    "Critical": 0,
+    "High": 0,
+    "Medium": 2,
+    "Info": 0,
+    "total": 2
+   }
+  },
+  {
+   "check_id": "convergence_and_noise",
+   "check_name": "Convergence and noise band",
+   "status": "ok",
+   "message": "No findings",
+   "duration_s": 28.55,
+   "rows_examined": 200,
+   "counts": {
+    "Critical": 0,
+    "High": 0,
+    "Medium": 0,
+    "Info": 0,
+    "total": 0
+   }
+  },
+  {
+   "check_id": "matrix_sanity",
+   "check_name": "Matrix sanity",
+   "status": "ok",
+   "message": "1 finding",
+   "duration_s": 34.22,
+   "rows_examined": 41211900,
+   "counts": {
+    "Critical": 0,
+    "High": 0,
+    "Medium": 0,
+    "Info": 1,
+    "total": 1
+   }
+  },
+  {
+   "check_id": "trip_length_distribution",
+   "check_name": "Trip length distribution",
+   "status": "skipped",
+   "message": "No base run declared; comparison checks skipped.",
+   "duration_s": 4.98,
+   "rows_examined": 0,
+   "counts": {
+    "Critical": 0,
+    "High": 0,
+    "Medium": 0,
+    "Info": 0,
+    "total": 0
+   }
+  },
+  {
+   "check_id": "unrealistic_speeds_times",
+   "check_name": "Unrealistic speeds and times",
+   "status": "ok",
+   "message": "No findings",
+   "duration_s": 33.76,
+   "rows_examined": 297824,
+   "counts": {
+    "Critical": 0,
+    "High": 0,
+    "Medium": 0,
+    "Info": 0,
+    "total": 0
+   }
+  },
+  {
+   "check_id": "parameter_drift",
+   "check_name": "Parameter drift",
+   "status": "skipped",
+   "message": "Required table parameters missing.",
+   "duration_s": 10.62,
+   "rows_examined": 0,
+   "counts": {
+    "Critical": 0,
+    "High": 0,
+    "Medium": 0,
+    "Info": 0,
+    "total": 0
+   }
+  },
+  {
+   "check_id": "unexplained_demand_shift",
+   "check_name": "Unexplained demand shift",
+   "status": "skipped",
+   "message": "No base run declared; comparison checks skipped.",
+   "duration_s": 31.42,
+   "rows_examined": 0,
+   "counts": {
+    "Critical": 0,
+    "High": 0,
+    "Medium": 0,
+    "Info": 0,
+    "total": 0
+   }
+  },
+  {
+   "check_id": "unused_transit_services",
+   "check_name": "Unused transit services",
+   "status": "ok",
+   "message": "1 finding",
+   "duration_s": 5.26,
+   "rows_examined": 214,
+   "counts": {
+    "Critical": 0,
+    "High": 0,
+    "Medium": 1,
+    "Info": 0,
+    "total": 1
+   }
+  }
+ ]
+}

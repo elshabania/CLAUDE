@@ -1,0 +1,364 @@
+[
+ {
+  "check_id": "null_and_id_integrity",
+  "name": "Null and ID integrity",
+  "description": "Required columns present and non-null; every link references an existing node and every land-use row an existing zone.",
+  "enabled": true,
+  "params": {
+   "required_columns": {
+    "links": [
+     "link_id",
+     "a_node",
+     "b_node",
+     "length_m",
+     "link_class",
+     "capacity_vph",
+     "ffs_kph"
+    ],
+    "nodes": [
+     "node_id",
+     "x",
+     "y"
+    ],
+    "zones": [
+     "zone_id"
+    ],
+    "link_flows": [
+     "link_id",
+     "period",
+     "user_class",
+     "volume"
+    ]
+   }
+  },
+  "severity": [
+   {
+    "when": "missing_node_refs > 0",
+    "severity": "Critical"
+   },
+   {
+    "when": "missing_zone_refs > 0",
+    "severity": "Critical"
+   },
+   {
+    "when": "null_share > 0.01",
+    "severity": "High"
+   },
+   {
+    "when": "null_share > 0",
+    "severity": "Medium"
+   }
+  ]
+ },
+ {
+  "check_id": "network_connectivity",
+  "name": "Network connectivity",
+  "description": "No zero-capacity or zero-speed links, no orphan nodes, no one-way dead ends.",
+  "enabled": true,
+  "params": {
+   "min_capacity_vph": 1,
+   "min_ffs_kph": 5
+  },
+  "severity": [
+   {
+    "when": "issue == 'zero_capacity' or issue == 'zero_speed'",
+    "severity": "Critical"
+   },
+   {
+    "when": "issue == 'orphan_node'",
+    "severity": "Medium"
+   },
+   {
+    "when": "issue == 'oneway_dead_end'",
+    "severity": "High"
+   }
+  ]
+ },
+ {
+  "check_id": "centroid_connectors",
+  "name": "Centroid connectors",
+  "description": "Zone connectors attach to local roads, not freeways or expressways, and are not unreasonably long.",
+  "enabled": true,
+  "params": {
+   "high_class_links": [
+    "FWY",
+    "EXP"
+   ],
+   "max_connector_length_m": 5000
+  },
+  "severity": [
+   {
+    "when": "issue == 'connector_on_high_class'",
+    "severity": "High"
+   },
+   {
+    "when": "issue == 'connector_too_long'",
+    "severity": "Medium"
+   }
+  ]
+ },
+ {
+  "check_id": "transit_line_integrity",
+  "name": "Transit line integrity",
+  "description": "Line node sequences form a path in the network and headways are within the operator range for the mode.",
+  "enabled": true,
+  "params": {
+   "headway_min_range": [
+    2,
+    120
+   ],
+   "modes_headway_max": {
+    "METRO": 20,
+    "LRT": 30,
+    "BRT": 30,
+    "BUS": 120,
+    "RAIL": 120,
+    "TRAM": 30,
+    "FERRY": 120
+   }
+  },
+  "severity": [
+   {
+    "when": "issue == 'broken_sequence'",
+    "severity": "Critical"
+   },
+   {
+    "when": "issue == 'headway_out_of_range'",
+    "severity": "High"
+   },
+   {
+    "when": "issue == 'node_not_in_network'",
+    "severity": "Critical"
+   }
+  ]
+ },
+ {
+  "check_id": "land_use_control_totals",
+  "name": "Land use control totals",
+  "description": "Zone land-use sums match the agreed sector and region control totals within tolerance.",
+  "enabled": true,
+  "params": {
+   "tolerance_share": 0.02
+  },
+  "severity": [
+   {
+    "when": "abs_diff_share > 0.10",
+    "severity": "Critical"
+   },
+   {
+    "when": "abs_diff_share > 0.05",
+    "severity": "High"
+   },
+   {
+    "when": "abs_diff_share > 0.02",
+    "severity": "Medium"
+   }
+  ]
+ },
+ {
+  "check_id": "link_volume_outliers",
+  "name": "Link volume outliers",
+  "description": "Links over capacity or statistically unusual within their class, area type and period peer group.",
+  "enabled": true,
+  "params": {
+   "vc_critical": 1.3,
+   "vc_high": 1.1,
+   "vc_medium": 0.95,
+   "zscore_threshold": 3,
+   "min_group_size": 20,
+   "low_volume_share_of_group_median": 0.02,
+   "user_class": "ALL",
+   "periods": [
+    "AM",
+    "PM"
+   ]
+  },
+  "severity": [
+   {
+    "when": "vc_ratio >= 1.30",
+    "severity": "Critical"
+   },
+   {
+    "when": "vc_ratio >= 1.10",
+    "severity": "High"
+   },
+   {
+    "when": "abs_zscore >= 4.0",
+    "severity": "High"
+   },
+   {
+    "when": "vc_ratio >= 0.95 or abs_zscore >= 3.0",
+    "severity": "Medium"
+   }
+  ]
+ },
+ {
+  "check_id": "convergence_and_noise",
+  "name": "Convergence and noise band",
+  "description": "Assignment relative gap met per period; final-iteration stability sets the noise band for comparisons.",
+  "enabled": true,
+  "params": {
+   "rel_gap_target": 0.001,
+   "rel_gap_high": 0.01,
+   "geh_stable": 1,
+   "geh_stable_share_target": 0.95,
+   "noise_band_iterations": 3
+  },
+  "severity": [
+   {
+    "when": "rel_gap > 0.01",
+    "severity": "Critical"
+   },
+   {
+    "when": "rel_gap > 0.001",
+    "severity": "High"
+   },
+   {
+    "when": "stable_share < 0.95",
+    "severity": "Medium"
+   }
+  ]
+ },
+ {
+  "check_id": "matrix_sanity",
+  "name": "Matrix sanity",
+  "description": "No negative cells, plausible intrazonal shares and production/attraction balance per zone.",
+  "enabled": true,
+  "params": {
+   "intrazonal_share_max": 0.15,
+   "row_col_ratio_max": 5,
+   "min_zone_total_for_ratio": 50
+  },
+  "severity": [
+   {
+    "when": "issue == 'negative_cells'",
+    "severity": "Critical"
+   },
+   {
+    "when": "issue == 'row_col_imbalance'",
+    "severity": "High"
+   },
+   {
+    "when": "issue == 'intrazonal_share'",
+    "severity": "Medium"
+   },
+   {
+    "when": "issue == 'fractional_artefact'",
+    "severity": "Info"
+   }
+  ]
+ },
+ {
+  "check_id": "trip_length_distribution",
+  "name": "Trip length distribution",
+  "description": "Mean trip length per purpose and mode stays close to the base run.",
+  "enabled": true,
+  "params": {
+   "max_mean_diff_share": 0.15,
+   "max_mean_diff_share_high": 0.3,
+   "distance_bins_km": [
+    0,
+    2,
+    5,
+    10,
+    20,
+    40,
+    80,
+    200
+   ]
+  },
+  "severity": [
+   {
+    "when": "mean_diff_share > 0.30",
+    "severity": "High"
+   },
+   {
+    "when": "mean_diff_share > 0.15",
+    "severity": "Medium"
+   }
+  ]
+ },
+ {
+  "check_id": "unrealistic_speeds_times",
+  "name": "Unrealistic speeds and times",
+  "description": "Congested speeds not above free-flow nor below a floor; no extreme delays.",
+  "enabled": true,
+  "params": {
+   "min_cong_speed_kph": 5,
+   "max_speed_over_ffs_ratio": 1.05,
+   "max_delay_s": 900,
+   "periods": [
+    "AM",
+    "PM"
+   ]
+  },
+  "severity": [
+   {
+    "when": "issue == 'speed_above_ffs'",
+    "severity": "High"
+   },
+   {
+    "when": "issue == 'speed_below_floor'",
+    "severity": "High"
+   },
+   {
+    "when": "issue == 'delay_outlier'",
+    "severity": "Medium"
+   }
+  ]
+ },
+ {
+  "check_id": "parameter_drift",
+  "name": "Parameter drift",
+  "description": "Model parameters match the approved register.",
+  "enabled": true,
+  "params": {},
+  "severity": [
+   {
+    "when": "drifted",
+    "severity": "High"
+   }
+  ]
+ },
+ {
+  "check_id": "unexplained_demand_shift",
+  "name": "Unexplained demand shift",
+  "description": "Sector-to-sector demand changes have a nearby input change that explains them.",
+  "enabled": true,
+  "params": {
+   "sector_shift_share": 0.1,
+   "catchment_km": 5
+  },
+  "severity": [
+   {
+    "when": "shift_share > 0.25",
+    "severity": "High"
+   },
+   {
+    "when": "shift_share > 0.10",
+    "severity": "Medium"
+   }
+  ]
+ },
+ {
+  "check_id": "unused_transit_services",
+  "name": "Unused transit services",
+  "description": "Lines with very low load factors despite demand in their catchment.",
+  "enabled": true,
+  "params": {
+   "min_load_factor": 0.05,
+   "min_catchment_demand": 500,
+   "catchment_km": 1
+  },
+  "severity": [
+   {
+    "when": "load_factor < 0.02",
+    "severity": "High"
+   },
+   {
+    "when": "load_factor < 0.05",
+    "severity": "Medium"
+   }
+  ]
+ }
+]

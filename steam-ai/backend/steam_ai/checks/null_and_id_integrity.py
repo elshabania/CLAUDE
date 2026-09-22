@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from ..models import Finding, Location, LocationType, Severity
+from ..models import Finding, Location, LocationType
 from ..store import RunStore
 from .base import (
     Check,
@@ -275,5 +275,3 @@ def _location_for(store: RunStore, loc_type: LocationType, examples: list[Any]) 
         pass
     return Location(type=loc_type, id=str(first), label=str(first))
 
-
-__all__ = ["NullAndIdIntegrity", "Severity"]
