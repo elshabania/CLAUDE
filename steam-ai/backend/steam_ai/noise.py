@@ -18,7 +18,6 @@ Two entry points:
 from __future__ import annotations
 
 import math
-from typing import Any
 
 import pandas as pd
 
@@ -26,35 +25,44 @@ from .models import Finding, LocationType
 from .store import RunStore
 
 _LEVELS = {LocationType.LINK: "link", LocationType.SECTOR: "sector", LocationType.LINE: "line"}
+BandKey = tuple[str, str, str, str]
+_index_cache: dict[tuple[str, float], dict[BandKey, tuple[float, float]]] = {}
 
 
-def _band_index(df: pd.DataFrame | None) -> dict[tuple[str, str, str, str], tuple[float, float]]:
-    """(level, location_id, period, metric) -> (band_low, band_high)."""
-    idx: dict[tuple[str, str, str, str], tuple[float, float]] = {}
+def _band_index(df: pd.DataFrame | None) -> dict[BandKey, tuple[float, float]]:
+    """(level, location_id, period, metric) -> (band_low, band_high).
+
+    A second entry with period '' holds the widest band over all periods, used
+    when a caller has no period.
+    """
+    idx: dict[BandKey, tuple[float, float]] = {}
     if df is None or df.empty:
         return idx
     for r in df.itertuples():
         period = "" if r.period is None or (isinstance(r.period, float) and math.isnan(r.period)) \
             else str(r.period)
-        key = (str(r.level), str(r.location_id), period, str(r.metric))
         low, high = float(r.band_low), float(r.band_high)
-        # A location may appear once per period; the "" key keeps the widest band.
-        idx[key] = (low, high)
-        any_key = (str(r.level), str(r.location_id), "", str(r.metric))
-        if period and any_key not in df_keys(idx, any_key):
+        idx[(str(r.level), str(r.location_id), period, str(r.metric))] = (low, high)
+        if period:
+            any_key = (str(r.level), str(r.location_id), "", str(r.metric))
             prev = idx.get(any_key)
-            idx[any_key] = (min(low, prev[0]) if prev else low,
-                            max(high, prev[1]) if prev else high)
+            idx[any_key] = (min(low, prev[0]), max(high, prev[1])) if prev else (low, high)
     return idx
 
 
-def df_keys(idx: dict[Any, Any], key: Any) -> set[Any]:
-    """Helper kept trivial for readability: membership test on the index."""
-    return set() if key not in idx else {key}
+def _cached_index(store: RunStore) -> dict[BandKey, tuple[float, float]]:
+    path = store.derived_path("noise_band.parquet")
+    if not path.exists():
+        return {}
+    key = (store.run_id, path.stat().st_mtime)
+    if key not in _index_cache:
+        _index_cache.clear()
+        _index_cache[key] = _band_index(store.noise_band())
+    return _index_cache[key]
 
 
 def _lookup(
-    idx: dict[tuple[str, str, str, str], tuple[float, float]],
+    idx: dict[BandKey, tuple[float, float]],
     level: str, location_id: str, period: str | None, metric: str,
 ) -> tuple[float, float] | None:
     if period:
@@ -67,9 +75,9 @@ def _lookup(
 def _delta_of(finding: Finding) -> tuple[float, str] | None:
     """Delta and metric carried by a comparison finding, if any."""
     values = finding.evidence.values or {}
-    if "delta_volume" in values and values["delta_volume"] is not None:
+    if values.get("delta_volume") is not None:
         return float(values["delta_volume"]), "volume"
-    if "delta" in values and values["delta"] is not None and values.get("metric") == "volume":
+    if values.get("delta") is not None and values.get("metric") == "volume":
         return float(values["delta"]), "volume"
     return None
 
@@ -80,7 +88,7 @@ def apply_noise_band(findings: list[Finding], store: RunStore) -> list[Finding]:
     Findings without a delta (absolute checks such as V/C) are left untouched.
     When the run has no noise band, everything stays significant.
     """
-    idx = _band_index(store.noise_band())
+    idx = _cached_index(store)
     if not idx:
         return findings
     for f in findings:
@@ -118,7 +126,7 @@ def significant_delta(
     for s in (store, base):
         if s is None:
             continue
-        band = _lookup(_band_index(s.noise_band()), level, location_id, period, metric)
+        band = _lookup(_cached_index(s), level, location_id, period, metric)
         if band is not None:
             low, high = band
             return not (low <= float(delta) <= high)
