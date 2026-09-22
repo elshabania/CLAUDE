@@ -192,7 +192,9 @@ def assign(
 
         first_noise = REPORTED_ITERATIONS - NOISE_ITERATIONS + 1
         for it in range(first_noise, REPORTED_ITERATIONS + 1):
-            noise = 1.0 if it == REPORTED_ITERATIONS else 1.0 + rng.normal(0.0, NOISE_SD, len(total))
+            noise = (
+                1.0 if it == REPORTED_ITERATIONS else 1.0 + rng.normal(0.0, NOISE_SD, len(total))
+            )
             iter_frames.append(
                 pd.DataFrame(
                     {

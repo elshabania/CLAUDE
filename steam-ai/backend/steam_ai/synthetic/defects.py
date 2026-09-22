@@ -98,7 +98,12 @@ DEFECT_DOCS: dict[str, str] = {
     ),
 }
 ALL_DEFECTS: frozenset[str] = frozenset(DEFECT_DOCS)
-DEMAND_DEFECTS = {"negative_matrix_cells", "row_col_imbalance", "high_intrazonal", "trip_length_shift"}
+DEMAND_DEFECTS = {
+    "negative_matrix_cells",
+    "row_col_imbalance",
+    "high_intrazonal",
+    "trip_length_shift",
+}
 
 
 def validate(defects: set[str] | None) -> set[str]:
@@ -123,8 +128,7 @@ def _links_of(net: Network, link_class: str, area_type: str | None = None) -> li
 def _ab_lookup(net: Network) -> dict[tuple[int, int], int]:
     ln = net.links
     return {
-        (int(a), int(b)): int(i)
-        for a, b, i in zip(ln.a_node, ln.b_node, ln.link_id, strict=True)
+        (int(a), int(b)): int(i) for a, b, i in zip(ln.a_node, ln.b_node, ln.link_id, strict=True)
     }
 
 
@@ -215,7 +219,9 @@ def manifest(defects: set[str], net: Network, lines: list[Line]) -> dict[str, di
             entry.update(table="transit_lines", line_ids=[BAD_HEADWAY_LINE], periods=["AM", "NT"])
         elif d == "line_node_not_in_network":
             entry.update(
-                table="transit_segments", line_ids=[MISSING_NODE_LINE], node_ids=[LINE_MISSING_NODE_ID]
+                table="transit_segments",
+                line_ids=[MISSING_NODE_LINE],
+                node_ids=[LINE_MISSING_NODE_ID],
             )
         elif d == "land_use_total_mismatch":
             entry.update(table="control_totals", variables=["POP"], factor=1.12)
@@ -227,7 +233,9 @@ def manifest(defects: set[str], net: Network, lines: list[Line]) -> dict[str, di
             cells = negative_cells(net)
             entry.update(
                 table="od",
-                matrix=dict(zip(("matrix_kind", "purpose", "mode", "period"), NEGATIVE_MATRIX)),
+                matrix=dict(
+                    zip(("matrix_kind", "purpose", "mode", "period"), NEGATIVE_MATRIX, strict=True)
+                ),
                 cells=[list(c) for c in cells],
                 zone_ids=sorted({z for c in cells for z in c}),
             )
@@ -236,7 +244,9 @@ def manifest(defects: set[str], net: Network, lines: list[Line]) -> dict[str, di
         elif d == "high_intrazonal":
             entry.update(table="od", zone_ids=[intrazonal_zone(net)], share=0.4)
         elif d == "poor_convergence":
-            entry.update(table="convergence", stage="HWY_ASSIGN", periods=["AM"], final_rel_gap=0.02)
+            entry.update(
+                table="convergence", stage="HWY_ASSIGN", periods=["AM"], final_rel_gap=0.02
+            )
         elif d == "speed_above_ffs":
             entry.update(table="link_flows", link_ids=speed_above_links(net), periods=["PM"])
         elif d == "speed_below_floor":
@@ -244,7 +254,9 @@ def manifest(defects: set[str], net: Network, lines: list[Line]) -> dict[str, di
         elif d == "parameter_drift":
             entry.update(table="parameters", keys=sorted(DRIFTED_PARAMETERS))
         elif d == "missing_node_ref":
-            entry.update(table="links", link_ids=[MISSING_NODE_REF_LINK_ID], node_ids=[MISSING_NODE_ID])
+            entry.update(
+                table="links", link_ids=[MISSING_NODE_REF_LINK_ID], node_ids=[MISSING_NODE_ID]
+            )
         elif d == "null_values":
             entry.update(table="links", link_ids=null_capacity_links(net), columns=["capacity_vph"])
         elif d == "unused_transit_line":
@@ -269,7 +281,7 @@ def apply_demand_defects(defects: set[str], demand: Demand, net: Network) -> Non
             mat[zid[o], zid[d]] = -(abs(mat[zid[o], zid[d]]) + 5.0)
     if "row_col_imbalance" in defects:
         i = zid[imbalance_zone(net)]
-        for (purpose, mode, period), mat in demand.matrices.items():
+        for (_purpose, mode, _period), mat in demand.matrices.items():
             if mode == "CAR":
                 mat[i, :] *= 4.0
                 mat[:, i] *= 0.2
@@ -404,7 +416,9 @@ def apply_table_defects(
             ],
             ignore_index=True,
         )
-        new_links.append(_new_link_row(net, DEAD_END_LINK_ID, src, DEAD_END_NODE_ID, "LOC", xy, True))
+        new_links.append(
+            _new_link_row(net, DEAD_END_LINK_ID, src, DEAD_END_NODE_ID, "LOC", xy, True)
+        )
     if "connector_on_fwy" in defects:
         zone, node = connector_on_fwy_target(net)
         new_links.append(
@@ -416,7 +430,9 @@ def apply_table_defects(
     if "missing_node_ref" in defects:
         src = missing_node_ref_source(net)
         new_links.append(
-            _new_link_row(net, MISSING_NODE_REF_LINK_ID, src, MISSING_NODE_ID, "LOC", xy, False, 350.0)
+            _new_link_row(
+                net, MISSING_NODE_REF_LINK_ID, src, MISSING_NODE_ID, "LOC", xy, False, 350.0
+            )
         )
     if new_links:
         links = pd.concat([links, pd.DataFrame(new_links)], ignore_index=True)
@@ -445,11 +461,15 @@ def apply_table_defects(
     if "line_node_not_in_network" in defects:
         ts = tables["transit_segments"]
         ts.loc[(ts.line_id == MISSING_NODE_LINE) & (ts.seq == 2), "to_node"] = LINE_MISSING_NODE_ID
-        ts.loc[(ts.line_id == MISSING_NODE_LINE) & (ts.seq == 3), "from_node"] = LINE_MISSING_NODE_ID
+        ts.loc[(ts.line_id == MISSING_NODE_LINE) & (ts.seq == 3), "from_node"] = (
+            LINE_MISSING_NODE_ID
+        )
 
     if "land_use_total_mismatch" in defects:
         ct = tables["control_totals"]
-        ct.loc[ct.variable == "POP", "value"] = np.round(ct.loc[ct.variable == "POP", "value"] * 1.12)
+        ct.loc[ct.variable == "POP", "value"] = np.round(
+            ct.loc[ct.variable == "POP", "value"] * 1.12
+        )
 
     if "overcapacity_corridor" in defects:
         lf = tables["link_flows"]

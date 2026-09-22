@@ -147,7 +147,9 @@ def test_clean_convergence_and_noise(clean: Path) -> None:
     assert itf.groupby("period").iteration.nunique().eq(3).all()
     lf = _read(clean, "link_flows")
     all_am = lf[(lf.period == "AM") & (lf.user_class == "ALL")].set_index("link_id").volume
-    last_it = itf[(itf.period == "AM") & (itf.iteration == itf.iteration.max())].set_index("link_id")
+    last_it = itf[(itf.period == "AM") & (itf.iteration == itf.iteration.max())].set_index(
+        "link_id"
+    )
     assert np.allclose(last_it.volume.reindex(all_am.index), all_am)
 
 
@@ -160,7 +162,11 @@ def test_clean_demand_skims_transit(clean: Path) -> None:
     assert intra < 0.15
     assert set(sk.skim_kind) == {"TIME", "DIST"} and set(sk.mode) == {"CAR", "PT"}
     assert len(sk) == 60 * 60 * 2 * 2 * 5
-    tl, ts, ll = _read(clean, "transit_lines"), _read(clean, "transit_segments"), _read(clean, "line_loads")
+    tl, ts, ll = (
+        _read(clean, "transit_lines"),
+        _read(clean, "transit_segments"),
+        _read(clean, "line_loads"),
+    )
     assert 6 <= tl.line_id.nunique() <= 10
     assert {"BUS", "BRT", "METRO"} == set(tl.mode)
     assert tl.headway_min.between(2, 120).all()
@@ -292,9 +298,9 @@ def test_variants(synthetic_export) -> None:
     lb, ls = _read(base, "links").set_index("link_id"), _read(scen, "links").set_index("link_id")
     widened = ls[ls.lanes > lb.lanes.reindex(ls.index)]
     assert len(widened) > 0 and (widened.link_class == "FWY").all()
-    assert set(_read(scen, "transit_lines").line_id) - set(_read(base, "transit_lines").line_id) == {
-        "BUS_NEW"
-    }
+    assert set(_read(scen, "transit_lines").line_id) - set(
+        _read(base, "transit_lines").line_id
+    ) == {"BUS_NEW"}
     sent = json.loads((scen / schema.EXPORT_SENTINEL).read_text())
     assert sent["horizon_year"] == 2030 and sent["scenario_name"] == "GROWTH_2030"
     # unexplained: S4 demand up ~30% vs scenario with identical land use and network there
@@ -304,7 +310,9 @@ def test_variants(synthetic_export) -> None:
     od_s, od_u = _read(scen, "od"), _read(unexp, "od")
     s4 = lambda df: df[df.origin.map(sec).eq("S4") & df.destination.map(sec).eq("S4")].trips.sum()  # noqa: E731
     assert s4(od_u) / s4(od_s) == pytest.approx(1.3, rel=0.01)
-    other = lambda df: df[df.origin.map(sec).eq("S1") & df.destination.map(sec).eq("S1")].trips.sum()  # noqa: E731
+    other = lambda df: df[
+        df.origin.map(sec).eq("S1") & df.destination.map(sec).eq("S1")
+    ].trips.sum()  # noqa: E731
     assert other(od_u) == pytest.approx(other(od_s), rel=1e-6)
 
 

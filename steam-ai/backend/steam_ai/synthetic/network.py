@@ -260,11 +260,7 @@ def build_network(grid: int, n_zones: int, seed: int, *, fwy_extra_lane: bool = 
 
     # --- centroid connectors -------------------------------------------------
     non_fwy = np.array(
-        [
-            row_class[r] != "FWY" and col_class[c] != "FWY"
-            for r in range(grid)
-            for c in range(grid)
-        ]
+        [row_class[r] != "FWY" and col_class[c] != "FWY" for r in range(grid) for c in range(grid)]
     )
     cand_ids = grid_ids.ravel()[non_fwy]
     cand_lon, cand_lat = lon.ravel()[non_fwy], lat.ravel()[non_fwy]
@@ -375,9 +371,7 @@ def _land_use(
     return land_use_long(zones.zone_id.to_numpy(), wide)
 
 
-def land_use_long(
-    zone_ids: np.ndarray, wide: pd.DataFrame
-) -> tuple[pd.DataFrame, pd.DataFrame]:
+def land_use_long(zone_ids: np.ndarray, wide: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
     """Melt a wide land-use frame into schema form plus matching control totals."""
     rows = []
     for var in LAND_USE_VARIABLES:

@@ -54,7 +54,9 @@ def verify_files(path: Path, sentinel: dict) -> tuple[list[dict], list[str]]:
         actual = sha256_file(target)
         expected = str(entry.get("sha256", "")).lower()
         if actual != expected:
-            problems.append(f"sha256 mismatch for {rel}: sentinel {expected[:12]} != file {actual[:12]}")
+            problems.append(
+                f"sha256 mismatch for {rel}: sentinel {expected[:12]} != file {actual[:12]}"
+            )
             continue
         size = target.stat().st_size
         if "size" in entry and int(entry["size"]) != size:
@@ -64,7 +66,9 @@ def verify_files(path: Path, sentinel: dict) -> tuple[list[dict], list[str]]:
     for name, file_name in schema.EXPORT_TABLE_FILES.items():
         for candidate in (file_name, Path(file_name).with_suffix(".dbf").name):
             if (Path(path) / candidate).is_file() and candidate not in listed_names:
-                problems.append(f"table file {candidate} ({name}) present but not listed in sentinel")
+                problems.append(
+                    f"table file {candidate} ({name}) present but not listed in sentinel"
+                )
     return verified, problems
 
 
@@ -77,7 +81,9 @@ def derive_run_id(sentinel: dict, files: list[dict]) -> str:
     h = hashlib.sha256()
     for f in sorted(files, key=lambda e: e["path"]):
         h.update(f"{f['path']}:{f['sha256']}\n".encode())
-    return f"{_safe_id(sentinel['scenario_name'])}_{int(sentinel['horizon_year'])}_{h.hexdigest()[:8]}"
+    return (
+        f"{_safe_id(sentinel['scenario_name'])}_{int(sentinel['horizon_year'])}_{h.hexdigest()[:8]}"
+    )
 
 
 def ingest_export_dir(
@@ -132,9 +138,7 @@ def ingest_export_dir(
                 continue
             expected = sentinel.get("tables", {}).get(name)
             if expected is not None and int(expected) != len(df):
-                raise IngestError(
-                    f"{name}: sentinel says {expected} rows but file has {len(df)}"
-                )
+                raise IngestError(f"{name}: sentinel says {expected} rows but file has {len(df)}")
             counts[name] = write_table(run_id, name, df)
         flows = reader.table("link_flows")
         seen = set(flows["period"].dropna().astype(str)) if flows is not None else set()

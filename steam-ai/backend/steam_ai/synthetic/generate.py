@@ -121,9 +121,7 @@ def _build_inputs(
         for var in LAND_USE_VARIABLES:
             wide.loc[grow, var] = np.round(wide.loc[grow, var] * GROWTH_FACTOR)
         net.land_use, net.control_totals = land_use_long(wide.index.to_numpy(), wide)
-    lines = default_lines(
-        net, extra_bus=growth, unused_bus="unused_transit_line" in defects
-    )
+    lines = default_lines(net, extra_bus=growth, unused_bus="unused_transit_line" in defects)
     return net, lines
 
 

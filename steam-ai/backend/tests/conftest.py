@@ -25,9 +25,9 @@ import pytest
 _TEST_DATA_ROOT = tempfile.mkdtemp(prefix="steam_ai_test_data_")
 os.environ["STEAM_AI_DATA"] = _TEST_DATA_ROOT
 
+import steam_ai.audit  # noqa: E402
 import steam_ai.paths  # noqa: E402
 import steam_ai.store  # noqa: E402
-import steam_ai.audit  # noqa: E402
 
 importlib.reload(steam_ai.paths)
 importlib.reload(steam_ai.store)

@@ -146,9 +146,7 @@ def inspect_dir(path: Path, *, max_rows: int | None = None) -> dict[str, Any]:
     if not root.is_dir():
         raise NotADirectoryError(str(root))
     files = [
-        inspect_file(p, root, max_rows=max_rows)
-        for p in sorted(root.rglob("*"))
-        if p.is_file()
+        inspect_file(p, root, max_rows=max_rows) for p in sorted(root.rglob("*")) if p.is_file()
     ]
     by_family: dict[str, int] = {}
     for f in files:

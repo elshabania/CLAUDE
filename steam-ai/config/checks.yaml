@@ -20,6 +20,7 @@ checks:
     severity:
       - { when: "missing_node_refs > 0", severity: Critical }
       - { when: "missing_zone_refs > 0", severity: Critical }
+      - { when: "missing_link_refs > 0", severity: High }
       - { when: "null_share > 0.01", severity: High }
       - { when: "null_share > 0", severity: Medium }
 
@@ -32,11 +33,13 @@ checks:
       - { when: "issue == 'zero_capacity' or issue == 'zero_speed'", severity: Critical }
       - { when: "issue == 'orphan_node'", severity: Medium }
       - { when: "issue == 'oneway_dead_end'", severity: High }
+      - { when: "issue == 'disconnected_component'", severity: High }
 
   centroid_connectors:
     enabled: true
     params:
       high_class_links: [FWY, EXP]
+      connector_classes: [CONN]      # plus any link touching a centroid node
       max_connector_length_m: 5000
     severity:
       - { when: "issue == 'connector_on_high_class'", severity: High }
@@ -72,11 +75,13 @@ checks:
       low_volume_share_of_group_median: 0.02  # "too low" relative to peers
       user_class: ALL
       periods: [AM, PM]
+      exclude_link_classes: [CONN]
     severity:
       - { when: "vc_ratio >= 1.30", severity: Critical }
       - { when: "vc_ratio >= 1.10", severity: High }
       - { when: "abs_zscore >= 4.0", severity: High }
       - { when: "vc_ratio >= 0.95 or abs_zscore >= 3.0", severity: Medium }
+      - { when: "too_low", severity: Medium }
 
   convergence_and_noise:
     enabled: true
@@ -97,6 +102,8 @@ checks:
       intrazonal_share_max: 0.15
       row_col_ratio_max: 5.0    # productions vs attractions for a zone
       min_zone_total_for_ratio: 50
+      fractional_cell_max_trips: 0.01   # a cell with 0 < trips < this is an artefact
+      fractional_share_min: 0.01        # report (Info) when >= this share of cells are artefacts
     severity:
       - { when: "issue == 'negative_cells'", severity: Critical }
       - { when: "issue == 'row_col_imbalance'", severity: High }
@@ -109,6 +116,8 @@ checks:
       max_mean_diff_share: 0.15     # vs base run, per purpose x mode
       max_mean_diff_share_high: 0.30
       distance_bins_km: [0, 2, 5, 10, 20, 40, 80, 200]
+      skim_dist_units: km           # km or m; internal DIST skims are assumed km (see kpis.yaml)
+      reference_mean_km: {}         # optional fallback when no base: {"HBW/CAR": 12.5, "HBO": 8}
     severity:
       - { when: "mean_diff_share > 0.30", severity: High }
       - { when: "mean_diff_share > 0.15", severity: Medium }
@@ -120,6 +129,7 @@ checks:
       max_speed_over_ffs_ratio: 1.05
       max_delay_s: 900
       periods: [AM, PM]
+      user_class: ALL
     severity:
       - { when: "issue == 'speed_above_ffs'", severity: High }
       - { when: "issue == 'speed_below_floor'", severity: High }
@@ -127,7 +137,8 @@ checks:
 
   parameter_drift:
     enabled: true
-    params: {}
+    params:
+      numeric_tolerance: 1.0e-9    # relative tolerance for numeric parameter comparison
     severity:
       - { when: "drifted", severity: High }
 
@@ -136,6 +147,8 @@ checks:
     params:
       sector_shift_share: 0.10     # sector-to-sector trips change > 10%
       catchment_km: 5.0            # an input change within this distance explains a shift
+      min_sector_pair_trips: 100   # ignore sector pairs with fewer trips in both runs
+      explain_land_use_share: 0.01 # land-use change in a sector above this explains a shift
     severity:
       - { when: "shift_share > 0.25", severity: High }
       - { when: "shift_share > 0.10", severity: Medium }
@@ -146,6 +159,7 @@ checks:
       min_load_factor: 0.05
       min_catchment_demand: 500
       catchment_km: 1.0
+      pt_modes: [PT]
     severity:
       - { when: "load_factor < 0.02", severity: High }
       - { when: "load_factor < 0.05", severity: Medium }

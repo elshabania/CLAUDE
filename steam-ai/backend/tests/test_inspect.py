@@ -63,7 +63,9 @@ def test_inspect_mixed_dir(tmp_path: Path) -> None:
     assert cols["site_id"]["distinct"] == 2
     assert cols["volume"]["null_rate"] == pytest.approx(1 / 3)
     assert cols["volume"]["min"] == 100 and cols["volume"]["max"] == 300
-    assert files["hwy.sqlite"]["sqlite"] == [{"table": "links", "rows": 2, "columns": ["a", "b", "dist"]}]
+    assert files["hwy.sqlite"]["sqlite"] == [
+        {"table": "links", "rows": 2, "columns": ["a", "b", "dist"]}
+    ]
     md = render_markdown(report)
     assert "## 4. Run directory layout" in md
     assert "| `net.net` | cube_network |" in md and "TBC via export script" in md

@@ -31,9 +31,10 @@ def test_round_trip(synthetic_export, data_dir: Path) -> None:
     export = synthetic_export()
     sentinel = json.loads((export / schema.EXPORT_SENTINEL).read_text())
     manifest = ingest_export_dir(export)
-    assert manifest.run_id.startswith("BASE_2025_2025_") and len(manifest.run_id) == len(
-        "BASE_2025_2025_"
-    ) + 8
+    assert (
+        manifest.run_id.startswith("BASE_2025_2025_")
+        and len(manifest.run_id) == len("BASE_2025_2025_") + 8
+    )
     assert manifest.is_synthetic is True
     assert manifest.steam_version == "synthetic-0.1"
     assert manifest.periods == ["AM", "MD", "PM", "EV", "NT"]
@@ -177,6 +178,7 @@ def test_reader_interface(synthetic_export) -> None:
 def test_dbf_table_is_read(synthetic_export, tmp_path: Path) -> None:
     """A DBF replacing a CSV is read through the same reader (dbfread), round-tripping values."""
     import struct
+
     import pandas as pd
 
     export = _copy_export(synthetic_export(), tmp_path / "dbf")
@@ -273,7 +275,9 @@ def test_watch_loop_with_watchdog(synthetic_export, tmp_path: Path) -> None:
         seen.append(p)
         stop.set()
 
-    t = threading.Thread(target=watch, args=(root, on_ready), kwargs={"poll_s": 0.2, "stop_event": stop})
+    t = threading.Thread(
+        target=watch, args=(root, on_ready), kwargs={"poll_s": 0.2, "stop_event": stop}
+    )
     t.start()
     export = _copy_export(synthetic_export(), root / "late")
     t.join(timeout=10)

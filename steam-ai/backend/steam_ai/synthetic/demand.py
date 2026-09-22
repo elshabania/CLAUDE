@@ -68,7 +68,7 @@ class Demand:
     def total(self, mode: str, period: str) -> np.ndarray:
         """Sum over purposes for one mode and period."""
         out = np.zeros_like(self.dist_m)
-        for (p, m, per), mat in self.matrices.items():
+        for (_p, m, per), mat in self.matrices.items():
             if m == mode and per == period:
                 out += mat
         return out
@@ -135,7 +135,9 @@ def build_demand(net: Network, periods: list[str], scale: float = 1.0) -> Demand
     )
 
 
-def scale_sector_demand(demand: Demand, zone_sectors: dict[int, str], sector: str, factor: float) -> None:
+def scale_sector_demand(
+    demand: Demand, zone_sectors: dict[int, str], sector: str, factor: float
+) -> None:
     """Multiply every trip with an origin or destination in ``sector`` by ``factor`` (in place)."""
     mask = np.array([zone_sectors[int(z)] == sector for z in demand.zone_ids])
     cell = mask[:, None] | mask[None, :]
