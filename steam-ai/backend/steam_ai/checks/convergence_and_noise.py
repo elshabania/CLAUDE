@@ -15,7 +15,16 @@ import pandas as pd
 from .. import config
 from ..models import Finding, Location, LocationType
 from ..store import RunStore
-from .base import Check, evaluate_severity, fmt, make_finding, pct, period_label, refs_from_rows
+from .base import (
+    Check,
+    evaluate_severity,
+    fmt,
+    make_finding,
+    pct,
+    period_label,
+    refs_from_rows,
+    table_ref,
+)
 
 
 class ConvergenceAndNoise(Check):
@@ -123,7 +132,7 @@ class ConvergenceAndNoise(Check):
                 SELECT p.link_id, p.period,
                        SQRT(2 * POWER(p.v_last / ph.hours - p.v_prev / ph.hours, 2)
                             / NULLIF(p.v_last / ph.hours + p.v_prev / ph.hours, 0)) AS geh
-                FROM pairs p LEFT JOIN (SELECT * FROM ph) ph ON ph.period = p.period
+                FROM pairs p LEFT JOIN ph ON ph.period = p.period
             )
             SELECT period, COUNT(*) AS n_links,
                    AVG(CASE WHEN COALESCE(geh, 0) < {geh_stable} THEN 1.0 ELSE 0.0 END)
@@ -156,7 +165,7 @@ class ConvergenceAndNoise(Check):
                             "max_geh": float(r.max_geh) if r.max_geh == r.max_geh else None},
                     thresholds={"geh_stable": geh_stable,
                                 "geh_stable_share_target": share_target},
-                    sources=[_iter_ref(store)],
+                    sources=[table_ref(store, "iteration_flows", "volume")],
                     query=sql, period=str(r.period), discriminator="stability",
                     method="GEH between last two iterations on hourly flows",
                 )
@@ -200,12 +209,6 @@ class ConvergenceAndNoise(Check):
         band = store.query(sql)
         store.write_noise_band(band)
         return int(len(band))
-
-
-def _iter_ref(store: RunStore):
-    from .base import table_ref
-
-    return table_ref(store, "iteration_flows", "volume")
 
 
 def _stage_label(stage: Any) -> str:

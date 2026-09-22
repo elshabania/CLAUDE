@@ -51,8 +51,8 @@ class TransitLineIntegrity(Check):
             )
             SELECT s.line_id, s.seq, s.from_node, s.to_node, s.source_file, s.source_row,
                    e.f IS NULL AS no_link,
-                   (s.prev_seq IS NOT NULL AND (s.seq <> s.prev_seq + 1 OR s.from_node <> s.prev_to))
-                       AS seq_gap,
+                   (s.prev_seq IS NOT NULL
+                    AND (s.seq <> s.prev_seq + 1 OR s.from_node <> s.prev_to)) AS seq_gap,
                    nf.node_id IS NULL AS from_missing,
                    nt.node_id IS NULL AS to_missing
             FROM seg s
