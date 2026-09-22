@@ -692,3 +692,6 @@ summary { cursor: pointer; }
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; animation: none !important; }
 }
+
+.kpi__name { padding-inline-end: 1.4rem; }
+.map-drawer .table th, .map-drawer .table td { padding-inline: 0.4rem; }

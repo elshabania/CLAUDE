@@ -39,9 +39,9 @@ kpis:
   - id: mean_trip_length_km
     name: Mean trip length, all periods
     unit: km
-    definition: Trip-weighted mean of the DIST skim over DEMAND matrix cells.
+    definition: Trip-weighted mean of the DIST skim (metres, per data contract 8.3) over DEMAND matrix cells, converted to km.
     sql: >
-      SELECT SUM(o.trips * s.value) / NULLIF(SUM(o.trips), 0) AS value
+      SELECT SUM(o.trips * s.value) / NULLIF(SUM(o.trips), 0) / 1000.0 AS value
       FROM od o JOIN skims s
         ON s.skim_kind = 'DIST' AND s.mode = o.mode AND s.period = o.period
        AND s.origin = o.origin AND s.destination = o.destination

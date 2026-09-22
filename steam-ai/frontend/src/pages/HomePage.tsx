@@ -308,7 +308,7 @@ function KpiStrip({ kpis }: { kpis: KPI[] }) {
         <div className="kpi" key={k.kpi_id}>
           <div className="kpi__name">
             {k.name}
-            {k.period ? <span className="muted"> · {k.period}</span> : null}
+            {k.period && !k.name.includes(k.period) ? <span className="muted"> · {k.period}</span> : null}
           </div>
           <div className="kpi__value">{fmtKpi(k.value, k.unit)}</div>
           <button type="button" className="kpi__def" aria-describedby={`kpi-def-${k.kpi_id}`} aria-label={`Definition of ${k.name}`}>

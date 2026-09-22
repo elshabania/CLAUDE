@@ -124,6 +124,7 @@ export default function MapPage() {
             },
           },
           _pathType: 'open',
+          positionFormat: 'XY',
           widthUnits: 'pixels',
           widthMinPixels: 1,
           widthMaxPixels: 12,
@@ -461,8 +462,8 @@ function LinkProfileView({ p, periods, runId, highlightFinding }: { p: LinkProfi
                   </th>
                 ))}
                 <th scope="col" className="num">V/C</th>
-                <th scope="col" className="num">Speed</th>
-                <th scope="col" className="num">Delay</th>
+                <th scope="col" className="num">km/h</th>
+                <th scope="col" className="num">Delay s</th>
               </tr>
             </thead>
             <tbody>
@@ -478,7 +479,7 @@ function LinkProfileView({ p, periods, runId, highlightFinding }: { p: LinkProfi
                     ))}
                     <td className="num">{all?.vc_ratio != null ? all.vc_ratio.toFixed(2) : '–'}</td>
                     <td className="num">{fmtNumber(all?.cong_speed_kph)}</td>
-                    <td className="num">{fmtNumber(all?.delay_s)} s</td>
+                    <td className="num">{fmtNumber(all?.delay_s)}</td>
                   </tr>
                 );
               })}

@@ -112,7 +112,7 @@ export default function ChecksPage() {
                     ) : null}
                   </td>
                   <td className="num">{res ? fmtNumber(res.rows_examined) : ''}</td>
-                  <td className="num">{res ? `${fmtNumber(res.duration_s, 1)} s` : ''}</td>
+                  <td className="num nowrap">{res ? `${fmtNumber(res.duration_s, 1)} s` : ''}</td>
                   <td style={{ minInlineSize: '16rem' }}>
                     <Disclosure summary="Severity rules and parameters">
                       <ul className="rule-list">

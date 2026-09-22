@@ -306,7 +306,9 @@ def report_pdf(store: RunStore = Depends(get_store)) -> FileResponse:
 def checks_catalogue() -> list[dict[str, Any]]:
     from ..checks.registry import catalogue
 
-    return catalogue()
+    # The registry keys entries by "id"; expose "check_id" too so the payload
+    # matches CheckResult/Finding naming used everywhere else in the API.
+    return [{"check_id": c.get("id"), **c} for c in catalogue()]
 
 
 @app.get(f"{API_PREFIX}/config/health")

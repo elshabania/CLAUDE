@@ -45,7 +45,7 @@ export function FindingsByCheckChart({ rows }: { rows: { check: string; counts: 
     Medium: css('--sev-medium', '#2b6cb0'),
     Info: css('--sev-info', '#6b7280'),
   };
-  const h = Math.max(120, rows.length * 26 + 30);
+  const h = Math.max(120, rows.length * 30 + 30);
   return (
     <div className="chart" style={{ blockSize: h }} role="img" aria-label="Findings per check, stacked by severity">
       <ResponsiveContainer width="100%" height="100%">
@@ -116,7 +116,7 @@ export function KpiDeltaChart({ deltas }: { deltas: KpiDelta[] }) {
   const pos = css('--div-pos', '#b2182b');
   const neg = css('--div-neg', '#2166ac');
   const ns = css('--div-mid', '#dedede');
-  const h = Math.max(120, deltas.length * 26 + 30);
+  const h = Math.max(120, deltas.length * 36 + 30);
   return (
     <div className="chart" style={{ blockSize: h }} role="img" aria-label="KPI change versus base run, percent">
       <ResponsiveContainer width="100%" height="100%">

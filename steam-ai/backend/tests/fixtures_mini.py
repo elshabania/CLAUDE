@@ -290,3 +290,69 @@ def mini_data_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     """Point the package data root at a temp dir for the duration of one test."""
     monkeypatch.setattr(paths, "DATA_DIR", tmp_path / "data")
     return tmp_path / "data"
+
+
+# --- helpers for check tests ---------------------------------------------------
+
+
+def check_config(check_id: str) -> tuple[dict, list[dict]]:
+    """Params and severity rules for one check from config/checks.yaml (copies)."""
+    from steam_ai import config
+
+    cfg = config.checks()["checks"][check_id]
+    return dict(cfg.get("params") or {}), list(cfg.get("severity") or [])
+
+
+def run_check(
+    check_id: str,
+    tables: dict[str, pd.DataFrame],
+    base_tables: dict[str, pd.DataFrame] | None = None,
+    params: dict | None = None,
+    run_id: str = "scen",
+    base_run_id: str = "base",
+) -> list:
+    """Write the run(s) and execute one check directly with config params (+ overrides)."""
+    from steam_ai.checks.registry import REGISTRY
+
+    check = REGISTRY[check_id]
+    p, rules = check_config(check_id)
+    if params:
+        p.update(params)
+    base = make_run(base_run_id, base_tables) if base_tables is not None else None
+    store = make_run(run_id, tables, base_run_id=base_run_id if base is not None else None)
+    try:
+        return check.run(store, base, p, rules)
+    finally:
+        store.close()
+        if base is not None:
+            base.close()
+
+
+def dummy_finding(
+    check_id: str,
+    severity: str,
+    loc_type: str = "link",
+    loc_id: str = "1",
+    period: str | None = None,
+    values: dict | None = None,
+    is_significant: bool = True,
+    run_id: str = "scen",
+):
+    """A minimal valid Finding for tests that do not need a real check."""
+    from steam_ai.checks.base import finding_id
+    from steam_ai.models import Evidence, Finding, Location, LocationType, Severity
+
+    return Finding(
+        finding_id=finding_id(check_id, loc_type, loc_id, period),
+        run_id=run_id,
+        check_id=check_id,
+        check_name=check_id,
+        severity=Severity(severity),
+        location=Location(type=LocationType(loc_type), id=loc_id),
+        executive_line="test",
+        modeller_view="test",
+        evidence=Evidence(values=values or {}, period=period),
+        likely_cause="test",
+        suggested_action="test",
+        is_significant=is_significant,
+    )
