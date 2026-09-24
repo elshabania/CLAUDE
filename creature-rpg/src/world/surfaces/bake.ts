@@ -81,7 +81,7 @@ export function getSurfaceLib(gl: THREE.WebGLRenderer, size: number): SurfaceLib
     glslVersion: THREE.GLSL3,
     vertexShader: VERT,
     fragmentShader: FRAG,
-    uniforms: { uLayer: { value: 0 }, uPass: { value: 0 }, uRes: { value: size }, uBump: { value: 1 }, uPrev: { value: rtA.texture } },
+    uniforms: { uLayer: { value: 0 }, uPass: { value: 0 }, uRes: { value: size }, uBump: { value: 1 }, uPrev: { value: null as THREE.Texture | null } },
     depthTest: false,
     depthWrite: false,
   });
@@ -100,6 +100,8 @@ export function getSurfaceLib(gl: THREE.WebGLRenderer, size: number): SurfaceLib
   gl.autoClear = false;
   for (const [pass, rt] of [[0, rtA], [1, rtB]] as const) {
     mat.uniforms.uPass.value = pass;
+    // pass 0 writes A (must not have it bound for sampling: feedback loop); pass 1 reads A's heights
+    mat.uniforms.uPrev.value = pass === 1 ? rtA.texture : null;
     for (let L = 0; L < SURF_COUNT; L++) {
       // storage (with its mip chain) is allocated on the first bind; regenerate mips only after the last layer
       rt.texture.generateMipmaps = L === 0 || L === SURF_COUNT - 1;

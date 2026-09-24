@@ -1,21 +1,26 @@
-// High-profile post stack only (rendering §5.4): SMAA, subtle Bloom, Vignette, then ACES tone mapping last (the composer switches the renderer to
-// NoToneMapping while mounted). Lazy-loaded so Balanced/Mobile never download postprocessing.
-// Renders to the default framebuffer at the end, so preserveDrawingBuffer screenshots keep working;
-// uses the default R3F camera, which the battle director also drives.
-// Bloom threshold is 3.2 (not the doc's 1.0): the HDR buffer is pre-tone-mapping and sunlit ground
-// already reaches ~1.5–3, so a low threshold hazes the whole frame. Only lamp halo cores, the sun disc
-// and hot emissives clear it.
-import { EffectComposer, Bloom, Vignette, SMAA, ToneMapping } from '@react-three/postprocessing';
+// Post stack (rendering §5.4), lazy-loaded so Mobile never downloads postprocessing.
+//  full  (High):     N8AO ambient occlusion (full-res, medium) → SMAA → Bloom → ACES → grade (sat/contrast) → Vignette
+//  light (Balanced): N8AO (half-res, performance)             → SMAA → Bloom → ACES
+// The composer switches the renderer to NoToneMapping while mounted; ACES runs here instead, then a light
+// grade in display range. Renders to the default framebuffer, so preserveDrawingBuffer screenshots keep
+// working; uses the default R3F camera, which the battle director also drives.
+// Bloom threshold 1.8 (HDR, pre-tone-mapping): sunlit snow peaks ~1.3, so only the sun disc, lamp/window
+// glow halos, crystals and lava seams bloom.
+import { EffectComposer, Bloom, Vignette, SMAA, ToneMapping, N8AO, HueSaturation, BrightnessContrast } from '@react-three/postprocessing';
 import { ToneMappingMode } from 'postprocessing';
 import { HalfFloatType } from 'three';
 
-export default function PostFX() {
+export default function PostFX({ mode = 'full' }: { mode?: 'full' | 'light' }) {
+  const full = mode === 'full';
   return (
     <EffectComposer multisampling={0} frameBufferType={HalfFloatType} enableNormalPass={false}>
+      <N8AO aoRadius={full ? 1.6 : 1.4} distanceFalloff={0.6} intensity={full ? 2.4 : 2} quality={full ? 'medium' : 'performance'} halfRes={!full} depthAwareUpsampling color="black" />
       <SMAA />
-      <Bloom mipmapBlur luminanceThreshold={3.2} luminanceSmoothing={0.4} intensity={0.55} radius={0.65} />
-      <Vignette offset={0.3} darkness={0.42} eskil={false} />
+      <Bloom mipmapBlur luminanceThreshold={1.8} luminanceSmoothing={0.35} intensity={full ? 0.5 : 0.4} radius={0.7} />
       <ToneMapping mode={ToneMappingMode.ACES_FILMIC} />
+      {full ? <HueSaturation saturation={0.06} /> : <></>}
+      {full ? <BrightnessContrast contrast={0.06} /> : <></>}
+      {full ? <Vignette offset={0.3} darkness={0.38} eskil={false} /> : <></>}
     </EffectComposer>
   );
 }

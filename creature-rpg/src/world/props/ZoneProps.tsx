@@ -2,7 +2,10 @@ import { useRapier } from '@react-three/rapier';
 import { useEffect, useMemo } from 'react';
 import * as THREE from 'three';
 import type { ZoneSpec } from '../zoneTypes';
-import { buildKind, windMaterial } from './kit';
+import { buildKind } from './kit';
+import { makeKitMaterials } from './kitMaterials';
+import { useSurfaceLib } from '../surfaces';
+import { QUALITY, useSettings } from '../../state/settingsStore';
 import { BUILDERS } from './buildings';
 import { distToPath, slopeAt, type HeightGrid, sampleGrid } from '../terrain/heightfield';
 import { Rng, hashString } from '../../sim/rng';
@@ -66,15 +69,18 @@ export function ZoneProps({ zone, grid, density, lowPoly, shadows, hdr = false }
       .map((p) => ({ kind: p.kind, x: p.at[0], z: p.at[1], y: sampleGrid(grid, p.at[0], p.at[1]) - 0.05, yaw: compassToRotY(p.yaw ?? 0), s: p.s ?? 1 }));
     return [...scatterZone(zone, grid, density), ...hand];
   }, [zone, grid, density]);
+  const lib = useSurfaceLib();
+  const cheap = QUALITY[useSettings((st) => st.quality)].cheapSurfaces;
+  const kitMats = useMemo(() => makeKitMaterials(lib, cheap), [lib, cheap]);
+  useEffect(() => () => kitMats.dispose(), [kitMats]);
   const batches = useMemo(() => {
     const byKind = new Map<string, Placed[]>();
     for (const p of placed) byKind.set(p.kind, [...(byKind.get(p.kind) ?? []), p]);
     const out: { kind: string; mesh: THREE.InstancedMesh; def: ReturnType<typeof buildKind>; items: Placed[] }[] = [];
     for (const [kind, items] of byKind) {
       const def = buildKind(kind, zone.palette, lowPoly);
-      const mat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.9, flatShading: /rock|boulder|crystal|icerock|basalt/.test(kind) });
-      if (def.sway) windMaterial(mat);
-      const mesh = new THREE.InstancedMesh(def.geo, mat, items.length);
+      const mats = def.mats.map((k) => kitMats[k]);
+      const mesh = new THREE.InstancedMesh(def.geo, mats.length === 1 ? mats[0] : mats, items.length);
       const m = new THREE.Matrix4();
       items.forEach((it, i) => {
         m.compose(new THREE.Vector3(it.x, it.y, it.z), new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), it.yaw), new THREE.Vector3(it.s, it.s, it.s));
@@ -87,14 +93,15 @@ export function ZoneProps({ zone, grid, density, lowPoly, shadows, hdr = false }
       out.push({ kind, mesh, def, items });
     }
     return out;
-  }, [placed, zone.palette, lowPoly, shadows]);
+  }, [placed, zone.palette, lowPoly, shadows, kitMats]);
 
   const built = useMemo(
     () =>
       zone.props.map((p) => {
-        const b = BUILDERS[p.kind]?.({ color: p.color, roof: p.roof, w: p.w, d: p.d, h: p.h, label: p.label });
+        const b = BUILDERS[p.kind]?.({ color: p.color, roof: p.roof, w: p.w, d: p.d, h: p.h, label: p.label }, { indoor: !!zone.indoor, biome: zone.biome });
         if (!b) return null;
-        const mesh = new THREE.Mesh(b.geo, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.85 }));
+        const mats = (b.mats ?? ['surface']).map((k) => kitMats[k]);
+        const mesh = new THREE.Mesh(b.geo, mats.length === 1 ? mats[0] : mats);
         const y = sampleGrid(grid, p.at[0], p.at[1]) - 0.1;
         mesh.position.set(p.at[0], y, p.at[1]);
         mesh.rotation.y = compassToRotY(p.yaw ?? 0);
@@ -103,7 +110,7 @@ export function ZoneProps({ zone, grid, density, lowPoly, shadows, hdr = false }
         mesh.receiveShadow = true;
         return { p, b, mesh, y };
       }).filter(Boolean) as { p: ZoneSpec['props'][number]; b: ReturnType<(typeof BUILDERS)[string]>; mesh: THREE.Mesh; y: number }[],
-    [zone.props, grid, shadows],
+    [zone.props, zone.indoor, zone.biome, grid, shadows, kitMats],
   );
 
   // night halos for lamps / glowing props (unconditional props only; one draw call)
@@ -162,15 +169,12 @@ export function ZoneProps({ zone, grid, density, lowPoly, shadows, hdr = false }
 
   useEffect(
     () => () => {
+      // kit materials are shared (disposed with kitMats)
       for (const b of batches) {
         b.mesh.geometry.dispose();
-        (b.mesh.material as THREE.Material).dispose();
         b.mesh.dispose();
       }
-      for (const b of built) {
-        b.mesh.geometry.dispose();
-        (b.mesh.material as THREE.Material).dispose();
-      }
+      for (const b of built) b.mesh.geometry.dispose();
     },
     [batches, built],
   );

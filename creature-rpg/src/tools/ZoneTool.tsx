@@ -5,7 +5,6 @@ import { WorldCanvas } from '../world/World';
 import { PlayerController } from '../world/actors/PlayerController';
 import { ThirdPersonCamera } from '../world/camera/ThirdPersonCamera';
 import { loadZone } from '../data/zones';
-import { humanVisual } from '../creatures/humans';
 import { playerLook } from '../data/looks';
 import { runtime } from '../state/runtime';
 import { PerfOverlay } from '../ui/PerfOverlay';
@@ -17,7 +16,6 @@ import { useGame } from '../state/game';
 import { useSettings, type QualityProfile } from '../state/settingsStore';
 import type { WeatherId } from '../sim/types';
 import { ZoneTitleCard } from '../ui/ZoneTitleCard';
-void humanVisual;
 
 export function ZoneTool() {
   const p = new URLSearchParams(location.search);
@@ -33,7 +31,7 @@ export function ZoneTool() {
   const start = { x: p.has('x') ? +p.get('x')! : sp.at[0], z: p.has('z') ? +p.get('z')! : sp.at[1], yaw: compassToRotY(sp.yaw ?? 0) };
   if (p.has('pitch')) runtime.camPitch = +p.get('pitch')!;
   if (p.has('dist')) runtime.camDist = +p.get('dist')!;
-  const look = useMemo(() => playerLook(0, 0, 0), []);
+  const look = useMemo(() => { const [b, sk, h] = (p.get('look') ?? '0.0.3').split('.').map(Number); return playerLook(b || 0, sk || 0, h || 0); }, []);
   return (
     <>
       <WorldCanvas zone={zone}>

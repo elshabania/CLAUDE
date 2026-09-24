@@ -6,7 +6,7 @@ import { useBattle, type Cue } from './battleStore';
 import { SPECIES_VISUALS } from '../creatures/registry';
 import { assemble, type CreatureModel } from '../creatures/assemble';
 import { Animator } from '../creatures/anim';
-import { humanVisual } from '../creatures/humans';
+import { HumanModel } from '../creatures/humans';
 import { LOOKS, playerLook } from '../data/looks';
 import { TRAINERS } from '../data/registry';
 import { heightAt, runtime } from '../state/runtime';
@@ -35,7 +35,8 @@ export function BattleScene() {
   const fxList = useRef<Fx[]>([]);
   const lastSeq = useRef(-1);
   const shot = useRef<{ kind: string; t: number; side?: SideId }>({ kind: 'intro', t: 0 });
-  const trainers = useRef<{ player?: { m: CreatureModel; a: Animator }; foe?: { m: CreatureModel; a: Animator } }>({});
+  const trainers = useRef<{ player?: { m: HumanModel; a: HumanModel }; foe?: { m: HumanModel; a: HumanModel } }>({});
+  const endShown = useRef(false);
   const chime = useRef<THREE.Mesh | null>(null);
 
   // geometry for the stage frame
@@ -72,8 +73,9 @@ export function BattleScene() {
   useEffect(() => {
     if (!req || !frame) return;
     const save = useGame.getState().save!;
-    const pl = assemble(humanVisual(playerLook(save.player.look.build, save.player.look.skin, save.player.look.hair)), { lod: 1, quality });
-    trainers.current.player = { m: pl, a: new Animator(pl) };
+    const pl = new HumanModel(playerLook(save.player.look.build, save.player.look.skin, save.player.look.hair), { lod: 0, quality });
+    trainers.current.player = { m: pl, a: pl };
+    endShown.current = false;
     const pp = frame.centre.clone().addScaledVector(frame.axis, -5.4).addScaledVector(frame.side, -1.7);
     pl.root.position.set(pp.x, heightAt(pp.x, pp.z), pp.z);
     pl.root.rotation.y = Math.atan2(frame.axis.x, frame.axis.z);
@@ -81,8 +83,9 @@ export function BattleScene() {
     if (req.trainerId) {
       const t = TRAINERS[req.trainerId];
       const look = LOOKS[t.look] ?? LOOKS.villagerA;
-      const fm = assemble(humanVisual(look), { lod: 1, quality });
-      trainers.current.foe = { m: fm, a: new Animator(fm) };
+      const fm = new HumanModel(look, { lod: 0, quality });
+      fm.setExpression('determined');
+      trainers.current.foe = { m: fm, a: fm };
       const fp = frame.centre.clone().addScaledVector(frame.axis, 5.6).addScaledVector(frame.side, 1.7);
       fm.root.position.set(fp.x, heightAt(fp.x, fp.z), fp.z);
       fm.root.rotation.y = Math.atan2(-frame.axis.x, -frame.axis.z);
@@ -228,8 +231,9 @@ export function BattleScene() {
         slots.current[c.side].anim?.resetPose();
         cry(cb.inst.species);
         shot.current = { kind: 'focus', t: 0, side: c.side };
-        if (c.side === 'player') trainers.current.player?.a.play('attack');
-        if (c.side === 'foe') trainers.current.foe?.a.play('attack');
+        // Tuner throws the Chime to send the kin out (brass bell-lantern prop in hand)
+        if (c.side === 'player') trainers.current.player?.a.play('throw');
+        if (c.side === 'foe') trainers.current.foe?.a.play('throw');
       }
       if (c.kind === 'recall' && c.side) slots.current[c.side].group.visible = false;
       if (c.kind === 'anim' && c.side) {
@@ -238,6 +242,8 @@ export function BattleScene() {
           sl.anim?.play('hit');
         } else if (c.anim) {
           sl.anim?.play(c.anim === 'status' ? 'status' : c.anim);
+          const tr = trainers.current[c.side];
+          if (tr && !tr.a.busy) tr.a.play('command');
           const target = c.vfx && ['aura_self', 'heal_glow', 'weather_call', 'shield'].includes(c.vfx) ? c.side : other(c.side);
           setTimeout(() => spawnFx(c, c.side!, target), 250);
           shot.current = { kind: 'attack', t: 0, side: c.side };
@@ -263,6 +269,7 @@ export function BattleScene() {
         const total = c.dur;
         const foe = slots.current.foe;
         foe.anim?.play('capture');
+        trainers.current.player?.a.play('throw');
         sfx('chime_throw');
         let rung = 0;
         fxList.current.push({ mesh: m, t: 0, dur: total, update: (k, fx) => {
@@ -327,7 +334,17 @@ export function BattleScene() {
       sl.anim.reducedMotion = useSettings.getState().reducedMotion;
       sl.anim.update(dt);
     }
-    for (const t of [trainers.current.player, trainers.current.foe]) t?.a.update(dt);
+    // trainer staging: command gestures on moves, victory / loss poses at the end
+    if (b.phase === 'end' && !endShown.current && st?.outcome) {
+      endShown.current = true;
+      const won = st.outcome === 'win' || st.outcome === 'captured';
+      if (st.outcome === 'win' || st.outcome === 'loss' || st.outcome === 'captured') {
+        trainers.current.player?.a.play(won ? 'victory' : 'lose');
+        trainers.current.foe?.a.play(won ? 'lose' : 'victory');
+      }
+    }
+    const rm = useSettings.getState().reducedMotion;
+    for (const t of [trainers.current.player, trainers.current.foe]) { if (t) { t.a.reducedMotion = rm; t.a.update(dt); } }
     // fx
     fxList.current = fxList.current.filter((f) => {
       f.t += dt;

@@ -2,7 +2,7 @@
 // Fixed light count (one key directional + one hemisphere), so nothing recompiles as time passes.
 // Everything is updated in useFrame from getState() — no React re-renders per tick.
 import { useFrame, useThree } from '@react-three/fiber';
-import { Sky } from '@react-three/drei';
+import { Sky } from 'three/examples/jsm/objects/Sky.js';
 import { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import type { ZoneSpec } from '../zoneTypes';
@@ -12,6 +12,8 @@ import { windUniforms } from '../props/kit';
 import { rimUniforms } from '../../creatures/materials';
 import { createSample, sampleDayNight } from './dayNight';
 import { atmo, currentClock } from './state';
+import { EnvironmentLighting, type EnvDrive } from './environment';
+import { surfaceGlow } from '../surfaces/material';
 import type { WeatherId } from '../../sim/types';
 
 const NIGHT_FOG = new THREE.Color('#33416C');
@@ -24,7 +26,7 @@ const SUN_WARM = new THREE.Color('#FFD9A0');
 const CAVE = { key: new THREE.Color('#FFD3A2'), sky: new THREE.Color('#9AAAD2'), ground: new THREE.Color('#403430'), keyI: 1.15, hemiI: 1.05 };
 const HALL = { key: new THREE.Color('#FFE2B8'), sky: new THREE.Color('#FFF0DC'), ground: new THREE.Color('#5E4A3A'), keyI: 1.6, hemiI: 1.0 };
 
-/** Sky shader is one material shared by every drei <Sky/>: patch it once (night blend, stars, horizon fog). */
+/** Shared uniforms merged into the (three/examples) Sky material: night blend, stars, horizon fog, exposure gain. */
 const skyUniforms = {
   uNight: { value: 0 },
   uStars: { value: 0 },
@@ -36,7 +38,10 @@ const skyUniforms = {
   uOvercast: { value: 0 },
   uOvercastColor: { value: OVERCAST.clone() },
   uSkyTint: { value: new THREE.Color(1, 1, 1) },
+  uSkyGain: { value: 1 },
+  uSkyFloor: { value: new THREE.Color(0, 0, 0) },
 };
+// Applied before tone mapping so the horizon blend matches the (pre-tone-mapped) scene fog exactly.
 function patchSky(mat: THREE.ShaderMaterial) {
   if (mat.userData.atmoPatched) return;
   mat.userData.atmoPatched = true;
@@ -45,12 +50,15 @@ function patchSky(mat: THREE.ShaderMaterial) {
     .replace(
       'void main() {',
       `uniform float uNight; uniform float uStars; uniform float uTime; uniform vec3 uNightTop; uniform vec3 uNightHorizon;
-      uniform vec3 uHorizon; uniform float uHorizonMix; uniform float uOvercast; uniform vec3 uOvercastColor; uniform vec3 uSkyTint;
+      uniform vec3 uHorizon; uniform float uHorizonMix; uniform float uOvercast; uniform vec3 uOvercastColor; uniform vec3 uSkyTint; uniform float uSkyGain; uniform vec3 uSkyFloor;
       void main() {`,
     )
     .replace(
-      /#include <colorspace_fragment>|#include <encodings_fragment>/,
+      '#include <tonemapping_fragment>',
       (inc) => `{
+        gl_FragColor.rgb *= uSkyGain;
+        // twilight floor: the single-scattering model goes black overhead once the sun sets
+        gl_FragColor.rgb = max(gl_FragColor.rgb, uSkyFloor * mix(1.0, 0.45, clamp(normalize(vWorldPosition - cameraPosition).y, 0.0, 1.0)));
         vec3 dir = normalize(vWorldPosition - cameraPosition);
         float h = clamp(dir.y, -0.2, 1.0);
         vec3 nightSky = mix(uNightHorizon, uNightTop, smoothstep(0.0, 0.65, h));
@@ -71,6 +79,12 @@ function patchSky(mat: THREE.ShaderMaterial) {
   mat.needsUpdate = true;
 }
 
+// PBR scale factors on top of the day/night curve (curve values stay the design-doc numbers)
+const SUN_K = 1.45;
+const ENV_K = 0.5;
+const SKY_GAIN = 0.55;
+const lum = (c: THREE.Color) => 0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b;
+
 const WEATHERS: WeatherId[] = ['rain', 'snow', 'fog', 'sunlight'];
 function weatherTarget(w: WeatherId, k: WeatherId) {
   return w === k ? 1 : 0;
@@ -85,7 +99,6 @@ export interface AtmosphereProps {
 export function Atmosphere({ zone, shadows, shadowSize }: AtmosphereProps) {
   const sun = useRef<THREE.DirectionalLight>(null);
   const hemi = useRef<THREE.HemisphereLight>(null);
-  const sky = useRef<THREE.Mesh>(null);
   const { scene } = useThree();
   const weather = useGame((s) => s.weather);
   const cave = zone.biome === 'cave';
@@ -101,9 +114,35 @@ export function Atmosphere({ zone, shadows, shadowSize }: AtmosphereProps) {
       tmp: new THREE.Color(),
       sample: createSample(),
       skySun: new THREE.Vector3(0, 1, 0),
+      drive: { clock: 720, sunDir: new THREE.Vector3(0, 1, 0), overcast: 0, skyTint: new THREE.Color(1, 1, 1), intensity: 1 } as EnvDrive,
+      baseCloud: zone.biome === 'volcano' ? 0.5 : zone.biome === 'snow' || zone.biome === 'tundra' ? 0.45 : zone.biome === 'fen' ? 0.5 : 0.32,
     }),
     [zone],
   );
+  c.drive.clock = interior ? 720 : currentClock();
+
+  // physically based sky (Preetham + procedural clouds), one instance per zone
+  const sky = useMemo(() => {
+    if (!hasSky) return null;
+    const sk = new Sky();
+    sk.scale.setScalar(4000);
+    const mat = sk.material as THREE.ShaderMaterial;
+    Object.assign(mat.uniforms.turbidity, { value: 3.2 });
+    Object.assign(mat.uniforms.rayleigh, { value: 1.4 });
+    Object.assign(mat.uniforms.mieCoefficient, { value: 0.005 });
+    Object.assign(mat.uniforms.mieDirectionalG, { value: 0.82 });
+    mat.uniforms.cloudScale.value = 0.00017;
+    mat.uniforms.cloudSpeed.value = 0.00003;
+    mat.uniforms.cloudDensity.value = 0.55;
+    mat.uniforms.cloudElevation.value = 0.55;
+    patchSky(mat);
+    return sk;
+  }, [hasSky]);
+  useEffect(() => () => {
+    if (!sky) return;
+    sky.geometry.dispose();
+    (sky.material as THREE.Material).dispose();
+  }, [sky]);
 
   // fog + background objects live for the zone (remounted per entry)
   useEffect(() => {
@@ -127,14 +166,6 @@ export function Atmosphere({ zone, shadows, shadowSize }: AtmosphereProps) {
     atmo.sunlight = weatherTarget(weather, 'sunlight');
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [zone]);
-
-  useLayoutEffect(() => {
-    const m = sky.current;
-    if (!m) return;
-    patchSky(m.material as THREE.ShaderMaterial);
-    // the sky material is shared by every <Sky/> and stays; only this instance's box geometry is freed
-    return () => m.geometry.dispose();
-  }, [hasSky]);
 
   useFrame((_, dt) => {
     const s = sun.current, hm = hemi.current;
@@ -176,10 +207,28 @@ export function Atmosphere({ zone, shadows, shadowSize }: AtmosphereProps) {
       c.fog.copy(c.palFog).multiply(smp.tint).lerp(FOG_GREY, overcast * 0.45).lerp(NIGHT_FOG, night * 0.88);
       c.bg.copy(c.palSky).multiply(smp.tint).lerp(OVERCAST, overcast * 0.5).lerp(NIGHT_SKY_HORIZON, night * 0.9);
     }
-    s.intensity = sunI;
-    hm.intensity = hemiI;
+    // PBR rig: the key light carries the direct sun/moon; image-based light (EnvironmentLighting) carries the
+    // sky + bounce. The hemisphere light stays as a faint fill once the environment map is live.
+    const envLive = scene.environment != null;
+    s.intensity = sunI * SUN_K;
+    hm.intensity = hemiI * (envLive ? (interior ? 0.35 : 0.18) : 1);
+    const d0 = c.drive;
+    d0.overcast = overcast;
+    if (interior) {
+      d0.sunDir.copy(smp.sunDir);
+      d0.intensity = hemiI * 0.45;
+      d0.skyTint.setRGB(1, 1, 1).lerp(c.tmp.copy(hm.color).multiplyScalar(1 / Math.max(0.05, lum(hm.color))), 0.5);
+    } else {
+      d0.clock = currentClock();
+      d0.sunDir.copy(smp.skySun);
+      // env brightness follows the curve's sky light (moonlit nights stay readable: floor 0.32)
+      d0.intensity = Math.max(0.32, ENV_K * lum(smp.hemiSky) * smp.hemiI) * (1 - overcast * 0.12);
+      c.tmp.copy(smp.hemiSky).multiplyScalar(1 / Math.max(0.05, lum(smp.hemiSky)));
+      d0.skyTint.setRGB(1, 1, 1).lerp(c.tmp, 0.3 + 0.5 * night);
+    }
     atmo.night = night;
     atmo.glow = interior ? 0.55 : Math.min(1, night * 1.2 + overcast * 0.25);
+    surfaceGlow.value = 0.06 + atmo.glow * 1.6;
     atmo.ambient.copy(hm.color).multiplyScalar(hemiI * 0.55).add(c.tmp.copy(s.color).multiplyScalar(sunI * 0.18));
 
     // key light + shadow camera follow the player
@@ -197,8 +246,15 @@ export function Atmosphere({ zone, shadows, shadowSize }: AtmosphereProps) {
     if (scene.background instanceof THREE.Color) scene.background.copy(c.bg);
 
     // sky shader
-    if (hasSky) {
+    if (sky) {
       c.skySun.copy(smp.skySun);
+      const su = (sky.material as THREE.ShaderMaterial).uniforms;
+      su.sunPosition.value.copy(smp.skySun);
+      su.time.value += d;
+      su.cloudCoverage.value = Math.min(0.95, c.baseCloud + overcast * 0.55);
+      su.cloudDensity.value = 0.5 + overcast * 0.4;
+      skyUniforms.uSkyGain.value = SKY_GAIN;
+      skyUniforms.uSkyFloor.value.copy(c.bg).multiplyScalar(0.55 * (1 - THREE.MathUtils.smoothstep(smp.skySun.y, 0.05, 0.35)));
       const skyNight = THREE.MathUtils.smoothstep(night, 0.1, 0.85);
       skyUniforms.uNight.value = skyNight;
       skyUniforms.uStars.value = Math.max(0, night - 0.5) * 2 * (1 - overcast);
@@ -232,10 +288,12 @@ export function Atmosphere({ zone, shadows, shadowSize }: AtmosphereProps) {
         shadow-camera-bottom={-40}
         shadow-camera-near={1}
         shadow-camera-far={140}
-        shadow-bias={-0.0005}
-        shadow-normalBias={0.04}
+        shadow-bias={-0.0004}
+        shadow-normalBias={0.03}
+        shadow-radius={2.5}
       />
-      {hasSky && <Sky ref={sky as never} distance={4000} sunPosition={c.skySun} turbidity={6} rayleigh={1.2} mieCoefficient={0.004} mieDirectionalG={0.8} />}
+      {sky && <primitive object={sky} />}
+      <EnvironmentLighting zone={zone} drive={c.drive} interior={interior} />
     </>
   );
 }

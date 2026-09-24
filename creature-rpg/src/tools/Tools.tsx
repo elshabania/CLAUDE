@@ -3,12 +3,11 @@ import { OrbitControls } from '@react-three/drei';
 import { useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { SPECIES_VISUALS as KIN } from '../creatures/registry';
-import { humanVisual } from '../creatures/humans';
-import { LOOKS, playerLook } from '../data/looks';
-const SPECIES_VISUALS = { ...KIN, ...(new URLSearchParams(location.search).get('humans') ? Object.fromEntries([['arden', humanVisual(playerLook(0,0,0))], ...Object.entries(LOOKS).map(([k, l]) => [k, humanVisual(l)])]) : {}) } as typeof KIN;
+const SPECIES_VISUALS = KIN;
 import { assemble } from '../creatures/assemble';
 import { Animator, type ActionName } from '../creatures/anim';
 import { ZoneTool } from './ZoneTool';
+import { HumanTool } from './HumanTool';
 
 const params = new URLSearchParams(location.search);
 
@@ -100,6 +99,7 @@ function FitCreature({ id, silhouette, cx, cy, size, yaw }: { id: string; silhou
 export default function Tools() {
   const tool = params.get('tool');
   if (tool === 'zone') return <ZoneTool />;
+  if (tool === 'humans') return <HumanTool />;
   if (tool === 'sheet') return <Sheet silhouette={false} />;
   if (tool === 'silhouettes') return <Sheet silhouette />;
   return <Viewer />;

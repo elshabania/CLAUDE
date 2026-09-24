@@ -18,8 +18,10 @@ import { Atmosphere } from './atmosphere/Atmosphere';
 import { Precipitation } from './atmosphere/Precipitation';
 import { AmbientMotes } from './atmosphere/AmbientMotes';
 import { PostBoundary } from './atmosphere/PostBoundary';
+import { SurfaceScope } from './surfaces';
+import { Grass } from './vegetation/Grass';
 
-// post stack is High-only and lazy: other profiles never download postprocessing
+// post stack is lazy (High: full, Balanced: light, Mobile: none — never downloads postprocessing)
 const PostFX = lazy(() => import('./atmosphere/PostFX'));
 
 export function useZoneGrid(zone: ZoneSpec): HeightGrid {
@@ -80,7 +82,7 @@ function FrameDriver() {
 export function WorldCanvas({ zone, children, onCreated }: { zone: ZoneSpec; children?: ReactNode; onCreated?: () => void }) {
   const quality = useSettings((s) => s.quality);
   const q = QUALITY[quality];
-  const post = quality === 'high' && q.bloom;
+  const post = q.post !== 'none';
   const weather = useGame((s) => s.weather);
   const precip = useMemo(() => ({ rain: (zone.weather.rain ?? 0) > 0 || weather === 'rain', snow: (zone.weather.snow ?? 0) > 0 || weather === 'snow' }), [zone, weather]);
   const grid = useZoneGrid(zone);
@@ -106,6 +108,7 @@ export function WorldCanvas({ zone, children, onCreated }: { zone: ZoneSpec; chi
         }}
       >
         <FrameDriver />
+        <SurfaceScope />
         <Atmosphere zone={zone} shadows={q.shadows} shadowSize={q.shadowSize} />
         <Suspense fallback={null}>
           <Physics timeStep={1 / 60} gravity={[0, -9.81, 0]}>
@@ -114,6 +117,7 @@ export function WorldCanvas({ zone, children, onCreated }: { zone: ZoneSpec; chi
             <ZoneProps zone={zone} grid={grid} density={q.vegetation} lowPoly={quality === 'mobile'} shadows={q.shadows} hdr={post} />
             {children}
           </Physics>
+          <Grass zone={zone} grid={grid} count={q.grass.count} radius={q.grass.radius} cheap={q.cheapSurfaces} />
           <Water zone={zone} grid={grid} simple={q.water === 'simple'} />
           {(precip.rain || precip.snow) && <Precipitation quality={quality} particles={q.particles} kinds={precip} />}
           <AmbientMotes zone={zone} particles={q.particles} />
@@ -121,7 +125,7 @@ export function WorldCanvas({ zone, children, onCreated }: { zone: ZoneSpec; chi
         {post && (
           <PostBoundary>
             <Suspense fallback={null}>
-              <PostFX />
+              <PostFX mode={q.post === 'full' ? 'full' : 'light'} />
             </Suspense>
           </PostBoundary>
         )}

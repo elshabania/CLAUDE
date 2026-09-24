@@ -2,12 +2,12 @@
 // exits, Resonance nodes, pickups and Waystones. All gameplay outcomes go through the game store.
 import { useFrame } from '@react-three/fiber';
 import { useRapier } from '@react-three/rapier';
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
 import type { ZoneSpec, NpcSpec, NodeSpec } from '../zoneTypes';
 import { assemble, type CreatureModel } from '../../creatures/assemble';
 import { Animator } from '../../creatures/anim';
-import { humanVisual } from '../../creatures/humans';
+import { HumanModel } from '../../creatures/humans';
 import { LOOKS } from '../../data/looks';
 import { SPECIES_VISUALS } from '../../creatures/registry';
 import { TRAINERS, DIALOGUE } from '../../data/registry';
@@ -30,18 +30,18 @@ const HALL_OF: Record<string, string> = { i_keynote_1: 'Rootloft Hall', i_keynot
 
 interface Interactable { kind: 'npc' | 'trainer' | 'node' | 'pickup' | 'waystone' | 'exit'; id: string; x: number; z: number; r: number; label: string; act: () => void }
 
-function useHuman(lookId: string) {
+// NPC/trainer people: full-detail model near the player (face, fingers, talk), a reduced LOD (simplified body,
+// fewer hair clumps, no face details) beyond ~14 m; models for the same look share cached body shapes.
+function useHuman(lookId: string, lod: 0 | 1) {
   const quality = useSettings((s) => s.quality);
-  return useMemo(() => {
-    const look = LOOKS[lookId] ?? LOOKS.villagerA;
-    const m = assemble(humanVisual(look), { lod: 1, quality });
-    return { m, a: new Animator(m) };
-  }, [lookId, quality]);
+  return useMemo(() => new HumanModel(LOOKS[lookId] ?? LOOKS.villagerA, { lod: quality === 'mobile' ? Math.max(1, lod) as 1 : lod, quality }), [lookId, quality, lod]);
 }
 
-function Person({ at, yaw, look, face }: { at: [number, number]; yaw?: number; look: string; face?: React.MutableRefObject<boolean> }) {
-  const { m, a } = useHuman(look);
+function Person({ id, at, yaw, look, face }: { id?: string; at: [number, number]; yaw?: number; look: string; face?: React.MutableRefObject<boolean> }) {
+  const [lod, setLod] = useState<0 | 1>(() => (Math.hypot(runtime.playerPos.x - at[0], runtime.playerPos.z - at[1]) < 14 ? 0 : 1));
+  const m = useHuman(look, lod);
   const g = useRef<THREE.Group>(null);
+  const lodT = useRef(0);
   useEffect(() => () => m.dispose(), [m]);
   useFrame((_, dt) => {
     if (!g.current) return;
@@ -49,11 +49,19 @@ function Person({ at, yaw, look, face }: { at: [number, number]; yaw?: number; l
     const toP = Math.atan2(runtime.playerPos.x - at[0], runtime.playerPos.z - at[1]);
     const d = Math.hypot(runtime.playerPos.x - at[0], runtime.playerPos.z - at[1]);
     const base = compassToRotY(yaw ?? 180);
-    const target = d < 4 || face?.current ? toP : base;
+    const dlg = useGame.getState().dialogue;
+    const talking = !!dlg && !!id && dlg.npcId === id;
+    const target = d < 4 || face?.current || talking ? toP : base;
     let dy = target - g.current.rotation.y;
     dy = Math.atan2(Math.sin(dy), Math.cos(dy));
     g.current.rotation.y += dy * Math.min(1, dt * 5);
-    a.update(Math.min(dt, 0.1));
+    m.talking = talking;
+    m.reducedMotion = useSettings.getState().reducedMotion;
+    // animation LOD: distant people tick at a lower rate
+    lodT.current += dt;
+    if (d < 30 || lodT.current > 0.1) { m.update(Math.min(lodT.current, 0.1)); lodT.current = 0; }
+    const want: 0 | 1 = d < 12 ? 0 : d > 16 ? 1 : lod;
+    if (want !== lod) setLod(want);
   });
   return (
     <group ref={g}>
@@ -461,13 +469,13 @@ export function ZoneActors({ zone }: { zone: ZoneSpec }) {
     <group>
       {visibleNpcs.map((n: NpcSpec) => (
         <group key={n.id}>
-          <Person at={n.at} yaw={n.yaw} look={n.look} face={facing} />
+          <Person id={n.id} at={n.at} yaw={n.yaw} look={n.look} face={facing} />
           <NpcBody at={n.at} />
         </group>
       ))}
       {visibleTrainers.map((t) => (
         <group key={t.id}>
-          <Person at={t.at} yaw={(t as any).yaw} look={TRAINERS[t.id].look} />
+          <Person id={t.id} at={t.at} yaw={(t as any).yaw} look={TRAINERS[t.id].look} />
           <NpcBody at={t.at} />
         </group>
       ))}

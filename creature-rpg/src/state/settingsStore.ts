@@ -100,10 +100,18 @@ export interface QualityParams {
   maxWild: number;
   faceTex: number;
   water: 'full' | 'simple';
+  /** procedural PBR texture-array resolution (px per layer side) */
+  surfaceRes: number;
+  /** GPU grass blades (tufts) around the camera and the radius they cover (m) */
+  grass: { count: number; radius: number };
+  /** post stack: full = SMAA + N8AO + bloom + grade + vignette; light = N8AO (half-res, low) + bloom; none */
+  post: 'full' | 'light' | 'none';
+  /** cheap surface shaders (single projection, no anti-tiling sample) */
+  cheapSurfaces: boolean;
 }
 
 export const QUALITY: Record<QualityProfile, QualityParams> = {
-  high: { dpr: 2, shadows: true, shadowSize: 2048, vegetation: 1, drawDistance: 220, particles: 1, bloom: true, ao: true, dof: true, antialias: true, maxWild: 6, faceTex: 256, water: 'full' },
-  balanced: { dpr: 1.5, shadows: true, shadowSize: 1024, vegetation: 0.65, drawDistance: 160, particles: 0.6, bloom: true, ao: false, dof: false, antialias: true, maxWild: 6, faceTex: 256, water: 'full' },
-  mobile: { dpr: 1.25, shadows: false, shadowSize: 512, vegetation: 0.35, drawDistance: 110, particles: 0.35, bloom: false, ao: false, dof: false, antialias: false, maxWild: 6, faceTex: 128, water: 'simple' },
+  high: { dpr: 2, shadows: true, shadowSize: 2048, vegetation: 1, drawDistance: 220, particles: 1, bloom: true, ao: true, dof: true, antialias: true, maxWild: 6, faceTex: 256, water: 'full', surfaceRes: 512, grass: { count: 84000, radius: 34 }, post: 'full', cheapSurfaces: false },
+  balanced: { dpr: 1.5, shadows: true, shadowSize: 1024, vegetation: 0.65, drawDistance: 160, particles: 0.6, bloom: true, ao: false, dof: false, antialias: true, maxWild: 6, faceTex: 256, water: 'full', surfaceRes: 512, grass: { count: 36000, radius: 26 }, post: 'light', cheapSurfaces: false },
+  mobile: { dpr: 1.25, shadows: false, shadowSize: 512, vegetation: 0.35, drawDistance: 110, particles: 0.35, bloom: false, ao: false, dof: false, antialias: false, maxWild: 6, faceTex: 128, water: 'simple', surfaceRes: 256, grass: { count: 9000, radius: 16 }, post: 'none', cheapSurfaces: true },
 };

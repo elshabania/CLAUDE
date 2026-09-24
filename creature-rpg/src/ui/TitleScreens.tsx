@@ -6,7 +6,7 @@ import { Menu, Panel, TypeChip } from './components';
 import { assemble } from '../creatures/assemble';
 import { Animator } from '../creatures/anim';
 import { SPECIES_VISUALS } from '../creatures/registry';
-import { humanVisual } from '../creatures/humans';
+import { HumanModel } from '../creatures/humans';
 import { playerLook, SKINS, HAIRS } from '../data/looks';
 import { CONTENT } from '../data/index';
 import { startAudio } from '../audio/engine';
@@ -16,10 +16,7 @@ import { rivalStarter } from '../sim/world';
 import { cry } from '../audio/sfxBus';
 
 function Spin({ id, human, x = 0, scale = 1, happy }: { id?: string; human?: ReturnType<typeof playerLook>; x?: number; scale?: number; happy?: boolean }) {
-  const model = useMemo(() => {
-    if (human) return assemble(humanVisual(human), { lod: 0, quality: 'balanced' });
-    return SPECIES_VISUALS[id!] ? assemble(SPECIES_VISUALS[id!], { lod: 0, quality: 'balanced' }) : null;
-  }, [id, human]);
+  const model = useMemo(() => (SPECIES_VISUALS[id!] && !human ? assemble(SPECIES_VISUALS[id!], { lod: 0, quality: 'balanced' }) : null), [id, human]);
   const anim = useMemo(() => (model ? new Animator(model) : null), [model]);
   const g = useRef<THREE.Group>(null);
   useEffect(() => {
@@ -30,7 +27,27 @@ function Spin({ id, human, x = 0, scale = 1, happy }: { id?: string; human?: Ret
     anim?.update(Math.min(dt, 0.1));
     if (g.current && !happy) g.current.rotation.y = Math.sin(performance.now() / 2500) * 0.5;
   });
+  if (human) return <HumanSpin look={human} x={x} scale={scale} />;
   if (!model) return null;
+  const s = scale / Math.max(0.5, model.bounds.height);
+  return (
+    <group ref={g} position={[x, 0, 0]} scale={s}>
+      <primitive object={model.root} />
+    </group>
+  );
+}
+
+/** New-game preview: the player's Tuner, turning slowly, with an occasional cheer. */
+function HumanSpin({ look, x, scale }: { look: ReturnType<typeof playerLook>; x: number; scale: number }) {
+  const model = useMemo(() => new HumanModel(look, { lod: 0, quality: 'high' }), [look]);
+  const g = useRef<THREE.Group>(null);
+  const t = useRef(0);
+  useEffect(() => { model.play('happy'); return () => model.dispose(); }, [model]);
+  useFrame((_, dt) => {
+    t.current += dt;
+    model.update(Math.min(dt, 0.1));
+    if (g.current) g.current.rotation.y = Math.sin(t.current / 2.5) * 0.45;
+  });
   const s = scale / Math.max(0.5, model.bounds.height);
   return (
     <group ref={g} position={[x, 0, 0]} scale={s}>
@@ -122,7 +139,7 @@ export function NewGameScreen() {
   const [pronoun, setPronoun] = useState<'they' | 'she' | 'he'>('they');
   const [build, setBuild] = useState(0);
   const [skin, setSkin] = useState(0);
-  const [hair, setHair] = useState(0);
+  const [hair, setHair] = useState(3);
   const look = useMemo(() => playerLook(build, skin, hair), [build, skin, hair]);
   return (
     <div className="screen">
@@ -149,7 +166,7 @@ export function NewGameScreen() {
           </div>
           <div>Hair</div>
           <div className="row" style={{ margin: '6px 0 12px' }}>
-            {HAIRS.map((h, i) => <button key={i} aria-pressed={hair === i} className={'tab' + (hair === i ? ' on' : '')} onClick={() => setHair(i)}>{['Crop', 'Tail', 'Curls'][i]}</button>)}
+            {HAIRS.map((h, i) => <button key={i} aria-pressed={hair === i} className={'tab' + (hair === i ? ' on' : '')} onClick={() => setHair(i)}>{h.label}</button>)}
           </div>
           <Menu autoFocus={false} items={[{ key: 'go', label: 'Begin in Larkhollow ▶', onSelect: () => useGame.getState().startNewGame(name, pronoun, { build, skin, hair }) }, { key: 'back', label: 'Back', onSelect: () => useGame.setState({ mode: 'title' }) }]} />
         </Panel>

@@ -122,29 +122,38 @@ void surf1(vec2 uv, out vec3 col, out float h, out float rough, out float ao){
   // compacted smooth patches
   float comp = smoothstep(0.55, 0.75, fbm(uv, 3, 3, 23) * 0.5 + 0.5);
   col = mix(col, col * 1.12, comp); h = mix(h, 0.3, comp * 0.6);
-  vec4 v = voro(uv, 30, 24, 0.9);
-  float pr = 0.18 + 0.2 * v.z;
-  if (v.x < pr && v.z > 0.35) { float k = 1.0 - v.x / pr; col = mix(hex3(0.40, 0.37, 0.33), hex3(0.62, 0.58, 0.52), hs(ivec2(v.z * 9999.0), 1)) * (0.75 + 0.35 * k); h = 0.45 + 0.4 * sqrt(k); rough = 0.7; }
-  else if (v.x < pr * 1.35 && v.z > 0.35) { ao = 0.7; }
-  vec4 g = voro(uv, 90, 25, 1.0);
-  if (g.x < 0.22 && g.z > 0.6) { col *= 0.7 + 0.6 * g.z; h += 0.05; }
+  // fine embedded gravel: many tiny, low-contrast grains
+  vec4 gv = voro(uv, 64, 24, 1.0);
+  float gr = step(0.55, gv.z) * (1.0 - smoothstep(0.18, 0.32, gv.x));
+  col = mix(col, col * (0.8 + 0.5 * gv.z), gr * 0.6); h += gr * 0.08;
+  // occasional larger stones, clustered
+  vec4 v = voro(uv, 12, 26, 0.9);
+  float pr = 0.1 + 0.1 * v.z;
+  float keep = step(0.9, v.z) * step(0.5, fbm(uv, 3, 2, 27) * 0.5 + 0.5);
+  if (v.x < pr && keep > 0.5) { float k = 1.0 - v.x / pr; col = mix(col, hex3(0.42, 0.39, 0.34), 0.55 * smoothstep(0.0, 0.4, k)) * (0.85 + 0.2 * k); h = 0.45 + 0.3 * sqrt(k); rough = 0.78; }
+  else if (v.x < pr * 1.25 && keep > 0.5) { ao = 0.85; col *= 0.93; }
+  // dark damp flecks
+  float fl = fbm(uv, 20, 2, 28);
+  col *= 1.0 - smoothstep(0.35, 0.6, fl) * 0.12;
 }
-// ---- 2 rock: stratified, cracked, lichen ----
+// ---- 2 rock: stratified, weathered, sparse fractures, lichen ----
 void surf2(vec2 uv, out vec3 col, out float h, out float rough, out float ao){
-  vec2 w = vec2(fbm(uv, 3, 3, 31), fbm(uv + 0.37, 3, 3, 32)) * 0.08;
-  float strata = sin((uv.y + w.y + fbm(uv, 2, 2, 33) * 0.1) * 6.2831 * 9.0) * 0.5 + 0.5;
-  float r = ridged(uv + w, 4, 6, 34);
+  vec2 w = vec2(fbm(uv, 3, 3, 31), fbm(uv + 0.37, 3, 3, 32)) * 0.1;
+  float strata = sin((uv.y + w.y * 2.5 + fbm(uv, 2, 3, 33) * 0.3) * 6.2831 * 4.0) * 0.5 + 0.5;
+  strata = smoothstep(0.2, 0.8, strata) * (0.4 + 0.6 * (fbm(uv, 3, 2, 30) * 0.5 + 0.5));
+  float r = ridged(uv + w, 3, 6, 34);
   float n = fbm(uv, 8, 5, 35) * 0.5 + 0.5;
-  h = r * 0.55 + strata * 0.15 + n * 0.3;
-  vec4 v = voro(uv + w, 6, 36, 0.85);
-  float crack = 1.0 - smoothstep(0.0, 0.045, v.y);
-  h -= crack * 0.35; h += (v.z - 0.5) * 0.12;
-  col = mix(hex3(0.36, 0.35, 0.33), hex3(0.62, 0.60, 0.56), clamp(h, 0.0, 1.0));
-  col *= mix(vec3(1.05, 0.98, 0.9), vec3(0.92, 0.97, 1.05), v.z);
-  float lich = smoothstep(0.62, 0.8, fbm(uv, 6, 4, 37) * 0.5 + 0.5) * smoothstep(0.4, 0.7, h);
-  col = mix(col, hex3(0.55, 0.56, 0.36), lich * 0.7);
-  col *= 1.0 - crack * 0.6;
-  rough = 0.82 - 0.12 * n + lich * 0.1; ao = 1.0 - crack * 0.7;
+  h = r * 0.65 + strata * 0.12 + n * 0.28 - 0.05;
+  vec4 v = voro(uv + w * 2.0, 4, 36, 1.0);
+  float crack = (1.0 - smoothstep(0.0, 0.025, v.y)) * smoothstep(0.55, 0.7, fbm(uv, 5, 2, 38) * 0.5 + 0.5);
+  h -= crack * 0.3;
+  col = mix(hex3(0.34, 0.33, 0.31), hex3(0.64, 0.62, 0.58), clamp(h, 0.0, 1.0));
+  col *= mix(vec3(1.06, 0.98, 0.9), vec3(0.93, 0.97, 1.04), smoothstep(0.3, 0.7, fbm(uv, 2, 3, 39) * 0.5 + 0.5));
+  col *= 0.94 + 0.1 * strata;
+  float lich = smoothstep(0.6, 0.8, fbm(uv, 6, 4, 37) * 0.5 + 0.5) * smoothstep(0.35, 0.7, h);
+  col = mix(col, hex3(0.56, 0.57, 0.38), lich * 0.6);
+  col *= 1.0 - crack * 0.55;
+  rough = 0.84 - 0.1 * n + lich * 0.08; ao = (1.0 - crack * 0.6) * (0.75 + 0.25 * smoothstep(0.1, 0.6, h));
   h = clamp(h, 0.0, 1.0);
 }
 // ---- 3 sand / mud: ripples, grains, wet puddles ----
@@ -168,16 +177,18 @@ void surf4(vec2 uv, out vec3 col, out float h, out float rough, out float ao){
   float sp = hs(ivec2(uv * 512.0), 53);
   rough = 0.62 - step(0.985, sp) * 0.4; ao = 1.0; col += step(0.992, sp) * 0.2;
 }
-// ---- 5 volcanic ash: dark grit, cinders, rust flecks ----
+// ---- 5 volcanic ash: dark grit, scattered scoria, faint crust cracks ----
 void surf5(vec2 uv, out vec3 col, out float h, out float rough, out float ao){
   float n = fbm(uv, 5, 5, 61) * 0.5 + 0.5;
-  col = mix(hex3(0.12, 0.11, 0.11), hex3(0.28, 0.26, 0.25), n);
-  h = n * 0.4; rough = 0.95; ao = 1.0;
-  vec4 v = voro(uv, 22, 62, 0.9);
-  float pr = 0.25 + 0.2 * v.z;
-  if (v.x < pr && v.z > 0.4) { float k = 1.0 - v.x / pr; col = mix(hex3(0.16, 0.14, 0.14), hex3(0.36, 0.2, 0.14), step(0.85, v.z)) * (0.7 + 0.5 * k); h = 0.45 + 0.4 * k; rough = 0.8; }
-  vec4 c = voro(uv, 5, 63, 0.9);
-  float crack = 1.0 - smoothstep(0.0, 0.03, c.y); h -= crack * 0.3; col *= 1.0 - crack * 0.5; ao = 1.0 - crack * 0.5;
+  float g = hs(ivec2(uv * 512.0), 64);
+  col = mix(hex3(0.13, 0.12, 0.12), hex3(0.26, 0.24, 0.23), n) * (0.9 + 0.2 * g);
+  h = n * 0.45 + g * 0.05; rough = 0.95; ao = 1.0;
+  vec4 v = voro(uv, 18, 62, 0.9);
+  float pr = 0.16 + 0.14 * v.z;
+  if (v.x < pr && v.z > 0.8) { float k = 1.0 - v.x / pr; col = mix(col, mix(hex3(0.2, 0.18, 0.17), hex3(0.3, 0.2, 0.16), step(0.95, v.z)), 0.7) * (0.8 + 0.35 * k); h = 0.5 + 0.35 * k; rough = 0.85; }
+  vec4 c = voro(uv, 4, 63, 0.9);
+  float crack = (1.0 - smoothstep(0.0, 0.02, c.y)) * step(0.5, fbm(uv, 4, 2, 65) * 0.5 + 0.5);
+  h -= crack * 0.2; col *= 1.0 - crack * 0.35; ao = 1.0 - crack * 0.4;
   h = clamp(h, 0.0, 1.0);
 }
 // ---- 6 forest floor: layered leaves, twigs, moss ----
