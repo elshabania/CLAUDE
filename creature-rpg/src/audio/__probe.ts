@@ -7,16 +7,16 @@ import { CONTENT } from '../data/index';
 
 export async function probe(which: string) {
   await E.startAudio();
-  const meter = new Tone.Meter({ normalRange: true, smoothing: 0 });
+  const meter = new Tone.Analyser('waveform', 1024);
   Tone.getDestination().connect(meter);
   const out: Record<string, number> = {};
   const sample = async (ms: number) => {
     let max = 0;
     const end = performance.now() + ms;
     while (performance.now() < end) {
-      await new Promise((r) => setTimeout(r, 25));
-      const v = meter.getValue() as number;
-      if (v > max) max = v;
+      await new Promise((r) => setTimeout(r, 15));
+      const arr = meter.getValue() as Float32Array;
+      for (let i = 0; i < arr.length; i++) { const v = Math.abs(arr[i]); if (v > max) max = v; }
     }
     return +max.toFixed(3);
   };

@@ -216,7 +216,7 @@ export const useGame = create<GameState>((set, get) => ({
       opts.onDone?.();
       return;
     }
-    const lines = variant.lines.map((l) => ({ s: l.s ?? opts.speaker ?? '', t: fillText(l.t, s) }));
+    const lines = variant.lines.map((l) => ({ s: fillText(l.s ?? opts.speaker ?? '', s), t: fillText(l.t, s) }));
     if (!lines.length) {
       get().runActions(variant.actions, opts.onDone);
       return;
@@ -310,6 +310,10 @@ export const useGame = create<GameState>((set, get) => ({
         }
         return step();
       }
+      if ('talk' in a) {
+        get().talk(a.talk as string, { speaker: (a.speaker as string) ?? '', onDone: step });
+        return;
+      }
       if ('take' in a) {
         const r = G.takeItem(s, a.take as string, (a.n as number) ?? 1);
         if (r.ok) {
@@ -356,8 +360,11 @@ export const useGame = create<GameState>((set, get) => ({
           if (ns.mode !== 'battle' && ns.mode !== 'transition' && ns.mode !== 'evolution' && ns.mode !== 'learn') {
             unsub();
             // continue script only if the player won
-            if (get().save?.defeatedTrainers.includes(tid)) step();
-            else done?.();
+            if (get().save?.defeatedTrainers.includes(tid)) {
+              const post = `dlg_${tid}_post`;
+              if (DIALOGUE[post]) setTimeout(() => get().talk(post, { speaker: t.name, onDone: step }), 500);
+              else step();
+            } else done?.();
           }
         });
         return;
@@ -550,6 +557,7 @@ export function wildFor(zoneId: string, s: SavePayload, table: string, key: stri
 }
 
 /** Story flags and items granted automatically when a key trainer is beaten (world.md §2.5). */
+export { fillText };
 export function storyOnWin(tid: string): { flags: string[]; items: string[] } {
   let m = tid.match(/^t_rival_(\d)$/);
   if (m) return { flags: [`flag_rival_${m[1]}_done`], items: [] };

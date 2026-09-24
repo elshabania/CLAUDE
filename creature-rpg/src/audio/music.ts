@@ -534,7 +534,7 @@ export class Music {
     pad.connect(padFilter);
     const pluck = new Tone.PluckSynth({ attackNoise: 1, dampening: 4000, resonance: 0.92, volume: -4 });
     const bowl = new Tone.PolySynth(Tone.Synth, { oscillator: { type: 'sine' }, envelope: { attack: 0.004, decay: 2.8, sustain: 0, release: 2 } });
-    bowl.maxPolyphony = 10;
+    bowl.maxPolyphony = 16;
     bowl.volume.value = -16;
     const sendG = new Tone.Gain(0.35).connect(verb);
     for (const n of [glass, poly, padFilter, pluck, bowl]) {
@@ -558,7 +558,7 @@ export class Music {
     // bowl / bell: inharmonic partials of a struck bowl
     const bowl = (m: number, t: number, v = 0.7, ratios = [1, 2.76, 5.4, 8.93]) => {
       const base = f(m);
-      k.bowl.triggerAttackRelease(ratios.map((r) => base * r), 3, t0 + t, v);
+      k.bowl.triggerAttackRelease(ratios.map((r) => base * r), 1.2, t0 + t, v);
     };
     let dur = 1.5;
     const id0 = id.replace(/^stinger_/, '');

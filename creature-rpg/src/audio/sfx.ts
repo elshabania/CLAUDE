@@ -49,7 +49,7 @@ export function createSfx(core: Core) {
   pool.poly.volume.value = -16;
   pool.swell.maxPolyphony = 4;
   pool.swell.volume.value = -18;
-  pool.bowl.maxPolyphony = 8;
+  pool.bowl.maxPolyphony = 12;
   pool.bowl.volume.value = -16;
 
   const monoBlip = monotonic();
@@ -96,7 +96,7 @@ export function createSfx(core: Core) {
     ms.forEach((m, i) => pool.poly.triggerAttackRelease(mtof(m), dur, t + i * stagger, vel));
   };
   const swell = (ms: number[], dur: number, t: number, vel = 0.4) => pool.swell.triggerAttackRelease(ms.map(mtof), dur, t, vel);
-  const bowl = (f: number, t: number, vel = 0.6, ratios = [1, 2.76, 5.4, 8.93]) => pool.bowl.triggerAttackRelease(ratios.map((r) => f * r), 2.5, t, vel);
+  const bowl = (f: number, t: number, vel = 0.6, ratios = [1, 2.76, 5.4, 8.93]) => pool.bowl.triggerAttackRelease(ratios.map((r) => f * r), 0.9, t, vel);
   const rnd = (a: number, b: number) => a + Math.random() * (b - a);
 
   // ---- move recipes: 10 type timbres × 3 shapes ----

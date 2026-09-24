@@ -58,7 +58,13 @@ export function scatterZone(zone: ZoneSpec, grid: HeightGrid, density: number): 
 }
 
 export function ZoneProps({ zone, grid, density, lowPoly, shadows }: { zone: ZoneSpec; grid: HeightGrid; density: number; lowPoly: boolean; shadows: boolean }) {
-  const placed = useMemo(() => scatterZone(zone, grid, density), [zone, grid, density]);
+  const placed = useMemo(() => {
+    // hand-placed scatter kinds (individual trees, rocks, fences…) join the instanced batches
+    const hand: Placed[] = zone.props
+      .filter((p) => !BUILDERS[p.kind] && !p.showIf && !p.hideIf)
+      .map((p) => ({ kind: p.kind, x: p.at[0], z: p.at[1], y: sampleGrid(grid, p.at[0], p.at[1]) - 0.05, yaw: compassToRotY(p.yaw ?? 0), s: p.s ?? 1 }));
+    return [...scatterZone(zone, grid, density), ...hand];
+  }, [zone, grid, density]);
   const batches = useMemo(() => {
     const byKind = new Map<string, Placed[]>();
     for (const p of placed) byKind.set(p.kind, [...(byKind.get(p.kind) ?? []), p]);

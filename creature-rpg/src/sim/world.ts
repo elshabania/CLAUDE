@@ -148,3 +148,9 @@ export function resolveRivalSpecies(id: string, playerStarter: string | null): s
   const n = +id.slice(2);
   return 'c' + String(+base.slice(1) + n - 1).padStart(2, '0');
 }
+
+/** Which story key unlocks each Resonance register (flag id or Keynote item id). */
+export const REGISTER_UNLOCK: Record<string, string | null> = {
+  verdant: 'flag_resonance_tutorial', electric: 'flag_resonance_tutorial', fire: 'flag_resonance_tutorial', water: 'flag_resonance_tutorial',
+  stone: 'i_keynote_1', toxin: 'i_keynote_2', gale: 'i_keynote_3', shade: 'i_keynote_4', frost: 'i_keynote_5', lumen: 'i_keynote_6',
+};

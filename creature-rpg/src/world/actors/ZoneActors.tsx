@@ -24,10 +24,7 @@ import { safeRemoveBody } from '../physicsSafe';
 import { hashString } from '../../sim/rng';
 import type { CreatureInstance } from '../../sim/types';
 
-const REGISTER_UNLOCK: Record<string, string | null> = {
-  verdant: 'flag_resonance_tutorial', electric: 'flag_resonance_tutorial', fire: 'flag_resonance_tutorial', water: 'flag_resonance_tutorial',
-  stone: 'i_keynote_1', toxin: 'i_keynote_2', gale: 'i_keynote_3', shade: 'i_keynote_4', frost: 'i_keynote_5', lumen: 'i_keynote_6',
-};
+import { REGISTER_UNLOCK } from '../../sim/world';
 export const REGISTER_NAME: Record<string, string> = { verdant: 'Rootcall', electric: 'Spark', fire: 'Kindle', water: 'Swell', stone: 'Heave', toxin: 'Seep', gale: 'Gust', shade: 'Veil', frost: 'Rime', lumen: 'Gleam' };
 const HALL_OF: Record<string, string> = { i_keynote_1: 'Rootloft Hall', i_keynote_2: 'Knell Hall', i_keynote_3: 'Mere Hall', i_keynote_4: 'Vane Hall', i_keynote_5: 'Forge Hall', i_keynote_6: 'Rime Hall' };
 
@@ -375,10 +372,7 @@ export function ZoneActors({ zone }: { zone: ZoneSpec }) {
     const def = TRAINERS[tid];
     const pre = `dlg_${tid}_pre`;
     const exists = !!DIALOGUE[pre];
-    const go = () => useGame.getState().runActions([{ battle: tid }], () => {
-      const post = `dlg_${tid}_post`;
-      if (DIALOGUE[post]) useGame.getState().talk(post, { speaker: def.name });
-    });
+    const go = () => useGame.getState().runActions([{ battle: tid }]); // post-battle dialogue is played by the battle action
     if (exists) g.talk(pre, { speaker: def.name, onDone: go });
     else go();
   }

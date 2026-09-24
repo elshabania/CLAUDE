@@ -6,7 +6,7 @@ import { LOOKS } from '../../src/data/looks';
 import { CONTENT } from '../../src/data/index';
 
 const PROP_KINDS = new Set('house house2 hearth chordstone lamp sign well stall bridge hall_root hall_stone hall_mere hall_vane hall_forge hall_rime spire windmill tent stilthouse crate wall tree blossom pine snowpine hollowtree willow deadtree bush rock boulder crystal basalt icerock mushroom fence grass flowers reeds'.split(' '));
-const ACTIONS = new Set('set unset heal shop give n money kin lv battle starter quest step questDone warp spawn fosterage recall steward ledger healHint ending take'.split(' '));
+const ACTIONS = new Set('set unset heal shop give n money kin lv battle starter quest step questDone warp spawn fosterage recall steward ledger healHint ending take talk speaker'.split(' '));
 
 describe('world content', () => {
   it('all zones parse', () => expect(ZONE_ERRORS).toEqual([]));
@@ -54,9 +54,10 @@ describe('world content', () => {
         const acts = [...(v.actions ?? []), ...(v.choice?.options.flatMap((o) => o.actions) ?? [])];
         for (const a of acts) {
           for (const k of Object.keys(a)) if (!ACTIONS.has(k)) errs.push(`${id} unknown action key ${k}`);
+          if (a.talk && !DIALOGUE[a.talk as string]) errs.push(`${id} talk ${a.talk}`);
           if (a.battle && !TRAINERS[a.battle as string]) errs.push(`${id} battle ${a.battle}`);
           if (a.give && !CONTENT.items[a.give as string]) errs.push(`${id} give ${a.give}`);
-          if (a.kin && !CONTENT.species[a.kin as string]) errs.push(`${id} kin ${a.kin}`);
+          if (a.kin && !['leftover', 'rival_line'].includes(a.kin as string) && !CONTENT.species[a.kin as string]) errs.push(`${id} kin ${a.kin}`);
           if (a.shop && !SHOPS[a.shop as string]) errs.push(`${id} shop ${a.shop}`);
           if (a.warp && ZONES[a.warp as string] && !ZONES[a.warp as string].spawns.some((s) => s.id === a.spawn)) errs.push(`${id} warp spawn ${a.warp}:${a.spawn}`);
         }

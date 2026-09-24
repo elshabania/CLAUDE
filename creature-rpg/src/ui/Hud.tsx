@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useGame } from '../state/game';
+import { useGame, fillText } from '../state/game';
 import { ZONES } from '../data/zones';
 import { CONTENT } from '../data/index';
 import { computeStats } from '../sim/stats';
@@ -134,7 +134,7 @@ export function DialogueBox() {
       {!d.choiceOpen && done && <div className="more" aria-hidden>▼</div>}
       {d.choiceOpen && d.variant.choice && (
         <div className="choices" onClick={(e) => e.stopPropagation()}>
-          <Menu items={d.variant.choice.options.map((o, i) => ({ key: String(i), label: o.label, onSelect: () => choose(i) }))} />
+          <Menu items={d.variant.choice.options.map((o, i) => ({ key: String(i), label: fillText(o.label, useGame.getState().save), onSelect: () => choose(i) }))} />
         </div>
       )}
     </div>

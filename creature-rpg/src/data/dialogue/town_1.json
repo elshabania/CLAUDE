@@ -128,7 +128,8 @@
        "label": "Foster it",
        "actions": [
         {
-         "fosterage": true
+         "kin": "leftover",
+         "lv": 25
         },
         {
          "set": "flag_leftover_obtained"
