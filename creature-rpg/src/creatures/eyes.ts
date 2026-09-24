@@ -18,7 +18,7 @@ function restPose(e: EyeSpec): LidPose {
     case 'droopy': case 'teardrop': return { up: Math.max(0.22, lid), lo: 0.06, tilt: tilt + 8, iris: 1 };
     case 'halfmoon': return { up: Math.max(0.4, lid), lo: 0.04, tilt, iris: 1 };
     case 'keystone': return { up: Math.max(0.14, lid), lo: 0.16, tilt, iris: 1 };
-    default: return { up: Math.max(0.03, lid * 0.8), lo: 0.02, tilt, iris: 1 };
+    default: return { up: Math.max(0.1, lid * 0.8), lo: 0.06, tilt, iris: 1 };
   }
 }
 
@@ -155,7 +155,7 @@ function lidGeometry(R: number, upper: boolean, seg: number): THREE.BufferGeomet
   return g;
 }
 
-const ALPHA = (68 * Math.PI) / 180; // half-angle of the visible eyeball cap
+const ALPHA = (62 * Math.PI) / 180; // half-angle of the visible eyeball cap
 
 export interface EyeBuild {
   group: THREE.Group;       // placed on the eye node

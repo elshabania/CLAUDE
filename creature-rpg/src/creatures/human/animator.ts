@@ -166,12 +166,19 @@ export class HumanAnimator {
     this.setWorld(limb.b, limb.a, q2);
   }
 
-  private curlHand(side: 'L' | 'R', curl: number, thumb: number, spread = 0) {
+  private curlHand(side: 'L' | 'R', curl: number, thumb: number, indexCurl = curl) {
     const f1 = this.B['fingers1.' + side], f2 = this.B['fingers2.' + side], f3 = this.B['fingers3.' + side];
     const axis = this.curlAxis(side);
-    f1.quaternion.setFromAxisAngle(axis, curl * 1.35 + spread * 0.0);
+    f1.quaternion.setFromAxisAngle(axis, curl * 1.35);
     f2.quaternion.setFromAxisAngle(axis, curl * 1.65);
     f3.quaternion.setFromAxisAngle(axis, curl * 1.05);
+    // index finger has its own chain so it can point
+    const i1 = this.B['index1.' + side], i2 = this.B['index2.' + side], i3 = this.B['index3.' + side];
+    if (i1) {
+      i1.quaternion.setFromAxisAngle(axis, indexCurl * 1.3);
+      i2.quaternion.setFromAxisAngle(axis, indexCurl * 1.6);
+      i3.quaternion.setFromAxisAngle(axis, indexCurl * 1.0);
+    }
     // thumb: opposition (swing under the palm) + curl of the distal segment
     const t1 = this.B['thumb1.' + side], t2 = this.B['thumb2.' + side];
     const fd = this.axisCache['f' + side];
@@ -286,6 +293,7 @@ export class HumanAnimator {
     hang(1, -sw + breath * 0.01, lerp(0.22, 1.35, run * mv) + idle * 0.05, upperL, foreL);
     hang(-1, sw + breath * 0.01, lerp(0.22, 1.35, run * mv) + idle * 0.05, upperR, foreR);
     let curlL = 0.24, curlR = 0.24, thumbL = 0.4, thumbR = 0.4;
+    let pointR = -1;
     if (run > 0.3) { curlL = curlR = lerp(0.24, 0.8, run); thumbL = thumbR = lerp(0.15, 0.7, run); }
     twist = Math.sin(cyc) * 0.12 * mv;
     roll = Math.sin(cyc) * 0.05 * mv * (1 - run * 0.5) + this.shift * 0.06 * idle;
@@ -321,8 +329,9 @@ export class HumanAnimator {
       spineTwist += 0.25 * w - 0.2 * ant;
       upperR.lerp(V(-0.35, 0.2 - 0.25 * ant, 0.9).normalize(), w).normalize();
       foreR.lerp(V(-0.25, 0.25, 0.95).normalize(), w).normalize();
-      curlR = lerp(curlR, 0.9, w);
-      thumbR = lerp(thumbR, 0.8, w);
+      curlR = lerp(curlR, 0.95, w);
+      thumbR = lerp(thumbR, 0.85, w);
+      pointR = lerp(0.24, 0.02, w);
       upperL.lerp(V(0.35, -0.8, 0.1).normalize(), w * 0.5).normalize();
       headPitch += -0.06 * w;
     } else if (name === 'throw') {
@@ -480,7 +489,7 @@ export class HumanAnimator {
       // hand follows forearm (relaxed wrist)
       const hq2 = this.worldQ['foreArm.' + side].clone().multiply(_q2.setFromEuler(new THREE.Euler(0, 0, -s * 0.12)));
       this.setWorld('hand.' + side, 'foreArm.' + side, hq2);
-      this.curlHand(side, side === 'L' ? curlL : curlR, side === 'L' ? thumbL : thumbR);
+      this.curlHand(side, side === 'L' ? curlL : curlR, side === 'L' ? thumbL : thumbR, side === 'R' && pointR >= 0 ? pointR : undefined);
     }
     if (this.props.chime) this.props.chime.visible = showChime;
 

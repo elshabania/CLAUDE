@@ -41,14 +41,14 @@ function Person({ id, x, yaw, primary }: { id: string; x: number; yaw: number; p
       if (!alive) return;
       if (freezeAt != null) for (let t = 0; t < freezeAt; t += 1 / 60) model.update(1 / 60);
       const view = params.get('view');
-      if (primary && (view === 'face' || view === 'bust' || view === 'hand')) {
+      if (primary && (view === 'face' || view === 'bust' || view === 'hand' || view === 'hips')) {
         model.update(0.001);
         model.root.updateMatrixWorld(true);
         const h = new THREE.Vector3();
-        model.root.getObjectByName(view === 'face' ? 'eye.L' : view === 'hand' ? 'hand.R' : 'head')!.getWorldPosition(h);
-        const eye = view === 'hand' ? h.clone() : h.clone().add(new THREE.Vector3(-h.x + model.root.position.x, view === 'face' ? -0.03 : -0.1, 0));
+        model.root.getObjectByName(view === 'face' ? 'eye.L' : view === 'hand' ? 'hand.R' : view === 'hips' ? 'hips' : 'head')!.getWorldPosition(h);
+        const eye = view === 'hand' || view === 'hips' ? h.clone() : h.clone().add(new THREE.Vector3(-h.x + model.root.position.x, view === 'face' ? -0.03 : -0.1, 0));
         const c = camera as THREE.PerspectiveCamera;
-        const dist = view === 'face' ? 0.62 : view === 'hand' ? 0.45 : 1.5;
+        const dist = view === 'face' ? 0.62 : view === 'hand' ? 0.45 : view === 'hips' ? 0.9 : 1.5;
         const ca = Number(params.get('cam') ?? 0) * Math.PI / 180;
         c.position.set(eye.x + Math.sin(ca) * dist, eye.y + 0.02, eye.z + Math.cos(ca) * dist);
         c.lookAt(eye);

@@ -105,7 +105,7 @@
    {
     "evo": true,
     "level": 34,
-    "move": "m048"
+    "move": "m069"
    },
    {
     "level": 36,
@@ -654,7 +654,7 @@
    "level3": 34,
    "item3": null,
    "move2": "m004",
-   "move3": "m048"
+   "move3": "m069"
   },
   "f03": {
    "level2": 16,

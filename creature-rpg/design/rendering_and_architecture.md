@@ -758,6 +758,8 @@ The sim owns weather state (world rolls, systems battle weather). Rendering read
 
 ### 6.1 Profiles (`settingsStore.QUALITY` plus the 0.3-1 edits)
 
+> Environment realism pass (2026-09-24): `QUALITY` now also carries `surfaceRes`, `grass`, `post` (full/light/none), `cheapSurfaces` and `ibl`; software renderers are forced to Mobile. See `design/reviews/environment_realism.md` for the implemented values and per-tier costs.
+
 | Setting | High | Balanced | Mobile |
 |---|---|---|---|
 | DPR cap | 2.0 | 1.5 | 1.25 |

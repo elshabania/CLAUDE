@@ -11,9 +11,14 @@ import { HumanTool } from './HumanTool';
 
 const params = new URLSearchParams(location.search);
 
+const qParam = (params.get('q') ?? 'high') as 'high' | 'balanced' | 'mobile';
+const lodParam = Number(params.get('lod') ?? 0) as 0 | 1 | 2;
+
 function Creature({ id, action, speed, silhouette, x = 0 }: { id: string; action?: ActionName | null; speed: number; silhouette?: boolean; x?: number }) {
   const model = useMemo(() => {
-    const m = assemble(SPECIES_VISUALS[id], { lod: 0, quality: 'high' });
+    const m = assemble(SPECIES_VISUALS[id], { lod: lodParam, quality: qParam });
+    const face = params.get('face');
+    if (face) m.face.set(face as never);
     if (silhouette) m.root.traverse((o) => { if ((o as THREE.Mesh).isMesh) (o as THREE.Mesh).material = new THREE.MeshBasicMaterial({ color: '#000000' }); });
     return m;
   }, [id, silhouette]);
@@ -31,18 +36,24 @@ function Creature({ id, action, speed, silhouette, x = 0 }: { id: string; action
 function Viewer() {
   const ids = Object.keys(SPECIES_VISUALS);
   const [id, setId] = useState(params.get('id') ?? ids[0]);
-  const [action, setAction] = useState<ActionName | null>(null);
-  const [speed, setSpeed] = useState(0);
+  const [action, setAction] = useState<ActionName | null>((params.get('action') as ActionName) ?? null);
+  const [speed, setSpeed] = useState(Number(params.get('speed') ?? 0));
   const H = SPECIES_VISUALS[id]?.H ?? 1;
+  // camera: azimuth (deg, 0 = front), elevation (deg) and distance multiplier via ?az=&el=&zoom=
+  const az = (Number(params.get('az') ?? 40) * Math.PI) / 180;
+  const el = (Number(params.get('el') ?? 18) * Math.PI) / 180;
+  const dist = H * 3.4 * Number(params.get('zoom') ?? 1);
+  const ty = H * Number(params.get('ty') ?? 0.5);
+  const camPos: [number, number, number] = [Math.sin(az) * Math.cos(el) * dist, ty + Math.sin(el) * dist, Math.cos(az) * Math.cos(el) * dist];
   return (
     <div style={{ position: 'fixed', inset: 0 }}>
-      <Canvas shadows camera={{ position: [H * 2.2, H * 1.2, H * 2.6], fov: 35 }} gl={{ preserveDrawingBuffer: true }}>
+      <Canvas shadows camera={{ position: camPos, fov: 35 }} gl={{ preserveDrawingBuffer: true }}>
         <color attach="background" args={['#9fb7c9']} />
         <hemisphereLight args={['#dbe8ff', '#5a4a3a', 0.8]} />
         <directionalLight position={[3, 5, 4]} intensity={2.2} castShadow />
         <mesh rotation-x={-Math.PI / 2} receiveShadow><circleGeometry args={[H * 4, 48]} /><meshStandardMaterial color="#7d9a64" /></mesh>
         <Creature id={id} action={action} speed={speed} />
-        <OrbitControls target={[0, H * 0.5, 0]} />
+        <OrbitControls target={[0, ty, 0]} />
       </Canvas>
       <div style={{ position: 'absolute', top: 8, left: 8, display: 'flex', gap: 4, flexWrap: 'wrap', maxWidth: '60vw' }}>
         {ids.map((i) => <button key={i} onClick={() => setId(i)} style={{ fontWeight: i === id ? 700 : 400 }}>{i}</button>)}

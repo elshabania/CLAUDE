@@ -1,4 +1,4 @@
-"""Builds src/data/content/species.json from design/creatures.md v2 + design/systems.md v2 + DECISIONS renames.
+"""Builds src/data/content/species.json from design/creatures.md v3 + design/systems.md v2 + DECISIONS renames (D7, D29, D31).
 Re-runnable. The JSON is the runtime source of truth; this script documents where every field comes from."""
 import json, re, pathlib
 root = pathlib.Path(__file__).resolve().parent.parent
@@ -6,7 +6,7 @@ cm = (root / 'design/creatures.md').read_text()
 sm = (root / 'design/systems.md').read_text().replace('**', '')
 fam = json.load(open(root / 'src/data/content/families.json'))
 RENAME = {'c24': 'Drapetide', 'c21': 'Samarch', 'c27': 'Emberfold', 'c30': 'Coronaleen', 'c11': 'Lullstalk'}
-clean = lambda s: re.sub(r'\*\*|\(v2\)', '', s).strip()
+clean = lambda s: re.sub(r'\*\*|\(v[23]\)', '', s).strip()
 
 species = {}
 # roster §0

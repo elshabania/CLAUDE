@@ -8,7 +8,7 @@
    "electric"
   ],
   "heightM": 0.35,
-  "bodyPlan": "small quadruped lizard",
+  "bodyPlan": "round gliding critter (dormouse × sugar glider)",
   "silhouette": "QS",
   "base": {
    "hp": 40,
@@ -22,14 +22,14 @@
   "xpYield": 62,
   "growth": "medium",
   "trait": "tr_last_stand",
-  "temperament": "skittish",
+  "temperament": "curious",
   "attackStyle": "lunge",
   "sideYaw": 0,
-  "blurb": "Jittery and curious. Freezes, then darts. Flicks its tongue to \"taste\" static in the air.",
+  "blurb": "Curious, cuddly and a little mischievous. Puffs up its fur when happy, and its ear rims crackle when it is excited.",
   "colors": [
-   "#2E8FA3",
-   "#FFD23F",
-   "#E8F4E4"
+   "#C8BCDB",
+   "#3CB6FF",
+   "#F6EFE4"
   ],
   "cry": {
    "voice": "fm",
@@ -71,7 +71,7 @@
    "electric"
   ],
   "heightM": 0.9,
-  "bodyPlan": "upright biped sprinter",
+  "bodyPlan": "upright glider-sprinter biped",
   "silhouette": "BP",
   "base": {
    "hp": 55,
@@ -90,9 +90,9 @@
   "sideYaw": 0,
   "blurb": "Show-off sprinter: restless, competitive, poses after every win.",
   "colors": [
-   "#23607E",
-   "#F5C518",
-   "#D9EEF2"
+   "#B4A6CE",
+   "#34A8FF",
+   "#F2E8D8"
   ],
   "cry": {
    "voice": "fm",
@@ -136,7 +136,7 @@
    "gale"
   ],
   "heightM": 1.6,
-  "bodyPlan": "rib-sail kite glider",
+  "bodyPlan": "storm glider on wrist-to-ankle membranes",
   "silhouette": "WG",
   "base": {
    "hp": 70,
@@ -151,13 +151,13 @@
   "growth": "medium",
   "trait": "tr_static_hide",
   "temperament": "territorial",
-  "attackStyle": "lunge",
+  "attackStyle": "dive",
   "sideYaw": 35,
   "blurb": "Aloof and patient. Rides storms, and fiercely protects younger members of its line.",
   "colors": [
-   "#1E3A5F",
-   "#5FD4E8",
-   "#FFE66D"
+   "#7B70AF",
+   "#3BB8FF",
+   "#3A3470"
   ],
   "cry": {
    "voice": "fm",
@@ -195,7 +195,7 @@
    "fire"
   ],
   "heightM": 0.45,
-  "bodyPlan": "small quadruped lamb",
+  "bodyPlan": "woolly hatchling drake",
   "silhouette": "QS",
   "base": {
    "hp": 55,
@@ -212,11 +212,11 @@
   "temperament": "curious",
   "attackStyle": "lunge",
   "sideYaw": 0,
-  "blurb": "Earnest and braver than its size. Head-butts new things to \"test\" them.",
+  "blurb": "Earnest and braver than its size. Head-butts new things to \"test\" them, and its wick flames flare when it is proud.",
   "colors": [
-   "#F2E3C6",
-   "#B5462E",
-   "#FF8A1F"
+   "#3A3035",
+   "#EADFCD",
+   "#FF6A1A"
   ],
   "cry": {
    "voice": "saw_formant",
@@ -257,8 +257,8 @@
    "fire"
   ],
   "heightM": 1.0,
-  "bodyPlan": "leaping quadruped ram",
-  "silhouette": "QL",
+  "bodyPlan": "bipedal young drake",
+  "silhouette": "BP",
   "base": {
    "hp": 72,
    "atk": 88,
@@ -272,13 +272,13 @@
   "growth": "medium",
   "trait": "tr_last_stand",
   "temperament": "territorial",
-  "attackStyle": "slam",
+  "attackStyle": "rear",
   "sideYaw": 0,
   "blurb": "Proud and stubborn. Challenges rivals but is fiercely loyal.",
   "colors": [
-   "#B5502F",
-   "#3B2B26",
-   "#FFA431"
+   "#33292E",
+   "#CDBFAE",
+   "#FF6A1A"
   ],
   "cry": {
    "voice": "saw_formant",
@@ -307,21 +307,21 @@
   "evolvesTo": {
    "species": "c06",
    "level": 34,
-   "move": "m048"
+   "move": "m069"
   },
   "evolvesFrom": "c04"
  },
  {
   "id": "c06",
-  "name": "Magmouflon",
+  "name": "Smoulderam",
   "family": "f02",
   "stage": 3,
   "types": [
    "fire",
-   "stone"
+   "gale"
   ],
-  "heightM": 1.7,
-  "bodyPlan": "heavy fore-massed quadruped",
+  "heightM": 1.9,
+  "bodyPlan": "winged ram-horned fire dragon",
   "silhouette": "QL",
   "base": {
    "hp": 95,
@@ -336,13 +336,13 @@
   "growth": "medium",
   "trait": "tr_reckless",
   "temperament": "wander",
-  "attackStyle": "slam",
+  "attackStyle": "rear",
   "sideYaw": 0,
-  "blurb": "A calm, immovable hearth-guardian. Slow to anger and unstoppable once roused.",
+  "blurb": "A calm, immovable hearth-guardian. Slow to anger; when roused it takes to the sky on smoke-hot updrafts.",
   "colors": [
-   "#2B2A2E",
-   "#FF5A1F",
-   "#6E2A1C"
+   "#2B2428",
+   "#FF6A1A",
+   "#C4B9AB"
   ],
   "cry": {
    "voice": "saw_formant",

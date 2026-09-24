@@ -9,6 +9,7 @@ import { input } from '../../ui/input/input';
 import { runtime, heightAt } from '../../state/runtime';
 import { HumanModel, type HumanLook } from '../../creatures/humans';
 import { useSettings } from '../../state/settingsStore';
+import { useGame } from '../../state/game';
 import { sfx } from '../../audio/sfxBus';
 import { safeRemoveBody, safeRemoveController } from '../physicsSafe';
 
@@ -135,6 +136,12 @@ export function PlayerController({ look, start, killY, hidden = false }: { look:
       visual.current.rotation.y = runtime.playerYaw;
     }
     anim.reducedMotion = useSettings.getState().reducedMotion;
+    {
+      // the player's own dialogue lines move their mouth
+      const g = useGame.getState();
+      const line = g.dialogue?.lines[g.dialogue.index];
+      model.talking = !!line && !!g.save && line.s === g.save.player.name;
+    }
     anim.setSpeed(hs);
     anim.update(dt);
     // footsteps

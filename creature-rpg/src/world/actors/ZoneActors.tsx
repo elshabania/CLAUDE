@@ -37,7 +37,7 @@ function useHuman(lookId: string, lod: 0 | 1) {
   return useMemo(() => new HumanModel(LOOKS[lookId] ?? LOOKS.villagerA, { lod: quality === 'mobile' ? Math.max(1, lod) as 1 : lod, quality }), [lookId, quality, lod]);
 }
 
-function Person({ id, at, yaw, look, face }: { id?: string; at: [number, number]; yaw?: number; look: string; face?: React.MutableRefObject<boolean> }) {
+function Person({ id, name, at, yaw, look, face }: { id?: string; name?: string; at: [number, number]; yaw?: number; look: string; face?: React.MutableRefObject<boolean> }) {
   const [lod, setLod] = useState<0 | 1>(() => (Math.hypot(runtime.playerPos.x - at[0], runtime.playerPos.z - at[1]) < 14 ? 0 : 1));
   const m = useHuman(look, lod);
   const g = useRef<THREE.Group>(null);
@@ -50,7 +50,10 @@ function Person({ id, at, yaw, look, face }: { id?: string; at: [number, number]
     const d = Math.hypot(runtime.playerPos.x - at[0], runtime.playerPos.z - at[1]);
     const base = compassToRotY(yaw ?? 180);
     const dlg = useGame.getState().dialogue;
-    const talking = !!dlg && !!id && dlg.npcId === id;
+    // mouth moves while this person's line is on screen (speaker name on the line, or the NPC being talked to)
+    const line = dlg?.lines[dlg.index];
+    const speaker = line?.s || dlg?.speaker || '';
+    const talking = !!dlg && !dlg.choiceOpen && ((!!name && speaker === name) || (!!id && dlg.npcId === id && (!line?.s || line.s === dlg.speaker)));
     const target = d < 4 || face?.current || talking ? toP : base;
     let dy = target - g.current.rotation.y;
     dy = Math.atan2(Math.sin(dy), Math.cos(dy));
@@ -469,13 +472,13 @@ export function ZoneActors({ zone }: { zone: ZoneSpec }) {
     <group>
       {visibleNpcs.map((n: NpcSpec) => (
         <group key={n.id}>
-          <Person id={n.id} at={n.at} yaw={n.yaw} look={n.look} face={facing} />
+          <Person id={n.id} name={n.name} at={n.at} yaw={n.yaw} look={n.look} face={facing} />
           <NpcBody at={n.at} />
         </group>
       ))}
       {visibleTrainers.map((t) => (
         <group key={t.id}>
-          <Person id={t.id} at={t.at} yaw={(t as any).yaw} look={TRAINERS[t.id].look} />
+          <Person id={t.id} name={TRAINERS[t.id].name} at={t.at} yaw={(t as any).yaw} look={TRAINERS[t.id].look} />
           <NpcBody at={t.at} />
         </group>
       ))}

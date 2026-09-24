@@ -102,7 +102,7 @@ The following fields are **derived by systems** (content build computes them; th
 | c03 | f01 | 3 | electric · gale | 525 | 45 | 233 | medium | `tr_static_hide` |
 | c04 | f02 | 1 | fire | 310 | 45 | 62 | medium | `tr_last_stand` |
 | c05 | f02 | 2 | fire | 405 | 45 | 135 | medium | `tr_last_stand` |
-| c06 | f02 | 3 | fire · stone | 525 | 45 | 233 | medium | `tr_reckless` |
+| c06 | f02 | 3 | fire · gale | 525 | 45 | 233 | medium | `tr_reckless` |
 | c07 | f03 | 1 | water | 310 | 45 | 62 | medium | `tr_last_stand` |
 | c08 | f03 | 2 | water | 405 | 45 | 135 | medium | `tr_last_stand` |
 | c09 | f03 | 3 | water · frost | 525 | 45 | 233 | medium | `tr_frost_hide` |
@@ -418,7 +418,7 @@ Sanity model (estimate): XP per foe at equal level ≈ Y·L/7·T. Foes needed pe
 | Family | Stage 1→2 | Stage 2→3 | Evolution move (learned on evolving) |
 |---|---|---|---|
 | f01 electric | Lv 16 | Lv 34 | st2 m025, st3 m055 |
-| f02 fire | Lv 16 | Lv 34 | st2 m004, st3 m048 |
+| f02 fire | Lv 16 | Lv 34 | st2 m004, st3 m069 (v3; was m048) |
 | f03 water | Lv 16 | Lv 34 | st2 m016, st3 m047 |
 | f04 verdant | Lv 16 | Lv 32 | st2 m035, st3 m047 |
 | f05 stone | Lv 20 | Lv 36 | st2 m045, st3 m004 |
@@ -697,7 +697,7 @@ Format: `Lv: move` (★ = evolution move).
 | Family | Learnset |
 |---|---|
 | **f01 electric** | 1: m021, 1: m022, 7: m062, 10: m024, 13: m063, ★16: m025, 20: m026, 24: m027, 28: m065, 32: m028, ★34: m055, 38: m029, 43: m030, 48: m070 |
-| **f02 fire** | 1: m002, 1: m001, 7: m041, 10: m006, 13: m021, ★16: m004, 20: m005, 24: m003, 28: m038, 32: m007, ★34: m048, 36: m027, 38: m009, 42: m008, 47: m010 |
+| **f02 fire** | 1: m002, 1: m001, 7: m041, 10: m006, 13: m021, ★16: m004, 20: m005, 24: m003, 28: m038, 32: m007, ★34: m069 (v3; was m048), 36: m027, 38: m009, 42: m008, 47: m010 |
 | **f03 water** | 1: m012, 1: m011, 6: m052, 8: m015, 13: m013, ★16: m016, 20: m014, 24: m056, 28: m019, 32: m017, ★34: m047, 38: m018, 42: m058, 47: m020 |
 | **f04 verdant** | 1: m031, 1: m032, 5: m033, 9: m071, 12: m034, ★16: m035, 19: m036, 21: m044, 23: m075, 27: m037, ★32: m047, 35: m038, 39: m039, 44: m040, 48: m078 |
 | **f05 stone** | 1: m041, 1: m043, 6: m042, 10: m044, 14: m021, 18: m046, ★20: m045, 24: m027, 28: m047, 32: m048, ★36: m004, 40: m050, 45: m049, 50: m030 |
@@ -712,7 +712,7 @@ Second-type moves (types from creatures.md §0):
 | Family | Second type (from stage) | Second-type moves in learnset |
 |---|---|---|
 | f01 | gale (st3, Lv 34) | m062 (7), m063 (13), m065 (28), m070 (48) |
-| f02 | stone (st3, Lv 34) | m041 (7), m048 (★34) |
+| f02 | gale (st3, Lv 34; v3, DECISIONS D31) | m069 (★34) (m041 Pebble Toss at 7 stays as stone coverage) |
 | f03 | frost (st3, Lv 34) | m052 (6; D30: early answer to verdant trial_1), m056 (24), m058 (42) |
 | f04 | toxin (st2, Lv 16) | m071 (9), m075 (23), m078 (48) |
 | f05 | electric (st3, Lv 36) | m021 (14), m027 (24), m030 (50) |
@@ -726,7 +726,7 @@ Second-type moves (types from creatures.md §0):
 | Family | Weak to | Coverage types in learnset | Example Lv 30 set |
 |---|---|---|---|
 | f01 electric | fire, stone, shade | gale (vs fire, shade), frost (vs stone, st3) | m025, m027, m065, m026 |
-| f02 fire | water, stone, gale | verdant (vs water, stone), electric (vs gale: m021 Lv 13, m027 Lv 36) | m004, m005, m038, m003 |
+| f02 fire | water, stone, gale (st1–2); st3 fire·gale (v3): water only, stone-immune | verdant (vs water, stone), electric (vs gale: m021 Lv 13, m027 Lv 36), stone m041 | m004, m005, m038, m003 |
 | f03 water | electric, verdant, toxin | frost (vs verdant), stone (vs electric, st3) | m016, m019, m056, m014 |
 | f04 verdant | fire, frost, toxin | stone (vs fire, frost: m044 Lv 21, m047 Lv 32), toxin | m036, m035, m075, m037 |
 | f05 stone | water, verdant, frost | electric (vs water), fire (vs verdant, frost, st3) | m047, m027, m045, m046 |
@@ -1132,7 +1132,7 @@ See 7.5 (Lv 18, 36% HP, `i_chime_brass`, a = 102, threshold 48287, 2 rings then 
 | World v2 trainer counts differ from 12.5 | Economy or curve drift | Re-run the 12.5/14.4 model script on world v2 data; QA SIM-03/SIM-04 |
 | Slow-growth families (f05, f09, f10) lag | Player benches them | S factor catch-up; evolution moves; f10 can move to medium if playtest shows lag |
 | Electric has only 2 strengths | Starter f01 feels weak | Best speed, priority m023, Overclock, gale/frost coverage by Lv 28–34 |
-| Dual-type 4× weaknesses (c06 ← water, c20/c21 ← frost, c27 ← gale) | Rival ace or Odile's ace swept | Story teams carry answers (c15 vs water, c14/c15 vs fire); Odile has 2 heals |
+| Dual-type 4× weaknesses (c20/c21 ← frost, c27 ← gale; c06 lost its 4× water weakness when it became fire·gale in v3) | Rival ace or Odile's ace swept | Story teams carry answers (c15 vs water, c14/c15 vs fire); Odile has 2 heals |
 | Stone immunity to toxin and gale immunity to stone confuse players | Misplays | Battle UI shows "No echo." text; encyclopedia matrix page |
 | Silenced zones and the mid-battle attunement change surprise players | Confusion | HUD pill switches with an animation plus text; `phaseChange` cutscene explains it |
 | Fog accuracy + Dazzle Flash stacking feels unfair | Frustration | Only one accuracy-drop move; no evasion boosts exist; fog ×9/10 only |

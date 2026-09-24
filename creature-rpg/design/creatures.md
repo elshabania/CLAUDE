@@ -1,6 +1,6 @@
 # Creatures — Art Direction, Build Specs and Species Data
 
-Owner: Creature Art Director · Status: **design v2** (2026-09-24) · Binding inputs: `design/MASTER_PROMPT.md`, `design/ANCHORS.md`, `design/DECISIONS.md` (wins over this file where they differ).
+Owner: Creature Art Director · Status: **design v3** (2026-09-24; v3 = DECISIONS D31 flagship redesigns of f01/f02 and the sculpted rendering upgrade) · Binding inputs: `design/MASTER_PROMPT.md`, `design/ANCHORS.md`, `design/DECISIONS.md` (wins over this file where they differ).
 
 This document defines all 30 species (`c01`–`c30`, families `f01`–`f10`): their identity, appearance, faces, animation, procedural build specs, per-species numbers for the Systems Designer, the silhouette-preview procedure and the originality audit. Nothing here has been built, rendered or measured yet. Every "readable at 20 px" statement is a **design target** that the silhouette check (section 7) must verify. None of it has been verified yet.
 
@@ -25,6 +25,16 @@ This document defines all 30 species (`c01`–`c30`, families `f01`–`f10`): th
 | 14 | Silhouette procedure: GC-07 is canonical, with per-species side-view angle | §7.1 | D27 |
 | 15 | Habitats: world.md encounter tables are canonical; c28 is a day spawn, not dawn-only | §4 reading guide | CAD review WD-1, WD-4 |
 
+### v3 change log (DECISIONS D31: flagship redesigns + creature rendering upgrade)
+| # | Change | Where | Source |
+|---|---|---|---|
+| 1 | **Rendering upgrade for all 30 species**: sculpted signed-distance bodies with per-pair smooth blending, skinned to the part nodes; procedural surface classes; shell fur; real-geometry eyes with lids; conformed mouth decals | §2.8 | D31 |
+| 2 | **f01 line redesign**: c01 becomes the mascot-level electric critter (dormouse × sugar glider); c02 glider-sprinter; c03 majestic storm glider | §0, §3, §4 f01, §7, §8 | D31 |
+| 3 | **f02 line redesign**: ram-horned fire dragon line; c06 renamed Magmouflon → **Smoulderam** and retyped **fire · gale** | §0, §1.5, §3, §4 f02, §5, §7, §8 | D31 |
+| 4 | f02 learnset: the stage-3 evolution move m048 Quake Stomp (stone) → **m069 Gale Cleaver** (gale, same power and accuracy); systems.md §8.3/§11 rows follow | systems.md | D31 |
+
+Rows that changed in v3 carry **"(v3)"**. The v2 part tables for c01–c06 are withdrawn; the v3 tables in §4 match the builders.
+
 ---
 
 ## 0. Roster index
@@ -33,12 +43,12 @@ H = model height in metres in the neutral idle pose, measured from the lowest po
 
 | id | Name | Fam | Stg | Types | Body plan | H (m) | Len/span (m) | Sil. cat | Dominant colour pair |
 |---|---|---|---|---|---|---|---|---|---|
-| c01 | Fizzkit | f01 | 1 | electric | small quadruped lizard | 0.35 | 0.70 L | QS | teal / yellow |
-| c02 | Crackleap | f01 | 2 | electric | upright biped sprinter | 0.90 | 1.30 L | BP | deep blue / yellow |
-| c03 | Tempestrel | f01 | 3 | electric · gale | rib-sail kite glider | 1.60 | 2.80 span | WG | storm indigo / cyan |
-| c04 | Wickwool | f02 | 1 | fire | small quadruped lamb | 0.45 | 0.55 L | QS | cream / brick red |
-| c05 | Kilnhorn | f02 | 2 | fire | leaping quadruped ram | 1.00 | 1.20 L | QL | red-brown / charcoal |
-| c06 | Magmouflon | f02 | 3 | fire · stone | heavy fore-massed quadruped | 1.70 | 2.30 L | QL | basalt black / magma orange |
+| c01 | Fizzkit | f01 | 1 | electric | (v3) round gliding critter (dormouse × sugar glider) | 0.35 | 0.60 L | QS | silver-lilac / electric blue |
+| c02 | Crackleap | f01 | 2 | electric | (v3) upright glider-sprinter biped | 0.90 | 1.20 L | BP | lilac / electric blue |
+| c03 | Tempestrel | f01 | 3 | electric · gale | (v3) storm glider on wrist-to-ankle membranes | 1.60 | 2.60 span | WG | storm lilac / electric blue |
+| c04 | Wickwool | f02 | 1 | fire | (v3) woolly hatchling drake | 0.45 | 0.75 L | QS | charcoal / ash cream |
+| c05 | Kilnhorn | f02 | 2 | fire | (v3) bipedal young drake | 1.00 | 1.40 L | BP | obsidian charcoal / smoulder cream |
+| c06 | Smoulderam | f02 | 3 | fire · gale | (v3) winged ram-horned fire dragon | 1.90 | 3.40 L · 4.00 span | QL | obsidian / ember orange |
 | c07 | Rippleback | f03 | 1 | water | small quadruped otter | 0.40 | 0.80 L | QS | otter brown / sea teal |
 | c08 | Tidesleek | f03 | 2 | water | elongated serpentine swimmer | 0.80 | 2.00 L | SR | slate blue / aqua |
 | c09 | Floeguard | f03 | 3 | water · frost | upright armoured biped | 1.60 | 1.10 L | BP | ice white / slate |
@@ -64,7 +74,7 @@ H = model height in metres in the neutral idle pose, measured from the lowest po
 | c29 | Lumarlin | f10 | 2 | lumen | air-swimming marlin | 0.80 | 2.00 L | FL | pearl white / periwinkle (v2) |
 | c30 | Coronaleen | f10 | 3 | lumen · shade | floating baleen whale | **1.75** (v2) | **4.80 L** (v2) | FL | indigo / corona gold |
 
-Every type appears exactly once as a secondary type, except toxin, verdant and water, which each appear on two stages of the same family. The primary→secondary pairs form a derangement: f01 electric→gale, f02 fire→stone, f03 water→frost, f04 verdant→toxin, f05 stone→electric, f06 frost→lumen, f07 gale→verdant, f08 toxin→water, f09 shade→fire, f10 lumen→shade. No two families share a secondary, and no family repeats its primary. The secondary type arrives at different stages to vary the strategy: at stage 2 for f04, f07 and f08, and at stage 3 for all other families.
+**(v3, D31)** c06 changed from fire · stone to **fire · gale** (it flies), so gale is now the secondary type of two families (f01 at c03, f02 at c06) and stone is no longer anyone's secondary; the derangement statement below describes v2 and is kept for history. Every type appears exactly once as a secondary type, except toxin, verdant and water, which each appear on two stages of the same family. The primary→secondary pairs form a derangement: f01 electric→gale, f02 fire→stone, f03 water→frost, f04 verdant→toxin, f05 stone→electric, f06 frost→lumen, f07 gale→verdant, f08 toxin→water, f09 shade→fire, f10 lumen→shade. No two families share a secondary, and no family repeats its primary. The secondary type arrives at different stages to vary the strategy: at stage 2 for f04, f07 and f08, and at stage 3 for all other families.
 
 ---
 
@@ -116,6 +126,13 @@ Review round 1 produced originality and name-similarity findings, and the orches
 | c30 | Umbraleen | **Coronaleen** |
 
 The screening in 1.1–1.3 records v1 as searched. The name-similarity scan of the v2 names (release gate GC-13) is owned by the Release agent, and this document does not repeat it. Both 1.3 and the §11 risk row refer to v1 names.
+
+### 1.5 v3 rename (DECISIONS D31)
+| Species | v2 name | v3 name | Screening (author's knowledge, not a legal search) |
+|---|---|---|---|
+| c06 | Magmouflon | **Smoulderam** (smoulder + ram) | Two-root English portmanteau, 10 characters. No known creature, game or brand match. Rejected on the way: *Fumaroar* (the "-roar" ending on a maned fire creature repeats Pyroar's naming formula), *Cindrake* (shares "Cinder" with Cinderace), *Charwyrm* ("Char-" fire-lizard formula), *Blazeram* ("Blaz-" prefix), *Vulcaram* (near Volcarona). Nearest franchise name by the GC-13 metrics is Smoochum (shared "Smo" only, JW < 0.8). The trademark/store check (release gate R-14) still applies. |
+
+Fizzkit, Crackleap, Tempestrel, Wickwool and Kilnhorn keep their names: they still fit the v3 designs (a "kit" is a young small mammal, and the fire line still has wick horns and kiln-hot horns).
 
 ---
 
@@ -340,14 +357,23 @@ Section-4 part names are **kept as written**. Builders expose them under the ren
 
 ---
 
+### 2.8 (v3) Sculpted bodies, surfaces and eyes (DECISIONS D31)
+The builder contract (part tables ×H, part names, anim tags, anchors) is unchanged; what changed is how parts become pixels.
+- **Sculpted bodies** (`src/creatures/sdf.ts`, `assemble.ts`). Every organic part (sphere, capsule, cone ≤ 2.2:1, cylinder, lathe, chain segment) of a material group (FUR, SCALE, FEATHER, SKIN, SKIN_WET, STONE, SHELL) becomes one signed-distance field. Each part is smooth-min blended **with its parent part only** (fillet radius 0.55 × the thinner part, or the part's `blend` value ×H), so necks, limbs and tails grow out of the body while unrelated neighbours (two legs, fleece tufts) keep a crisp crease. The field is meshed with surface nets on a narrow band of bricks, vertices are projected onto the iso-surface and normals come from the field gradient. Colours, cavity AO, fur length and glow masks are baked per vertex from per-part distances. Fluffy parts get a noise displacement.
+- **Skinning.** The sculpted mesh is a `SkinnedMesh` whose bones are the part nodes themselves, with up to 4 smooth weights per vertex derived from the part distances. The procedural animator is unchanged: breathing, gait, look, wave and jaw now bend continuous skin.
+- **Accessories** stay crisp separate meshes: horns and tubes, extrudes (sails, wings, fins, membranes), toruses, emissive parts, translucent parts, sharp cones, `D`-slot claws/hooves/nostrils, `lod`-tagged details, boxes (unless `blend` is set) and parts thinner than 1.25 grid cells at that LOD. New part fields: `blend` (false = accessory, number = fillet ×H), `blendWith`, `fissure` (molten glow weight), `fur` (shell length multiplier) and `mirrorGeom` (true mirroring of asymmetric shapes on the _R side).
+- **Budgets and caching.** Grid resolution by quality (high 66, balanced 54, mobile 36 cells on the characteristic extent) × LOD (1, 0.62, 0.4). A cheap coarse pass predicts the triangle count and backs the cell size off to the cap (sculpted body ≤ 12.5k high / 8.5k balanced / 4.2k mobile triangles at LOD0; LOD1 × 0.42, LOD2 × 0.18). Meshes are cached per species/LOD/quality; `prewarmCreatures()` meshes species during idle time.
+- **Surfaces** (`materials.ts`). Per-class procedural detail as derivative bump + cavity darkening in bind space (it sticks to the skin while animating): fur strands, scales (cells), feathers (elongated cells), skin pores, stone, shell growth rings, ice facets and membrane veins; wrap lighting with a warm subsurface tint; fresnel translucency for ICE/CRYSTAL; the existing rim light. `fissure` parts get an emissive crack network (scales/stone) or ember glints (fur). Shell fur (5 layers of tapered strands on a coarser shell mesh) on High LOD0 only, restricted to parts with fur ≥ 0.55 (fluffy parts). Mobile drops detail and wrap lighting.
+- **Eyes** (`eyes.ts`). Real eyeballs set into the sculpted head (ray-marched onto the surface), with a painted sclera, gradient iris with fibres and limbal ring, pupil per the whitelist, painted catch-lights and a clearcoat cornea on High; skin-coloured upper and lower **eyelid shells** with a lash line. The 8 D14 states are lid poses (upper/lower coverage, inner-corner tilt, iris scale): `half`, `closed` and `faint` close the lids, `happy` pushes the lower lid up into a smile, `hurt` squeezes with the inner corners raised, `determined` lowers and angles the upper lid, `surprised` opens fully and shrinks the iris. Lids ease between poses, so blinks are smooth. The f09 cut-out species (`hole` eyes) keep the canvas atlas. Mouths remain 4-state atlas decals, now conformed to the sculpted surface; jaws still open on attacks.
+
 ## 3. Family overviews (motif, evolution arc)
 
 A **motif** is the element that appears on all three stages and must stay visible at 20 px on at least two of them.
 
 | Fam | Line | Motif (kept across stages) | Anatomy arc | Behaviour arc |
 |---|---|---|---|---|
-| f01 | Fizzkit → Crackleap → Tempestrel | Rib-strut side sails with a yellow **zig-seam** along the trailing edge, and a **two-prong fork** tail tip | quadruped with folded flank flaps → biped with wrist-to-hip sails → kite glider with one delta sail per side and slender tucked limbs | jittery skitter-hopper → show-off sprinter → aloof storm-rider that hovers |
-| f02 | Wickwool → Kilnhorn → Magmouflon | **Glowing horn cores** whose emissive ridges light from the tip, plus charcoal hooves that spark | calf with cream fleece clusters and horn nubs → lean cliff-leaping ram with a smouldering charcoal mane and spiral horns → fore-massed giant with basalt plates, magma seams and horns closed into kiln rings | bouncy pronker → rearing charger → immovable stomping guardian |
+| f01 (v3) | Fizzkit → Crackleap → Tempestrel | **Oversized satin ears whose rims crackle with static**, glowing blue **capacitor freckles** on the cheeks, furry **wrist-to-ankle gliding membranes** and a **coiled spring tail ending in a glowing bulb** | round fluffy glider critter → upright glider-sprinter on long digitigrade legs → majestic storm glider riding wide membranes | curious bouncer → show-off sprinter → aloof storm-rider that hovers |
+| f02 (v3) | Wickwool → Kilnhorn → **Smoulderam** (formerly Magmouflon) | **Ram horns with burning wick tips**, an **ash-cream fleece mane** with ember glints, charcoal/obsidian scales and a **basalt tail knob that grows into a club** | woolly hatchling drake with horn nubs and stubby wings → bipedal young drake with full-curl ridged horns and a smouldering ruff → majestic winged dragon with great spiral horns, molten throat fissures and a basalt tail club | bouncy head-butter → proud rearing brawler → calm, immovable hearth-guardian that takes to the sky |
 | f03 | Rippleback → Tidesleek → Floeguard | **Shingled shell plates** (overlapping scallops) and a white muzzle with whisker pads | otter pup with a plated tail → 8-segment serpentine swimmer with dorsal scutes and a rudder → upright biped with a back carapace (v2: no chest shell or helmet) and a fan-shell tail used as a shield | playful tool-user (pebble) → sly speed-swimmer → stoic shield-bearer |
 | f04 | Dozebud → Lullstalk → Belladrowse | **Moss mantle, hanging bell-flowers, dark eye-mask** stripes on sleepy half-lidded eyes | ball curled around a seed pod → lanky biped with arms to its ankles → quadruped knuckle-walker carrying a canopy tree hung with bells | clingy sleeper → languid ambusher that "nods off" → serene sentinel sheltering others |
 | f05 | Rollith → Cairnback → Lodestodon | **Hex-plate dome carapace** and a pale snout shield | rolling ball → low glyptodont-like quadruped with a stacked-stone club tail → colossus with geode crystal ridges and orbiting lodestones in place of the club | startled roller → grumpy tail-swinger → solemn magnetic controller |
@@ -368,259 +394,219 @@ Reading guide:
 - **(v2)** Clip text reads under the §2.5 v2 rules: attacks play in place, `impact` replaces `contact`, capture is a ≤ 250 ms pose, and emissive values are clamped.
 - Build-spec numbers are multiples of H (section 2.1). "Anim" names the clip channels that drive a part: `br` breathing, `gait` locomotion, `look` head aim, `wave` chain wave, `flap`, `blink` eye frames, `glow` emissiveGain, `jaw`, `fx` VFX emitter anchor. `—` means the part is static and gets merged.
 
-### f01 — Fizzkit line (electric)
+### f01 — Fizzkit line (electric) — v3 flagship redesign (DECISIONS D31)
+
+**(v3)** The whole line was redesigned so that c01 can carry the game's mascot role. The v2 rows (teal rib-sail lizard, fork tail) are withdrawn. Builders: `src/creatures/species/c01.ts`–`c03.ts` with helpers in `species/_kit.ts`. All dimensions are ×H as before; bodies are sculpted (§2.8 v3), so primitive overlaps now read as one skin.
 
 #### c01 · Fizzkit
 | Field | Value |
 |---|---|
 | Family / stage / types | f01 · stage 1 · electric |
-| Body plan · rig | small splay-legged quadruped lizard · RIG_QUAD |
-| H / length | 0.35 m / 0.70 m (incl. tail) |
-| Habitat | Lore: sun-warmed cliff faces and canopy edges of `route_2` and `forest`. Starter, not wild. |
-| Personality | Jittery and curious. Freezes, then darts. Flicks its tongue to "taste" static in the air. |
-| Distinctive anatomy | Oversized head (a third of body length) with 3 small backward crown nubs. Flat body with **folded rib-flaps** along each flank showing 4 rib ridges and a yellow seam. Tail ending in **two straight prongs** (a fork, never a zig-zag bolt). |
-| Dominant colours | P `#2E8FA3` teal · A `#FFD23F` electric yellow · P+ `#E8F4E4` belly |
-| Materials | Body `SCALE` (r 0.55). Flaps `MEMBRANE` opacity 0.95. Seams and fork tips emissive A, idle 0.6, pulsing 0.4–0.8 at 1 Hz. Rim `#FFF3B0` 0.35. |
-| Face | Large **round** eyes set high, turned 35° outward. Sclera `#F7F7EE`, iris amber `#F2A900` (irisRatio 0.7), **v-oval** pupil 0.45, 2 highlights, lidCoverage 0.1. Brows: none; a small geometric lid ridge sits above each eye. Mouth: painted wide smile line on the snout (M). |
+| Body plan · rig | (v3) small round gliding critter, a dormouse × sugar-glider hybrid · RIG_QUAD (hopping) |
+| H / length | 0.35 m (ear tips) / 0.60 m (incl. coiled tail) |
+| Habitat | Lore: sun-warmed canopy edges of `route_2` and `forest`, gliding between branches at dusk. Starter, not wild. |
+| Personality | Curious, cuddly and a little mischievous. Puffs up its fur when happy, and its ear rims crackle when it is excited. |
+| Distinctive anatomy | (v3) Round fleecy body with a head as big as the body. **Oversized round satin ears** (pink-lilac satin inside) whose **rims crackle with static** (electric-blue glow). **Capacitor freckles**: three glowing blue dots in a triangle on each cheek (dots, never solid circles). Soft furry **gliding membranes** from wrist to ankle, folded along the flanks. A **springy coiled tail** ending in a little **glowing glass bulb** with a silver cap. Cream bib, muzzle and paws. |
+| Dominant colours (v3) | P `#C8BCDB` silver-lilac · A `#3CB6FF` electric blue · W `#F6EFE4` warm cream |
+| Materials | (v3) Sculpted `FUR` body with shell fur on the fluffy parts (tuft, bib, haunches); satin ear lining `SKIN`; ear rims, freckles and tail bulb `GLOW` A (1.3–1.5); nose `SKIN_WET` D. Rim `#BDE6FF` 0.4. |
+| Face | (v3) Real-geometry eyes (§2.4 v3): big **round** eyes, sclera `#FBF8F2`, iris sapphire `#2E5BD6` (irisRatio 0.78), round pupil 0.5, 3 highlights, lids resting just over the iris top, lidAngle +6 (friendly). Tiny plum nose and a smile mouth on the cream muzzle. |
 
 | Clip | Motion |
 |---|---|
-| idle | Torso breathes (scale Y 1±0.03, 0.8 Hz). Every ~3 s the head snaps 20° left then right. The fork prongs twitch alternately. Every 4–6 s the flaps flutter 5° at 6 Hz for 0.3 s with a seam glow spike to 1.5. |
-| move (skitter-trot + hop-glide) | Diagonal-pair trot at 4 Hz with a lateral S-wave through the torso and tail (±8°). Every 4th cycle it makes a hop-glide: the flaps open to 60°, the body is airborne 0.25 s at 0.4 H height, then lands in a crouch. |
-| attack | Crouch (0.15 s). Leap 1.2 H forward with the flaps snapping open. The tail whips overhead (pitch +160°) so the fork strikes the target. `contact` at 45% fires a spark burst at `fx_fork`. Hop back. |
-| hit | Body flattens (scale Y 0.8), slides back 0.3 H, flaps clamp shut, eyeFrame `hurt`. |
-| capture | Rears on its hind legs with the flaps flared wide in a startle display, freezes 0.3 s, eyes `open`→`closed`. |
-| faint | Rolls onto its side (roll 90° over 0.6 s). The flaps drop open on the ground, the tail uncurls limp, the seam glow fades to 0 over 1 s, eyeFrame `faint`. |
-| victory | Two quick in-place hops with the flaps open and a fork spark. |
+| idle | Breathing (0.9 Hz), ears sway with lag, the ear rims and freckles flicker, the tail coil bobs like a spring. |
+| move (bounce) | Bouncy hop-trot at 3.2 Hz; the membranes flutter. |
+| attack | Crouch, spring forward (lunge) with the ears flat; `impact` at 45% crackles from the tail bulb (`fx_tail`). |
+| attack_special | Plants its paws, puffs its fur, the ear rims and freckles spike, and a spark is released from the bulb. |
+| hit | Squashes, ears pin back, eyes `hurt`. |
+| capture (v2) | ≤ 250 ms startle: ears up, eyes `surprised`. |
+| faint | Rolls onto its side, ears flop, glow fades, eyes `faint`. |
+| victory | Two happy hops, eyes `happy`, rims crackle. |
 
-| Part | Primitive & dims (×H) | Parent @ offset · rot | Slot | Anim |
+| Part (v3) | Primitive & dims (×H) | Parent @ offset · rot | Slot | Anim |
 |---|---|---|---|---|
-| torso | sphere (0.30,0.20,0.42) | root @ (0,0.30,0) | P | br, gait |
-| belly | sphere (0.26,0.14,0.36) | torso @ (0,−0.06,0) | P+ | — |
-| head | sphere (0.26,0.24,0.28) | torso @ (0,0.18,0.42) | P | look |
-| snout | sphere (0.18,0.12,0.16) | head @ (0,−0.06,0.22) | P | — |
-| mouth | M decal, smile | snout front | M | eyeFrame-linked |
-| eye ×2 mir | sphere r0.10, z×0.6 | head @ (±0.15,0.07,0.16) · yaw ±35 | E | blink |
-| crown nub ×3 | cone r0.03 h0.07 | head @ (0/±0.07,0.22,−0.10) · pitch −40 | A | — |
-| flank flap ×2 mir | extrude X_sail 0.45 span × 0.30 chord, depth 0.02 | torso @ (±0.26,0.04,0) · roll ±70 folded (0 = open) | P | flap |
-| rib ridge ×4 per flap | tube straight r0.008 | flap, radiating from root | P− | — |
-| seam ×2 | tube along flap trailing edge r0.012 | flap | A | glow |
-| front leg ×2 mir | capsule r0.05 len0.14 → capsule r0.04 len0.12 → foot sphere (0.06,0.03,0.08) | torso @ (±0.22,−0.08,0.28) · roll ±35 splay | P | gait |
-| hind leg ×2 mir | same as front leg | torso @ (±0.22,−0.08,−0.28) | P | gait |
-| tail | chain 5 × capsule r0.08→0.03 len0.12, along −Z | torso @ (0,0,−0.42) | P | wave |
-| fork prong ×2 | cone r0.03 h0.12 | tail5 @ (±0.03,0,−0.06) · yaw ±25 | A | glow, fx_fork |
+| body | sphere (0.27,0.24,0.30), fluffy | root @ (0,0.31,−0.02) | P | br |
+| chest / belly | sphere (0.19,0.18,0.15) / (0.20,0.13,0.22) | body | W | — |
+| head | sphere (0.30,0.27,0.27), blend 0.07 | body @ (0,0.28,0.17) | P | look |
+| tuft / cheek ×2 / muzzle | sphere 0.075 / (0.12,0.10,0.10) / (0.10,0.075,0.085) | head | P+ / W / W | — |
+| eye ×2 | 3D eye r0.105 | head @ (±0.125,0.03,0.20) · yaw ±24 | E | blink, lids |
+| freckle ×3 per cheek | flattened sphere r0.027 on the cheek surface | cheek | A glow 1.5 | glow |
+| ear ×2 (+ satin lining + rim) | sphere (0.15,0.20,0.045); rim = torus arc 200° | head @ (±0.18,0.20,−0.07) · (−8,∓18,∓26) | P, lining `#EBCFE3`, rim A | sway, glow |
+| leg / paw ×4 | capsule r0.06 / sphere (0.065,0.045,0.08); hind haunch sphere (0.11,0.13,0.14) | body | P, paws W | gait |
+| patagium ×2 | extrude `X_patagium` 0.30 × 0.15, depth 0.014 | body flank @ (±0.245,−0.03,0.13) | P− | flap |
+| tail | chain 9 × r0.05→0.03, total 0.80, bend (−36,0,16) = coil | body @ (0,0.02,−0.27) · pitch −55 | P | wave |
+| bulb + cap | sphere r0.072 + cylinder r0.036 | tailTip | A glow 1.4 / `#ECE8F4` | glow, fx_tail |
 
 #### c02 · Crackleap
 | Field | Value |
 |---|---|
 | Family / stage / types | f01 · stage 2 · electric (evolves from c01 at Lv 16) |
-| Body plan · rig | upright digitigrade biped with a counterbalance tail · RIG_BIPED |
-| H / length | 0.90 m / 1.30 m |
-| Habitat | Lore: open ridgelines of `route_2` and `route_4`, racing along them. Not wild in the main game. |
+| Body plan · rig | (v3) upright, forward-leaning glider-sprinter on long digitigrade legs · RIG_BIPED |
+| H / length | 0.90 m / 1.20 m (incl. tail) |
+| Habitat | Lore: open ridgelines of `route_2` and `route_4`, sprinting and gliding off the crests. Not wild in the main game. |
 | Personality | Show-off sprinter: restless, competitive, poses after every win. |
-| Distinctive anatomy | Torso leaning 30° forward. Long hind legs with 3 splayed toes. **Sails spanning from the forearm to the hip** that fold along the arm. **3 swept-back head spines** (no neck frill). Longer tail whose **fork prongs are wider apart**, with a spark arc between them. |
-| Dominant colours | P `#23607E` deep teal-blue · A `#F5C518` yellow · P+ `#D9EEF2` belly |
-| Materials | Body `SCALE` r 0.5. Sails `MEMBRANE` opacity 0.9. Seams emissive A 0.8. Rim `#FFE680` 0.4. |
-| Face | **Almond** eyes angled forward. Iris `#FFB000`, round pupil 0.35, 1 highlight, lidAngle −10 (confident). Brows: geometric capsule ridges. Mouth: `jaw` mesh with a slight open grin and 2 painted fang ticks. |
+| Distinctive anatomy | (v3) Long swept-back **satin ears** with crackling rims; cream neck ruff and bib; **freckles** on the cheeks and two on each forearm; furry **membranes from the arms to the hips**; long digitigrade legs; a longer **coiled tail** with the glowing bulb. |
+| Dominant colours (v3) | P `#B4A6CE` lilac · A `#34A8FF` electric blue · W `#F2E8D8` cream |
+| Materials | (v3) Sculpted `FUR`; membranes `FUR` S `#8E80B8`; rims, freckles, bulb `GLOW` A. Rim `#B8E4FF` 0.4. |
+| Face | (v3) 3D **almond** eyes, iris `#2E5BD6`, round pupil 0.44, 2 highlights, lid 0.1, lidAngle −2. Smile mouth on a cream muzzle. |
 
 | Clip | Motion |
 |---|---|
-| idle | Bounces on its toes (root Y ±0.02 H, 1.5 Hz). Arms half-folded with the sails rippling. The head scans side to side, the tail sways ±10°, and the fork arc flickers every 2 s. |
-| move (bipedal sprint) | Torso pitched 45°. Legs cycle at 3 Hz with long strides. Arms swept back, sails half-open as air-brakes. Above run speed it makes 0.4 s glide-hops with its arms spread. |
-| attack | Sprints 2 H to the target, spins 360° (yaw) with its arms spread so the sail edges flare (glow 2.0), and slams the tail fork down (`contact` 50%). Hops back. |
-| attack_special | Plants its feet, crosses its arms, then flings them open. A bolt is emitted from `fx_fork` over its head. |
-| hit | Jerks upright, folds its arms over its face, stumbles back 2 steps. |
-| capture | Spreads its arms fully as if shielding. The seams flash. |
-| faint | Knees buckle and it falls forward onto its chest, arms spread flat with the sails. The tail flops and the glow fades. |
-| victory | Skids to a stop, arms up, sails open, tail fork sparks. |
+| idle | Bounces on its toes; ears sway; rims flicker. |
+| move | Long-stride sprint with arm swing; membranes flutter. |
+| attack | Spin attack (in place, v2 rule) with arms spread; `impact` 50%. |
+| attack_special | Crosses its arms, flings them open; a bolt leaves the tail bulb. |
+| hit / capture / faint / victory | Stumbles back / ≤ 250 ms startle / falls forward / arms up, rims flash. |
 
-| Part | Primitive & dims (×H) | Parent @ offset · rot | Slot | Anim |
+| Part (v3) | Primitive & dims (×H) | Parent @ offset · rot | Slot | Anim |
 |---|---|---|---|---|
-| pelvis | sphere (0.16,0.14,0.16) | root @ (0,0.45,0) | P | gait |
-| torso | lathe L_egg h0.42 rmax0.16 | pelvis @ (0,0.12,0.04) · pitch 30 fwd | P | br |
-| belly plate | sphere (0.12,0.18,0.08) | torso front @ (0,0.18,0.12) | P+ | — |
-| neck | capsule r0.06 len0.12 | torso @ (0,0.40,0.06) · pitch −20 | P | look |
-| head (v2) | sphere (0.14,**0.13**,0.18) | neck @ (0,0.10,0.04) | P | look |
-| jaw | half-sphere (0.10,0.04,0.12) | head @ (0,−0.06,0.07) | P | jaw |
-| eye ×2 | sphere r0.045, x×1.3 | head @ (±0.08,0.03,0.10) | E | blink |
-| brow ×2 | capsule r0.015 len0.06 | head @ (±0.08,0.07,0.10) · roll ±15 | P− | — |
-| head spine ×3 | cone r0.025 h0.14/0.18/0.14 | head @ (±0.05/0,0.10,−0.08) · pitch −60 | P, tip A | — |
-| upper arm ×2 | capsule r0.035 len0.16 | torso @ (±0.13,0.30,0.06) | P | gait |
-| forearm ×2 | capsule r0.03 len0.16 | upper arm end | P | gait |
-| hand ×2 | sphere r0.035 + 3 cone fingers r0.01 h0.05 | forearm end | P | — |
-| sail ×2 | extrude X_sail 0.40 span × 0.35 chord, depth 0.015; root edge along the forearm, trailing corner at the hip | upper arm; **scaleX = lerp(0.35,1,armSpread)** | P, seam A | flap, glow |
-| thigh ×2 | capsule r0.06 len0.20 | pelvis @ (±0.10,−0.02,0) | P | gait |
-| shin ×2 | capsule r0.04 len0.22 (knee reversed) | thigh end | P | gait |
-| metatarsal ×2 | capsule r0.03 len0.12 | shin end | P | gait |
-| toe ×3 per foot | cone r0.015 h0.08, splayed ±25° | metatarsal end | D | — |
-| tail | chain 7 × capsule r0.06→0.02 len0.10 | pelvis @ (0,0,−0.14) · pitch 10 up | P | wave |
-| fork prong ×2 | cone r0.025 h0.16 · yaw ±30 | tail7 | A | glow, fx_fork |
+| pelvis / torso | sphere (0.12,0.11,0.12) / (0.13,0.19,0.12) | root @ (0,0.40,−0.02) / pelvis @ (0,0.16,0.02) · pitch 16 | P | br |
+| bib / ruff | sphere (0.10,0.14,0.07) / (0.15,0.075,0.13) fluffy | torso | W | — |
+| head | sphere (0.15,0.135,0.145), blend 0.04 | torso @ (0,0.27,0.05) | P | look |
+| eye ×2 | 3D eye r0.052 | head @ (±0.068,0.02,0.115) | E | lids |
+| ear ×2 | sphere (0.072,0.17,0.022) + lining + rim arc 230° | head @ (±0.078,0.12,−0.05) · (−38,∓12,∓18) | P / A | sway |
+| arms | capsule r0.032 → r0.028, hand sphere | torso @ (±0.12,0.10,0.05) | P, hands W | armswing |
+| patagium ×2 | extrude `X_patagium` 0.26 × 0.14 | torso side | S | flap |
+| legs | thigh sphere → shin capsule (pitch 215) → metatarsal (−50) → foot | pelvis | P, feet W | gait, knee |
+| tail + bulb | chain 11 × r0.042→0.024, total 0.85, coil bend (−30,0,12); bulb r0.058 | pelvis @ (0,0.02,−0.10) | P / A | wave, glow |
 
 #### c03 · Tempestrel
 | Field | Value |
 |---|---|
 | Family / stage / types | f01 · stage 3 · electric / gale (from c02 at Lv 34) |
-| Body plan · rig | kite glider: long horizontal body, 4 slender tucked limbs, one delta sail per side made of elongated ribs · RIG_WING |
-| H / span / length | 1.60 m / 2.80 m / 2.40 m (incl. streamer) · hoverGap 0.35 H |
+| Body plan · rig | (v3) majestic storm glider: colugo-like body riding wide membranes stretched from wrists to ankles · RIG_WING, hoverGap 0.3 H |
+| H / span / length | 1.60 m / 2.60 m / 2.40 m (incl. tail) |
 | Habitat | Lore: storm fronts over `snowpeak` and `route_5`. Not wild in the main game. |
 | Personality | Aloof and patient. Rides storms, and fiercely protects younger members of its line. |
-| Distinctive anatomy | Sails grow from the **ribs along the flanks, not from the shoulders** (a Draco-lizard analogue), with 6 visible ribs per side. A single crescent crest blade on the head, and 2 cheek electrode nodes. A long tail with **two ribbon streamers** and the widened fork. |
-| Dominant colours | P `#1E3A5F` storm indigo · S `#5FD4E8` cyan membrane · A `#FFE66D` seams |
-| Materials | Body `SCALE` r 0.45, clearcoat 0.3. Sails `MEMBRANE` opacity 0.85 with emissive S 0.15. Seams emissive A 1.2. Rim `#9FF3FF` 0.5. |
-| Face | **Long-almond** eyes. Iris `#5FD4E8`, round pupil 0.3, 2 highlights, lidCoverage 0.25 (calm, regal). Brows: heavy geometric ridge. Mouth: closed upturned line (M) plus a `jaw` for roars. |
+| Distinctive anatomy | (v3) A cream **storm-cloud mane**; long swept **satin ears** with crackling rims; a line of glowing **freckles** along each cheek; storm-lilac **membranes** with glowing blue edge seams and veins, held by long slender limbs; a long tail ending in a **crackling orb**. |
+| Dominant colours (v3) | P `#7B70AF` storm lilac · A `#3BB8FF` electric blue · S `#3A3470` storm indigo membrane |
+| Materials | (v3) Sculpted `FUR`; membranes `MEMBRANE` S with emissive A 0.07; seams, veins, freckles, rims and orb `GLOW` A. Rim `#A6E6FF` 0.45. |
+| Face | (v3) 3D **long-almond** eyes, iris `#2F6BE0`, round pupil 0.38, lid 0.2 (calm, regal), lidAngle −4. Closed line mouth. |
 
 | Clip | Motion |
 |---|---|
-| idle | Hovers, bobbing 0.05 H at 0.4 Hz. A travelling wave runs along the sail panels (±8°, rib by rib), and the streamers S-wave slowly. A spark jumps between the fork prongs every 3 s. |
-| move (glide) | Sails fully spread. It banks into turns (roll ≤25°). A slow "rib-beat" every 1.5 s dips the sails 15° and raises them again. It stays 0.35 H above the ground. |
-| attack | Rises 0.5 H, folds its sails back into a dart and dives at the target. At `contact` (50%) the sails snap open, releasing a ring of lightning at `fx_body`. Pulls up. |
-| attack_special | Holds position with its sails raised. Lightning arcs travel along all ribs into the fork, and a bolt fires from `fx_fork`. |
-| hit | The sail on the struck side crumples (panel pitch −20°, body roll 30° toward the hit). It drops 0.2 H, then recovers. |
-| capture | Wraps its sails forward around its body like a cloak. The crest flashes. |
-| faint | Sails go limp and it drifts down like a falling leaf (roll ±20° rocking over 1.2 s). It lands flat with the tail coiled. |
-| victory | A barrel roll, then sails fully spread with all seams flashing. |
+| idle | Hovers, bobbing; membranes breathe slowly (flap 10° at 0.5 Hz); the tail S-waves; the orb flickers. |
+| attack | Rises, dives (`dive` style) and releases a ring of lightning at `impact` 50%. |
+| attack_special | Holds position with membranes raised; arcs run along the veins into the orb. |
+| hit / capture / faint / victory | Rolls toward the hit / wraps its membranes forward / sinks and settles / a slow loop with all seams flashing. |
 
-| Part | Primitive & dims (×H) | Parent @ offset · rot | Slot | Anim |
+| Part (v3) | Primitive & dims (×H) | Parent @ offset · rot | Slot | Anim |
 |---|---|---|---|---|
-| body | lathe L_spindle along Z, h1.20 rmax0.13 | root @ (0,0.55,0) | P | br |
-| keel | sphere (0.10,0.08,0.22) | body @ (0,−0.08,0.10) | P+ | — |
-| neck | capsule r0.06 len0.20 · pitch −15 | body front @ (0,0.02,0.58) | P | look |
-| head | lathe L_teardrop along Z, h0.32 rmax0.09 | neck end | P | look |
-| jaw | half-lathe h0.20 rmax0.06 | head @ (0,−0.04,0.06) | P | jaw |
-| eye ×2 | sphere r0.035, x×1.6 | head @ (±0.06,0.03,0.12) | E | blink |
-| crest blade | extrude X_fin_crescent 0.22×0.12, depth 0.015 | head @ (0,0.08,−0.06) | S, edge A | glow |
-| cheek node ×2 | sphere r0.025 | head @ (±0.07,−0.02,0.02) | A | glow |
-| rib ×6 per side | tube straight r0.012, len 0.60–0.85, fanning −10°…−80° from forward | body flank @ (±0.10,0.02, +0.30…−0.30) | P− | flap |
-| sail panel ×3 per side | extrude X_delta (the panel between rib pairs), span 0.85, depth 0.01 | parented to the leading rib of its pair | S | flap, glow |
-| seam ×2 | tube along the outer trailing edge r0.01 | outer panels | A | glow |
-| limb ×4 | capsule r0.025 len0.18 → capsule r0.02 len0.16 → 3 toe cones | body @ (±0.08,−0.06,±0.35) · pitch 70 back (tucked) | P | gait (landing only) |
-| tail | chain 10 × capsule r0.05→0.015, total 1.0 | body rear @ (0,0,−0.60) | P | wave |
-| streamer ×2 | extrude X_strip 0.30×0.04, depth 0.005 | tail8 @ (±0.02,0,0) | S | wave |
-| fork prong ×2 | cone r0.02 h0.14 · yaw ±35 | tail10 | A | glow, fx_fork |
+| body / chest / belly | sphere (0.17,0.14,0.34) / (0.12,0.10,0.14) / (0.11,0.07,0.24) | root @ (0,0.42,0) | P / W | br |
+| mane ×4 | fluffy spheres up to (0.21,0.15,0.15) | body front-top | W | — |
+| neck / head | capsule r0.08 / sphere (0.105,0.095,0.12) ×1.3 | body @ (0,0.06,0.30) · pitch 55 | P | look |
+| eye ×2 | 3D eye r0.038 | head | E | lids |
+| ear ×2 | sphere (0.048,0.19,0.014) + rim arc 250° | head · (−62,∓8,∓14) | P / A | sway |
+| glide ×2 | extrude `X_glide` 0.70 × 0.85, horizontal, dihedral 16° | body side | S, seam A | flap |
+| limbs | capsule chains along the membrane leading/trailing edges | inside the flap node | P, hands/feet W | flap |
+| tail + orb | chain 12 × r0.05→0.02, total 1.0; orb r0.07 + 2 spark cones | body @ (0,0,−0.32) | P / A | wave, glow |
 
-### f02 — Wickwool line (fire)
+### f02 — Wickwool line (fire) — v3 flagship redesign (DECISIONS D31)
+
+**(v3)** The line becomes a **ram-horned fire dragon** line and keeps its ram-horn + wick-flame motif. The v2 lamb/ram/basalt-bison rows are withdrawn. c06 is renamed **Smoulderam** (smoulder + ram) and becomes **fire / gale**. Builders: `c04.ts`–`c06.ts` with `species/_kit.ts` (`wickHorn`, `hornSpiral`, `dragonWing`).
 
 #### c04 · Wickwool
 | Field | Value |
 |---|---|
 | Family / stage / types | f02 · stage 1 · fire |
-| Body plan · rig | small quadruped lamb (ram calf) · RIG_QUAD |
-| H / length | 0.45 m / 0.55 m |
-| Habitat | Lore: warm pastures on the lower slopes of `volcano`. Starter, not wild. |
-| Personality | Earnest and braver than its size. Head-butts new things to "test" them. |
-| Distinctive anatomy | Lumpy **cream fleece of 7 clusters** over brick-red skin (face and legs bare). Knobbly knees. **Horn nubs making a single ¾ curl, with wick-like glowing tips** (a small flame sprite each). Flame-shaped tail tuft. Charcoal hooves that throw sparks when stamped. |
-| Dominant colours | S `#F2E3C6` cream · P `#B5462E` brick red · A `#FF8A1F` ember |
-| Materials | Fleece `FUR` r 0.95 with the fluffy tag. Skin `FUR` r 0.7. Horns `SHELL` r 0.4, colour `#D8B892`, with a vertex-colour gradient to emissive A at the tip (1.2). Hooves D. Rim `#FFD9A0` 0.3. |
-| Face | Big **round** eyes. Iris `#4A2A1A`, round pupil 0.55, 2 highlights, lidAngle +8 (earnest). Brows: short painted strokes. Mouth: small painted oval that opens for cries (M frame swap). Floppy ears. |
+| Body plan · rig | (v3) woolly hatchling drake · RIG_QUAD (hopping) |
+| H / length | 0.45 m / 0.75 m |
+| Habitat | Lore: warm pastures on the lower slopes of `volcano`, napping in the fleece of the herd. Starter, not wild. |
+| Personality | Earnest and braver than its size. Head-butts new things to "test" them, and its wick flames flare when it is proud. |
+| Distinctive anatomy | (v3) Chubby charcoal hatchling with a big head, a **fleecy ash-cream ember mane** over the neck, shoulders and crown (embers glint between the curls), **¾-curl horn nubs whose tips burn like candle wicks**, big amber eyes, **stubby ember-lit wings**, cream claws, and a short tail ending in a little **basalt knob** with glowing cracks. No tail flame. |
+| Dominant colours (v3) | P `#3A3035` charcoal · S `#EADFCD` ash cream · A `#FF6A1A` ember |
+| Materials | (v3) Sculpted `SCALE` body, belly plates W `#6A5049`; fleece `FUR` with ember-glint glow mask; horns `SHELL` `#D9C7A8` → glowing tip; wick flames `GLOW`; tail knob sculpted `STONE` with molten cracks. Rim `#FFC890` 0.35. |
+| Face | (v3) Big **round** 3D eyes, iris amber `#F2A516`, round pupil 0.5, 3 highlights, lidAngle +8 (earnest). Smile mouth on a rounded snout; two nostrils (`fx_nostrils`). |
 
 | Clip | Motion |
 |---|---|
-| idle | Tail tuft flicks, ears flop with lag, wick flames flicker (scale noise). Every ~4 s it stamps a front hoof, spawning a spark at `fx_hoof`. |
-| move (pronk + trot) | Alternates 2 trot cycles with 1 **pronk**: all four legs stiff, body bouncing 0.15 H, fleece clusters jiggling with a 0.05 s lag. |
-| attack | Backs up 2 steps, lowers its head and charges 1.5 H. Head-butts at `contact` (45%): horn glow 3.0 and fleece puffs out (scale 1.1). |
-| attack_special | Plants its feet and shakes its head. The wick flames grow 3× and flick an ember forward from `fx_horns`. |
-| hit | Fleece compresses (scale 0.9) and springs back. It stumbles sideways with its ears pinned. |
-| capture | Plants its hooves stubbornly and shakes its head (yaw ±30° ×3). |
-| faint | Front legs fold, then the rear. It lies curled, and the wick flames shrink to embers (glow 0.2). |
-| victory | Pronks twice, then gives a proud bleat (jaw frame open). |
+| idle | Breathing; wick flames sway; wings flutter now and then. |
+| move | Bouncy hop-trot; wings flutter at 2.2 Hz. |
+| attack | Lowers its head and head-butts (lunge); `impact` 45%; horn tips flare (glow gain). |
+| attack_special | Plants its feet, shakes its head; the wick flames grow and flick an ember from `fx_horns`. |
+| hit / capture / faint / victory | Fleece squashes / ≤ 250 ms startle / curls on its side, flames shrink / hops, eyes `happy`. |
 
-| Part | Primitive & dims (×H) | Parent @ offset · rot | Slot | Anim |
+| Part (v3) | Primitive & dims (×H) | Parent @ offset · rot | Slot | Anim |
 |---|---|---|---|---|
-| torso | sphere (0.28,0.22,0.34) | root @ (0,0.50,0) | P | br, gait |
-| fleece cluster ×7 | sphere r0.12–0.16 (fluffy) around the top, sides and rump | torso | S | br (lagged) |
-| neck | capsule r0.08 len0.12 · pitch −35 | torso @ (0,0.12,0.28) | P | look |
-| head (v2) | sphere (0.17,**0.17**,0.19) | neck end @ (0,0.08,0.04) | P | look |
-| muzzle | sphere (0.10,0.08,0.10) | head @ (0,−0.06,0.15) | P+ | — |
-| forelock | sphere r0.08 (fluffy) | head @ (0,0.14,0) | S | — |
-| ear ×2 | capsule r0.04 len0.14, z×0.4 · roll ±60 droop | head @ (±0.15,0.06,−0.02) | P | lag |
-| horn nub ×2 | tube along a ¾-turn curl, path radius 0.06, r0.035→0.02 | head @ (±0.08,0.13,0.02) | `#D8B892`→A | glow |
-| wick flame ×2 | billboard sprite r0.05 | horn tip | A | fx_horns |
-| eye ×2 | sphere r0.05, z×0.6 | head @ (±0.09,0.03,0.14) | E | blink |
-| leg ×4 | capsule r0.035 len0.18 → knee sphere r0.045 → capsule r0.03 len0.15 → hoof cylinder r0.035 h0.05 | torso @ (±0.14,−0.18,±0.18) | P, hoof D | gait, fx_hoof |
-| tail tuft | extrude X_flame_tuft 0.10, depth 0.04 | torso @ (0,0.08,−0.34) | S, tip A | lag |
+| body / belly | sphere (0.25,0.21,0.30) / (0.19,0.15,0.24) | root @ (0,0.38,−0.02) | P / W | br |
+| neck / head / snout | capsule r0.10 / sphere (0.21,0.19,0.20) / sphere (0.12,0.085,0.11) | body @ (0,0.10,0.22) | P | look |
+| eye ×2 | 3D eye r0.085 | head @ (±0.105,0.035,0.14) | E | lids |
+| horn ×2 + wick flame | tube ¾ curl r0.04→0.028, tip glowing, flame sphere + cone | head @ (±0.085,0.13,−0.01) | `#D9C7A8` → A | glow, fx_horns |
+| fleece mane ×5 | fluffy `FUR` spheres (0.20,0.14,0.17) … (0.13,0.09,0.12) | body front-top, head crown | S, glint glow 0.3–0.45 | — |
+| wing ×2 | `dragonWing` 0.40 × 0.30 (bone arm, 4 fingers, membrane `#4A2218` + glowing veins) | body @ (±0.13,0.15,−0.02) | P / A | flap |
+| legs ×4 | capsule r0.07 / r0.06 → paw sphere + 3 cream claws | body | P | gait |
+| tail + knob | chain 5 × r0.08→0.045, total 0.36; knob sphere (0.06,0.055,0.065) sculpted `STONE` | body @ (0,0.03,−0.27) | P / `#3C3538` | wave |
 
 #### c05 · Kilnhorn
 | Field | Value |
 |---|---|
 | Family / stage / types | f02 · stage 2 · fire (from c04 at Lv 16) |
-| Body plan · rig | lean long-legged leaping quadruped · RIG_QUAD (bound gait) |
-| H / length | 1.00 m / 1.20 m |
+| Body plan · rig | (v3) bipedal young drake, upright and forward-leaning · RIG_BIPED |
+| H / length | 1.00 m / 1.40 m (incl. tail) |
 | Habitat | Lore: basalt ledges of `volcano` and `route_4`. Not wild in the main game. |
 | Personality | Proud and stubborn. Challenges rivals but is fiercely loyal. |
-| Distinctive anatomy | The fleece is gone except for a **smoky charcoal mane collar** around its neck and shoulders, flecked with embers. Mountain-goat proportions. **Horns in one full spiral each**, with 8 glowing ridge rings. Chin tuft. Short flat tail. |
-| Dominant colours (v2) | P `#B5502F` red-brown · S `#3B2B26` charcoal · A `#FFA431` ember |
-| Materials | Coat `FUR` r 0.8. Mane `FUR` r 1.0 with emissive fleck vertex colours. Horns `SHELL` r 0.35 with emissive ridge stripes (A 1.5). Rim `#FFB070` 0.35. |
-| Face | Narrower **almond** eyes. Iris `#FF9A2E`, **h-bar** (goat) pupil, 1 highlight, lidAngle −12. Brows: geometric wedges. Mouth: `jaw` mesh. Ears held horizontal. |
+| Distinctive anatomy | (v3) Charcoal scales with warm ash belly plates and glowing seams on the chest and jaw; **horns that curl a full turn**, ridged, with **burning wick tips**; a **smouldering fleece ruff** over the shoulders (ember glints); small ember-lit wings; strong digitigrade legs; a thick tail starting to grow its **basalt club**. |
+| Dominant colours (v3) | P `#33292E` obsidian charcoal · S `#CDBFAE` smoulder cream · A `#FF6A1A` ember |
+| Materials | (v3) Sculpted `SCALE` with a molten-fissure glow mask (belly 0.25, jaw 0.6); ruff `FUR` with ember glints; horns `SHELL` with ridges; club sculpted `STONE`. Rim `#FFB070` 0.35. |
+| Face | (v3) 3D **almond** eyes, iris `#FFB02E`, round pupil 0.38, lid 0.14, lidAngle −8 (confident). Snout and hinged `jaw`; fang mouth. |
 
 | Clip | Motion |
 |---|---|
-| idle | Paws the ground with a front hoof, leaving a glowing scuff decal that fades in 2 s. Snorts smoke puffs from `fx_nostrils` every 3 s. Horn ridges pulse front to back at 0.5 Hz. |
-| move (bound) | Springy bound gait with a long suspension phase (0.25 s airborne). Hooves flash (glow 1.5) on each landing. |
-| attack | Rears to pitch −40° on its hind legs. The horns ignite (glow 3.0) and it crashes down into a lunging head-butt (`contact` 55%), spawning a spark burst. |
-| attack_special | Rears and snorts twin flame jets from `fx_nostrils` while swinging its head in an arc. |
-| hit | Head jerks aside, the mane scatters sparks, and it skids back on its hooves. |
-| capture | Rears and bleats (jaw open). The horns flare. |
-| faint | Staggers, then collapses sideways. The horn glow dims ring by ring from tip to base over 1.2 s. |
-| victory | Leaps onto an invisible ledge (up 0.4 H), holds a proud pose, and snorts smoke. |
+| idle | Breathing; ruff embers glint; wings twitch; tail sways. |
+| move | Striding run with arm swing. |
+| attack | Rears (`rear` style) and crashes into a horn butt; `impact` 55%. |
+| attack_special | Rears and snorts flame from `fx_nostrils`, sweeping its head. |
+| hit / capture / faint / victory | Head jerks aside / ≤ 250 ms roar / collapses sideways, horn glow dims / leaps and holds a proud pose. |
 
-| Part | Primitive & dims (×H) | Parent @ offset · rot | Slot | Anim |
+| Part (v3) | Primitive & dims (×H) | Parent @ offset · rot | Slot | Anim |
 |---|---|---|---|---|
-| torso | lathe L_pear along Z, h0.60 rmax0.17 (chest end forward) | root @ (0,0.58,0) | P | br, gait |
-| mane cluster ×5 | sphere r0.10–0.14 (fluffy) | torso front-top | S | br |
-| neck | capsule r0.08 len0.22 · pitch −40 | torso @ (0,0.08,0.28) | P | look |
-| head (v2) | sphere (0.10,**0.13**,0.16) | neck end | P | look |
-| muzzle | capsule r0.06 len0.08 along Z | head @ (0,−0.04,0.12) | P+ | — |
-| jaw | half-capsule r0.05 len0.07 | muzzle bottom | P+ | jaw |
-| chin tuft | cone r0.03 h0.08, pointing down | jaw | S | — |
-| horn ×2 | tube along a logarithmic spiral of 1.1 turns, outer radius 0.14, r0.05→0.015, curling back-down-forward; 8 emissive ridge bands (vertex colour) | head @ (±0.07,0.08,−0.02) | `#C9A27A`, bands A | glow |
-| ear ×2 | capsule r0.025 len0.08, flattened, horizontal | head @ (±0.10,0.05,−0.04) | P | lag |
-| eye ×2 | sphere r0.03 | head @ (±0.07,0.03,0.08) | E | blink |
-| leg ×4 | capsule r0.05 len0.20 → capsule r0.03 len0.22 → capsule r0.022 len0.08 → hoof cylinder r0.03 h0.04 | torso @ (±0.10,−0.12,±0.22) | P, hoof D | gait, glow |
-| tail | capsule r0.03 len0.07, flattened | torso rear | S | lag |
+| pelvis / torso / belly | sphere (0.15,0.14,0.14) / (0.17,0.23,0.15) / (0.12,0.20,0.08) | root @ (0,0.42,−0.04) | P / W | br |
+| ruff ×4 | fluffy `FUR` spheres | torso shoulders | S, glints 0.6–0.7 | — |
+| head / snout / jaw | sphere (0.12,0.11,0.13) / capsule r0.07 / capsule r0.05 | neck | P / W | look, jaw |
+| eye ×2 | 3D eye r0.045 | head | E | lids |
+| horn ×2 | spiral 1.05 turns r0.036→0.017, 9 ridges, wick tip | head @ (±0.07,0.085,−0.04) | `#D6C3A2` → A | glow, fx_horns |
+| wing ×2 | `dragonWing` 0.50 × 0.36 | torso back | P / A | flap |
+| arms / legs | capsules; digitigrade legs (shin pitch 215, metatarsal −50) | torso / pelvis | P | armswing, gait, knee |
+| tail + club | chain 7 × r0.085→0.035, total 0.72; club sphere + 2 knobs, `STONE` | pelvis | P / `#3A3236` | wave |
 
-#### c06 · Magmouflon
+#### c06 · Smoulderam
 | Field | Value |
 |---|---|
-| Family / stage / types | f02 · stage 3 · fire / stone (from c05 at Lv 34) |
-| Body plan · rig | fore-massed heavy quadruped (bison-like taper) · RIG_QUAD (heavy walk) |
-| H / length | 1.70 m / 2.30 m |
-| Habitat | Lore: `volcano` caldera rim. Not wild in the main game. |
-| Personality | A calm, immovable hearth-guardian. Slow to anger and unstoppable once roused. |
-| Distinctive anatomy | Huge shoulders and forequarters with small hindquarters. **Overlapping basalt hex-plates** on the shoulders and back, with **magma glowing through the gaps**. **Horns closed into near-complete kiln rings** (1.6 turns) around each side of the head, which vent heat shimmer. A dark beard. Short, thick, pillar-like legs. **No volcanic crater or hump vent** (see the originality audit). |
-| Dominant colours | P− `#2B2A2E` basalt black · A `#FF5A1F` magma orange · S `#6E2A1C` rust fur |
-| Materials | Plates `STONE` r 0.9 with a noise normal. An emissive underlayer (A 1.6, pulsing at 0.3 Hz) shows through the plate gaps. Fur `FUR` r 0.9. Horns `SHELL` r 0.5 with emissive inner faces. Rim `#FF7A40` 0.3. |
-| Face | Small deep-set eyes. **No visible sclera** (sclera `#1A1414`), iris `#FFB347` emissive 0.6, h-bar pupil, 1 highlight. Brows: basalt brow-plates (geometry). Mouth: broad muzzle with a `jaw`. Nostrils emit smoke. |
+| Family / stage / types | f02 · stage 3 · **fire / gale** (v3; from c05 at Lv 34) |
+| Body plan · rig | (v3) majestic winged fire dragon, four-legged with a raised chest and a long neck · RIG_QUAD (heavy walk), wings flap |
+| H / length / span | 1.90 m / 3.40 m (incl. tail) / ≈ 4.0 m wingspan |
+| Habitat | Lore: the `volcano` caldera rim, riding the updrafts above it. Not wild in the main game. |
+| Personality | A calm, immovable hearth-guardian. Slow to anger; when roused it takes to the sky on smoke-hot updrafts. |
+| Distinctive anatomy | (v3) Obsidian-charcoal scales; **great spiral ram horns** (1.1 turns, ridged) with **burning wick tips**; a **smoke-and-ember fleece mane** over the neck, shoulders and the back of the head; **molten fissures** glowing along the throat, chest plates and jaw; **wide wings** with ember-lit membranes and glowing veins; powerful legs with cream claws; dorsal spines; a long tail ending in a **basalt club** with glowing cracks (**no tail flame**). |
+| Dominant colours (v3) | P `#2B2428` obsidian · A `#FF6A1A` ember · S `#C4B9AB` ash cream |
+| Materials | (v3) Sculpted `SCALE` with a molten-fissure glow mask (throat and jaw 1.0, belly 0.45; `fissureGlow` 1.6); mane `FUR` with ember glints; horns `SHELL` `#D5C3A3` with ridges; wings `MEMBRANE` `#2E1410` with emissive A 0.14 and `GLOW` veins; club sculpted `STONE` `#35302F` with cracks. Rim `#FF9A5A` 0.35. |
+| Face | (v3) 3D **almond** eyes with a dark sclera `#3A2620` and a glowing gold iris `#FFB23E` (glow `#FF9A3A`), v-oval pupil 0.42, lid 0.22, lidAngle −12 (stern). Sculpted brow ridges; long snout with a hinged glowing `jaw`; smoking nostrils (`fx_nostrils`). No mouth decal. |
 
 | Clip | Motion |
 |---|---|
-| idle | Slow deep breathing (shoulder mass rises 0.02 H). Smoke curls from the nostrils and the horn rings every 3 s. The magma underlayer pulses. The head turns slowly at 0.2 Hz. |
-| move (heavy walk) | Walks at 0.8 Hz with a lateral sway (roll ±4°). Each forefoot plant spawns a dust ring. The plates shiver as each foot lands. |
-| attack | Rears 20° and slams both forelegs down (shockwave `fx_ground` at `contact` 40%), then shoves forward with its horn rings (second hit tick at 70%). |
-| attack_special | Lowers its head. The horn rings glow white-hot (glow 3.0, v2 clamp) and release a heat wave cone from `fx_horns`. |
-| hit | Barely moves: head recoils 10°, the plates flash brighter, a grunt. |
-| capture (v2) | Braces its legs wide and roars (jaw), as a ≤ 250 ms pose. |
-| faint | Kneels front first, then slumps. The magma dims to dark red, then black, over 1.5 s, and the smoke stops. |
-| victory | Stamps twice (dust rings) and exhales a long smoke plume. |
+| idle | Slow deep breathing; wings half-spread and breathing (flap 12° at 0.45 Hz); fissures pulse; the head turns slowly. |
+| move | Heavy walk at 0.9 Hz. |
+| attack | Rears (`rear`) and slams down, then drives forward with the horns; `impact` 40%. |
+| attack_special | Lowers its head; the fissures and wick flames flare (glow gain) and a heat-and-wind blast leaves `fx_mouth`. |
+| hit | Barely moves: head recoils, fissures flash. |
+| capture (v2) | ≤ 250 ms: wings flare, roar (jaw). |
+| faint | Kneels, slumps onto its side; the fissures dim to black. |
+| victory | Rears, wings spread wide, horns flare. |
 
-| Part | Primitive & dims (×H) | Parent @ offset · rot | Slot | Anim |
+| Part (v3) | Primitive & dims (×H) | Parent @ offset · rot | Slot | Anim |
 |---|---|---|---|---|
-| forequarters | sphere (0.34,0.32,0.34) | root @ (0,0.62,0.12) | S | br, gait |
-| hindquarters | sphere (0.24,0.24,0.26) | root @ (0,0.50,−0.30) | S | gait |
-| barrel | capsule r0.24 len0.30 along Z | root @ (0,0.55,−0.08) | S | — |
-| shoulder mass | lathe L_dome h0.18 rmax0.26 (no crater) | forequarters top @ (0,0.26,−0.04) | S | br |
-| magma underlayer | sphere (0.33,0.30,0.50), 0.02 inside the plates | root @ (0,0.64,−0.05) | A (emissive) | glow |
-| basalt plate ×12 | extrude X_hexplate r0.09–0.12, depth 0.03, random yaw, gaps 0.01–0.02 | on the shoulder mass and back | P− | br |
-| neck | capsule r0.16 len0.12 · pitch 30 down-forward | forequarters @ (0,0.02,0.28) | S | look |
-| head (v2) | sphere (0.14,**0.14**,0.18) | neck end → world ≈ (0,0.66,0.52) | S | look |
-| brow plate ×2 | box 0.10×0.03×0.06 | head @ (±0.06,0.09,0.10) | P− | — |
-| muzzle | sphere (0.10,0.09,0.10) | head @ (0,−0.06,0.14) | S | — |
-| jaw | half-sphere (0.09,0.04,0.09) | muzzle bottom | S | jaw |
-| beard | cone r0.07 h0.14, pointing down | jaw | P− | lag |
-| horn ring ×2 | tube along a 1.6-turn spiral, outer radius 0.13, r0.06→0.02, forming a ring about the ear axis | head @ (±0.12,0.06,−0.02) | `#3A302C`, inner A | glow, fx_horns |
-| eye ×2 | sphere r0.025 | head @ (±0.08,0.04,0.12) | E | blink |
-| front leg ×2 | capsule r0.08 len0.26 → capsule r0.065 len0.20 → hoof cylinder r0.07 h0.05 | forequarters @ (±0.20,−0.20,0.05) | S, hoof D | gait, fx_ground |
-| hind leg ×2 | capsule r0.07 len0.22 → capsule r0.055 len0.18 → hoof | hindquarters @ (±0.15,−0.14,0) | S, hoof D | gait |
-| tail | capsule r0.03 len0.08 | hindquarters rear | S | lag |
+| chest / barrel / hips | sphere (0.21,0.25,0.25) / (0.19,0.19,0.30) / (0.16,0.17,0.18) | root @ (0,0.64,0.28) / (0,0.60,−0.05) / (0,0.59,−0.38) | P | br |
+| throat plate / belly plate | sphere (0.14,0.18,0.12) / (0.14,0.12,0.33) | chest / barrel | W, fissure 1.0 / 0.45 | glow |
+| neck + throat | chain 4 × r0.115→0.085, total 0.44, bend −7; throat capsule r0.075 | chest @ (0,0.12,0.14) · pitch 28 | P / W fissure 1.0 | — |
+| head / snout / jaw | sphere (0.10,0.095,0.13) / capsule r0.07 len0.14 / capsule r0.055 len0.13 | neckTip | P / P / W fissure 1.0 | look, jaw |
+| brow ×2 | capsule r0.03, blend 0.018 (sculpted) | head | P | — |
+| eye ×2 | 3D eye r0.036 | head @ (±0.066,0.03,0.095) · yaw ±34 | E | lids |
+| horn ×2 | spiral 1.12 turns, radius 0.13→0.06, tube r0.056→0.018, 13 ridges, wick flame | head @ (±0.075,0.07,−0.05) | `#D5C3A3` → A | glow, fx_horns |
+| mane ×9 | fluffy `FUR` spheres along the neck, shoulders and head | chest / neck / head / barrel | S / S− glints 0.4–0.55 | — |
+| wing ×2 | `dragonWing` 1.05 × 0.70 (arm, thumb claw, 4 fingers, membrane, 4 glowing veins) | chest @ (±0.15,0.19,−0.04) · (0,±26,±40) | P / `#2E1410` / A | flap |
+| legs ×4 | shoulder / thigh spheres; forearm capsule r0.075 len0.28; shin r0.075 len0.17 → metatarsal → foot; 3 cream claws each | chest / hips | P / `#E4D6BE` | gait |
+| dorsal spines | cones on the back and tail (LOD ≤ 1 on the tail) | barrel / hips / tail | `#1B1518` | — |
+| tail | chain 10 × r0.10→0.045, total 1.15, bend −3 | hips @ (0,0.02,−0.15) · pitch −100 | P | wave |
+| club | sphere (0.13,0.17,0.11) + 3 knobs, sculpted `STONE`, fissure 0.85 | tailTip | `#35302F` | — |
 
 ### f03 — Rippleback line (water)
 
@@ -1575,7 +1561,7 @@ Family note: every f09 clip is evaluated at **12 fps stepped interpolation** (ho
 | c03 | Tempestrel | 70 | 72 | 62 | 110 | 76 | 135 | 525 | 233 | 45 | — | — | medium |
 | c04 | Wickwool | 55 | 65 | 58 | 45 | 45 | 42 | 310 | 62 | 45 | 16 | — | medium |
 | c05 | Kilnhorn | 72 | 88 | 72 | 58 | 60 | 55 | 405 | 135 | 45 | — | 34 | medium |
-| c06 | Magmouflon | 95 | 118 | 100 | 70 | 80 | 62 | 525 | 233 | 45 | — | — | medium |
+| c06 | Smoulderam (v3) | 95 | 118 | 100 | 70 | 80 | 62 | 525 | 233 | 45 | — | — | medium |
 | c07 | Rippleback | 52 | 50 | 55 | 55 | 58 | 40 | 310 | 62 | 45 | 16 | — | medium |
 | c08 | Tidesleek | 65 | 70 | 62 | 72 | 66 | 70 | 405 | 135 | 45 | — | 34 | medium |
 | c09 | Floeguard | 90 | 85 | 112 | 88 | 95 | 55 | 525 | 233 | 45 | — | — | medium |
@@ -1623,7 +1609,7 @@ The v1 trait ideas (two per species, with invented effects) are withdrawn. Every
 | c03 | `tr_static_hide` | charged skin |
 | c04 | `tr_last_stand` | starter line |
 | c05 | `tr_last_stand` | starter line |
-| c06 | `tr_reckless` | charging ram |
+| c06 | `tr_reckless` | charging ram-horned dragon (v3) |
 | c07 | `tr_last_stand` | starter line |
 | c08 | `tr_last_stand` | starter line |
 | c09 | `tr_frost_hide` | frost-rimed carapace; a slow shield-bearer gains little from speed traits |
@@ -1659,12 +1645,12 @@ Twenty distinct ids are used. No stage-1 species has `tr_adaptive`, which is the
 
 | id | pupil | temperament | attack style | rimGain | sideYaw |
 |---|---|---|---|---|---|
-| c01 | v-oval | skittish | lunge | 1.0 | 0 |
+| c01 | round | curious | lunge | 1.0 | 0 |
 | c02 | round | curious | spin | 1.14 | 0 |
-| c03 | round | territorial | lunge | 1.43 | 35 |
+| c03 | round | territorial | dive | 1.43 | 35 |
 | c04 | round | curious | lunge | 0.86 | 0 |
-| c05 | h-bar | territorial | slam | 1.0 | 0 |
-| c06 | h-bar | wander | slam | 0.86 | 0 |
+| c05 | round | territorial | rear | 1.0 | 0 |
+| c06 | v-oval | wander | rear | 0.86 | 0 |
 | c07 | round | curious | spin | 0.86 | 0 |
 | c08 | round | curious | lunge | 1.29 | 0 |
 | c09 | round | territorial | spin | 1.43 | 0 |
@@ -1765,12 +1751,12 @@ Twenty distinct ids are used. No stage-1 species has `tr_adaptive`, which is the
 ### 7.3 Per-species silhouette lines and 20 px must-read features
 | id | Cat | Silhouette (one line) | Must remain readable at 20 px |
 |---|---|---|---|
-| c01 | QS | Big-headed flat lizard, low and long with a forked tail | oversized head blob; tail longer than its body; fork notch at the tip |
-| c02 | BP | Forward-leaning runner with sails bridging arms to hips | 30° lean; triangular sail wedge under each arm; long tail counterweight |
-| c03 | WG | Wide delta kite with a long streamer tail | span ≈ 1.75 H horizontal wedge; head spike forward; tail line |
-| c04 | QS | Lumpy cloud-body lamb on thin legs with tiny curls | bumpy top outline; 4 stick legs; head bump with horn nubs |
-| c05 | QL | Leggy ram mid-leap with big spiral horns | spiral horn circles; long legs; mane collar bulge |
-| c06 | QL | Massive shoulders tapering to small hips, head ringed by horn loops | front-heavy wedge; horn rings (holes read at 256, a bump at 20); short legs |
+| c01 | QS | (v3) Round fluffy ball with two huge round ears and a coiled tail | two big ear discs on a round head; round body; tail coil with a bulb dot |
+| c02 | BP | (v3) Forward-leaning long-legged runner with tall swept ears | two tall ear blades; digitigrade legs; coiled tail with a bulb |
+| c03 | WG | (v3) Wide rounded glide-sheet with a maned head and a long orb tail | span ≈ 1.6 H membrane; long swept ears; tail line ending in an orb |
+| c04 | QS | (v3) Chubby big-headed drake with a fleece collar and stubby wings | big round head with horn curls; bumpy fleece collar; wing nubs; short knob tail |
+| c05 | BP | (v3) Upright young drake with full-curl horns and small wings | spiral horn circles; ruff bulge; wing points; thick tail with a knob |
+| c06 | QL | (v3) Tall winged dragon with spiral ram horns and a clubbed tail | raised bat wings; horn spirals beside a long-necked head; long tail ending in a club |
 | c07 | QS | Sitting otter with a thick plated tail curling out | upright seated pose; tail as thick as its body; round head |
 | c08 | SR | Long low S-body with a raised periscope head and a tail rudder | long horizontal S; vertical head stalk; rudder notch |
 | c09 | BP | Stout upright figure with a big fan shield beside it (v2) | fan semicircle at its side; domed back carapace with a crystal ridge; bare round otter head |
@@ -1801,11 +1787,11 @@ No two species share a (category, dominant colour pair):
 
 | Cat | Species — dominant pair |
 |---|---|
-| QS | c01 teal/yellow · c04 cream/brick red · c07 brown/sea teal |
-| QL | c05 red-brown/charcoal · c06 basalt black/magma orange · c12 dark green/deep purple · c14 stone grey/ochre · c15 iron grey/crystal cyan |
-| BP | c02 deep blue/yellow · c09 ice white/slate · c11 moss green/foxglove purple |
+| QS | c01 silver-lilac/electric blue (v3) · c04 charcoal/ash cream (v3) · c07 brown/sea teal |
+| QL | c06 obsidian/ember orange (v3) · c12 dark green/deep purple · c14 stone grey/ochre · c15 iron grey/crystal cyan |
+| BP | c02 lilac/electric blue (v3) · c05 obsidian charcoal/smoulder cream (v3) · c09 ice white/slate · c11 moss green/foxglove purple |
 | SR | c08 slate blue/aqua · c16 frost white/ice cyan · c17 periwinkle/white |
-| WG | c03 indigo/cyan · c20 blue/seed tan · c21 deep green/gold |
+| WG | c03 storm lilac/electric blue (v3) · c20 blue/seed tan · c21 deep green/gold |
 | RB | c10 moss green/tan · c13 warm grey/tan · c19 off-white/sky blue |
 | RD | c22 amber/blue · c23 ochre orange/blue · c24 deep violet/blue |
 | FT | c25 ink black/violet · c27 char black/ember orange |
@@ -1832,12 +1818,12 @@ Scope and method:
 
 | id | Closest known creature(s) | Why this is not a recognisable imitation / what was changed |
 |---|---|---|
-| c01 | Helioptile (Pokémon, electric lizard with a neck frill); Emolga (electric flying squirrel with patagia); Pikachu (electric mascot with a bolt-shaped tail) | No neck frill: the sails are rib flaps, based on the real *Draco* gliding lizard. The body is teal, not yellow. The tail tip is a two-prong fork, and **must never be drawn as a zig-zag bolt**. A reptile, not a rodent. |
-| c02 | Heliolisk (bipedal electric frilled lizard); Grovyle (bipedal lizard with forearm leaf blades) | No frill (constraint: ≤ 3 swept head spines, never a fan). The sails are membranes running from the forearm **to the hip**, not blades on the forearm. Blue and yellow palette with a forked tail. ⚠ Keep the spines thin and never leaf-shaped. |
-| c03 | Zekrom (black electric dragon with a tail generator); Rayquaza (sky serpent); generic wyverns | Lift comes from rib-sails along the flanks, with no shoulder wings, horns or dragon head. It has 4 slender tucked limbs and ribbon streamers. Indigo and cyan. It reads as "giant gliding lizard", not "dragon". |
-| c04 | Mareep and Wooloo (sheep); Palworld's Lamball (round sheep); fan-made "Kindlamb" (fire lamb starter) | "Fire ram calf" is the brief's own concept, and it overlaps with a fan work (which is why that name was rejected). Distinctions: fleece in 7 discrete clusters over brick-red skin, wick-like flame horn tips, stick legs with knobbly knees, and a flame-tuft tail. No round ball body and no electric wool. |
-| c05 | Gogoat and Skiddo (goats); Tauros (bull); Bouffalant (bull with an afro) | Charcoal smouldering mane collar, spiral horns with emissive ridge rings, goat h-bar pupils, and a cliff-leaping gait. Nothing resembles a bull's afro or a mount's leaf mane. |
-| c06 | ⚠ **Camerupt** (fire/ground quadruped with volcanic humps); Torkoal; Tauros | **Changed during this pass:** the original "vent crater on the hump" was removed because it echoed Camerupt's signature. Heat now vents through the **horn kiln-rings**, and magma shows only as seams between basalt hex-plates. Ram skull, bison taper, with no crater anywhere on its back. |
+| c01 (v3) | ⚠ **Pikachu** (yellow electric mouse mascot: red cheek circles, zig-zag tail, black-tipped ears); **Pachirisu** (white/blue electric squirrel with blue cheek pouches and a bushy tail); **Minun/Plusle** (cream electric rabbits with blue/red cheek circles and pointed ears); **Emolga** (flying squirrel); **Dedenne** (antenna whiskers, cheek pouches) | Silver-lilac fleece, never yellow or white-with-stripe. Cheeks carry **three small freckle dots**, never a solid circle, never red. **Round satin dormouse ears** with a glowing rim (never pointed, never black-tipped). A **coiled spring tail with a glass bulb** (never a zig-zag or bolt, never bushy). Wrist-to-ankle membranes are a real sugar-glider trait. Three-feature check: vs Pikachu 0 signature features; vs Pachirisu 1 (blue cheek glow, as dots not pouches); vs Minun 1 (blue cheek accent). No reviewer should name a franchise character first. |
+| c02 (v3) | Pawmo/Pawmot (electric mice with fighting stance); Emolga; Raichu | Upright glider-sprinter with long swept satin ears, lilac fleece, membranes to the hips and the coiled bulb tail. No yellow, no orange, no lightning-bolt tail, no cheek circles. |
+| c03 (v3) | Emolga; Zekrom (black electric dragon); Lugia/Rayquaza (sky guardians) | A furry colugo-like glider with a cream storm mane, satin ears and an orb tail. No wings or feathers, no dragon head, no generator tail. Storm lilac, not black or white. |
+| c04 (v3) | ⚠ **Charmander** (orange lizard with a tail flame); Litten/Fuecoco; Mareep/Wooloo; Palworld Lamball | Charcoal, not orange; **no tail flame** (a basalt knob); flames only on the **horn wicks**; the fleece is a collar/crown on a drake, not a round sheep body. |
+| c05 (v3) | ⚠ **Charmeleon** (bipedal red fire lizard with a tail flame and a head horn); Salandit/Salazzle; Tauros | Charcoal body; ram horns curling a full turn with wick tips (no single back-swept head horn); smouldering fleece ruff; club-knob tail with no flame. |
+| c06 (v3) | ⚠ **Charizard** (orange winged fire dragon, cream belly, teal wing lining, tail flame, two straight horns); **Reshiram** (white fluffy fire dragon); Monster Hunter **Teostra** (maned fire elder dragon, backswept horns); Palworld **Blazamut** (dark magma beast with fissures); WoW **Deathwing** (black dragon with molten seams) | Signature Charizard features absent: body **obsidian charcoal** (not orange), belly **dark ash plates with molten fissures** (not cream), wing membranes **ember-lit dark red-brown** (not teal/blue-green), **no tail flame** (basalt club), **great spiral ram horns with wick flames** (not straight horns). Vs Reshiram: charcoal not white, fleece is an ash mane over scales, no turbine tail. Vs Teostra: ram spirals not back-swept horns, charcoal not tan, wings with fingered membranes. Vs Blazamut/Deathwing: shares only the generic "dark scales + lava cracks" idea (2 non-signature features at most); the fleece mane, ram horns with wicks and club tail are its own. |
 | c07 | ⚠ **Oshawott** (sea-otter starter with a scalchop shell on its belly); Buizel (sea weasel with a flotation collar) | The shell plates are **only on the tail**, as shingles. The body is brown with a teal shell, and it carries a pebble tool. Constraints: never a shell on the chest or belly, never a detachable shell. |
 | c08 | Floatzel/Buizel; Dewgong; Milotic | An 8-segment serpentine otter with a dorsal hex-scute row and a vertical shell rudder, in a periscope pose. It has no twin tails, no flotation collar and no head fins. |
 | c09 | ⚠ **Dewott/Samurott** (bipedal/quadruped otter line with shell blades); Empoleon (armoured penguin) | The shell becomes a carapace **and a tail-shield**. It is **never held as a blade or sword**, and there is no horned helm or seamitar. Frost crystals, a slate and ice palette, a defensive-guardian behaviour. Constraint: the arms never grip shell parts. **(v2, finding F-0-06):** no helmet or head cap of any kind, whiskers reduced to two short nubs, and shell only on the back carapace and tail-fan (no chest or shoulder shell). |

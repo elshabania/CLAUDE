@@ -131,7 +131,7 @@ const STYLE = [
   ['mouth/mouth-scale-horiz-decr.target', 0.12], ['mouth/mouth-upperlip-volume-decr.target', 0.15], ['mouth/mouth-lowerlip-volume-decr.target', 0.2], ['mouth/mouth-trans-backward.target', 0.25], ['mouth/mouth-lowerlip-height-decr.target', 0.15], ['chin/chin-prominent-incr.target', 0.15],
   ['head/head-age-decr.target', 0.35], ['chin/chin-width-decr.target', 0.15], ['chin/chin-height-decr.target', 0.15],
   ['cheek/l-cheek-bones-incr.target', 0.2], ['cheek/r-cheek-bones-incr.target', 0.2],
-  ['neck/neck-scale-horiz-decr.target', 0.1], ['mouth/mouth-angles-up.target', 0.25],
+  ['neck/neck-scale-horiz-decr.target', 0.1], ['breast/nipple-size-decr.target', 1], ['breast/nipple-point-decr.target', 1], ['breast/breast-point-decr.target', 0.7], ['mouth/mouth-angles-up.target', 0.25],
 ];
 
 // ---------------------------------------------------------------- BVH (face pose units)
@@ -191,7 +191,7 @@ const GAME_BONES = [
   ['root', null], ['hips', 'root'], ['spine', 'hips'], ['chest', 'spine'], ['neck', 'chest'], ['head', 'neck'],
   ...['L', 'R'].flatMap((s) => [
     ['clavicle.' + s, 'chest'], ['upperArm.' + s, 'clavicle.' + s], ['foreArm.' + s, 'upperArm.' + s], ['hand.' + s, 'foreArm.' + s],
-    ['fingers1.' + s, 'hand.' + s], ['fingers2.' + s, 'fingers1.' + s], ['fingers3.' + s, 'fingers2.' + s], ['thumb1.' + s, 'hand.' + s], ['thumb2.' + s, 'thumb1.' + s],
+    ['fingers1.' + s, 'hand.' + s], ['fingers2.' + s, 'fingers1.' + s], ['fingers3.' + s, 'fingers2.' + s], ['index1.' + s, 'hand.' + s], ['index2.' + s, 'index1.' + s], ['index3.' + s, 'index2.' + s], ['thumb1.' + s, 'hand.' + s], ['thumb2.' + s, 'thumb1.' + s],
     ['upperLeg.' + s, 'hips'], ['lowerLeg.' + s, 'upperLeg.' + s], ['foot.' + s, 'lowerLeg.' + s], ['toes.' + s, 'foot.' + s],
   ]),
 ];
@@ -209,9 +209,10 @@ function mapBone(b) {
   if (base === 'wrist' || base.startsWith('metacarpal')) return [['hand' + s, 1]];
   if (base === 'finger1-1') return [['thumb1' + s, 1]];
   if (base === 'finger1-2' || base === 'finger1-3') return [['thumb2' + s, 1]];
-  if (/^finger[2-5]-1$/.test(base)) return [['fingers1' + s, 1]];
-  if (/^finger[2-5]-2$/.test(base)) return [['fingers2' + s, 1]];
-  if (/^finger[2-5]-3$/.test(base)) return [['fingers3' + s, 1]];
+  if (/^finger2-[1-3]$/.test(base)) return [['index' + base.slice(-1) + s, 1]];
+  if (/^finger[3-5]-1$/.test(base)) return [['fingers1' + s, 1]];
+  if (/^finger[3-5]-2$/.test(base)) return [['fingers2' + s, 1]];
+  if (/^finger[3-5]-3$/.test(base)) return [['fingers3' + s, 1]];
   if (base.startsWith('upperleg')) return [['upperLeg' + s, 1]];
   if (base.startsWith('lowerleg')) return [['lowerLeg' + s, 1]];
   if (base === 'foot') return [['foot' + s, 1]];
@@ -318,9 +319,10 @@ async function main() {
     out.hips = hips; out.spine = J('spine04'); out.chest = J('spine02'); out.neck = J('neck01'); out.head = J('head');
     for (const s of ['L', 'R']) {
       out['clavicle.' + s] = J('clavicle.' + s); out['upperArm.' + s] = J('upperarm01.' + s); out['foreArm.' + s] = J('lowerarm01.' + s); out['hand.' + s] = J('wrist.' + s);
-      out['fingers1.' + s] = avg(...[2, 3, 4, 5].map((f) => J(`finger${f}-1.${s}`)));
-      out['fingers2.' + s] = avg(...[2, 3, 4, 5].map((f) => J(`finger${f}-2.${s}`)));
-      out['fingers3.' + s] = avg(...[2, 3, 4, 5].map((f) => J(`finger${f}-3.${s}`)));
+      out['fingers1.' + s] = avg(...[3, 4, 5].map((f) => J(`finger${f}-1.${s}`)));
+      out['fingers2.' + s] = avg(...[3, 4, 5].map((f) => J(`finger${f}-2.${s}`)));
+      out['fingers3.' + s] = avg(...[3, 4, 5].map((f) => J(`finger${f}-3.${s}`)));
+      for (const k of [1, 2, 3]) out[`index${k}.` + s] = J(`finger2-${k}.${s}`);
       out['thumb1.' + s] = J('finger1-1.' + s); out['thumb2.' + s] = J('finger1-2.' + s);
       out['upperLeg.' + s] = J('upperleg01.' + s); out['lowerLeg.' + s] = J('lowerleg01.' + s); out['foot.' + s] = J('foot.' + s);
       out['toes.' + s] = avg(...[1, 2, 3, 4, 5].map((f) => J(`toe${f}-1.${s}`)));
@@ -328,7 +330,8 @@ async function main() {
     // tails for leaf bones (used for lengths/aim)
     const tails = { head: J('head', 'tail') };
     for (const s of ['L', 'R']) {
-      tails['fingers3.' + s] = avg(...[2, 3, 4, 5].map((f) => J(`finger${f}-3.${s}`, 'tail')));
+      tails['fingers3.' + s] = avg(...[3, 4, 5].map((f) => J(`finger${f}-3.${s}`, 'tail')));
+      tails['index3.' + s] = J(`finger2-3.${s}`, 'tail');
       tails['thumb2.' + s] = J('finger1-3.' + s, 'tail');
       tails['toes.' + s] = avg(...[1, 2, 3, 4, 5].map((f) => J(`toe${f}-1.${s}`, 'tail')));
     }

@@ -31,7 +31,7 @@ interface PresetDef {
 const PRESET: Record<Preset, PresetDef> = {
   FUR: { rough: 0.85, metal: 0, sheen: true, cls: 1, bump: 0.0045, freq: 60, wrap: 0.55, sss: [1, 0.62, 0.5] },
   HAIR: { rough: 0.7, metal: 0, sheen: true, cls: 1, bump: 0.003, freq: 70, wrap: 0.45, sss: [1, 0.62, 0.5] },
-  SCALE: { rough: 0.5, metal: 0, clearcoat: 0.2, cls: 2, bump: 0.004, freq: 26, wrap: 0.3, sss: [1, 0.7, 0.6] },
+  SCALE: { rough: 0.5, metal: 0, clearcoat: 0.2, cls: 2, bump: 0.0026, freq: 28, wrap: 0.3, sss: [1, 0.7, 0.6] },
   FEATHER: { rough: 0.75, metal: 0, sheen: true, cls: 3, bump: 0.004, freq: 20, wrap: 0.45, sss: [1, 0.75, 0.65] },
   SKIN: { rough: 0.62, metal: 0, cls: 4, bump: 0.0015, freq: 55, wrap: 0.5, sss: [1, 0.5, 0.42] },
   SKIN_WET: { rough: 0.3, metal: 0, clearcoat: 0.5, cls: 4, bump: 0.001, freq: 45, wrap: 0.45, sss: [1, 0.55, 0.5] },
@@ -177,6 +177,7 @@ export function applyCreatureShader(mat: THREE.MeshStandardMaterial, o: ShaderOp
   if (wrap > 0) defs.push('#define CR_WRAP');
   if (o.attrs) defs.push('#define CR_ATTRS');
   if (o.glowMask) defs.push('#define CR_GLOWMASK');
+  if (o.glowMask && (o.preset === 'FUR' || o.preset === 'HAIR')) defs.push('#define CR_GLOWSPOTS');
   if (o.shell) defs.push('#define CR_SHELL');
   if (o.fresnelAlpha) defs.push('#define CR_FRESNEL_ALPHA');
   const key = 'cr:' + defs.join('|');
@@ -212,18 +213,22 @@ export function applyCreatureShader(mat: THREE.MeshStandardMaterial, o: ShaderOp
         crFade = 1.0 - smoothstep(0.35, 1.2, length(fwidth(dp)));
         vec2 dd = crDetail(dp);
         crH = dd.x; crCav = dd.y * crFade;
-        diffuseColor.rgb *= 1.0 - crCav * 0.28;
+        diffuseColor.rgb *= 1.0 - crCav * 0.2;
       }
       #endif
       #ifdef CR_SHELL
       {
-        vec3 sp = vBindPos * uDetail;
-        float s = crHash(floor(sp)) * 0.75 + crHash(floor(sp * 1.73 + 0.5)) * 0.25;
+        vec3 sp = vBindPos * uDetail * 1.7;
+        vec3 cell = floor(sp);
+        vec3 jit = vec3(crHash(cell), crHash(cell + 7.3), crHash(cell + 13.1)) * 0.5 + 0.25;
+        float r = length(fract(sp) - jit);
+        float thick = 0.55 * (0.55 + 0.45 * crHash(cell + 3.7));
         #ifdef CR_ATTRS
         if (vFur < 0.55) discard;
         #endif
-        if (s < uShellH * 0.92 + 0.08) discard;
-        diffuseColor.rgb *= mix(0.78, 1.1, uShellH);
+        // tapered strands: each cell holds one strand that thins toward the tip
+        if (r > thick * (1.0 - uShellH * 0.85)) discard;
+        diffuseColor.rgb *= mix(0.82, 1.12, uShellH);
       }
       #endif`,
     );
@@ -244,10 +249,21 @@ export function applyCreatureShader(mat: THREE.MeshStandardMaterial, o: ShaderOp
       `#include <emissivemap_fragment>
       #ifdef CR_GLOWMASK
       {
-        vec2 vv = crVoronoi(vBindPos * uDetail * 0.33);
-        float crack = 1.0 - smoothstep(0.0, 0.085, vv.y);
-        float core = 1.0 - smoothstep(0.0, 0.03, vv.y);
-        totalEmissiveRadiance *= (crack * 0.7 + core * 0.8) * smoothstep(0.08, 0.55, vGlow);
+        #ifdef CR_GLOWSPOTS
+        // sparse ember glints deep in fleece
+        vec2 vv = crVoronoi(vBindPos * uDetail * 0.4);
+        float spot = 1.0 - smoothstep(0.08, 0.2, vv.x);
+        totalEmissiveRadiance *= spot * 0.9 * smoothstep(0.08, 0.55, vGlow) * (0.35 + 0.65 * (1.0 - crH));
+        #else
+        // molten fissures: a crack network with a hot core
+        vec3 fp = vBindPos * uDetail * 0.55;
+        fp += vec3(crNoise(fp * 0.7), crNoise(fp * 0.7 + 5.2), crNoise(fp * 0.7 + 9.4)) * 0.6;
+        vec2 vv = crVoronoi(fp);
+        float crack = 1.0 - smoothstep(0.0, 0.07, vv.y);
+        float core = 1.0 - smoothstep(0.0, 0.025, vv.y);
+        float mask = smoothstep(0.2, 0.75, vGlow);
+        totalEmissiveRadiance *= (crack * 0.6 + core * 0.9) * mask + mask * mask * 0.05;
+        #endif
       }
       #endif
       {

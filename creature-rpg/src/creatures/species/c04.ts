@@ -1,79 +1,58 @@
-// c04 Wickwool — f02 stage 1, fire. Ram-calf lamb: lumpy cream fleece of 7 clusters over brick-red
-// skin, knobbly stick legs, ¾-curl horn nubs with glowing wick tips, flame tail tuft (design/creatures.md §4 c04).
-import type { PartDef, SpeciesVisual, V3 } from '../assemble';
+// c04 Wickwool — f02 stage 1, fire (v3 flagship redesign, DECISIONS D31; design/creatures.md §4 c04 v3).
+// Woolly hatchling drake: a chubby charcoal drake with a fleecy ash-cream ember mane (embers glint between the curls),
+// horn nubs whose tips burn like candle wicks (the line's ram-horn + wick motif), big amber eyes, stubby ember-lit
+// wings and a short tail ending in a little basalt knob (the stage-3 club in miniature). No tail flame.
+import type { PartDef, SpeciesVisual } from '../assemble';
+import { dragonWing, hornSpiral, wickHorn } from './_kit';
 
-// Ram curl in the head's frame: starts at the base heading up, curls back, down and forward
-// (sagittal plane) while drifting outward. Tube points carry X, so each side is built explicitly.
-function curl(turns: number, r0: number, r1: number, drift: number, n = 14): V3[] {
-  const pts: V3[] = [];
-  for (let i = 0; i <= n; i++) {
-    const t = i / n;
-    const th = t * turns * Math.PI * 2;
-    const r = r0 + (r1 - r0) * t;
-    pts.push([drift * Math.sin(t * Math.PI * 0.5), r * Math.sin(th), -r0 + r * Math.cos(th)]);
-  }
-  return pts;
-}
-const HORN = curl(0.75, 0.06, 0.045, 0.06);
-const SPLIT = 10; // points [0..SPLIT] bone-coloured, [SPLIT..] glowing wick tip
-function horn(side: 'L' | 'R'): PartDef[] {
-  const sx = side === 'R' ? -1 : 1;
-  const m = (p: V3): V3 => [p[0] * sx, p[1], p[2]];
-  const base = HORN.slice(0, SPLIT + 1).map(m);
-  const tip = HORN.slice(SPLIT).map(m);
-  const end = m(HORN[HORN.length - 1]);
-  return [
-    { name: `horn_${side}`, parent: 'head', prim: { t: 'none' }, at: [0.075 * sx, 0.125, 0.0], rot: [0, 0, -20 * sx] },
-    { name: `hornBase_${side}`, parent: `horn_${side}`, prim: { t: 'tube', pts: base, r0: 0.04, r1: 0.03 }, slot: '#D8B892', mat: 'SHELL' },
-    { name: `hornTip_${side}`, parent: `horn_${side}`, prim: { t: 'tube', pts: tip, r0: 0.03, r1: 0.024 }, slot: 'A', emissive: 1.2, mat: 'SHELL' },
-    // wick flame: a small glowing teardrop licking up from the horn tip
-    { name: `wick_${side}`, parent: `horn_${side}`, prim: { t: 'sphere', r: [0.032, 0.042, 0.032] }, at: [end[0], end[1] + 0.02, end[2]], slot: 'A+', emissive: 1.5, mat: 'GLOW', anim: side === 'L' ? ['fx:horns'] : [] },
-    { name: `wickTip_${side}`, parent: `wick_${side}`, prim: { t: 'cone', r: 0.024, h: 0.075 }, at: [0, 0.025, 0], slot: 'A', emissive: 1.5, mat: 'GLOW' },
-  ];
-}
+const HORN = hornSpiral(0.75, 0.06, 0.045, 0.05, 16);
+const horns = (['L', 'R'] as const).flatMap((s) => wickHorn(s, { parent: 'head', at: [0.085, 0.13, -0.01], rot: [0, 0, -18], pts: HORN, r0: 0.04, r1: 0.028, bone: '#D9C7A8', tip: 'A', flame: 'A', split: 0.72, flameSize: 0.034, fx: 'horns' }));
+const claws = (leg: 'pawF' | 'pawB'): PartDef[] => [-0.035, 0, 0.035].map((x, i) => ({
+  name: `${leg}Claw${i}`, parent: leg, mirror: true, prim: { t: 'cone', r: 0.014, h: 0.035 }, at: [x, 0.02, -0.075], rot: [-90, 0, 0], slot: '#E8DCC6', mat: 'SHELL', lod: 0,
+}) as PartDef);
 
 export const c04: SpeciesVisual = {
   id: 'c04',
   H: 0.45,
-  colors: { P: '#B5462E', S: '#F2E3C6', A: '#FF8A1F', W: '#E7A58A' },
-  mat: 'FUR',
-  rim: '#FFD9A0',
-  rimStrength: 0.3,
-  eye: { shape: 'round', iris: '#4A2A1A', irisRatio: 0.72, pupil: 'round', pupilRatio: 0.55, highlights: 2, lid: 0.05, lidAngle: 8 },
-  mouth: { style: 'o' },
-  rig: { type: 'QUAD', gaitHz: 3, stride: 30, bounce: 0.07, hop: true, breath: 0.03, breathHz: 0.9, attack: 'lunge', special: 'cast', faint: 'side', lean: 3 },
+  colors: { P: '#3A3035', S: '#EADFCD', A: '#FF6A1A', W: '#6A5049', D: '#1E1618' },
+  mat: 'SCALE',
+  furLen: 0.03,
+  fissureColor: 'A',
+  fissureGlow: 1.4,
+  rim: '#FFC890',
+  rimStrength: 0.35,
+  gaze: 0.5,
+  eye: { shape: 'round', sclera: '#FFF8EC', iris: '#F2A516', irisRatio: 0.76, pupil: 'round', pupilRatio: 0.5, highlights: 3, lid: 0, lidAngle: 8, outline: '#1E1618' },
+  mouth: { style: 'smile', color: '#1E1618', inner: '#B2402E' },
+  rig: { type: 'QUAD', gaitHz: 3, stride: 28, bounce: 0.07, hop: true, breath: 0.035, breathHz: 0.9, waveAmp: 8, waveHz: 1.1, flapAmp: 18, flapHz: 2.2, attack: 'lunge', special: 'cast', faint: 'side', lean: 4 },
   parts: [
-    // --- body + 7 fleece clusters ---
-    { name: 'torso', prim: { t: 'sphere', r: [0.26, 0.2, 0.32] }, at: [0, 0.48, 0], anim: ['br'] },
-    { name: 'fleeceTop', parent: 'torso', prim: { t: 'sphere', r: 0.18 }, at: [0, 0.13, 0.1], slot: 'S', fluffy: 0.012 },
-    { name: 'fleeceBack', parent: 'torso', prim: { t: 'sphere', r: 0.19 }, at: [0, 0.14, -0.12], slot: 'S', fluffy: 0.012 },
-    { name: 'fleeceRump', parent: 'torso', prim: { t: 'sphere', r: 0.165 }, at: [0, 0.04, -0.25], slot: 'S', fluffy: 0.012 },
-    { name: 'fleeceSide', parent: 'torso', mirror: true, prim: { t: 'sphere', r: 0.165 }, at: [0.17, 0.0, 0.07], slot: 'S', fluffy: 0.012 },
-    { name: 'fleeceHaunch', parent: 'torso', mirror: true, prim: { t: 'sphere', r: 0.16 }, at: [0.16, -0.01, -0.16], slot: 'S', fluffy: 0.012 },
-    // --- neck + head (enlarged vs spec for stage-1 appeal) ---
-    { name: 'neck', parent: 'torso', prim: { t: 'capsule', r: 0.08, len: 0.08 }, at: [0, 0.06, 0.24], rot: [35, 0, 0], anim: ['look'] },
-    { name: 'head', parent: 'neck', prim: { t: 'sphere', r: [0.19, 0.175, 0.19] }, at: [0, 0.16, 0.05], rot: [-35, 0, 0], anim: ['look'] },
-    { name: 'muzzle', parent: 'head', prim: { t: 'sphere', r: [0.11, 0.085, 0.09] }, at: [0, -0.07, 0.14], slot: 'W' },
-    { name: 'nostril', parent: 'muzzle', mirror: true, prim: { t: 'sphere', r: [0.012, 0.008, 0.006] }, at: [0.035, 0.025, 0.085], slot: 'D', lod: 0 },
-    { name: 'mouth', parent: 'muzzle', prim: { t: 'mouth', r: 0.03 }, at: [0, -0.035, 0.08], rot: [25, 0, 0] },
-    { name: 'forelock', parent: 'head', prim: { t: 'sphere', r: 0.085 }, at: [0, 0.15, 0.03], slot: 'S', fluffy: 0.01 },
-    { name: 'forelock2', parent: 'head', mirror: true, prim: { t: 'sphere', r: 0.06 }, at: [0.06, 0.13, 0.07], slot: 'S', fluffy: 0.008 },
-    { name: 'eye', parent: 'head', mirror: true, prim: { t: 'eye', r: 0.075 }, at: [0.085, 0.02, 0.145], rot: [0, 27, 0] },
-    { name: 'ear', parent: 'head', mirror: true, prim: { t: 'capsule', r: 0.045, len: 0.075 }, at: [0.15, 0.04, -0.03], rot: [10, 0, -145], scale: [1, 1, 0.45], anim: ['sway'] },
-    { name: 'earIn', parent: 'ear', mirror: true, prim: { t: 'capsule', r: 0.03, len: 0.08 }, at: [0, 0.02, 0.012], scale: [1, 1, 0.4], slot: 'W', lod: 0 },
-    ...horn('L'),
-    ...horn('R'),
-    // --- four stick legs with knobbly knees and charcoal hooves ---
-    { name: 'legF', parent: 'torso', mirror: true, prim: { t: 'capsule', r: 0.035, len: 0.1 }, at: [0.13, -0.14, 0.17], rot: [180, 0, 0], anim: ['gait:FL'] },
-    { name: 'kneeF', parent: 'legF', mirror: true, prim: { t: 'sphere', r: 0.046 }, at: [0, 0.15, 0] },
-    { name: 'shinF', parent: 'kneeF', mirror: true, prim: { t: 'capsule', r: 0.03, len: 0.09 }, at: [0, 0.01, 0] },
-    { name: 'hoofF', parent: 'shinF', mirror: true, prim: { t: 'cyl', r: 0.038, h: 0.05, r2: 0.03 }, at: [0, 0.18, 0], rot: [180, 0, 0], slot: 'D', anim: ['fx:hoof'] },
-    { name: 'legB', parent: 'torso', mirror: true, prim: { t: 'capsule', r: 0.037, len: 0.1 }, at: [0.13, -0.14, -0.18], rot: [180, 0, 0], anim: ['gait:BL'] },
-    { name: 'kneeB', parent: 'legB', mirror: true, prim: { t: 'sphere', r: 0.046 }, at: [0, 0.15, 0] },
-    { name: 'shinB', parent: 'kneeB', mirror: true, prim: { t: 'capsule', r: 0.03, len: 0.09 }, at: [0, 0.01, 0] },
-    { name: 'hoofB', parent: 'shinB', mirror: true, prim: { t: 'cyl', r: 0.038, h: 0.05, r2: 0.03 }, at: [0, 0.18, 0], rot: [180, 0, 0], slot: 'D' },
-    // --- flame-shaped tail tuft with an ember tip ---
-    { name: 'tail', parent: 'torso', prim: { t: 'extrude', shape: 'X_flame_tuft', w: 0.16, h: 0.2, depth: 0.05 }, at: [0, 0.1, -0.33], rot: [-35, 0, 0], slot: 'S', anim: ['sway'] },
-    { name: 'tailTip', parent: 'tail', prim: { t: 'extrude', shape: 'X_flame_tuft', w: 0.09, h: 0.12, depth: 0.055 }, at: [0, 0.09, 0], slot: 'A', emissive: 1.0 },
+    { name: 'body', prim: { t: 'sphere', r: [0.25, 0.21, 0.3] }, at: [0, 0.38, -0.02], anim: ['br', 'fx:body'] },
+    { name: 'belly', parent: 'body', prim: { t: 'sphere', r: [0.19, 0.15, 0.24] }, at: [0, -0.07, 0.04], slot: 'W' },
+    // --- head ---
+    { name: 'neck', parent: 'body', prim: { t: 'capsule', r: 0.1, len: 0.05 }, at: [0, 0.1, 0.22], rot: [40, 0, 0], anim: ['look'] },
+    { name: 'head', parent: 'neck', prim: { t: 'sphere', r: [0.21, 0.19, 0.2] }, at: [0, 0.15, 0.04], rot: [-40, 0, 0], anim: ['look'], blend: 0.05 },
+    { name: 'snout', parent: 'head', prim: { t: 'sphere', r: [0.12, 0.085, 0.11] }, at: [0, -0.07, 0.15] },
+    { name: 'nostril', parent: 'snout', mirror: true, prim: { t: 'sphere', r: [0.016, 0.011, 0.01] }, at: [0.04, 0.03, 0.098], slot: 'D', anim: ['fx:nostrils'] },
+    { name: 'mouth', parent: 'snout', prim: { t: 'mouth', r: 0.04, w: 1.5 }, at: [0, -0.04, 0.095], rot: [22, 0, 0] },
+    { name: 'eye', parent: 'head', mirror: true, prim: { t: 'eye', r: 0.085 }, at: [0.105, 0.035, 0.14], rot: [0, 26, 0] },
+    ...horns,
+    // --- fleecy ember mane (embers glint between the curls) ---
+    { name: 'maneTop', parent: 'body', prim: { t: 'sphere', r: [0.2, 0.14, 0.17] }, at: [0, 0.15, 0.16], slot: 'S', mat: 'FUR', fluffy: 0.014, fissure: 0.45, fur: 1.8 },
+    { name: 'maneSide', parent: 'body', mirror: true, prim: { t: 'sphere', r: [0.13, 0.13, 0.13] }, at: [0.15, 0.06, 0.16], slot: 'S', mat: 'FUR', fluffy: 0.014, fissure: 0.45, fur: 1.8 },
+    { name: 'maneBack', parent: 'body', prim: { t: 'sphere', r: [0.14, 0.1, 0.14] }, at: [0, 0.19, 0.0], slot: 'S', mat: 'FUR', fluffy: 0.012, fissure: 0.3, fur: 1.6 },
+    { name: 'crown', parent: 'head', prim: { t: 'sphere', r: [0.13, 0.09, 0.12] }, at: [0, 0.15, -0.03], slot: 'S', mat: 'FUR', fluffy: 0.012, fissure: 0.3, fur: 1.6 },
+    // --- stubby ember-lit wings ---
+    ...dragonWing({ parent: 'body', at: [0.13, 0.15, -0.02], rot: [0, 38, 62], w: 0.34, h: 0.26, bone: 'P', membrane: '#4A2218', vein: 'A', memGlow: 0.14, veinGlow: 1.0, boneR: 0.018, lod0Veins: true }),
+    // --- stubby legs ---
+    { name: 'legF', parent: 'body', mirror: true, prim: { t: 'capsule', r: 0.07, len: 0.09 }, at: [0.14, -0.12, 0.15], rot: [180, 0, 0], anim: ['gait:FL'] },
+    { name: 'pawF', parent: 'legF', mirror: true, prim: { t: 'sphere', r: [0.075, 0.05, 0.09] }, at: [0, 0.2, -0.02] },
+    ...claws('pawF'),
+    { name: 'thigh', parent: 'body', mirror: true, prim: { t: 'sphere', r: [0.1, 0.12, 0.12] }, at: [0.15, -0.05, -0.15] },
+    { name: 'legB', parent: 'thigh', mirror: true, prim: { t: 'capsule', r: 0.06, len: 0.06 }, at: [0, -0.07, 0.02], rot: [180, 0, 0], anim: ['gait:BL'] },
+    { name: 'pawB', parent: 'legB', mirror: true, prim: { t: 'sphere', r: [0.075, 0.05, 0.1] }, at: [0, 0.19, -0.04] },
+    ...claws('pawB'),
+    // --- short tail with a little basalt knob ---
+    { name: 'tail', parent: 'body', prim: { t: 'none' }, chain: { n: 5, r0: 0.08, r1: 0.045, len: 0.36, bend: [14, 0, 0] }, at: [0, 0.03, -0.27], rot: [-112, 0, 0], anim: ['wave'] },
+    { name: 'knob', parent: 'tailTip', prim: { t: 'sphere', r: [0.06, 0.055, 0.065] }, at: [0, 0.03, 0], slot: '#3C3538', mat: 'STONE', fissure: 0.9, blend: 0.02 },
   ],
 };

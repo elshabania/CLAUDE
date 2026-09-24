@@ -7,8 +7,8 @@ export type Lod = 0 | 1 | 2;
 /** Segment counts scale with quality/LOD AND with the part's real size (metres), so tiny parts stay cheap. */
 export function segs(kind: 'sphere' | 'capsule' | 'lathe' | 'tube' | 'cone', lod: Lod, q: Quality, sizeM = 1): [number, number] {
   let tier = lod === 2 ? 2 : q === 'high' && lod === 0 ? 0 : q === 'mobile' ? 2 : 1;
-  if (sizeM < 0.06) tier = 2;
-  else if (sizeM < 0.16) tier = Math.max(tier, 1);
+  if (sizeM < 0.025) tier = 2;
+  else if (sizeM < 0.1) tier = Math.max(tier, 1);
   const T: Record<string, [number, number][]> = {
     sphere: [[24, 16], [16, 12], [10, 7]],
     capsule: [[12, 6], [10, 4], [7, 3]],
@@ -112,6 +112,12 @@ export function torus(R: number, r: number, radial: number, arcDeg = 360): THREE
 }
 
 // ---- extrude shapes (2D outlines in unit box, x right, y up) ----
+export const DRAGON_WING_OUTLINE: [number, number][] = [
+  [0, 0.06], [0.2, 0.21], [0.45, 0.33], [0.7, 0.36], [0.88, 0.31], [1.0, 0.2],
+  [0.9, 0.02], [0.86, -0.2], [0.75, -0.13], [0.66, -0.38], [0.53, -0.28], [0.42, -0.48], [0.29, -0.31], [0.15, -0.36], [0.04, -0.2], [0, -0.1],
+];
+/** dragon-wing key points: shoulder, elbow, wrist and the four finger tips */
+export const DRAGON_WING_PTS = { root: [0, 0.06], elbow: [0.2, 0.21], wrist: [0.45, 0.33], tips: [[1.0, 0.2], [0.86, -0.2], [0.66, -0.38], [0.42, -0.48]] as [number, number][] };
 type ShapeFn = () => THREE.Shape;
 function shapeFrom(pts: [number, number][]): THREE.Shape {
   const s = new THREE.Shape();
@@ -207,6 +213,14 @@ export const SHAPES: Record<string, ShapeFn> = {
     return s;
   },
   X_rect: () => shapeFrom([[-0.5, 0], [0.5, 0], [0.5, 1], [-0.5, 1]]),
+  // v3 (D31) flagship outlines
+  // bat/dragon wing: root at (0,0), leading edge along the top to the tip (1,0.2), scalloped trailing edge between
+  // four finger tips; the finger struts in species code use the same key points (DRAGON_WING_PTS)
+  X_dragonwing: () => smoothShape(DRAGON_WING_OUTLINE, 72),
+  // furry gliding membrane hanging from a straight attach line (y = 0) in two soft lobes
+  X_patagium: () => smoothShape([[0, 0.06], [0.5, 0.1], [1, 0.06], [1.02, -0.3], [0.88, -0.72], [0.72, -0.62], [0.52, -0.95], [0.32, -0.66], [0.14, -0.8], [-0.02, -0.34]], 56),
+  // spread glide membrane (x outward, y forward): wrist at (0.9,0.44), ankle at (0.93,-0.4)
+  X_glide: () => smoothShape([[0, 0.36], [0.3, 0.46], [0.62, 0.5], [0.9, 0.44], [1.0, 0.2], [0.99, -0.12], [0.93, -0.4], [0.74, -0.44], [0.56, -0.6], [0.36, -0.53], [0.18, -0.66], [0, -0.55]], 72),
   X_tri: () => shapeFrom([[-0.5, 0], [0.5, 0], [0, 1]]),
 };
 

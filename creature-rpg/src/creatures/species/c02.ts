@@ -1,78 +1,55 @@
-// c02 Crackleap — f01 stage 2, electric. Forward-leaning digitigrade biped sprinter with
-// forearm-to-hip rib sails and a long counterbalance tail ending in a wide fork (design/creatures.md §4 c02).
-import type { PartDef, SpeciesVisual, V3 } from '../assemble';
+// c02 Crackleap — f01 stage 2, electric (v3 flagship line, DECISIONS D31; design/creatures.md §4 c02 v3).
+// Sprightly glider-sprinter: an upright, forward-leaning runner on long digitigrade legs, silver-lilac fleece with a
+// cream bib and neck ruff, long swept-back satin ears with crackling rims, capacitor freckles, furry gliding membranes
+// from wrist to ankle and a longer coiled tail ending in a glowing bulb (family motif of the f01 line).
+import type { SpeciesVisual } from '../assemble';
+import { freckles, satinEar } from './_kit';
 
-// Sail outline (X_sail): +Y edge runs along the arm, +X edge runs back toward the hip.
-const SAIL_W = 0.36; // span toward the hip
-const SAIL_H = 0.46; // along the arm (shoulder -> wrist)
-const arc = (n: number, k: number): V3[] =>
-  Array.from({ length: n + 1 }, (_, i) => {
-    const a = (i / n) * (Math.PI / 2);
-    return [Math.sin(a) * SAIL_W * k, Math.cos(a) * SAIL_H * k, 0] as V3;
-  });
-
-// The X_sail outline is chiral and lies in a sagittal plane, so the automatic mirror (which
-// negates yaw/roll but cannot reflect geometry) would point the right sail forward. Build each
-// side explicitly: the right side is the left transform with a local X reflection (scale -1).
-function sail(side: 'L' | 'R'): PartDef[] {
-  const R = side === 'R';
-  const n = (b: string) => `${b}_${side}`;
-  return [
-    { name: n('sail'), parent: n('arm'), prim: { t: 'extrude', shape: 'X_sail', w: SAIL_W, h: SAIL_H, depth: 0.015 }, at: [0, 0.02, -0.01], rot: [0, R ? 90 : -90, 0], scale: [R ? -1 : 1, 1, 1], mat: 'MEMBRANE', opacity: 0.9 },
-    { name: n('sailRib'), parent: n('sail'), prim: { t: 'tube', pts: [[0, 0, 0], [0.09, 0.2, 0], [0.18, 0.38, 0]], r0: 0.012, r1: 0.006 }, slot: 'P-', lod: 0 },
-    { name: n('sailRib2'), parent: n('sail'), prim: { t: 'tube', pts: [[0, 0, 0], [0.15, 0.16, 0], [0.27, 0.29, 0]], r0: 0.012, r1: 0.006 }, slot: 'P-', lod: 0 },
-    { name: n('sailRib3'), parent: n('sail'), prim: { t: 'tube', pts: [[0, 0, 0], [0.18, 0.08, 0], [0.33, 0.13, 0]], r0: 0.012, r1: 0.006 }, slot: 'P-', lod: 0 },
-    { name: n('sailSeam'), parent: n('sail'), prim: { t: 'tube', pts: arc(10, 0.975), r0: 0.013, r1: 0.013 }, slot: 'A', emissive: 0.8, mat: 'GLOW' },
-  ];
-}
+const CHEEK: [number, number, number] = [0.065, 0.055, 0.055];
 
 export const c02: SpeciesVisual = {
   id: 'c02',
   H: 0.9,
-  colors: { P: '#23607E', A: '#F5C518', W: '#D9EEF2' },
-  mat: 'SCALE',
-  rim: '#FFE680',
+  colors: { P: '#B4A6CE', S: '#8E80B8', A: '#34A8FF', W: '#F2E8D8', D: '#3A3044' },
+  mat: 'FUR',
+  furLen: 0.018,
+  rim: '#B8E4FF',
   rimStrength: 0.4,
-  eye: { shape: 'almond', iris: '#FFB000', irisRatio: 0.62, pupil: 'round', pupilRatio: 0.35, highlights: 1, lid: 0.12, lidAngle: -10 },
-  mouth: { style: 'fang' },
-  rig: { type: 'BIPED', gaitHz: 3, stride: 38, bounce: 0.05, breath: 0.025, breathHz: 1.5, waveAmp: 9, waveHz: 1.0, attack: 'spin', special: 'cast', faint: 'forward', lean: 14 },
+  gaze: 0.5,
+  eye: { shape: 'almond', sclera: '#FBF8F2', iris: '#2E5BD6', irisRatio: 0.74, pupil: 'round', pupilRatio: 0.44, highlights: 2, lid: 0.1, lidAngle: -2, outline: '#2A2433' },
+  mouth: { style: 'smile', color: '#4A3346', inner: '#C65A78' },
+  rig: { type: 'BIPED', gaitHz: 3.2, stride: 30, bounce: 0.05, breath: 0.03, breathHz: 0.8, waveAmp: 7, waveHz: 1.1, flapAmp: 8, flapHz: 1.2, attack: 'spin', special: 'cast', faint: 'forward', lean: 12 },
   parts: [
-    // --- core ---
-    { name: 'pelvis', prim: { t: 'sphere', r: [0.15, 0.14, 0.16] }, at: [0, 0.43, -0.02] },
-    { name: 'torso', parent: 'pelvis', prim: { t: 'lathe', profile: 'L_egg', h: 0.44, rmax: 0.16 }, at: [0, 0.0, 0.02], rot: [30, 0, 0], anim: ['br'] },
-    { name: 'belly', parent: 'torso', prim: { t: 'sphere', r: [0.12, 0.17, 0.07] }, at: [0, 0.2, 0.1], slot: 'W' },
-    { name: 'neck', parent: 'torso', prim: { t: 'capsule', r: 0.07, len: 0.08 }, at: [0, 0.36, 0.03], rot: [-10, 0, 0], anim: ['look'] },
-    // --- head (enlarged vs spec for stage-2 appeal) ---
-    { name: 'head', parent: 'neck', prim: { t: 'sphere', r: [0.15, 0.135, 0.17] }, at: [0, 0.14, 0.03], rot: [-20, 0, 0], anim: ['look'] },
-    { name: 'snout', parent: 'head', prim: { t: 'sphere', r: [0.1, 0.075, 0.1] }, at: [0, -0.035, 0.12] },
-    { name: 'jaw', parent: 'head', prim: { t: 'sphere', r: [0.095, 0.035, 0.11], half: true }, at: [0, -0.07, 0.07], rot: [180, 180, 0], slot: 'W', anim: ['jaw'] },
-    { name: 'mouth', parent: 'snout', prim: { t: 'mouth', r: 0.05, w: 1.7 }, at: [0, -0.03, 0.085], rot: [15, 0, 0] },
-    { name: 'eye', parent: 'head', mirror: true, prim: { t: 'eye', r: 0.064 }, at: [0.085, 0.035, 0.125], rot: [0, 28, 0], scale: [1.25, 1, 1] },
-    { name: 'brow', parent: 'head', mirror: true, prim: { t: 'capsule', r: 0.017, len: 0.05 }, at: [0.03, 0.092, 0.112], rot: [25, 30, -98], slot: '#163F54' },
-    // three swept-back head spines, yellow tips
-    { name: 'spineC', parent: 'head', prim: { t: 'cone', r: 0.035, h: 0.24 }, at: [0, 0.1, -0.06], rot: [-62, 0, 0] },
-    { name: 'spineCtip', parent: 'spineC', prim: { t: 'cone', r: 0.015, h: 0.08 }, at: [0, 0.16, 0], slot: 'A', emissive: 0.5 },
-    { name: 'spine', parent: 'head', mirror: true, prim: { t: 'cone', r: 0.03, h: 0.19 }, at: [0.065, 0.08, -0.06], rot: [-70, 0, -22] },
-    { name: 'spineTip', parent: 'spine', mirror: true, prim: { t: 'cone', r: 0.013, h: 0.07 }, at: [0, 0.125, 0], slot: 'A', emissive: 0.5 },
-    // --- arms + sails (sail parented to the upper arm; root edge along the arm, trailing corner at the hip) ---
-    { name: 'arm', parent: 'torso', mirror: true, prim: { t: 'capsule', r: 0.038, len: 0.14 }, at: [0.13, 0.3, 0.03], rot: [104, 0, -24], anim: ['gait:R'] },
-    { name: 'forearm', parent: 'arm', mirror: true, prim: { t: 'capsule', r: 0.032, len: 0.14 }, at: [0, 0.18, 0], rot: [-18, 0, 6] },
-    { name: 'hand', parent: 'forearm', mirror: true, prim: { t: 'sphere', r: 0.038 }, at: [0, 0.2, 0] },
-    { name: 'finger', parent: 'hand', mirror: true, prim: { t: 'cone', r: 0.012, h: 0.06 }, at: [0, 0.02, 0.01], rot: [15, 0, 0], slot: 'D', lod: 0 },
-    { name: 'finger2', parent: 'hand', mirror: true, prim: { t: 'cone', r: 0.012, h: 0.055 }, at: [0.018, 0.015, 0], rot: [15, 0, -25], slot: 'D', lod: 0 },
-    { name: 'finger3', parent: 'hand', mirror: true, prim: { t: 'cone', r: 0.012, h: 0.055 }, at: [-0.018, 0.015, 0], rot: [15, 0, 25], slot: 'D', lod: 0 },
-    ...sail('L'),
-    ...sail('R'),
-    // --- digitigrade legs: thigh fwd, shin back (reversed knee), metatarsal, 3 splayed toes ---
-    { name: 'thigh', parent: 'pelvis', mirror: true, prim: { t: 'capsule', r: 0.07, len: 0.14, r2: 0.05 }, at: [0.1, -0.02, 0], rot: [130, 0, -6], anim: ['gait:L'] },
-    { name: 'shin', parent: 'thigh', mirror: true, prim: { t: 'capsule', r: 0.045, len: 0.16, r2: 0.035 }, at: [0, 0.2, 0], rot: [95, 0, 0] },
-    { name: 'meta', parent: 'shin', mirror: true, prim: { t: 'capsule', r: 0.032, len: 0.09 }, at: [0, 0.22, 0], rot: [-95, 0, 6] },
-    { name: 'toe', parent: 'meta', mirror: true, prim: { t: 'cone', r: 0.022, h: 0.1 }, at: [0, 0.14, 0.01], rot: [-60, 0, 0], slot: 'D' },
-    { name: 'toe2', parent: 'meta', mirror: true, prim: { t: 'cone', r: 0.02, h: 0.09 }, at: [0.012, 0.14, 0.01], rot: [-60, 0, -28], slot: 'D' },
-    { name: 'toe3', parent: 'meta', mirror: true, prim: { t: 'cone', r: 0.02, h: 0.09 }, at: [-0.012, 0.14, 0.01], rot: [-60, 0, 28], slot: 'D' },
-    // --- long counterbalance tail with wide fork + spark arc ---
-    { name: 'tail', parent: 'pelvis', prim: { t: 'none' }, chain: { n: 7, r0: 0.07, r1: 0.022, len: 0.78, bend: [-4, 0, 0] }, at: [0, 0.02, -0.12], rot: [-98, 0, 0], anim: ['wave'] },
-    { name: 'prong', parent: 'tailTip', mirror: true, prim: { t: 'cone', r: 0.028, h: 0.17 }, at: [0.03, -0.01, 0], rot: [0, 0, -42], slot: 'A', emissive: 0.8, anim: ['fx:fork'] },
-    { name: 'arcSpark', parent: 'tailTip', prim: { t: 'tube', pts: [[0.075, 0.13, 0], [0.03, 0.17, 0.015], [-0.02, 0.13, -0.01], [-0.075, 0.13, 0]], r0: 0.006, r1: 0.006 }, slot: 'A+', emissive: 1.5, mat: 'GLOW', lod: 0 },
+    { name: 'pelvis', prim: { t: 'sphere', r: [0.12, 0.11, 0.12] }, at: [0, 0.4, -0.02] },
+    { name: 'torso', parent: 'pelvis', prim: { t: 'sphere', r: [0.13, 0.19, 0.12] }, at: [0, 0.16, 0.02], rot: [16, 0, 0], anim: ['br', 'fx:body'] },
+    { name: 'bib', parent: 'torso', prim: { t: 'sphere', r: [0.1, 0.14, 0.07] }, at: [0, 0.0, 0.07], slot: 'W', fluffy: 0.005 },
+    { name: 'ruff', parent: 'torso', prim: { t: 'sphere', r: [0.15, 0.075, 0.13] }, at: [0, 0.15, 0.0], slot: 'W', fluffy: 0.008, fur: 1.8 },
+    // --- head ---
+    { name: 'head', parent: 'torso', prim: { t: 'sphere', r: [0.15, 0.135, 0.145] }, at: [0, 0.27, 0.05], rot: [-16, 0, 0], anim: ['look'], blend: 0.04 },
+    { name: 'tuft', parent: 'head', prim: { t: 'sphere', r: [0.05, 0.045, 0.06] }, at: [0, 0.12, 0.02], rot: [-25, 0, 0], slot: 'P+', fluffy: 0.008, fur: 1.8 },
+    { name: 'muzzle', parent: 'head', prim: { t: 'sphere', r: [0.07, 0.05, 0.06] }, at: [0, -0.055, 0.112], slot: 'W' },
+    { name: 'nose', parent: 'muzzle', prim: { t: 'sphere', r: [0.02, 0.014, 0.013] }, at: [0, 0.025, 0.056], slot: 'D', mat: 'SKIN_WET' },
+    { name: 'mouth', parent: 'muzzle', prim: { t: 'mouth', r: 0.024, w: 1.5 }, at: [0, -0.02, 0.055], rot: [18, 0, 0] },
+    { name: 'cheek', parent: 'head', mirror: true, prim: { t: 'sphere', r: CHEEK }, at: [0.085, -0.06, 0.07], slot: 'W', fluffy: 0.003, fur: 0.3 },
+    ...freckles('freckle', 'cheek', CHEEK, [[0.62, 0.22, 0.75], [0.85, -0.05, 0.52], [0.52, -0.3, 0.8], [0.95, 0.25, 0.2]], 0.016, 'A', 1.5, 'cheeks'),
+    { name: 'eye', parent: 'head', mirror: true, prim: { t: 'eye', r: 0.052 }, at: [0.068, 0.02, 0.115], rot: [0, 24, 0] },
+    ...satinEar({ parent: 'head', at: [0.078, 0.12, -0.05], rot: [-38, -12, -18], r: [0.072, 0.17, 0.022], slot: 'P', inner: '#EBCFE3', rim: 'A', rimGlow: 1.3, rimArc: 230, fx: true }),
+    // --- arms ---
+    { name: 'upperArm', parent: 'torso', mirror: true, prim: { t: 'capsule', r: 0.032, len: 0.1 }, at: [0.12, 0.1, 0.05], rot: [150, 0, 18], anim: ['armswing'] },
+    { name: 'forearm', parent: 'upperArm', mirror: true, prim: { t: 'capsule', r: 0.028, len: 0.1 }, at: [0, 0.15, 0], rot: [-55, 0, 0] },
+    { name: 'hand', parent: 'forearm', mirror: true, prim: { t: 'sphere', r: [0.036, 0.03, 0.042] }, at: [0, 0.14, 0], slot: 'W' },
+    ...freckles('armFreckle', 'forearm', [0.028, 0.08, 0.028], [[0.3, 0.2, 0.9], [0.3, -0.25, 0.9]], 0.011, 'A', 1.3, undefined, [0, 0.08, 0]),
+    // --- furry gliding membranes from the arm to the hip ---
+    { name: 'pataN', parent: 'torso', mirror: true, prim: { t: 'none' }, at: [0.115, 0.08, 0.0], rot: [0, 0, 8], anim: ['flap'] },
+    { name: 'patagium', parent: 'pataN', mirror: true, mirrorGeom: true, prim: { t: 'extrude', shape: 'X_patagium', w: 0.26, h: 0.14, depth: 0.012 }, rot: [0, 90, -78], slot: 'S' },
+    // --- long digitigrade legs ---
+    { name: 'thigh', parent: 'pelvis', mirror: true, prim: { t: 'sphere', r: [0.075, 0.12, 0.1] }, at: [0.1, -0.03, 0.01] },
+    { name: 'shin', parent: 'thigh', mirror: true, prim: { t: 'capsule', r: 0.042, len: 0.12, r2: 0.034 }, at: [0, -0.08, 0.02], rot: [215, 0, 0], anim: ['gait:L'] },
+    { name: 'meta', parent: 'shin', mirror: true, prim: { t: 'capsule', r: 0.03, len: 0.08 }, at: [0, 0.162, 0], rot: [-50, 0, 0], anim: ['knee'] },
+    { name: 'foot', parent: 'meta', mirror: true, prim: { t: 'sphere', r: [0.045, 0.03, 0.09] }, at: [0, 0.13, -0.04], rot: [15, 0, 0], slot: 'W' },
+    // --- longer coiled tail with the glowing bulb ---
+    { name: 'tail', parent: 'pelvis', prim: { t: 'none' }, chain: { n: 11, r0: 0.042, r1: 0.024, len: 0.85, bend: [-30, 0, 12] }, at: [0, 0.02, -0.1], rot: [-120, 0, 0], anim: ['wave'] },
+    { name: 'bulbCap', parent: 'tailTip', prim: { t: 'cyl', r: 0.03, h: 0.025, r2: 0.036 }, at: [0, -0.01, 0], slot: '#ECE8F4', mat: 'SHELL' },
+    { name: 'bulb', parent: 'tailTip', prim: { t: 'sphere', r: 0.058 }, at: [0, 0.06, 0], slot: 'A', emissive: 1.4, mat: 'GLOW', anim: ['fx:tail', 'fx:fork'] },
   ],
 };

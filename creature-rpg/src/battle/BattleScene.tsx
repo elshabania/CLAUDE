@@ -344,6 +344,10 @@ export function BattleScene() {
       }
     }
     const rm = useSettings.getState().reducedMotion;
+    // the foe trainer speaks the intro / taunt lines, the player trainer calls out commands
+    const txt = b.current?.text ?? '';
+    if (trainers.current.foe) trainers.current.foe.a.talking = b.phase === 'intro' || (b.current?.kind === 'sendOut' && b.current.side === 'foe');
+    if (trainers.current.player) trainers.current.player.a.talking = !!txt && (b.current?.kind === 'sendOut' && b.current.side === 'player');
     for (const t of [trainers.current.player, trainers.current.foe]) { if (t) { t.a.reducedMotion = rm; t.a.update(dt); } }
     // fx
     fxList.current = fxList.current.filter((f) => {
