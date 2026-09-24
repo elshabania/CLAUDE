@@ -18,29 +18,30 @@ export const c: Content = CONTENT;
 export const TURN_LIMIT = 200;
 
 // ---------------------------------------------------------------------------------------------
-// Story oracle: systems.md §14.2 (# = row), recommended ace + model party avg, qa_plan §7.2 thresholds.
+// Story oracle: systems.md §14.2 (# = row), recommended ace (= ace level after the D30 tuning pass) + model party avg
+// (the §14.4 XP model, unchanged), qa_plan §7.2 thresholds.
 export interface StoryInfo { n: number; id: string; label: string; recAce: number; modelAvg: number; minWin: number; blocking: boolean; cantor: boolean }
 const S = (n: number, id: string, label: string, recAce: number, modelAvg: number, minWin: number, blocking = true): StoryInfo => ({
   n, id, label, recAce, modelAvg, minWin, blocking, cantor: id.startsWith('t_cantor'),
 });
 // qa_plan §7.2 item 7: ≥60 trial leaders/Odile/champion; ≥80 rival & antagonist before trial_3; ≥70 other.
 export const STORY: StoryInfo[] = [
-  S(1, 't_rival_1', 'Rival 1', 5, 5, 80, false), // D20: loss continues the story (non-blocking)
+  S(1, 't_rival_1', 'Rival 1', 3, 5, 80, false), // D20: loss continues the story (non-blocking)
   S(2, 't_cantor_1', 'Cantor 1 Wren', 12, 11, 60),
-  S(3, 't_rival_2', 'Rival 2', 16, 14, 80),
+  S(3, 't_rival_2', 'Rival 2', 14, 14, 80),
   S(4, 't_cantor_2', 'Cantor 2 Dorran', 17, 14, 60),
   S(5, 't_admin_brann_1', 'Admin Brann', 20, 19, 80),
   S(6, 't_admin_vey_1', 'Admin Vey 1', 22, 23, 80),
   S(7, 't_rival_3', 'Rival 3', 23, 24, 80),
-  S(8, 't_cantor_3', 'Cantor 3 Nerys', 25, 27, 60),
-  S(9, 't_cantor_4', 'Cantor 4 Tamsin', 30, 29, 60),
+  S(8, 't_cantor_3', 'Cantor 3 Nerys', 24, 27, 60),
+  S(9, 't_cantor_4', 'Cantor 4 Tamsin', 28, 29, 60),
   S(10, 't_admin_vey_2', 'Admin Vey 2', 33, 33, 70),
   S(11, 't_rival_4', 'Rival 4', 33, 34, 70),
   S(12, 't_cantor_5', 'Cantor 5 Bastian', 37, 37, 60),
-  S(13, 't_rival_5', 'Rival 5', 40, 40, 70),
-  S(14, 't_cantor_6', 'Cantor 6 Isaure', 45, 45, 60),
+  S(13, 't_rival_5', 'Rival 5', 37, 40, 70),
+  S(14, 't_cantor_6', 'Cantor 6 Isaure', 41, 45, 60),
   S(15, 't_odile', 'Magister Odile', 46, 46, 60),
-  S(16, 't_rival_6', 'Rival 6', 48, 47, 70),
+  S(16, 't_rival_6', 'Rival 6', 44, 47, 70),
   S(17, 't_champion', 'Champion Rhea', 50, 49, 60),
 ];
 export const STORY_BY_ID = Object.fromEntries(STORY.map((s) => [s.id, s]));
@@ -162,6 +163,9 @@ export function aceLevel(t: TrainerDef): number {
 // ---------------------------------------------------------------------------------------------
 // Battle runner with a player policy = the real AI scoring from the player's side (hard: best score,
 // matchup replacement, ≤2 voluntary switches) plus a small salve budget (heal at < 25% HP, ≤ 2 per kin).
+// D30 additions (a human does these; the AI alone does not): finish a nearly beaten foe with a kin that outspeeds
+// or resists it, and, in routine battles only (`retreat`), pull a kin out of a super-effective threat.
+// (The retreat rule was also tried in story battles: net effect ±0 with large swings, so story battles keep the AI.)
 export interface RunResult { outcome: 'win' | 'loss' | 'fled' | 'captured' | 'timeout'; turns: number; state: BattleState; salvesUsed: number }
 
 function mirror(s: BattleState, pSwitches: number, pSwitchedLast: boolean, foeRevealed: string[], rngAI: BattleState['rngAI']): BattleState {
@@ -223,7 +227,7 @@ export function runBattle(setup: BattleSetup, seed: number, opts: { salves?: str
     // foe threatens the active kin super-effectively (revealed moves, else its types) and a healthy bench kin
     // resists that threat (or is neutral to it and hits back super-effectively), switch. Same limits as the AI:
     // ≤ 2 voluntary switches per battle, never twice in a row.
-    if ((opts.retreat ?? !!process.env.HUMAN_SWITCH) && pa.kind === 'move' && pSwitches < 2 && !pSwitchedLast && me.inst.hp * 4 > me.stats.hp) {
+    if (opts.retreat && pa.kind === 'move' && pSwitches < 2 && !pSwitchedLast && me.inst.hp * 4 > me.stats.hp) {
       const foe = act(s, 'foe');
       const revealed = foeRevealed.map((id) => c.moves[id]).filter((m) => m.category !== 'status').map((m) => m.type);
       const threatTypes = revealed.length ? revealed : typesOf(c, foe);
@@ -304,7 +308,6 @@ export function offerMove(inst: CreatureInstance, move: string): CreatureInstanc
 
 /** Etudes are reusable (systems §8.5): offer every owned disc to every compatible kin; offerMove decides. */
 export function teachDiscs(party: CreatureInstance[], discs: string[]): CreatureInstance[] {
-  if (process.env.NO_DISCS) return party;
   return party.map((m) => {
     let inst = m;
     for (const d of discs) if (canLearnDisc(c, inst, d)) inst = offerMove(inst, (c.items[d].params as { move: string }).move);
@@ -335,7 +338,7 @@ export function afterBattle(s: BattleState): CreatureInstance[] {
 export function orderParty(party: CreatureInstance[]): CreatureInstance[] {
   const max = Math.max(...party.map((m) => m.level));
   const starter = party.findIndex((m) => m.bond);
-  let lead = starter >= 0 && party[starter].level >= max - Number(process.env.LEAD_GAP ?? 2) ? starter : party.findIndex((m) => m.level === max);
+  let lead = starter >= 0 && party[starter].level >= max - 2 ? starter : party.findIndex((m) => m.level === max);
   if (lead < 0) lead = 0;
   return [party[lead], ...party.filter((_, i) => i !== lead)];
 }
@@ -471,7 +474,7 @@ export function simulateCampaign(starter: string, seeds: number, hooks: Campaign
   let step = 0;
   const discs: string[] = [];
   // Route / hall trainers: the player spends one salve of the current shop tier per battle (systems §12.5 buys ≈3 per chapter).
-  const routeSalves = () => (process.env.NO_ROUTE_SALVE ? [] : salveBudget(storyIdx(step - 1)[0] ?? 't_champion').slice(0, 1));
+  const routeSalves = () => salveBudget(storyIdx(step - 1)[0] ?? 't_champion').slice(0, 1);
   const fightTrainer = (id: string) => {
     const t = TRAINERS[id];
     if (!t) { errors.push(`missing trainer ${id}`); return; }
@@ -508,7 +511,7 @@ export function simulateCampaign(starter: string, seeds: number, hooks: Campaign
     }
     // non-story trainer: a player retries until they win (≤ 10 attempts); XP from the winning run
     for (let k = 0; k < 10; k++) {
-      const r = runBattle(trainerSetup(t, party, starter, attuned), hashString(`${starter}${salt}:${id}:p${k}`), { salves: routeSalves(), trainer: t, starter, retreat: !process.env.NO_RETREAT });
+      const r = runBattle(trainerSetup(t, party, starter, attuned), hashString(`${starter}${salt}:${id}:p${k}`), { salves: routeSalves(), trainer: t, starter, retreat: true });
       if (r.outcome === 'win' || k === 9) {
         if (r.outcome !== 'win') progressionLosses.push(id);
         party = afterBattle(r.state);
@@ -521,7 +524,6 @@ export function simulateCampaign(starter: string, seeds: number, hooks: Campaign
   PATH.forEach((st, i) => {
     step = i;
     if (st.kind === 'gift') {
-      if (process.env.NO_GIFTS) return;
       const sp = st.which === 'leftover' ? leftoverStarter(starter) : rivalStarter(starter);
       let gift = createInstance(c, rng, sp, st.level, { potential: 10, temperament: 'tm_steady' }); // as G.giveKin
       for (let g = 0; g < 3; g++) {
@@ -551,15 +553,13 @@ export function simulateCampaign(starter: string, seeds: number, hooks: Campaign
       const enc = rollEncounter(c, ENCOUNTERS, st.table, false, 'clear', wrng)!;
       const foe = createInstance(c, wrng, enc.species, enc.level, { potential: 'random', temperament: 'random' });
       const setup: BattleSetup = { kind: 'wild', playerParty: party, foeParty: [foe], ai: 'easy', ambientWeather: 'clear', attunedType: attunedFor(st.zone, silenced) };
-      const r = runBattle(setup, wrng.nextU32(), { retreat: !process.env.NO_RETREAT });
+      const r = runBattle(setup, wrng.nextU32(), { retreat: true });
       wildBattles++;
       party = afterBattle(r.state);
       trace?.(`wild ${st.table} ${foe.species}@${foe.level} -> ${r.outcome} in ${r.turns}; party ${party.map((m) => `${m.species}@${m.level}/${m.xp}`).join(' ')}`);
     }
     if (st.catchOne && party.length < 6) {
-      let pick = chooseCatch(st.table, party, starter, storyIdx(i));
-      const ov = (process.env.CATCH_OV ?? '').split(',').find((x) => x.startsWith(st.table + '='));
-      if (ov) { const r = ENCOUNTERS.tables[st.table].find((x) => x.species === ov.split('=')[1])!; pick = { species: r.species, level: Math.floor((r.lo + r.hi) / 2) }; }
+      const pick = chooseCatch(st.table, party, starter, storyIdx(i));
       if (pick) party.push(createInstance(c, wrng, pick.species, pick.level, { potential: 'random', temperament: 'random' }));
     }
   });
