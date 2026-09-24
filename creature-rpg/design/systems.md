@@ -351,7 +351,7 @@ On reaching level L, for each learnset entry at exactly L (in table order): alre
 Wild/trainer default moveset: the last 4 distinct learnset moves with level ≤ its level (evolution moves count at the evolution level).
 
 ### 8.5 Teaching discs
-Discs are **reusable** (never consumed; key-item pocket; sellable 0 — cannot be sold). Compatibility: a species can learn a disc's move if (a) the move type is one of the species' types, or (b) the move type is in its family's `discCoverage` list (section 9.3), or (c) the disc is flagged universal (`i_disc_11` only). Teaching uses the replacement flow. Disc list in section 12.2.
+Discs are **reusable** (never consumed; key-item pocket; sellable 0 — cannot be sold). Compatibility: a species can learn a disc's move if (a) the move type is one of the species' types, or (b) the move type is in its family's `discCoverage` list (section 11.2), or (c) the disc is flagged universal (`i_disc_11` only). Teaching uses the replacement flow. Disc list in section 12.2.
 
 ---
 
@@ -583,9 +583,9 @@ Format: `Lv: move` (★ = evolution move).
 | Family | Learnset |
 |---|---|
 | **f01 electric** | 1: m021, 1: m022, 7: m062, 10: m024, 13: m063, ★16: m025, 20: m026, 24: m027, 28: m065, 32: m028, ★34: m055, 38: m029, 43: m030, 48: m070 |
-| **f02 fire** | 1: m002, 1: m001, 7: m041, 10: m006, 13: m044, ★16: m004, 20: m005, 24: m003, 28: m038, 32: m007, ★34: m048, 38: m009, 42: m008, 47: m010 |
+| **f02 fire** | 1: m002, 1: m001, 7: m041, 10: m006, 13: m021, ★16: m004, 20: m005, 24: m003, 28: m038, 32: m007, ★34: m048, 36: m027, 38: m009, 42: m008, 47: m010 |
 | **f03 water** | 1: m012, 1: m011, 7: m013, 10: m015, 13: m052, ★16: m016, 20: m014, 24: m056, 28: m019, 32: m017, ★34: m047, 38: m018, 42: m058, 47: m020 |
-| **f04 verdant** | 1: m031, 1: m032, 5: m033, 9: m071, 12: m034, ★16: m035, 19: m036, 23: m075, 27: m037, ★32: m047, 35: m038, 39: m039, 44: m040, 48: m078 |
+| **f04 verdant** | 1: m031, 1: m032, 5: m033, 9: m071, 12: m034, ★16: m035, 19: m036, 21: m044, 23: m075, 27: m037, ★32: m047, 35: m038, 39: m039, 44: m040, 48: m078 |
 | **f05 stone** | 1: m041, 1: m043, 6: m042, 10: m044, 14: m021, 18: m046, ★20: m045, 24: m027, 28: m047, 32: m048, ★36: m004, 40: m050, 45: m049, 50: m030 |
 | **f06 frost** | 1: m051, 1: m052, 6: m053, 10: m015, 14: m054, 18: m056, ★22: m055, 26: m057, 30: m065, 34: m058, ★38: m019, 42: m059, 47: m060 |
 | **f07 gale** | 1: m062, 1: m061, 5: m064, 9: m063, 13: m081, ★14: m066, 18: m065, 22: m068, 26: m086, ★30: m069, 34: m067, 38: m097, 43: m088, 48: m070 |
@@ -597,18 +597,18 @@ Format: `Lv: move` (★ = evolution move).
 | Family | Weak to | Coverage types in learnset | Example Lv 30 set |
 |---|---|---|---|
 | f01 electric | fire, stone, shade | gale (vs fire, shade), frost (vs stone, st3) | m025, m027, m065, m026 |
-| f02 fire | water, stone, gale | stone (vs gale), verdant (vs water, stone) | m004, m005, m038, m044 |
+| f02 fire | water, stone, gale | verdant (vs water, stone), electric (vs gale: m021 Lv 13, m027 Lv 36) | m004, m005, m038, m003 |
 | f03 water | electric, verdant, toxin | frost (vs verdant), stone (vs electric, st3) | m016, m019, m056, m014 |
-| f04 verdant | fire, frost, toxin | stone (vs fire, frost), toxin | m036, m035, m075, m037 |
+| f04 verdant | fire, frost, toxin | stone (vs fire, frost: m044 Lv 21, m047 Lv 32), toxin | m036, m035, m075, m037 |
 | f05 stone | water, verdant, frost | electric (vs water), fire (vs verdant, frost, st3) | m047, m027, m045, m046 |
 | f06 frost | fire, stone, lumen | water (vs fire, stone), gale | m056, m055, m065, m015 |
 | f07 gale | electric, frost | shade, lumen (vs frost) | m069, m065, m086, m068 |
 | f08 toxin | water, gale, lumen | verdant (vs water), shade (vs lumen) | m076, m077, m074, m033 |
 | f09 shade | gale, lumen | toxin (vs lumen), frost (vs gale, Lv 36) | m088, m086, m084, m072 |
-| f10 lumen | verdant, toxin, shade | gale (vs verdant, toxin, shade), fire (vs verdant, Lv 42) | m096, m097, m065, m094 |
+| f10 lumen | verdant, toxin, shade | gale (vs toxin, shade), fire (vs verdant, Lv 42; disc i_disc_01 earlier) | m096, m097, m065, m094 |
 
 ### 11.2 Disc coverage (`discCoverage` per family, in addition to the species' own types)
-f01: gale, frost, lumen · f02: stone, verdant, shade · f03: frost, stone, gale · f04: toxin, stone, lumen · f05: electric, fire, frost · f06: water, gale, stone · f07: shade, lumen, electric · f08: shade, verdant, water · f09: frost, toxin, electric · f10: gale, fire, water.
+f01: gale, frost, lumen · f02: verdant, electric, stone · f03: frost, stone, gale · f04: toxin, stone, lumen · f05: electric, fire, frost · f06: water, gale, stone · f07: shade, lumen, electric · f08: shade, verdant, water · f09: frost, toxin, electric · f10: gale, fire, water.
 
 ---
 
@@ -721,7 +721,7 @@ The AI function signature is `chooseAction(view: AIView, rngAI) → Action`. `AI
 | Level | Used by | Move choice | Switching | Items | Replacement | Team potentials |
 |---|---|---|---|---|---|---|
 | **Easy** | all wild creatures | uniform random among moves with score > 0 (if none, uniform among usable moves) | never | never | n/a | random 0–15 |
-| **Normal** | route trainers, grunts, rival R1–R2 | highest score; with `rngAI.chance(25)` instead pick uniformly among moves scoring ≥ 60% of the max | never voluntarily | holds 0–1 `i_salve_*` (trainer data); uses it when own HP ≤ 20% and `rngAI.chance(50)`, once per battle | next party slot | 6 all stats, `tm_steady` |
+| **Normal** | route trainers, grunts, rival R1–R2 | highest score; with `rngAI.chance(25)` instead pick uniformly among moves scoring ≥ 60% of the max | never voluntarily | holds 0–1 `i_salve_*` (trainer data); uses it when own HP ≤ 20% and `rngAI.chance(50)`, once per battle | next party slot | 6 all stats, `tm_steady` (rival always 12) |
 | **Hard** | trial leaders, admins/boss, rival R3–R5, champion | highest score; ties → `rngAI` uniform; +30 to priority moves if the AI estimates it will be KO'd before acting (player effSpe > AI effSpe and a revealed player move's est ≥ AI HP) | see 13.4 | holds up to 2 heal items + 1 `i_cure_all`; heals when HP ≤ 25% and no move scores KO; uses cure_all on sleep/paralysis/frostbite if it is the last creature | best matchup (13.4) | 12 (leaders, admins, rival), 15 (champion); temperaments data-defined |
 
 ### 13.4 Hard AI switching and matchup
@@ -801,7 +801,7 @@ Setup (placeholder base stats; real ones come from creatures.md): Rival R2 on a 
 7. **Faint resolution**: XP to c02 (participant): Y = floor(400/3) = 133 (BST 400); floor(133×17/7) = 323; T = 3/2; S = (2×17+10)/(17+18+10) = 44/45 → XP = floor(323×3×44/(2×45)) = **473**. Non-participant party members receive 236. Rival still has one creature: AI (Normal) sends next party slot. Player's active is alive → no player prompt. Rival's remaining creature enters; turn 2 command phase begins. On final victory: payout 40 × 17 = **680**.
 
 ## 17. Worked example — capture
-See 7.5 (Lv 18, 36% HP, `i_orb_2`, a = 102, threshold 48287, 2 shakes then escape). Continuing that battle: next turn the player uses m034 Drowse Pollen (hits), target asleep → S10 = 20 → a = floor(125×90×15×20×20/330000) = 204 → threshold = floor(65536 × cbrt(0.8)) = 60836; rolls 3114, 47770, 22058 all < 60836 → **caught** after 3 shakes; party has 6 → sent to storage box 1.
+See 7.5 (Lv 18, 36% HP, `i_orb_2`, a = 102, threshold 48287, 2 shakes then escape). Continuing that battle: next turn the player uses m034 Drowse Pollen (hits), target asleep → S10 = 20 → a = floor(125×90×15×20×20/330000) = 204 → threshold = floor(65536 × cbrt(0.8)) = 60838; rolls 3114, 47770, 22058 all < 60838 → **caught** after 3 shakes; party has 6 → sent to storage box 1.
 
 ---
 
@@ -828,7 +828,7 @@ See 7.5 (Lv 18, 36% HP, `i_orb_2`, a = 102, threshold 48287, 2 shakes then escap
 9. Status tests: each immunity in 4.1; sleep lasts 1–3 action attempts; paralysis lock rate ≈ 25%; burn/poison/frostbite tick amounts; dizzy self-hit ≈ 33%.
 10. Weather: move weather lasts exactly 5 end-of-turns then reverts to ambient; duplicate weather fails.
 11. Move data: ≥ 100 moves + m000, every type exactly 10, every move has a valid anim id from 9.1, each learnset move exists.
-12. Every family has ≥ 4 known moves by Lv 13 and a coverage move against at least one weakness by Lv 30 (automated check against 11.1).
+12. Every family has ≥ 4 known moves by Lv 10 and a coverage move super-effective against at least one of its weakness types by Lv 25 (automated check against 11.1 using the matrix).
 13. Economy simulation (script over section 12.5 inputs) keeps balance ≥ 0 at every chapter end.
 14. Softlock tests: wipe → respawn with penalty formula; 0 orbs + <200 money → attendant gives 5 orbs; all-charges-empty → m000; storage full → mandatory release prompt; a scripted heal/Bulwark stall battle ends by turn 65.
 
