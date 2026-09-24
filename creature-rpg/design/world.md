@@ -1,8 +1,28 @@
-# World Design — region, zones, progression, encounters, quests
+# World Design — Cantarra: region, zones, progression, encounters, quests
 
-Owner: World Designer. Status: v1 design spec (not implemented, not playtested). Binding inputs: `design/MASTER_PROMPT.md`, `design/ANCHORS.md`.
+Owner: World Designer. **Version 2** (2026-09-24). This is a design spec: nothing here has been implemented or playtested. Playtimes are estimates.
 
-> **Naming flag.** `design/creative_direction.md` did not exist when this document was written. Every proper name here (region, towns, landmarks, NPC names, faction name, Resonance verb names, crest names) is a **working name (WN)** for layout and dialogue-gist purposes only. Stable ids (`town_1`, `npc_mentor`, `flag_*`, `t_*`, `q_*`, `i_*`) are the contract; names are swapped in content JSON when the Creative Director publishes. Creature names other than the three starter working names (Voltra `c01`, Emberhorn `c04`, Rippleback `c07`) are referenced by id only.
+**Binding inputs:**
+- `design/DECISIONS.md` wins over every other document.
+- `design/ANCHORS.md`.
+- `design/creative_direction.md` (CD) for names, story, flags, and the Resonance registers.
+- `design/systems.md` (SY) for evolution levels and trainer levels.
+- `design/creatures.md` (CR) for species names and types. The D7 renames apply: c11 Lullstalk, c27 Emberfold, c30 Coronaleen.
+- `src/data/content/items.json` for item ids (D10).
+- `src/world/zoneTypes.ts` for the zone data shape.
+
+**What changed from v1** (review `design/reviews/world_designer.md`):
+- **Story and structure:** CD story, zone and trial order and CD attuned types (D1). The graph is rewired: `town_2 → cave → route_3 → lake`.
+- **Resonance:** exactly 4 mandatory Resonance gates, each with a Steward. Any troupe member of the type can act, fainted or not. CD register names are used (D2).
+- **Rivals and starters:** 6 rival battles (D4). Unchosen starters come through `q_foster_leftover` / `q_second_clutch` (D5).
+- **Antagonists:** the Stillmark is a survey guild with no theft (D6).
+- **Names and ids:** renames (D7), items.json ids (D10), CD §4.2 flags.
+- **Levels:** evolution levels from SY (D11). No wild stage-2/3 below its evolution level (D23), enforced by the generator.
+- **Cave:** single-level (D17).
+- **Wild creatures:** at most 6 roaming per zone (D21). Wild spawn and respawn timing follows the rendering document §2.6.
+- **Additions:** hand-placed `battleStages` for every zone, and 14 Waystones.
+
+> **Id note.** DECISIONS D10 lists `i_hush_1..2` and `i_thread`. The live `items.json` uses `i_repel_1..2` and `i_escape` (display names "Hush Incense" and "Homeward Thread"). D10 says items.json is the source, so this document uses **`i_repel_1/2`** and **`i_escape`**. See §11 Q1.
 
 ---
 
@@ -10,980 +30,1128 @@ Owner: World Designer. Status: v1 design spec (not implemented, not playtested).
 
 | Topic | Decision |
 |---|---|
-| Zone-local frame | Origin at the zone's rectangular center, ground reference y = 0 at the lowest walkable point unless stated. **x = east, z = south, y = up** (so north = −z, matching three.js default forward). Units: meters. |
-| Zone bounds | A zone W×D occupies x ∈ [−W/2, W/2], z ∈ [−D/2, D/2]. Playable area is enclosed by natural blockers (cliffs, dense trees, water, rock walls) 4–8 m inside the bound; exits are gaps in that border. |
-| Facing / yaw | Yaw in degrees, clockwise seen from above: 0 = north (−z), 90 = east (+x), 180 = south (+z), 270 = west (−x). |
-| Exit trigger | Axis-aligned box 10 m wide (along the edge) × 4 m deep × 6 m tall, centered on the listed exit coordinate, touching the zone border. Entering it (in exploration state only) starts the loading transition. |
-| Arrival spawn | Every exit has a paired arrival point 8 m inside the zone, facing into the zone. Arrival point and a 25 m radius around it are kept free of roaming wild spawns and trainer sight-lines. |
-| Interiors | Trial venues are separate interior scenes (`trial_1`..`trial_6`), 40×60 m, door in host zone. Healing houses and shops are **not** separate scenes: they are open-front kiosks/buildings in the town scene (one fewer loading transition; interaction by counter trigger). The champion venue is the extra zone `league` (documented below, allowed by ANCHORS). |
-| Time of day | In-game clock: 1 real second = 1 in-game minute (24-minute real day). **Day** 06:00–17:59, **Night** 18:00–05:59. New game starts 08:00. At any healing point the player can "Rest until 06:00" or "Rest until 18:00" (instant, fade to black, heals party). No content requires waiting in real time. |
-| Weather | Per wild zone, one of {clear, rain, fog, snow} as listed per zone. Rolled on zone load and on each day/night band change with the save's seeded RNG: `seed = hash(saveSeed, zoneId, dayIndex, band)`, so reloading does not re-roll. Resting also advances the band and therefore re-rolls. Towns/league have cosmetic weather only (no encounters). Cave is fixed "none". |
-| Resonance | Working model: a field action is performed on a marked object if (a) the action category is unlocked (§2.3) and (b) the **lead** creature (party slot 1, not fainted) has the matching type in either type slot. If the lead does not match but another non-fainted party member does, the prompt offers a one-button "Let <name> lead" swap. Creative Director owns final names/visuals. |
-
-### Working-name table (all WN, pending creative_direction.md)
-
-| Id | WN | Id | WN |
-|---|---|---|---|
-| region | the Chime Vale | `route_4` | Ashen Switchback |
-| `town_1` | Kettlebrook | `volcano` | Mount Kiln |
-| `route_1` | Meadowline Path | `route_5` | Rimewind Pass |
-| `forest` | Lanternmoss Wood | `snowpeak` | Aurora Crown |
-| `route_2` | Pebblerun Trail | `league` | Chorus Spire |
-| `town_2` | Pinwheel Rise | antagonist faction | the Hush |
-| `route_3` | Hollowstep Road | Resonance device (key item) | Tuning Fork (`i_key_tuner`) |
-| `cave` | Geode Hollows | trial reward | Crest (`i_crest_1`..`i_crest_6`) |
-| `lake` | Glasswater Lake | fast-travel node | Waystone (`ws_*`) |
-| `town_3` | Crossvale | healing building | Tending House |
+| Zone-local frame | Origin at the zone center, y = 0 at the lowest walkable point. **x = east, z = south, y = up**, so north = −z. Units are meters. A zone W×D spans x ∈ [−W/2, W/2], z ∈ [−D/2, D/2]. |
+| Yaw | Degrees clockwise from above: 0 = north (−z), 90 = east, 180 = south, 270 = west. |
+| Exits | `ExitSpec{id, at, r, to, spawn, gate?}`. Trigger radius r = 5 m, centered on the listed coordinate at the zone rim. |
+| Spawns | Every exit has a paired arrival spawn `sp_<zone>_<dir>` 8 m inside the zone, facing inward. Reload and zone entry use spawn ids (rendering §10.5). No wild anchors, trainer sight cones, or Resonance nodes within 25 m of a spawn. |
+| Resonance nodes | `rn_<zone>_<nn>`. A node is performable if (a) its register is unlocked and (b) **any troupe member**, fainted or not, has the matching type in either type slot (D2; systems §5.5; CD R3). Solved nodes persist in the save. The exception is Swell stepping-stones, which reset after 60 s and are never on a mandatory path (CD §6.3). |
+| Time bands (encounters) | **Day = 05:00–16:59** (rendering phases morning + day). **Night = 17:00–04:59** (evening + night). The clock runs 1 real s = 1 game min (rendering §5.2). New game starts at 08:00. At every Hearthrest the player can rest until 06:00 or 18:00 (instant; heals). No encounter is exclusive to dawn. |
+| Weather | Weather ids come from systems §5.1: clear, rain, snow, fog, sunlight. Weather is rolled per zone on zone load and on each band change, seeded by `hash(saveSeed, zoneId, dayIndex, band)`. Resting advances the band and so re-rolls. The cave, towns, league and hall interiors use fixed `clear`. The battle's ambient weather equals the zone weather. |
+| Hearthrest safe-return | A party wipe returns the player to the **last Hearthrest used** (systems §15.1). Before any Hearthrest has been used, the player returns to the Larkhollow home. |
+| Zone data | Each zone's data maps 1:1 to `ZoneSpec`: `spawns, exits, props, npcs, trainers, nodes, pickups, wildRegions{at,r}, maxWild, encounters, battleStages{at,yaw}, hearthSpawn, waystone`. |
 
 ---
 
 ## 1. Region map
 
-### 1.1 ASCII map (north up; not to scale; `==` normal exit, `##` gated exit, `..` secret/optional link, `[T#]` trial venue, `[H]` healing, `[W]` waystone)
+### 1.1 ASCII map (north up; not to scale)
+
+Legend:
+- `==` open exit
+- `#F` exit gated by a story flag
+- `#R` exit gated by a mandatory Resonance node
+- `..` optional or secret link
+- `[Tn]` Cadence Hall (trial venue)
+- `[H]` Hearthrest
+- `[W]` Waystone (every zone has one)
 
 ```
-                                ( league )  Chorus Spire  [champion] [H][W]
-                                    ##   G12: flag_faction_boss_defeated + 6 crests
-                                ( snowpeak ) Aurora Crown  [T6] [H][W]
-                                    ##   G11: Illuminate (ice tunnel, inside snowpeak)
-                                    ||
-                                ( route_5 ) Rimewind Pass
-                                    ##   G10: Freeze (river, inside route_5)
-                                    ##   G9 : Dissolve (rust-lock, town_3 north gate)
-( volcano )==( route_4 )========( town_3 ) Crossvale [H][W] shop T3
- Mount Kiln   Ashen Switchback      ||
- [T5][H][W]   G8: Updraft gap       ##   G6: Freeze (outflow channel, lake north)
-                                ( lake ) Glasswater  [T4 on island][H][W]
-                                    ##   G5: Shift (boulder, town_2 north-east)
-( cave )=====( route_3 )##======( town_2 ) Pinwheel Rise [T2][H][W] shop T2
- Geode        Hollowstep  G3: Updraft (Gust Gap, town_2 west)
- Hollows      Road                  ||
- [T3][H][W]                     ( route_2 ) Pebblerun Trail
-   :..........(secret tunnel, Shift from cave side)....: (route_2 west wall)
-                                    ##   G2: Bloom (sprout bridge, forest north ravine)
-                                ( forest ) Lanternmoss Wood [T1][H][W]
-                                    ||
-                                ( route_1 ) Meadowline Path
-                                    ##   G1: Tri-Gate (Spark OR Kindle OR Surge = starter)
-                                ( town_1 ) Kettlebrook [H][W] shop T1   <- new game
-                                    G0: flag_starter_chosen (north exit)
+                                  (league) Concord Spire [H][W]  champion
+                                     #F  flag_nullbell_broken + 6 Keynotes (resonance lift)
+                                 (snowpeak) Hoarcrown [T6 frost][H][W]
+                                     #R  Rime frozen falls (inside snowpeak, rn_snowpeak_01)
+                                     #F  flag_odile_revealed
+                                  (route_5) Gloamstair
+                                     #F  flag_trial_5_cleared
+ (volcano)====#F====(route_4)====#F====(town_3) Galewick [T4 gale][H][W]
+ Mount Cindral  flag_rival_4_done   Highscar Rise   flag_trial_4_cleared     #F  flag_trial_3_cleared (causeway)
+ [T5 fire][H][W]  #R Gust ascent (rn_route_4_01)          (lake) Sillowmere [T3 water][H][W]
+                                                              :  .. rockfall shortcut (Heave, lake side only)
+ (route_3) Sallowfen =====#F flag_rival_3_done=========== (lake W)
+    #F  flag_cave_miners_saved      :
+ (cave) The Undertone ====#F flag_trial_2_cleared==== (town_2) Knellstone [T2 stone][H][W]
+    #R Heave lower galleries (rn_cave_01)                  ||
+    :.. tunnel (Heave, cave side) ......................(route_2) Brackenridge Pass
+                                                             #F  flag_trial_1_cleared
+                                                          (forest) Murmurwood [T1 verdant][W]
+                                                             #R  Rootgate (rn_forest_01, just inside S entry)
+                                                          (route_1) Thistledown Way
+                                                             #F  flag_starter_chosen
+                                                          (town_1) Larkhollow [H][W]  <- new game
 ```
 
 ### 1.2 Routes vs areas
 
-- **Routes (`route_1`..`route_5`)** are connective corridor zones (90–100 m wide × 180–200 m long or the transpose). They carry the bulk of trainers (4–5 each), tall-grass-style spawn regions, one mandatory Resonance obstacle or story fight, and 1–2 secrets. Biome flavor: `route_1` lowland meadow, `route_2` rocky uphill trail, `route_3` sandstone canyon, `route_4` ash-covered switchbacks, `route_5` alpine pass (snowline halfway).
-- **Areas (`forest`, `cave`, `lake`, `volcano`, `snowpeak`)** are destination zones (180–200 m square). Each hosts exactly one trial venue, a rest site (healing + waystone + storage + pedlar), a chapter story climax, and 2–3 secrets. They are **not** routes: each is a separate zone with its own music theme, attuned type, and encounter table.
-  - `forest` sits between `route_1` and `route_2` (mandatory pass-through).
-  - `cave` is a western branch off `route_3` (mandatory: holds trial_3) with an optional secret tunnel back to `route_2`.
-  - `lake` sits between `town_2` and `town_3` (mandatory pass-through; trial_4 on its island).
-  - `volcano` is a western dead-end branch off `route_4` (mandatory: trial_5).
-  - `snowpeak` sits between `route_5` and `league` (mandatory pass-through; trial_6).
-- **Towns (`town_1`..`town_3`)** have no wild encounters and no trainers except scripted ones.
+- **Routes (`route_1`..`route_5`)** are corridor zones: Thistledown Way (meadow), Brackenridge Pass (heather ridge), Sallowfen (reed fen on boardwalks), Highscar Rise (switchback cliffs with the Stillhouse), and Gloamstair (twilight tundra stair).
+- **Areas (`forest`, `cave`, `lake`, `volcano`, `snowpeak`)** are separate destination zones, each with its own theme, attunement, and chapter climax.
+  - Every area except the cave hosts a Cadence Hall.
+  - The cave hosts the ch4 Brann confrontation instead.
+- **Towns** have no wild encounters. `town_2` hosts trial_2 and `town_3` hosts trial_4.
+- **Extra zone:** `league` (Concord Spire), reached by the resonance lift from the Hoarcrown summit.
 
-Zone count: 3 towns + 5 routes + 5 areas + `league` = **14 exterior zones**, plus **6 trial interiors** = 20 scenes.
+Scene count: 14 exterior zones, plus 6 Cadence Hall interiors `trial_1..trial_6`, for 20 scenes. The Stillhouse is a walled compound inside `route_4`, not a separate scene.
 
-### 1.3 Adjacency table (every connection is bidirectional; coordinates are zone-local)
+### 1.3 Adjacency table (all bidirectional unless marked)
 
-| Edge | Zone A exit | A coords (x,z) | Arrival in A (x,z, yaw) | Zone B exit | B coords | Arrival in B (x,z, yaw) | Gate |
-|---|---|---|---|---|---|---|---|
-| E1 | `town_1` x_t1_n | (0, −60) | (0, −52, 180) | `route_1` x_r1_s | (0, 90) | (0, 82, 0) | G0 (town_1 side) |
-| E2 | `route_1` x_r1_n | (0, −90) | (0, −82, 180) | `forest` x_fo_s | (0, 90) | (0, 82, 0) | G1 at route_1 (0, −25) |
-| E3 | `forest` x_fo_n | (−20, −90) | (−20, −82, 180) | `route_2` x_r2_s | (0, 100) | (0, 92, 0) | G2 at forest (−20, −70) |
-| E4 | `route_2` x_r2_n | (0, −100) | (0, −92, 180) | `town_2` x_t2_s | (0, 75) | (0, 67, 0) | — |
-| E5 | `town_2` x_t2_w | (−75, 0) | (−67, 0, 90) | `route_3` x_r3_e | (100, 0) | (92, 0, 270) | G3 at town_2 (−63, 0) |
-| E6 | `route_3` x_r3_w | (−100, 0) | (−92, 0, 90) | `cave` x_cv_e | (90, 0) | (82, 0, 270) | story: t_hush_g03 at route_3 (−80, 5) |
-| E7 | `cave` x_cv_s | (60, 90) | (60, 82, 0) | `route_2` x_r2_w | (−50, 20) | (−42, 20, 90) | S-T: Shift cracked wall at cave (60, 78); opens both sides (`flag_tunnel_open`) — optional |
-| E8 | `town_2` x_t2_n | (40, −75) | (40, −67, 180) | `lake` x_lk_s | (0, 100) | (0, 92, 0) | G5 at town_2 (40, −66) |
-| E9 | `lake` x_lk_n | (0, −100) | (0, −92, 180) | `town_3` x_t3_s | (0, 80) | (0, 72, 0) | G6 at lake (0, −80) |
-| E10 | `town_3` x_t3_w | (−80, 0) | (−72, 0, 90) | `route_4` x_r4_e | (100, 0) | (92, 0, 270) | — |
-| E11 | `route_4` x_r4_w | (−100, 0) | (−92, 0, 90) | `volcano` x_vo_e | (100, 0) | (92, 0, 270) | G8 at route_4 (−62, 5) |
-| E12 | `town_3` x_t3_n | (0, −80) | (0, −72, 180) | `route_5` x_r5_s | (0, 100) | (0, 92, 0) | G9 at town_3 (0, −70) |
-| E13 | `route_5` x_r5_n | (0, −100) | (0, −92, 180) | `snowpeak` x_sp_s | (0, 100) | (0, 92, 0) | G10 at route_5 (0, 10) |
-| E14 | `snowpeak` x_sp_n | (0, −100) | (0, −92, 180) | `league` x_lg_s | (0, 40) | (0, 32, 0) | G11 at snowpeak (0, −55); G12 at snowpeak (0, −94) |
+| Edge | Zone A exit @ (x,z) | A arrival spawn (x,z,yaw) | Zone B exit @ (x,z) | B arrival spawn (x,z,yaw) | Gate (checked on A→B unless noted) |
+|---|---|---|---|---|---|
+| E1 | town_1 `x_town_1_n` (0,−60) | `sp_town_1_n` (0,−52,180) | route_1 `x_route_1_s` (0,90) | `sp_route_1_s` (0,82,0) | `flag_starter_chosen` |
+| E2 | route_1 `x_route_1_n` (0,−90) | `sp_route_1_n` (0,−82,180) | forest `x_forest_s` (0,90) | `sp_forest_s` (0,82,0) | none. Rootgate node rn_forest_01 at forest (0,70) |
+| E3 | forest `x_forest_n` (−20,−90) | `sp_forest_n` (−20,−82,180) | route_2 `x_route_2_s` (0,100) | `sp_route_2_s` (0,92,0) | `flag_trial_1_cleared` (Rootloft wardens lower the canopy bridge at (−20,−70)) |
+| E4 | route_2 `x_route_2_n` (0,−100) | `sp_route_2_n` (0,−92,180) | town_2 `x_town_2_s` (0,75) | `sp_town_2_s` (0,67,0) | none |
+| E5 | town_2 `x_town_2_w` (−75,0) | `sp_town_2_w` (−67,0,90) | cave `x_cave_e` (90,0) | `sp_cave_e` (82,0,270) | `flag_trial_2_cleared` (quarry lift gate) |
+| E6 | cave `x_cave_nw` (−60,−90) | `sp_cave_nw` (−60,−82,180) | route_3 `x_route_3_w` (−100,0) | `sp_route_3_w` (−92,0,90) | `flag_cave_miners_saved` |
+| E7 | route_3 `x_route_3_e` (100,0) | `sp_route_3_e` (92,0,270) | lake `x_lake_w` (−100,0) | `sp_lake_w` (−92,0,90) | `flag_rival_3_done` |
+| E8 | lake `x_lake_n` (0,−100) | `sp_lake_n` (0,−92,180) | town_3 `x_town_3_s` (0,80) | `sp_town_3_s` (0,72,0) | `flag_trial_3_cleared` (causeway raised at lake (0,−80)) |
+| E9 | town_3 `x_town_3_w` (−80,0) | `sp_town_3_w` (−72,0,90) | route_4 `x_route_4_e` (100,0) | `sp_route_4_e` (92,0,270) | `flag_trial_4_cleared` |
+| E10 | route_4 `x_route_4_w` (−100,0) | `sp_route_4_w` (−92,0,90) | volcano `x_volcano_e` (100,0) | `sp_volcano_e` (92,0,270) | `flag_rival_4_done`. Gust ascent rn_route_4_01 lies before it. |
+| E11 | town_3 `x_town_3_n` (0,−80) | `sp_town_3_n` (0,−72,180) | route_5 `x_route_5_s` (0,100) | `sp_route_5_s` (0,92,0) | `flag_trial_5_cleared` |
+| E12 | route_5 `x_route_5_n` (0,−100) | `sp_route_5_n` (0,−92,180) | snowpeak `x_snowpeak_s` (0,100) | `sp_snowpeak_s` (0,92,0) | `flag_odile_revealed` |
+| E13 | snowpeak `x_snowpeak_n` (0,−100) | `sp_snowpeak_n` (0,−92,180) | league `x_league_s` (0,40) | `sp_league_s` (0,32,0) | `flag_nullbell_broken` ∧ `i_keynote_1..6` → sets `flag_spire_open` |
+| E14 (optional) | cave `x_cave_s` (60,90) | `sp_cave_s` (60,82,0) | route_2 `x_route_2_w` (−50,20) | `sp_route_2_w` (−42,20,90) | Opened by Heave node rn_cave_03 at cave (60,78). Only the cave side can open it; once opened it works both ways. |
+| E15 (optional) | lake `x_lake_s` (0,100) | `sp_lake_s` (0,92,0) | town_2 `x_town_2_n` (40,−75) | `sp_town_2_n` (40,−67,180) | Opened by Heave node rn_lake_02 at lake (0,90). Only the lake side can open it, so town_2 cannot skip the cave or the fen. |
 
-Trial doors (host zone → interior; interior door at (0, 30), interior arrival (0, 24, yaw 0); leaving returns to the host arrival point):
+**Cadence Hall doors.** Each hall interior is 40×60 with its door at (0,30) and arrival spawn `sp_trial_N_door` at (0,24,0). Leaving a hall returns the player to the host arrival spawn.
 
-| Venue | Host zone | Door (x,z) | Host arrival on exit (x,z,yaw) |
+| Venue | Host zone | Door (x,z) | Host arrival spawn (x,z,yaw) |
 |---|---|---|---|
-| `trial_1` Lantern Grove | `forest` | (40, −50) | (40, −44, 180) |
-| `trial_2` Pinwheel Hall | `town_2` | (0, −55) | (0, −49, 180) |
-| `trial_3` Geode Amphitheater | `cave` (deep level) | (−50, −55) | (−50, −49, 180) |
-| `trial_4` Mirror Pavilion | `lake` (island) | (0, −20) | (0, −14, 180) |
-| `trial_5` Caldera Forge | `volcano` (crater rim) | (0, −35) | (0, −29, 180) |
-| `trial_6` Aurora Observatory | `snowpeak` | (−50, −15) | (−50, −9, 180) |
-
-Intra-zone transport: `lake` ferry, south dock (0, 55) ↔ island dock (0, 12); available after `flag_lake_pump_stopped`; 6-second scripted crossing, both directions, unlimited uses.
+| `trial_1` Rootloft Hall | forest (canopy hall in the Great Hollow Tree) | (40,−50) | `sp_forest_hall` (40,−44,180) |
+| `trial_2` Knell Hall | town_2 crest | (0,−55) | `sp_town_2_hall` (0,−49,180) |
+| `trial_3` Mere Hall | lake, on piles; platform centered (0,−10), r 14 | (0,4) | `sp_lake_hall` (0,10,0) |
+| `trial_4` Vane Hall | town_3 cliff edge | (−20,−55) | `sp_town_3_hall` (−20,−49,180) |
+| `trial_5` Forge Hall | volcano crater rim, y 55 | (0,−35) | `sp_volcano_hall` (0,−29,180) |
+| `trial_6` Rime Hall | snowpeak upper terrace, y 60 | (−50,−15) | `sp_snowpeak_hall` (−50,−9,180) |
 
 ### 1.4 Zone sheets
 
-Safe-return = where the player is placed (party fully healed) after all party creatures faint in that zone; if the preferred point has not been activated, the fallback is used. Roaming max and spawn regions are summarized here; rules are in §4.2.
+Terrain maps to `TerrainSpec`. Wild regions are circles `{at, r}`. `maxWild` = 6 everywhere (D21). Battle stages are `{at, yaw}`; each is a flat 12×6 m pad, and the auto-search (rendering §2.7) is only the fallback.
 
-#### `town_1` — Kettlebrook (WN)
-- **Size/shape:** 120×120, bowl-shaped meadow village. **Height:** 0–6 m. **Attuned:** none.
-- **Terrain:** brook runs N–S along x = +35 with footbridges at (35, −10) and (35, 30); cobbled plaza; hedge-and-fence border; Chime Tower on a knoll in the NW.
-- **Landmarks:** Great Kettle Fountain (0, 0) — a giant copper kettle pouring into a basin; Resonance Atelier (mentor's workshop) door (−25, −20); player home (20, 22); Tending House counter (−22, 22); Trading Post shop counter (0, 30); Chime Tower (−40, −40), 14 m, visible from route_1.
-- **Exits:** x_t1_n (0, −60) → route_1.
-- **Spawn points:** new game (20, 18, yaw 0) outside home door; from route_1 (0, −52, 180); fast travel `ws_town_1` at (0, 6), arrival (0, 10, 0).
-- **Safe-return:** Tending House, arrival (−22, 16, 0).
+#### `town_1` — Larkhollow
+- **Size/shape:** 120×120, terraced luthiers' village. **Height:** 0–6 m. **Attuned:** neutral. **Biome:** town.
+- **Terrain:** orchard terraces; brook along x = +35 with footbridges at (35,−10) and (35,30).
+- **Landmarks:**
+  - Larkhollow Chordstone on the green, moss-capped (−10,−5). This is also `ws_town_1`.
+  - Oriel's workshop and fosterage pen (−25,−20).
+  - Player home (20,22).
+  - Hearthrest with Chandlery (−22,22).
+  - Wind-chime arbor (0,20).
+- **Exits:** `x_town_1_n` (0,−60).
+- **Spawns:** `sp_town_1_home` (20,18,0) for new game and pre-Hearthrest wipes; `sp_town_1_n` (0,−52,180); `sp_town_1_hearth` (−22,16,0); `sp_town_1_ws` (−10,1,0).
+- **Battle stages:** (5,−30,90) for rival 1; (−10,40,90).
 - **Wild:** none.
 
-#### `route_1` — Meadowline Path (WN)
-- **Size/shape:** 90×180, N–S corridor. **Height:** 0–12 m rolling. **Attuned:** electric (static-charged dandelion meadow).
-- **Terrain:** gentle hills; stream enters west edge at (−45, −30), winds to (−10, −50), exits under a hedge at (−45, −60); hedge wall spans x −45..45 at z = −25 with the **Tri-Gate** arch at (0, −25).
-- **Landmarks:** Tri-Gate (0, −25) — stone arch with three sockets (copper conduit / bramble knot / dry channel); Kite Hill (25, 30), top y = 12, with an Updraft vent (optional, q_side_kite_contest); signpost oak (−15, 60); stream islet (−30, −45).
-- **Exits:** x_r1_s (0, 90) → town_1; x_r1_n (0, −90) → forest.
-- **Spawn points:** from town_1 (0, 82, 0); from forest (0, −82, 180).
-- **Safe-return:** town_1 Tending House.
-- **Weather:** clear 80 / rain 20. **Roaming max:** 6. **Spawn regions:** R1a x[−40,−10] z[40,80]; R1b x[10,40] z[−5,40]; R1c x[−40,40] z[−85,−35] (north of Tri-Gate). 14 anchors total.
+#### `route_1` — Thistledown Way
+- **Size/shape:** 90×180, N–S meadow lane. **Height:** 0–12 m. **Attuned:** lumen. **Weather:** clear 80 / rain 20.
+- **Terrain:** hedgerows; a stream enters at (−45,−30) and bends to (−10,−50).
+- **Landmarks:**
+  - White chalk Chordstone with a sunburst carving (15,−10). This is `ws_route_1`.
+  - Stile (−10,70), where the capture tutorial's static Dozebud sits.
+  - Kite Hill (25,30), y 12.
+  - Stream islet (−30,−45).
+  - Old Chord Shrine ruin (35,−60), a post-game Gleam node.
+- **Exits:** `x_route_1_s` (0,90); `x_route_1_n` (0,−90).
+- **Spawns:** `sp_route_1_s` (0,82,0); `sp_route_1_n` (0,−82,180); `sp_route_1_ws` (15,−6,0).
+- **Wild regions:** {(−25,55),r18}, {(25,15),r20}, {(−20,−30),r18}, {(20,−70),r15}.
+- **Battle stages:** (0,50,90), (−5,−15,90), (10,−60,90).
+- **Static encounter:** `st_route_1_dozebud`, a c10 Dozebud Lv 4 at (−10,70), guaranteed. It re-appears on zone entry until `flag_capture_tutorial` is set (CD ch1).
 
-#### `forest` — Lanternmoss Wood (WN)
-- **Size/shape:** 180×180, dense canopy with clearings. **Height:** 0–18 m. **Attuned:** verdant.
-- **Terrain:** root-knuckled paths, moss mounds, glowing moss lanterns hung in branches; an E–W ravine at z = −70 (15 m wide, 8 m deep, banks at z −62 / −78) that fully separates the northern exit.
-- **Landmarks:** Great Lantern Tree (30, −35), 40 m tall, trunk radius 6 m; trial_1 door in its root hollow (40, −50); Sprout Bridge site (−20, −70) (G2); moth clearing (0, 10); Forest Camp (−50, 40) with `ws_forest`, ranger healer, storage terminal, pedlar; thorn thicket (−70, −45) (Kindle secret); dormant lantern conduit (60, 55) (Spark secret); Hush Damper machine at (25, −25) during chapter 2.
-- **Exits:** x_fo_s (0, 90) → route_1; x_fo_n (−20, −90) → route_2.
-- **Spawn points:** from route_1 (0, 82, 0); from route_2 (−20, −82, 180); `ws_forest` arrival (−50, 46, 0).
-- **Safe-return:** Forest Camp (−50, 46) if activated, else town_1.
-- **Weather:** clear 60 / rain 20 / fog 20. **Roaming max:** 8. **Spawn regions:** F1 x[−80,−20] z[50,85]; F2 x[20,80] z[10,70]; F3 x[−85,−30] z[−55,20]; F4 x[−60,60] z[−88,−80] (north strip, after G2). 18 anchors.
+#### `forest` — Murmurwood
+- **Size/shape:** 180×180. **Height:** 0–18 m. **Attuned:** verdant. **Weather:** clear 60 / rain 20 / fog 20.
+- **Terrain:**
+  - Giant hollow trees and root arches.
+  - The **Rootgate** is a wall of interlaced roots spanning x −90..90 at z = 70. Its single opening at (0,70) is sealed by a seed-knot.
+  - An E–W ravine runs at z = −70 (15 m wide), crossed by the Rootloft canopy bridge at (−20,−70).
+- **Landmarks:**
+  - Rootgate seed-knot `rn_forest_01` (0,70), **mandatory Rootcall**. Resonance Steward at (8,76).
+  - Great Hollow Tree (30,−35) with Rootloft Hall door (40,−50).
+  - Murmurwood Chordstone (−50,40), `ws_forest`.
+  - Humming hollow where the Stillmark crew works with their coil-rig (25,−25).
+  - Thornwood thicket (−70,−45).
+  - Dormant brass lantern-lode (60,55).
+- **Exits:** `x_forest_s` (0,90); `x_forest_n` (−20,−90).
+- **Spawns:** `sp_forest_s` (0,82,0); `sp_forest_n` (−20,−82,180); `sp_forest_hall` (40,−44,180); `sp_forest_ws` (−50,46,0).
+- **Wild regions** (all north of the Rootgate): {(−55,45),r20}, {(50,40),r22}, {(−55,−15),r22}, {(0,−85),r10}.
+- **Battle stages:** (0,40,90), (−30,0,90), (30,−15,90), (−20,−82,90).
+- **Hearthrest:** none. Safe-return is the last Hearthrest used.
 
-#### `route_2` — Pebblerun Trail (WN)
-- **Size/shape:** 100×200, N–S uphill. **Height:** 0 (south) → 25 (north). **Attuned:** gale.
-- **Terrain:** boulder fields, a creek gorge crossing at z = 20 with a rope bridge (0, 20); ledged cliffs on the east side; cracked stone wall on the west edge (−50, 20) (secret tunnel, sealed from this side).
-- **Landmarks:** rope bridge (0, 20); Bloom vine cliff (30, −50) (secret ledge, 8 m up); Updraft vent (−30, −20) (kite contest, optional); stone town-gate arch (0, −80).
-- **Exits:** x_r2_s (0, 100) → forest; x_r2_n (0, −100) → town_2; x_r2_w (−50, 20) → cave (after `flag_tunnel_open`).
-- **Spawn points:** from forest (0, 92, 0); from town_2 (0, −92, 180); from cave (−42, 20, 90).
-- **Safe-return:** town_2 Tending House if `flag_town2_arrived`, else Forest Camp.
-- **Weather:** clear 75 / rain 25. **Roaming max:** 7. **Spawn regions:** R2a x[−45,−5] z[50,95]; R2b x[5,45] z[−30,15]; R2c x[−45,45] z[−65,−35]. 15 anchors.
+#### `route_2` — Brackenridge Pass
+- **Size/shape:** 100×200. **Height:** 0 → 25 m (rising north). **Attuned:** stone. **Weather:** clear 75 / rain 25 (CD's hail flurry is cosmetic only).
+- **Terrain:** heather ridges, dry-stone walls, and a creek gorge at z = 20 crossed by a rope bridge (0,20).
+- **Landmarks:**
+  - Ridge cairn Chordstone (−20,−50), `ws_route_2`.
+  - Optional Heave boulder shortcut `rn_route_2_01` at (25,40), CD's Heave tutorial.
+  - Kite-ridge Gust vent `rn_route_2_02` (30,−50).
+  - Cracked west wall (−50,20), the tunnel to the cave, sealed from this side.
+  - Town arch (0,−80).
+- **Exits:** `x_route_2_s` (0,100); `x_route_2_n` (0,−100); `x_route_2_w` (−50,20), which needs `rn_cave_03` solved.
+- **Spawns:** `sp_route_2_s` (0,92,0); `sp_route_2_n` (0,−92,180); `sp_route_2_w` (−42,20,90); `sp_route_2_ws` (−20,−46,0).
+- **Wild regions:** {(−25,70),r20}, {(25,−5),r20}, {(0,−55),r18}.
+- **Battle stages:** (0,60,90), (−10,−20,90), (0,−65,90) for rival 2.
+- **Peddler:** Wick's cart at (35,65).
 
-#### `town_2` — Pinwheel Rise (WN)
-- **Size/shape:** 150×150 terraced hill town. **Height:** 0 (south gate) → 30 (north crest). **Attuned:** none (trial_2 interior overrides to gale).
-- **Terrain:** four terraces linked by stairs and ramps (max slope 30°); seven working windmills turned by gale creatures on harnesses (ambient, non-interactive except the lift).
-- **Landmarks:** Pinwheel Hall (trial_2) door (0, −55) on the crest; Tending House counter (20, 20); shop counter (32, 8); `ws_town_2` (0, 12); tea house (archivist) (−30, 15); Windmill Lift (45, −30) (Spark secret); **Gust Gap** on the west edge — a 14 m chasm x −70..−56 at z 0 with Updraft vents at (−63, 0) east side and (−71, 0) west side (G3); lake path boulder (40, −66) (G5).
-- **Exits:** x_t2_s (0, 75) → route_2; x_t2_w (−75, 0) → route_3; x_t2_n (40, −75) → lake.
-- **Spawn points:** from route_2 (0, 67, 0); from route_3 (−67, 0, 90); from lake (40, −67, 180); `ws_town_2` arrival (0, 16, 0).
-- **Safe-return:** Tending House (20, 26, 0).
+#### `town_2` — Knellstone
+- **Size/shape:** 150×150 quarry town carved into a cliff. **Height:** 0 (south) → 30 (crest). **Attuned:** neutral; the Knell Hall interior is stone.
+- **Terrain:** terraced streets, quarry cranes, bell towers.
+- **Landmarks:**
+  - Knell Hall door (0,−55).
+  - Hearthrest with Chandlery (20,20).
+  - Knellstone Chordstone in the bell yard (0,12), `ws_town_2`.
+  - Tea house (Marra Aske) (−30,15).
+  - Quarry crane lift, Spark node `rn_town_2_01` (45,−30).
+  - Quarry lift gate to the cave (−70,0), gated by `flag_trial_2_cleared`.
+  - Rockfall face to the lake (40,−70). It cannot be opened from this side.
+- **Exits:** `x_town_2_s` (0,75); `x_town_2_w` (−75,0); `x_town_2_n` (40,−75), which needs `rn_lake_02` solved.
+- **Spawns:** `sp_town_2_s` (0,67,0); `sp_town_2_w` (−67,0,90); `sp_town_2_n` (40,−67,180); `sp_town_2_hall` (0,−49,180); `sp_town_2_hearth` (20,26,0); `sp_town_2_ws` (0,16,0).
+- **Battle stages:** (−40,30,90), (0,−40,90).
 
-#### `route_3` — Hollowstep Road (WN)
-- **Size/shape:** 200×100, E–W canyon. **Height:** 0–15 m. **Attuned:** shade.
-- **Terrain:** sandstone canyon floor, four sinkholes (three fenced; one at (30, 30) curtained by a shade-veil — Veil secret), a flat-topped mesa (−10, −35) top y = 15 (Updraft vent at its foot (−10, −22)), dead-tree grove (−40, 20).
-- **Landmarks:** mesa; dead-tree grove (night storyteller); cave mouth (−95, 0) framed by crystal outcrops.
-- **Exits:** x_r3_e (100, 0) → town_2; x_r3_w (−100, 0) → cave.
-- **Spawn points:** from town_2 (92, 0, 270); from cave (−92, 0, 90).
-- **Safe-return:** town_2 Tending House.
-- **Weather:** clear 60 / rain 15 / fog 25. **Roaming max:** 7. **Spawn regions:** R3a x[50,90] z[−40,40]; R3b x[−30,30] z[−10,45]; R3c x[−80,−40] z[−45,−5]. 15 anchors.
+#### `cave` — The Undertone
+- **Size/shape:** 180×180. A single-level heightfield (D17) with rim walls and a ceiling shell at y 14. **Height:** 0–10 m. **Attuned:** electric. **Lighting:** interior. **Weather:** none.
+- **Terrain:**
+  - Mine galleries open into crystal caverns.
+  - A rock wall along x = 0 (z −90..90) splits the zone into two areas:
+    - **Upper galleries** (east, x > 0), entered from town_2.
+    - **Lower galleries** (west, x < 0), entered through one 8 m passage at (0,−10). A cracked boulder, `rn_cave_01`, blocks the passage: **mandatory Heave**. Resonance Steward at (6,−4).
+- **Landmarks:**
+  - Undertone Chordstone (70,10), `ws_cave`, next to the miners' camp.
+  - Brass lift, Spark node `rn_cave_02` (40,0). It is a shortcut to the upper ledge (45,10).
+  - Stillmark siphon coil on the lower-gallery Chordstone (−50,−55).
+  - Miners' strays pen (−65,−40).
+  - Seep grate `rn_cave_04` (−70,20).
+  - Cracked south wall `rn_cave_03` (60,78).
+- **Exits:** `x_cave_e` (90,0); `x_cave_nw` (−60,−90), gated by `flag_cave_miners_saved`; `x_cave_s` (60,90), optional.
+- **Spawns:** `sp_cave_e` (82,0,270); `sp_cave_nw` (−60,−82,180); `sp_cave_s` (60,82,0); `sp_cave_ws` (70,16,0).
+- **Wild regions:**
+  - Upper: {(50,−40),r20}, {(40,50),r20}.
+  - Lower: {(−45,20),r20}, {(−40,−70),r15}. These activate after `flag_cave_heave_gate`.
+- **Roaming split:** 3 upper + 3 lower (6 total).
+- **Battle stages:** (60,−20,90), (30,35,90), (−30,20,90), (−45,−50,90) for Brann.
 
-#### `cave` — Geode Hollows (WN)
-- **Size/shape:** 180×180 indoor cavern, two levels. **Height:** upper level y 0–10 (east half and north-west gallery); deep level y −30 to −10 (south-west), connected by a spiral ramp centered (0, 0). **Attuned:** stone.
-- **Terrain:** crystal clusters as light sources (emissive, colored by nearest vein), rope walkways, underground stream; deep level has a cold chamber (−70, 20) with frost-rimed walls.
-- **Landmarks:** Cave Camp (70, 10) upper — miner healer, `ws_cave`, storage, pedlar; Hush hideout (x 15..45, z −65..−40, deep) — barricade blocks the deep passage west until `flag_cave_hideout_cleared`; Geode Amphitheater (trial_3) door (−50, −55) deep; shadow curtain (−80, −20) deep (Veil secret); cracked wall (60, 78) upper (Shift, opens tunnel to route_2).
-- **Exits:** x_cv_e (90, 0) → route_3; x_cv_s (60, 90) → route_2 (after `flag_tunnel_open`).
-- **Spawn points:** from route_3 (82, 0, 270); from route_2 (60, 82, 0); `ws_cave` arrival (70, 16, 0).
-- **Safe-return:** Cave Camp if activated, else town_2.
-- **Weather:** none; time-invariant encounters. **Roaming max:** 5 upper + 5 deep. **Spawn regions:** CU1 x[20,80] z[−40,60]; CU2 x[−70,−10] z[40,80]; CD1 x[−85,−20] z[−10,40]; CD2 x[−85,−10] z[−85,−65] (after hideout). 16 anchors.
+#### `route_3` — Sallowfen
+- **Size/shape:** 200×100, E–W reed fen on boardwalks. **Height:** 0–6 m, water level 0.3 m. **Attuned:** toxin. **Weather:** clear 45 / rain 30 / fog 25.
+- **Terrain:** boardwalks 3 m wide; violet bubbling pools (visual only); sallow willows.
+- **Landmarks:**
+  - Half-sunk Chordstone (−20,0), `ws_route_3`. It is silenced until `flag_fen_stone_restored`.
+  - Seep fen caches `rn_route_3_01` (40,30).
+  - Veil curtain sinkhole `rn_route_3_02` (−60,30).
+  - Storyteller's willow (−40,20).
+  - Boardwalk end, where rival 3 waits (90,0).
+- **Exits:** `x_route_3_w` (−100,0); `x_route_3_e` (100,0).
+- **Spawns:** `sp_route_3_w` (−92,0,90); `sp_route_3_e` (92,0,270); `sp_route_3_ws` (−20,6,0).
+- **Wild regions:** {(60,−25),r20}, {(0,30),r18}, {(−60,−25),r18}.
+- **Battle stages:** (−30,−10,90) for Vey 1; (80,0,90) for rival 3; (30,−10,90).
 
-#### `lake` — Glasswater Lake (WN)
-- **Size/shape:** 200×200 basin. **Height:** shore 0.5–12 m, water surface y = 0. **Attuned:** water (trial_4 interior overrides to frost).
-- **Terrain:** circular lake centered (0, −10), radius 60; reed beds and pebble beaches; island centered (0, −10), radius 18; outflow channel runs north from the lake edge to the north exit, 10 m wide, crossing point (0, −80) (G6).
-- **Landmarks:** ferry dock (0, 55) ↔ island dock (0, 12); Mirror Pavilion (trial_4) door (0, −20) on island; Lake Lodge (60, 70) — healer, `ws_lake`, storage, pedlar; Hush pump station (−75, 10) west shore; NE islet (45, −45) reachable by Surge stepping stones from (65, −45) (secret); three shore shrines (−60, −50), (60, −20), (−40, 60) (Illuminate, side quest).
-- **Exits:** x_lk_s (0, 100) → town_2; x_lk_n (0, −100) → town_3.
-- **Spawn points:** from town_2 (0, 92, 0); from town_3 (0, −92, 180); `ws_lake` arrival (60, 76, 0).
-- **Safe-return:** Lake Lodge if activated, else town_2.
-- **Weather:** clear 55 / rain 25 / fog 20. **Roaming max:** 8 (shore only; none on water or island). **Spawn regions:** L1 x[−90,−55] z[−60,60]; L2 x[55,90] z[−60,40]; L3 x[−50,50] z[62,90]; L4 x[−40,40] z[−95,−85] (north of G6). 18 anchors.
+#### `lake` — Sillowmere
+- **Size/shape:** 200×200 basin. **Height:** shore 0.5–12 m; water surface y 0. **Attuned:** water; the Mere Hall interior is also water. **Weather:** clear 55 / rain 30 / fog 15.
+- **Terrain:**
+  - Circular lake centered (0,−10), r 60, with reed-isles.
+  - Pile boardwalk from the stilt-hamlet (0,50) to the Mere Hall platform (0,−10), r 14.
+  - Outflow channel north (x −5..5) with the causeway at (0,−80), raised on `flag_trial_3_cleared`.
+- **Landmarks:**
+  - Stilt-hamlet Hearthrest (60,70).
+  - Mere Hall door (0,4).
+  - Lake Chordstone on a reed-isle, reached by boardwalk (−60,60). This is `ws_lake`.
+  - Swell current-stones `rn_lake_01` from (65,−45) to a reed-isle (45,−45).
+  - Rockfall shortcut, Heave node `rn_lake_02` (0,90).
+  - Three shore beacons for the Gleam side quest: (−60,−50), (60,−20), (−40,60).
+- **Exits:** `x_lake_w` (−100,0); `x_lake_n` (0,−100); `x_lake_s` (0,100), optional.
+- **Spawns:** `sp_lake_w` (−92,0,90); `sp_lake_n` (0,−92,180); `sp_lake_s` (0,92,0); `sp_lake_hall` (0,10,0); `sp_lake_hearth` (60,76,0); `sp_lake_ws` (−60,66,0).
+- **Wild regions** (shore only): {(−80,−20),r18}, {(75,10),r18}, {(−30,80),r15}, {(0,−92),r8}.
+- **Battle stages:** (−75,30,90), (70,40,90), (30,85,90).
 
-#### `town_3` — Crossvale (WN)
-- **Size/shape:** 160×160 plateau market town. **Height:** 0–20 m. **Attuned:** none.
-- **Terrain:** market square with awnings, ring road, stair streets up to a lookout tower; north gate is an iron portcullis fused shut by Hush rust-lock (G9).
-- **Landmarks:** Grand Market shop (35, 5); Tending House (25, 25); `ws_town_3` (0, 10); Museum of Resonance (−35, −20) with basement shadow curtain (−35, −28) (Veil secret); lookout tower (50, −50); festival stage (−10, 30) (chapter 6 event); rust-locked north gate (0, −70).
-- **Exits:** x_t3_s (0, 80) → lake; x_t3_w (−80, 0) → route_4; x_t3_n (0, −80) → route_5.
-- **Spawn points:** from lake (0, 72, 0); from route_4 (−72, 0, 90); from route_5 (0, −72, 180); `ws_town_3` arrival (0, 14, 0).
-- **Safe-return:** Tending House (25, 31, 0).
+#### `town_3` — Galewick
+- **Size/shape:** 160×160 windmill city on sea-cliffs. **Height:** 0–20 m. **Attuned:** neutral; the Vane Hall interior is gale.
+- **Terrain:** rope bridges, sail-roofed market, cliff edge along the north-west.
+- **Landmarks:**
+  - Vane Hall door (−20,−55).
+  - Hearthrest with Chandlery (25,25).
+  - Sail-market Chordstone (0,10), `ws_town_3`.
+  - Marra's Kinsong study, where she moves after `flag_trial_3_cleared` (−35,−20).
+  - Lighthouse, Spark node `rn_town_3_01` (60,−60).
+  - Sail-loft cellar, Veil node `rn_town_3_02` (−35,−28).
+  - Courier office (30,0).
+- **Exits:** `x_town_3_s` (0,80); `x_town_3_w` (−80,0); `x_town_3_n` (0,−80).
+- **Spawns:** `sp_town_3_s` (0,72,0); `sp_town_3_w` (−72,0,90); `sp_town_3_n` (0,−72,180); `sp_town_3_hall` (−20,−49,180); `sp_town_3_hearth` (25,31,0); `sp_town_3_ws` (0,14,0).
+- **Battle stages:** (−10,30,90), (40,−30,90).
 
-#### `route_4` — Ashen Switchback (WN)
-- **Size/shape:** 200×100, E–W climbing road. **Height:** 0 (east) → 40 (west). **Attuned:** toxin (sulfur drifts).
-- **Terrain:** three switchbacks, grey-violet ash drifts, sulfur crust patches, steam vents (cosmetic); **Scorch Gap** chasm x −70..−55 at z 5 with Updraft vents at (−62, 5) east and (−70, 5) west (G8).
-- **Landmarks:** hot-spring bench (60, 30) (ambient NPCs); sulfur crust (40, −30) (Dissolve secret); Scorch Gap.
-- **Exits:** x_r4_e (100, 0) → town_3; x_r4_w (−100, 0) → volcano.
-- **Spawn points:** from town_3 (92, 0, 270); from volcano (−92, 0, 90).
-- **Safe-return:** town_3 Tending House.
-- **Weather:** clear 75 / rain 25. **Roaming max:** 7. **Spawn regions:** R4a x[40,90] z[−40,40]; R4b x[−40,30] z[−40,40]; R4c x[−95,−75] z[−40,40]. 15 anchors.
+#### `route_4` — Highscar Rise
+- **Size/shape:** 200×100, E–W switchback cliffs. **Height:** lower slope y 0–12 (x > 20); upper tier y 26–40 (x < 10). **Attuned:** gale. **Weather:** clear 80 / rain 20.
+- **Terrain:** a 14 m cliff face along x = 15 separates the lower slope from the upper tier. The only way up is the **Gust updraft vent** `rn_route_4_01` at (20,5), which lands at (5,5): **mandatory Gust**. Resonance Steward at (26,10). A second vent at (8,5) takes the player back down.
+- **Landmarks:**
+  - Ribbon-marker Chordstone on the lower slope (60,30), `ws_route_4`.
+  - **Stillhouse compound** in a cliff notch on the upper tier (x −80..−30, z −48..−20), with a west wing (−70,−30), an east wing (−40,−30), and a strays pen (−55,−42), where the leftover starter is found.
+  - Stillhouse back-door Seep grate `rn_route_4_03` (−70,−45), an optional shortcut.
+  - Secret Gust vent `rn_route_4_02` (70,−35).
+- **Exits:** `x_route_4_e` (100,0); `x_route_4_w` (−100,0).
+- **Spawns:** `sp_route_4_e` (92,0,270); `sp_route_4_w` (−92,0,90); `sp_route_4_ws` (60,36,0).
+- **Wild regions:**
+  - Lower slope, gale-rich, before the vent: {(70,−20),r20}, {(50,30),r15}.
+  - Upper tier: {(−20,20),r18}.
+- **Battle stages:** (60,0,90), (−10,15,90), (−55,−32,90) for Vey 2; (−85,−5,90) for rival 4.
+- **Peddler:** Wick's cart at (80,15).
 
-#### `volcano` — Mount Kiln (WN)
-- **Size/shape:** 200×200, cone. **Height:** 0 (east base) → 70 (crater rim, ring radius 30 around (0, −30)). **Attuned:** fire.
-- **Terrain:** basalt terraces, cooled lava rivers with glowing seams (railed; no damage hazards), obsidian outcrops, sulfur vents.
-- **Landmarks:** Base Camp (80, 20) — healer, `ws_volcano`, storage, pedlar; Hush Foundry entrance (−30, 50), vault door rust-locked (−40, 60) (Dissolve, side quest); Caldera Forge (trial_5) door (0, −35) at y 55; geyser field (−70, −60) (Freeze secret); obsidian curtain (60, −60) (Veil secret).
-- **Exits:** x_vo_e (100, 0) → route_4.
-- **Spawn points:** from route_4 (92, 0, 270); `ws_volcano` arrival (80, 26, 0).
-- **Safe-return:** Base Camp if activated, else town_3.
-- **Weather:** clear 70 / fog 30 (volcanic haze). **Roaming max:** 8. **Spawn regions:** V1 x[30,90] z[−60,60]; V2 x[−90,−40] z[−40,30]; V3 x[−40,40] z[60,90]. 16 anchors.
+#### `volcano` — Mount Cindral
+- **Size/shape:** 200×200 cone. **Height:** 0 (east base) → 70 (crater rim; ring r 30 around (0,−30)). **Attuned:** fire. **Weather:** clear 45 / sunlight 30 / fog 25.
+- **Terrain:** basalt terraces, ash drifts, and lava channels (railed; no damage).
+- **Landmarks:**
+  - Base Hearthrest (80,20).
+  - Ash Flats memorial plaque (−40,60), a lore beat.
+  - Basalt Chordstone (60,−10), `ws_volcano`.
+  - Forge Hall door (0,−35). It is sealed by an overheated vent at (−6,−30). Either:
+    - cool it with Swell node `rn_volcano_01`, **or**
+    - talk to the hall steward npc at (6,−30).
 
-#### `route_5` — Rimewind Pass (WN)
-- **Size/shape:** 100×200, N–S alpine pass. **Height:** 0 → 50; snowline at z = 0 (north half snow-covered). **Attuned:** frost.
-- **Terrain:** pine scree in the south, wind-carved snow in the north; a fast glacial river crosses east–west at z = 10 (12 m wide), crossing point (0, 10) (G10); avalanche boulder at (−35, −40) (Shift secret).
-- **Landmarks:** river crossing; prayer-flag cairns every 30 m along the path (ambient); rival camp (0, −85).
-- **Exits:** x_r5_s (0, 100) → town_3; x_r5_n (0, −100) → snowpeak.
-- **Spawn points:** from town_3 (0, 92, 0); from snowpeak (0, −92, 180).
-- **Safe-return:** Snowpeak Refuge if activated, else town_3.
-- **Weather:** clear 40 / snow 40 / fog 20. **Roaming max:** 7. **Spawn regions:** R5a x[−45,45] z[30,90]; R5b x[−45,45] z[−30,−5]; R5c x[−45,45] z[−75,−40]. 15 anchors.
+    Both open the door, so this is not a type gate.
+  - Kindle thornwood `rn_volcano_02` (−70,−60).
+  - Seep grate `rn_volcano_03` (60,−60).
+- **Exits:** `x_volcano_e` (100,0).
+- **Spawns:** `sp_volcano_e` (92,0,270); `sp_volcano_hall` (0,−29,180); `sp_volcano_hearth` (80,26,0); `sp_volcano_ws` (60,−4,0).
+- **Wild regions:** {(60,40),r22}, {(−60,0),r22}, {(0,75),r15}.
+- **Battle stages:** (50,20,90), (−40,−10,90), (10,60,90).
 
-#### `snowpeak` — Aurora Crown (WN)
-- **Size/shape:** 200×200 mountain. **Height:** 0 (south) → 90 (summit plateau, north). **Attuned:** lumen (aurora).
-- **Terrain:** switchback ledges, ice falls, aurora ribbons overhead at night; dark ice tunnel (0, −55), 25 m long, opening onto the summit plateau (0, −80), y 90.
-- **Landmarks:** Snowpeak Refuge (40, 60) — healer, `ws_snowpeak`, storage, pedlar; Aurora Observatory (trial_6) door (−50, −15), y 60; ice tunnel mouth (0, −55) with dormant light crystals (G11); dark ice tunnel runs z −55 → −78; Hush Great Damper on the summit plateau (0, −90); Summit Gate to league (0, −94) (G12); ice wall (70, 40) (Kindle secret).
-- **Exits:** x_sp_s (0, 100) → route_5; x_sp_n (0, −100) → league.
-- **Spawn points:** from route_5 (0, 92, 0); from league (0, −92, 180); `ws_snowpeak` arrival (40, 66, 0).
-- **Safe-return:** Snowpeak Refuge if activated, else town_3.
-- **Weather:** clear 35 / snow 45 / fog 20. **Roaming max:** 8 (none on the summit plateau z < −60). **Spawn regions:** S1 x[−80,80] z[60,90]; S2 x[−90,−20] z[0,50]; S3 x[20,90] z[−40,20]. 16 anchors.
+#### `route_5` — Gloamstair
+- **Size/shape:** 100×200, N–S stone stairway across twilight tundra. **Height:** 0 → 50. **Attuned:** shade, but silenced (no bonus) until `flag_nullbell_broken`. **Weather:** clear 40 / snow 40 / fog 20. Lighting is fixed at blue hour; the encounter bands still follow the clock.
+- **Landmarks:**
+  - Frozen standing-stone Chordstone (0,40), `ws_route_5`. It is silenced, but fast travel still works (CD R6).
+  - Heave boulder cave `rn_route_5_01` (−35,−40).
+  - Veil curtain `rn_route_5_02` (30,20).
+  - Stair top, where Odile appears (0,−88).
+  - **Dawn Prism pickup** (−30,−60).
+- **Exits:** `x_route_5_s` (0,100); `x_route_5_n` (0,−100).
+- **Spawns:** `sp_route_5_s` (0,92,0); `sp_route_5_n` (0,−92,180); `sp_route_5_ws` (0,46,0).
+- **Wild regions:** {(0,70),r22}, {(−20,−5),r20}, {(20,−50),r18}.
+- **Battle stages:** (0,60,90), (0,−65,90) for rival 5; (20,−20,90).
 
-#### `league` — Chorus Spire (WN; extra zone documented per ANCHORS)
-- **Size/shape:** 80×80 open-air amphitheater of stacked, singing stone rings above the clouds. **Height:** 0–12 m. **Attuned:** none (neutral for fairness).
-- **Landmarks:** gate hall (0, 30) — healer, `ws_league`, storage, tier-4 kiosk; antechamber stage (0, 10) (rival final); champion stage (0, −20).
-- **Exits:** x_lg_s (0, 40) → snowpeak.
-- **Spawn points:** from snowpeak (0, 32, 0); `ws_league` arrival (0, 26, 0).
-- **Safe-return:** gate hall (0, 26).
+#### `snowpeak` — Hoarcrown
+- **Size/shape:** 200×200. **Height:** 0 (south) → 90 (summit, north). **Attuned:** frost; suppressed during Odile's phase A only (D22). **Weather:** clear 35 / snow 45 / fog 20.
+- **Terrain:**
+  - A glacier foot (z > 40).
+  - **Frozen falls** at (0,40): a 20 m waterfall. **Mandatory Rime** node `rn_snowpeak_01` freezes it into stairs up to the upper terraces. Resonance Steward at (8,46).
+  - Upper terraces (z −60..40).
+  - Summit ring (z < −70).
+- **Landmarks:**
+  - Snowpeak lodge Hearthrest (40,60), below the falls.
+  - Rime-crusted Chordstone ring on the summit (0,−84). The Null Bell, the Stillmark's master Stillbell, hangs there.
+  - Rime Hall door (−50,−15).
+  - Summit path (0,−60). Brann blocks it until `flag_trial_6_cleared`.
+  - Lodge-side Chordstone (30,70), `ws_snowpeak`.
+  - Kindle ice plug `rn_snowpeak_02` (70,40).
+  - Gleam beacon `rn_snowpeak_03` (−70,−70).
+  - Resonance lift platform to the league (0,−94).
+- **Exits:** `x_snowpeak_s` (0,100); `x_snowpeak_n` (0,−100).
+- **Spawns:** `sp_snowpeak_s` (0,92,0); `sp_snowpeak_n` (0,−92,180); `sp_snowpeak_hall` (−50,−9,180); `sp_snowpeak_hearth` (40,66,0); `sp_snowpeak_ws` (30,76,0).
+- **Wild regions:**
+  - Glacier foot, frost-rich, before the falls: {(−40,70),r22}.
+  - Upper terraces: {(50,−10),r20}, {(−60,20),r18}.
+  - None on the summit ring.
+- **Battle stages:** (−30,60,90), (40,0,90), (0,−80,90) for Odile.
+
+#### `league` — Concord Spire
+- **Size/shape:** 80×80 open-air tuned-stone spire. **Height:** 0–12 m. **Attuned:** neutral. **Lighting:** fixed golden hour.
+- **Landmarks:**
+  - Lift landing (0,30) with a Hearthrest and a kiosk (an addition; see §11 Q3).
+  - Six Keynote sockets at the door (0,20).
+  - Landing stage for rival 6 (0,10).
+  - Concordant's stage (0,−20).
+  - `ws_league` (−10,30).
+- **Exits:** `x_league_s` (0,40).
+- **Spawns:** `sp_league_s` (0,32,0); `sp_league_hearth` (0,26,0).
+- **Battle stages:** (0,4,90), (0,−14,90).
 - **Wild:** none.
 
-#### Trial interiors `trial_1`..`trial_6` (shared layout 40×60)
-- Door (0, 30), arrival (0, 24, 0); junior trainer spots (−8, 10), (8, 0), (0, −8); leader stage (0, −20); battle stage centered (0, −14).
-- Each interior has a short, **type-free** traversal puzzle (pressure plates, rotating bridges, wind-fan timing) so no trial requires a specific creature type. Juniors are optional (the path routes around their sight lines).
-- Interior attuned type = trial type (§2.2).
+#### Cadence Hall interiors `trial_1`..`trial_6` (40×60)
+- **Layout:** door (0,30); hall Tuner posts (−8,10) and (8,0); Cantor stage (0,−20).
+- **Battle stages:** (0,4,90) for hall Tuners; (0,−14,90) for the Cantor.
+- **Gimmicks** follow CD §4, with world rules:
+  - Hall 1 vine bridges have a **lever alternative** at every regrow point, so Rootcall is never required inside the hall.
+  - Hall 3 drains one water level per defeated hall Tuner, so both hall Tuners are mandatory there.
+  - Hall 6 rime panels have a lever for players without Kindle.
+  - Halls 2, 4 and 5 are type-free.
 
 ---
 
 ## 2. Places
 
-### 2.1 Healing, storage, shops
+### 2.1 Hearthrests, Chandleries, peddler
 
-| Location | Zone | Position | Heal | Storage terminal | Shop / pedlar | Waystone |
-|---|---|---|---|---|---|---|
-| Tending House | `town_1` | (−22, 22) | yes | yes | Trading Post (0, 30), base tier 1 | `ws_town_1` (0, 6) |
-| Forest Camp | `forest` | (−50, 40) | yes | yes | pedlar (tier P) | `ws_forest` (−50, 42) |
-| Tending House | `town_2` | (20, 20) | yes | yes | shop (32, 8), base tier 2 | `ws_town_2` (0, 12) |
-| Cave Camp | `cave` | (70, 10) | yes | yes | pedlar (tier P) | `ws_cave` (70, 12) |
-| Lake Lodge | `lake` | (60, 70) | yes | yes | pedlar (tier P) | `ws_lake` (60, 72) |
-| Tending House | `town_3` | (25, 25) | yes | yes | Grand Market (35, 5), base tier 3 | `ws_town_3` (0, 10) |
-| Base Camp | `volcano` | (80, 20) | yes | yes | pedlar (tier P) | `ws_volcano` (80, 22) |
-| Snowpeak Refuge | `snowpeak` | (40, 60) | yes | yes | pedlar (tier P) | `ws_snowpeak` (40, 62) |
-| Gate hall | `league` | (0, 30) | yes | yes | kiosk (tier 4) | `ws_league` (0, 22) |
+| Hearthrest | Zone @ (x,z) | Keeper | Chandlery | Storage (Fosterage ledger) | Recall |
+|---|---|---|---|---|---|
+| Larkhollow | town_1 (−22,22) | Maud | Pip, tier A | yes | yes |
+| Knellstone | town_2 (20,20) | Tobin | Garrow, tier B | yes | yes |
+| Sillowmere stilt-hamlet | lake (60,70) | generic keeper | generic, tier B | yes | yes |
+| Galewick | town_3 (25,25) | Ysolde | Nell, tier C | yes | yes |
+| Cindral base | volcano (80,20) | generic keeper | generic, tier C | yes | yes |
+| Hoarcrown lodge | snowpeak (40,60) | generic keeper | generic, tier C | yes | yes |
+| Concord landing | league (0,30) | generic keeper | kiosk, tier D | yes | yes |
 
-**Shop tiers** (item ids provisional; Systems Designer owns prices/effects and may rename):
+**Chandlery inventories.** Ids come from `items.json`. Each item is sold from the unlock point given in systems §7.1/§12.1. A shop shows an item only when both its tier and the item's unlock are met.
 
-| Tier | Adds these items |
+| Tier | Items |
 |---|---|
-| P (pedlar) | `i_capture_t1`, `i_tonic_s`, `i_cure_basic` |
-| 1 | P + `i_escape_rope` (exits area/route to last healing point) |
-| 2 | 1 + `i_capture_t2`, `i_tonic_m`, `i_revive`, `i_cure_all`, discs D21, D22 (town_2 only) |
-| 3 | 2 + `i_capture_t3`, `i_tonic_l`, `i_charge_restore`, discs D23, D24 (town_3 only) |
-| 4 | 3 + `i_capture_t4`, `i_tonic_max`, `i_revive_full` |
+| A | `i_chime_reed`, `i_salve_1`, `i_cure_burn`, `i_cure_poison`, `i_cure_para`, `i_cure_sleep`, `i_cure_frost`, `i_escape`. After trial_1 it adds `i_chime_brass`, `i_salve_2`, `i_repel_1`, and discs `i_disc_03` and `i_disc_11` (Larkhollow only). |
+| B | A, plus `i_cure_all`, `i_revive_1`, `i_charge_1` (after trial_2); `i_chime_silver`, `i_salve_3`, `i_repel_2` (after trial_3). Knellstone also sells discs `i_disc_01`, `i_disc_06`, `i_disc_08`, `i_disc_12`. |
+| C | B, plus `i_chime_crown`, `i_salve_4` (after trial_5). Galewick also sells `i_disc_14`, `i_disc_16`, `i_evo_prism`. |
+| D | C, everything unlocked. |
 
-Effective tier of a town shop = max(base tier, crest tier) where crest tier = 1 (0–1 crests), 2 (2–3 crests), 3 (4–6 crests). Discs stay tied to their town. Tier 4 is sold only at the league kiosk. Pedlars never upgrade (guaranteed cheap capture devices everywhere).
+**Wick's cart** (traveling peddler). It appears at route_2 (35,65) and route_4 (80,15). The stock rotates **by Keynote count**, with no clock involved: 0–1 Keynotes `i_repel_1` ×3; 2 `i_cure_all`; 3 `i_charge_1`; 4 `i_revive_1`; 5 `i_salve_4`; 6 `i_chime_crown`. Each item costs the list price minus 10%.
 
-### 2.2 Trial venues and champion (required order)
+### 2.2 Cadence Halls and champion (order is enforced by the graph and by the door checks)
 
-| Venue | Host | Type (interior attuned) | Leader (WN) | Opens when | Leader team | Reward |
+The hall Tuner count includes the mandatory hall Tuners. Trainer levels follow systems §14.1.
+
+| Venue | Cantor (`t_cantor_N`) | Type | Door opens when | Hall Tuners | Cantor team (levels) | Reward |
 |---|---|---|---|---|---|---|
-| `trial_1` Lantern Grove | `forest` | verdant | Lantern-warden Pim | `flag_forest_damper_removed` | 3, Lv 10–12 (ace Lv 12) | `i_crest_1`, D01, unlocks **Bloom**, enables fast travel |
-| `trial_2` Pinwheel Hall | `town_2` | gale | Miller Aeri | `flag_trial_1_cleared` | 3, Lv 16–18 | `i_crest_2`, D02, **Updraft** |
-| `trial_3` Geode Amphitheater | `cave` | stone | Sculptor Tamaru | `flag_trial_2_cleared` ∧ `flag_cave_hideout_cleared` | 4, Lv 22–25 | `i_crest_3`, D03, **Shift** |
-| `trial_4` Mirror Pavilion | `lake` island | frost | Skater Ilse | `flag_trial_3_cleared` ∧ `flag_lake_pump_stopped` (ferry) | 4, Lv 29–32 | `i_crest_4`, D04, **Freeze** |
-| `trial_5` Caldera Forge | `volcano` | fire | Smith Oduya | `flag_trial_4_cleared` ∧ `flag_foundry_raided` | 5, Lv 35–39 | `i_crest_5`, D05, **Dissolve** |
-| `trial_6` Aurora Observatory | `snowpeak` | lumen | Astronomer Lio | `flag_trial_5_cleared` | 6, Lv 40–45 | `i_crest_6`, D06, **Illuminate** |
-| `champion` Chorus Spire | `league` | neutral | Champion Solenne | 6 crests ∧ `flag_faction_boss_defeated` | 6, Lv 46–50 | `flag_champion_defeated`, credits, postgame |
+| trial_1 Rootloft | Wren Mossgrave | verdant | `flag_stillmark_first_seen` | 2 | 2: 12, 14 | `i_keynote_1` → **Heave**; `i_disc_05` |
+| trial_2 Knell | Dorran Flint | stone | `flag_rival_2_done` | 2 | 3: 17, 18, 20 | `i_keynote_2` → **Seep**; `i_disc_10` |
+| trial_3 Mere | Nerys Tidewell | water | `flag_rival_3_done` | 2 (mandatory) | 3: 23, 24, 26 | `i_keynote_3` → **Gust**; `i_disc_02` |
+| trial_4 Vane | Tamsin Galloway | gale | `flag_trial_3_cleared` | 2 | 4: 29, 30, 30, 32 | `i_keynote_4` → **Veil**; `i_disc_13` |
+| trial_5 Forge | Bastian Coalridge | fire | `flag_rival_4_done` + vent cooled | 2 | 4: 35, 36, 36, 38 | `i_keynote_5` → **Rime**; `i_disc_15` |
+| trial_6 Rime | Isaure Frostmere | frost | `flag_trial_5_cleared` | 2 | 5: 40, 41, 41, 42, 43 | `i_keynote_6` → **Gleam**; `i_disc_18` |
+| champion | the Concordant, Rhea Rookwell | mixed, lumen ace | `flag_spire_open` ∧ `flag_rival_6_done` | — | 6: 46, 47, 47, 48, 48, 50 | `flag_champion_defeated` → `flag_game_cleared` |
 
-Order is enforced twice: geographically (each next trial sits behind a gate that needs the previous crest's action) and by the door check. A locked trial door shows a closed-shutter animation and a sign reading which crest is required.
+### 2.3 Resonance registers (D2, CD §6.2)
 
-### 2.3 Resonance field-action categories and unlock schedule (WN verbs)
-
-| Category | Type | Marked object | Effect | Unlocked by | Persistence |
-|---|---|---|---|---|---|
-| Spark | electric | copper conduit socket | powers gate/lift/lantern | `flag_starter_chosen` (Tuning Fork given in ev_01) | per-object flag |
-| Kindle | fire | bramble knot / ice wall | burns/melts away | same | per-object flag |
-| Surge | water | dry channel / stepping-stone basin | raises water, lifts stepping stones | same | per-object flag |
-| Bloom | verdant | glowing sprout | grows vine bridge / ladder | `flag_trial_1_cleared` | per-object flag |
-| Updraft | gale | spiral vent | lifts and glides player (+ lead) across a gap, max 16 m | `flag_trial_2_cleared` | none needed (vents on both sides) |
-| Shift | stone | fractured boulder / cracked wall | rolls boulder 6 m or collapses wall | `flag_trial_3_cleared` | per-object flag |
-| Freeze | frost | rippling water marker | freezes a 4 m-wide ice path | `flag_trial_4_cleared` | per-object flag (never thaws) |
-| Veil | shade | shadow curtain | lets the party pass through | `flag_veil_unlocked` (story, cave, chapter 4) | none needed (repeatable) |
-| Dissolve | toxin | Hush rust-lock | corrodes the lock | `flag_trial_5_cleared` | per-object flag |
-| Illuminate | lumen | dormant light crystal | lights crystals, reveals hidden items within 10 m for 60 s | `flag_trial_6_cleared` | per-object flag for crystals |
-
-### 2.4 Fast travel (Waystones)
-
-- 9 waystones: `ws_town_1`, `ws_forest`, `ws_town_2`, `ws_cave`, `ws_lake`, `ws_town_3`, `ws_volcano`, `ws_snowpeak`, `ws_league` (positions in §2.1; arrival = 4 m in front of the stone, listed in zone sheets).
-- **Activation (unlock on visit):** town waystones activate automatically on first entering the town; area waystones activate when the player interacts within 3 m (tutorial prompt the first time). Activation is saved immediately as `ws_<id>` in the save's `waystones[]` list and also sets that rest site as the zone's safe-return.
-- **Feature enable:** travel between waystones is enabled when `flag_trial_1_cleared` (Crest 1 "tunes" the stones — told in trial_1 dialogue). Before that, stones still activate and heal-return works.
-- **Use:** from the Map menu in exploration state, in any exterior zone. Disabled inside trial interiors, during dialogue/battle/cutscene, and during the ferry crossing. Free, no cost. Transition = standard zone-load fade.
-
-### 2.5 Safe-return (party wipe) rules
-1. Player is moved to the zone's safe-return point (zone sheets) with party healed; money penalty per Systems.
-2. Story state is not advanced: a lost mandatory Hush/leader battle resets that trainer; the player may retry. Rival battles are **non-blocking**: win or lose, the rival flag is set and dialogue branches (a loss still triggers the wipe/return).
-3. Wipes never move the player across a gate they have not opened.
-
-### 2.6 Story events (chapter, trigger, flags). Chapter plot beats are WN pending the Creative Director.
-
-| Id | Ch | Zone @ (x,z) | Trigger / requires | Sets | Gist |
-|---|---|---|---|---|---|
-| ev_01 | 1 | town_1 Atelier | new game | `flag_starter_chosen` | Mentor presents three starters on tuning pedestals; each reacts to the player (starter picks back). Mentor gives Tuning Fork (`i_key_tuner`), 5 `i_capture_t1`, 3 `i_tonic_s`. |
-| ev_02 | 1 | town_1 (5, −35) | leaving Atelier | `flag_rival_1_done` | Rival bursts in, chooses the starter "next to yours" (see §5.2), battles 1v1 Lv 5. |
-| ev_03 | 1 | route_1 (0, −20) | reaching Tri-Gate | `flag_resonance_tutorial_done` | Mentor's voice via Tuning Fork: explains Resonance; the socket matching your starter glows; field action opens the gate. |
-| ev_04 | 2 | forest (25, −25) | entering z < 0 in forest | `flag_forest_damper_removed` after beating t_hush_g01, t_hush_g02 | The Hush's grey Damper is draining color and sound from the Great Lantern Tree; lanterns go dark around it. Defeat two members; tree lights back up in a color wave. |
-| ev_05 | 2 | trial_1 | clear trial | `flag_trial_1_cleared`, `flag_fasttravel_enabled` | Pim awards Crest 1, teaches Bloom, "tunes" waystones. |
-| ev_06 | 3 | route_2 (0, −70) | approach town arch | `flag_rival_2_done` | Rival 2 (3 creatures). Rival brags about Crest 1 time. |
-| ev_07 | 3 | town_2 (0, 60) | enter town | `flag_town2_arrived` | Windmill festival banners; archivist introduces encyclopedia survey. |
-| ev_08 | 3 | trial_2 | clear | `flag_trial_2_cleared` | Updraft taught at Gust Gap by Aeri personally. |
-| ev_09 | 4 | route_3 (−80, 5) | reaching cave mouth | `flag_route3_blockade_cleared` | Hush member blocks the cave "survey site"; battle. |
-| ev_10 | 4 | cave deep (30, −55) | reaching barricade | `flag_cave_hideout_cleared` after t_hush_g04, t_hush_g05, t_hush_admin_1 | Hideout: Dampers muting a geode chorus. After Admin 1, a freed shade creature's "echo" teaches the Tuning Fork **Veil** → `flag_veil_unlocked`. |
-| ev_11 | 4 | trial_3 | clear | `flag_trial_3_cleared` | Shift taught. Tamaru tells you the boulder in town_2 hides the lake path. |
-| ev_12 | 5 | town_2 Tending House (20, 26) | enter town_2 with `flag_trial_3_cleared` | `flag_gift_a_received` | **Mentor arrives with starter gift A** (§5.2). Auto-trigger; cannot be missed because G5 is in town_2. |
-| ev_13 | 5 | lake (−75, 10) | approach pump | `flag_lake_pump_stopped` after t_hush_g06 | Hush pump is draining the lake's "voice"; ferryman refuses to sail until stopped. |
-| ev_14 | 5 | lake dock (0, 58) | after ev_13 | `flag_rival_3_done` | Rival 3 at the dock, then rides the ferry with you (dialogue only). |
-| ev_15 | 5 | trial_4 | clear | `flag_trial_4_cleared` | Freeze taught; Ilse freezes the outflow channel's first stretch as a demo. |
-| ev_16 | 6 | town_3 (−10, 30) | enter town_3 | `flag_town3_arrived` | Lantern festival; Hush rust-lock seals north gate overnight (cutscene); news of the Foundry on Mount Kiln. |
-| ev_17 | 6 | volcano (−30, 50) | Foundry entrance | `flag_foundry_raided` after t_hush_g08, t_hush_admin_2 | Admin 2 flees toward the summit; a vault door (rust-locked) is left behind (sets up q_side_foundry_rescue). |
-| ev_18 | 6 | trial_5 | clear | `flag_trial_5_cleared` | Dissolve taught. Oduya: "that lock on Crossvale's gate is our lock — undone the same way." |
-| ev_19 | 7 | route_5 (0, −85) | approach | `flag_rival_4_done` | Rival 4 (5 creatures); rival joins the effort against the Hush. |
-| ev_20 | 7 | trial_6 | clear | `flag_trial_6_cleared` | Illuminate taught; aurora brightens. |
-| ev_21 | 8 | snowpeak (0, −84) | cross ice tunnel | `flag_faction_boss_defeated` | Great Damper is muting the whole region; Director Vell battle (6). Damper shatters; color and sound pulse outward (region-wide visual event: all zones get +1 festival prop set). |
-| ev_22 | 8 | league (0, 10) | enter antechamber | `flag_rival_final_done` | Final rival battle (6). |
-| ev_23 | 8 | league (0, −20) | talk to champion | `flag_champion_defeated` | Champion battle (6), credits, postgame (`flag_postgame`). |
-
-### 2.7 Secrets (all optional)
-
-| Id | Zone @ (x,z) | Requires | Reward |
-|---|---|---|---|
-| sec_01 | route_1 islet (−30, −45) | Surge at (−24, −42) | D07 |
-| sec_02 | forest thicket (−70, −45) | Kindle | `i_capture_t2` ×3, `i_tonic_m` |
-| sec_03 | forest conduit (60, 55) | Spark | lantern path to D09 at (70, 70) |
-| sec_04 | route_2 cliff (30, −50) | Bloom | ledge with D10 |
-| sec_05 | cave cracked wall (60, 78) | Shift | tunnel to route_2 (`flag_tunnel_open`) |
-| sec_06 | cave curtain (−80, −20) | Veil | chamber: D13, `i_capture_t3` ×2 |
-| sec_07 | town_2 Windmill Lift (45, −30) | Spark | rooftop: `i_capture_t3`, panoramic view |
-| sec_08 | route_3 mesa top (−10, −35) | Updraft at (−10, −22) | `i_charge_restore` ×2 |
-| sec_09 | route_3 sinkhole (30, 30) | Veil | D12 |
-| sec_10 | lake NE islet (45, −45) | Surge at (65, −45) | D14 |
-| sec_11 | town_3 museum basement (−35, −28) | Veil | D15, mural lore |
-| sec_12 | route_4 sulfur crust (40, −30) | Dissolve | D16 |
-| sec_13 | volcano geyser field (−70, −60) | Freeze | hidden ledge: `i_capture_t4` |
-| sec_14 | volcano obsidian curtain (60, −60) | Veil | D18 |
-| sec_15 | route_5 avalanche cave (−35, −40) | Shift | D19 |
-| sec_16 | snowpeak ice wall (70, 40) | Kindle | D20, `i_capture_t4` |
-
-Every secret is reachable once its action is unlocked; starter-type secrets (Spark/Kindle/Surge) become universally available because both unchosen starters are guaranteed by chapter 6 (§5.2).
-
-### 2.8 NPCs (non-battling unless noted; positions zone-local)
-
-| Id | Zone | Pos (x,z) | Role | Dialogue gist |
+| Register | Type | Node kind | Unlocked by | Mandatory node (flag set) |
 |---|---|---|---|---|
-| npc_mentor | town_1 → town_2 (ch5) | (−25, −24) Atelier; (18, 26) town_2 | mentor, starter giver, gift A | Warm, tinkering instrument-maker; "creatures hum back when you listen." Gives Tuning Fork. |
-| npc_guardian | town_1 | (20, 25) | player's aunt, tea stall | Sends you off with snacks; later comments on each crest. |
-| npc_rival | varies | see trainers | rival | Loud, competitive, secretly anxious about not "hearing" creatures; grows into ally. |
-| npc_t1_healer | town_1 | (−22, 22) | Tending House | Heals, offers rest-until-dawn/dusk. |
-| npc_t1_shop | town_1 | (0, 30) | Trading Post | Sells tier list. |
-| npc_t1_gate | town_1 | (0, −52) | blocks north exit before `flag_starter_chosen` | "Nobody walks the meadow without a partner." |
-| npc_grandpa_kettle | town_1 | (30, −10) | q_side_lost_kettle giver | Lost his whistling kettle in the stream. |
-| npc_chime_kid | town_1 | (4, 4) | tutorial hints | Explains waystones "listen" to crests. |
-| npc_signpainter | route_1 | (10, 60) | hints | Painting the Tri-Gate; explains three sockets. |
-| npc_kite_girl | route_1 | (25, 36) | q_side_kite_contest | Lost three kites on gusts across the region. |
-| npc_ranger_moss | forest | (−50, 40) | camp healer | Ranger with a moss-covered hat; recommends catching a verdant partner before the ravine. |
-| npc_lantern_apprentice | forest | (0, 12) | q_side_lantern_moths | Needs lanterns relit for moth migration. |
-| npc_pedlar_forest | forest | (−46, 38) | pedlar | Same model/dialogue family as other pedlars (sibling pedlars, running gag). |
-| npc_miller | town_2 | (−45, −10) | q_side_windmill_repair | Mills stalled after the Hush's static. |
-| npc_archivist | town_2 → town_3 (after `flag_trial_4_cleared`) | (−30, 15); (−35, −14) museum | q_side_survey | Encyclopedia researcher; enthusiastic, speaks in footnotes. |
-| npc_t2_healer | town_2 | (20, 20) | healer | — |
-| npc_t2_shop | town_2 | (32, 8) | shop | — |
-| npc_windkids | town_2 | (−10, 40), (−14, 42) | ambient | Race pinwheels; point at Gust Gap. |
-| npc_storyteller | route_3 | (−40, 20) night only (day: sleeping, still interactable) | q_side_shade_tales | Tells ghost stories about "curtains of dusk". |
-| npc_geologist | cave | (72, 14) | q_side_geode_survey | Measuring the geode chorus. |
-| npc_miner_healer | cave | (70, 10) | camp healer | — |
-| npc_ferryman | lake | (0, 55) | ferry | Refuses before pump is stopped; afterwards "Island? Hop on." |
-| npc_lodge_keeper | lake | (60, 70) | healer, q_side_lake_lights | Keeper of the shore shrines. |
-| npc_courier | town_3 | (30, 0) | q_side_market_courier | Overbooked courier. |
-| npc_t3_healer | town_3 | (25, 25) | healer | — |
-| npc_t3_shop | town_3 | (35, 5) | shop | — |
-| npc_museum_curator | town_3 | (−35, −20) | lore | Region history of Resonance; murals of past champions. |
-| npc_festival_host | town_3 | (−10, 30) | ev_16 | MC of lantern festival. |
-| npc_springbathers | route_4 | (60, 30), (63, 31) | ambient | Gossip about Foundry lights at night. |
-| npc_basecamp_keeper | volcano | (80, 20) | healer, courier receiver | — |
-| npc_captive_keeper | volcano vault | (−44, 66) | q_side_foundry_rescue | Former Hush technician, remorseful, hands over the captive. |
-| npc_refuge_elder | snowpeak | (40, 60) | healer | Reads aurora "sheet music". |
-| npc_league_steward | league | (0, 30) | healer/kiosk | Explains no-leave rule absence ("you may step out any time"). |
-| npc_champion | league | (0, −22) | champion (battles as t_champion) | Calm, theatrical conductor. |
+| Rootcall | verdant | vine | tutorial (`flag_resonance_tutorial`) | **rn_forest_01 Rootgate** (`flag_forest_rootgate_open`) |
+| Spark | electric | lode | tutorial | — |
+| Kindle | fire | thorn | tutorial | — |
+| Swell | water | current | tutorial | — (the volcano vent has a talk alternative) |
+| Heave | stone | boulder | `i_keynote_1` | **rn_cave_01 lower galleries** (`flag_cave_heave_gate`) |
+| Seep | toxin | grate | `i_keynote_2` | — |
+| Gust | gale | vent | `i_keynote_3` | **rn_route_4_01 Highscar ascent** (`flag_route4_updraft`) |
+| Veil | shade | veil | `i_keynote_4` | — |
+| Rime | frost | falls | `i_keynote_5` | **rn_snowpeak_01 frozen falls** (`flag_snowpeak_ascended`) |
+| Gleam | lumen | beacon | `i_keynote_6` | — |
 
-Pedlars: `npc_pedlar_forest`, `npc_pedlar_cave` (68, 8), `npc_pedlar_lake` (62, 68), `npc_pedlar_volcano` (78, 18), `npc_pedlar_snowpeak` (38, 58).
+**Resonance Stewards** (`npc_steward_1..4`, teal sash). Each stands 6–10 m from a mandatory node. A Steward appears after the player's first failed prompt at that node ("Needs a {Type} kin"). The Steward then performs the register with a loaned kin, which sets the same flag.
+
+### 2.4 Waystones (14 Chordstones; CD §3/§6.6)
+
+| Waystone | Zone | Position | Arrival spawn |
+|---|---|---|---|
+| ws_town_1 | town_1 | (−10,−5) | (−10,1,0) |
+| ws_route_1 | route_1 | (15,−10) | (15,−6,0) |
+| ws_forest | forest | (−50,40) | (−50,46,0) |
+| ws_route_2 | route_2 | (−20,−50) | (−20,−46,0) |
+| ws_town_2 | town_2 | (0,12) | (0,16,0) |
+| ws_cave | cave | (70,10) | (70,16,0) |
+| ws_route_3 | route_3 | (−20,0) | (−20,6,0) |
+| ws_lake | lake | (−60,60) | (−60,66,0) |
+| ws_town_3 | town_3 | (0,10) | (0,14,0) |
+| ws_route_4 | route_4 | (60,30) | (60,36,0) |
+| ws_volcano | volcano | (60,−10) | (60,−4,0) |
+| ws_route_5 | route_5 | (0,40) | (0,46,0) |
+| ws_snowpeak | snowpeak | (30,70) | (30,76,0) |
+| ws_league | league | (−10,30) | (−10,34,0) |
+
+**Rules.**
+- **Registration:** resonate with the stone within 3 m. Any kin can do it; no type is needed (R6). Registering sets `flag_ws_<zone>`.
+- **Fast travel:** enabled once 2 stones are registered. `ws_town_1` counts as registered from ch1, and CD ch1 registers `ws_route_1`.
+- **Where it works:** from the Tuning Ledger map in any exterior zone, in exploration state only. It does not work in halls, dialogue, battle, cutscenes, or on the Gust or Rime transition. It is free.
+- **Silenced stones:** Larkhollow (ch1–ch11), Sallowfen (until ch5) and Gloamstair (until ch11) still work for fast travel. Only attunement is suppressed.
+
+### 2.5 Story events
+
+Chapters and beats are CD §4, and flags are CD §4.2. World-side placements follow. Loss rules are per D20: rival 1 continues the story on a loss; every other story battle follows the wipe rule and re-arms.
+
+| Id | Ch | Zone @ (x,z) | Trigger | Sets | Gist and world notes |
+|---|---|---|---|---|---|
+| ev_01 | 1 | town_1 | name confirmed | `flag_game_started` | Dawn: the Larkhollow stone goes silent mid-note. The **leftover starter bolts** from the fosterage pen in panic (D6); the player learns this in ch2. |
+| ev_02 | 1 | town_1 workshop (−25,−20) | talk to Oriel | `flag_starter_chosen` | Starter choice. Oriel gives the Tuning Ledger (`i_key_ledger`), 5 `i_chime_reed`, and 3 `i_salve_1`. |
+| ev_03 | 1 | town_1 (5,−35) | leave the workshop | `flag_rival_1_done` | Cass takes the starter that is strong against the player's (D4), then battles (1 kin, Lv 5). |
+| ev_04 | 1 | town_1 green (−10,−5) | talk to Oriel | `flag_resonance_tutorial` | Triad secret node (§2.7 sec_01), then the Rootcall explanation. |
+| ev_05 | 1 | route_1 stile (−10,70) | capture the static Dozebud | `flag_capture_tutorial`, `flag_ws_route_1` | Guaranteed verdant kin. The route_1 Waystone registers in the same beat. |
+| ev_06 | 2 | forest (0,70) | Rootgate | `flag_forest_rootgate_open` | Mandatory Rootcall. |
+| ev_07 | 2 | forest (25,−25) | approach the humming hollow | `flag_stillmark_first_seen` | Two survey-guild engineers (t_still_01/02) are fitting a coil-rig to a humming tree. They battle "to finish the job". |
+| ev_08 | 2 | trial_1 | beat Wren | `flag_trial_1_cleared` | Keynote 1 (Heave). |
+| ev_09 | 3 | route_2 (0,−65) | reach the cairn | `flag_rival_2_done` | Rival 2. |
+| ev_10 | 3 | trial_2 | beat Dorran | `flag_trial_2_cleared` | Keynote 2 (Seep). The quarry lift gate to the Undertone opens. |
+| ev_11 | 4 | cave (0,−10) | Heave node | `flag_cave_heave_gate` | Mandatory Heave. |
+| ev_12 | 4 | cave (−50,−55) | reach the coil | `flag_admin_brann_1` → `flag_cave_miners_saved` | Brann's crew siphons the stone. The miners' kin strayed when it fell silent and are penned "for safekeeping" (−65,−40). After the battle the player releases the pen. |
+| ev_13 | 5 | route_3 (−20,0) | reach the half-sunk stone | `flag_admin_vey_1` → `flag_fen_stone_restored` | Vey battle; then any kin resonates the stone. |
+| ev_14 | 5 | route_3 (90,0) | boardwalk end | `flag_rival_3_done` | Rival 3. Unlocks the lake exit. |
+| ev_15 | 6 | trial_3 | beat Nerys | `flag_trial_3_cleared` | Keynote 3 (Gust). The causeway rises and Marra moves to Galewick. |
+| ev_16 | 7 | trial_4 | beat Tamsin | `flag_trial_4_cleared`, `flag_odile_named` | Keynote 4 (Veil). Oriel's letter arrives at the Galewick Hearthrest. |
+| ev_17 | 8 | route_4 (20,5) | vent | `flag_route4_updraft` | Mandatory Gust. |
+| ev_18 | 8 | route_4 Stillhouse (−35,−25) | reach the compound gate | `flag_stillhouse_found` | Cass joins. Two wings: t_still_06 in the west, t_still_07 in the east. |
+| ev_19 | 8 | route_4 (−55,−35) | Vey's office | `flag_admin_vey_2` → `flag_leftover_rescued` | After Vey 2, the strays pen (−55,−42) opens. The leftover starter comes to the player's starter (CD ch8). Vey drops `i_disc_09`. |
+| ev_20 | 8 | route_4 (−85,−5) | compound exit | `flag_rival_4_done` | Rival 4 ("to see if we're even"). Unlocks the volcano exit. |
+| ev_21 | 9 | trial_5 | beat Bastian | `flag_trial_5_cleared` | Keynote 5 (Rime). Opens the Galewick north gate. |
+| ev_22 | 10 | route_5 (0,−65) | approach | `flag_rival_5_done` | Rival 5. |
+| ev_23 | 10 | route_5 (0,−88) | stair top | `flag_odile_revealed` | Odile talks and does not battle. She explains the Stillbells: "a stone that only sounds when we say" (D6). |
+| ev_24 | 11 | snowpeak (0,40) | falls | `flag_snowpeak_ascended` | Mandatory Rime. |
+| ev_25 | 11 | trial_6 | beat Isaure | `flag_trial_6_cleared` | Keynote 6 (Gleam). |
+| ev_26 | 11 | snowpeak (0,−60) | summit path | `flag_admin_brann_2` | Brann steps aside. |
+| ev_27 | 11 | snowpeak (0,−80) | summit ring | `flag_odile_defeated` → `flag_nullbell_broken` | Two-phase battle (D22). The player's lead kin resonates the Null Bell and it cracks. Every stone hums again: the region-wide color and sound pulse. |
+| ev_28 | 12 | league (0,10) | landing | `flag_spire_open`, `flag_rival_6_done` | Rival 6. |
+| ev_29 | 12 | league (0,−20) | Concordant | `flag_champion_defeated`, `flag_game_cleared` | The Great Chord and the credits. |
+
+### 2.6 Unchosen starters (D4, D5; CD §4.1)
+
+| Player's starter | Cass takes (strong vs player) | Leftover (found at the Stillhouse, ch8) | Obtained via q_second_clutch |
+|---|---|---|---|
+| c01 Fizzkit (electric) | c04 Wickwool (fire) | c07 Rippleback | c04 Wickwool |
+| c04 Wickwool (fire) | c07 Rippleback (water) | c01 Fizzkit | c07 Rippleback |
+| c07 Rippleback (water) | c01 Fizzkit (electric) | c04 Wickwool | c01 Fizzkit |
+
+**`q_foster_leftover`**
+- Opens at `flag_leftover_rescued` (ch8, route_4 strays pen (−55,−42)).
+- Step 1: return to Oriel in Larkhollow (fast travel).
+- Step 2: choose **[Foster it]** to receive stage 1 at **Lv 25**, which sets `flag_leftover_obtained`. **[Not yet]** leaves it in the fosterage pen (−25,−20), claimable any time.
+- It arrives above its evolution level (16), so it evolves at its first battle end unless cancelled (systems §8.3).
+
+**`q_second_clutch`**
+- Opens at `flag_trial_5_cleared` ∧ `flag_leftover_obtained`.
+- Oriel reports a wild young of Cass's line near the fosterage.
+- Bring the player's own starter line **and** the leftover line in the troupe to the Larkhollow Chordstone (−10,−5) and resonate. The Triad Chord cutscene plays.
+- Result: stage 1 at **Lv 30**, which sets `flag_triad_complete`.
+
+**Fallbacks.**
+- Release fallback: Oriel's fosterage offers a replacement young of either line after one conversation (D5). The player's starter is `bond`-protected in any case (systems §7.4).
+- Full party and storage: the creature is held pending and delivered later (QA U-PTY-06).
+
+### 2.7 Secrets (optional Resonance nodes)
+
+Register-unlock timing is given in §2.3. Starter-type secrets need the matching kin; the leftover (ch8) and the second clutch (after trial_5) make all three triad registers available to every player.
+
+| Id | Node | Register | Zone @ (x,z) | Reward |
+|---|---|---|---|---|
+| sec_01 | rn_town_1_01/02/03 (cluster) | Spark / Kindle / Swell | town_1 green (−8,−2), (−6,−6), (−12,−6) | First solved: `i_chime_reed` ×2 (CD tutorial). Each other node: `i_salve_1` |
+| sec_02 | rn_route_1_01 | Swell | route_1 (−24,−42) → islet (−30,−45) | `i_salve_2` ×2 |
+| sec_03 | rn_forest_02 | Kindle | forest thicket (−70,−45) | `i_disc_04` |
+| sec_04 | rn_forest_03 | Spark | forest lantern-lode (60,55) | `i_chime_brass` ×3 |
+| sec_05 | rn_route_2_01 | Heave | route_2 (25,40) | shortcut + `i_salve_2` |
+| sec_06 | rn_route_2_02 | Gust | route_2 kite ridge (30,−50) | `i_charge_1` |
+| sec_07 | rn_town_2_01 | Spark | town_2 crane (45,−30) | `i_chime_silver` |
+| sec_08 | rn_cave_02 | Spark | cave brass lift (40,0) | `i_disc_17` on the upper ledge (45,10) |
+| sec_09 | rn_cave_03 | Heave | cave (60,78) | tunnel to route_2 |
+| sec_10 | rn_cave_04 | Seep | cave (−70,20) | `i_revive_1` |
+| sec_11 | rn_route_3_01 | Seep | route_3 (40,30) | `i_cure_all` ×2 |
+| sec_12 | rn_route_3_02 | Veil | route_3 (−60,30) | `i_salve_3` + tale page 1 |
+| sec_13 | rn_lake_01 | Swell | lake (65,−45) → reed-isle (45,−45) | `i_chime_silver` ×2 |
+| sec_14 | rn_lake_02 | Heave | lake (0,90) | shortcut to town_2 |
+| sec_15 | rn_town_3_01 | Spark | town_3 lighthouse (60,−60) | `i_charge_2` |
+| sec_16 | rn_town_3_02 | Veil | town_3 cellar (−35,−28) | `i_revive_2` + tale page 3 |
+| sec_17 | rn_route_4_02 | Gust | route_4 (70,−35) | `i_disc_07` |
+| sec_18 | rn_route_4_03 | Seep | route_4 (−70,−45) | Stillhouse back door |
+| sec_19 | rn_volcano_02 | Kindle | volcano (−70,−60) | `i_revive_2` |
+| sec_20 | rn_volcano_03 | Seep | volcano (60,−60) | `i_salve_4` |
+| sec_21 | rn_route_5_01 | Heave | route_5 (−35,−40) | `i_charge_2` |
+| sec_22 | rn_route_5_02 | Veil | route_5 (30,20) | `i_salve_4` |
+| sec_23 | rn_snowpeak_02 | Kindle | snowpeak ice plug (70,40) | `i_chime_crown` |
+| sec_24 | rn_snowpeak_03 | Gleam | snowpeak (−70,−70) | `i_revive_2` |
+| sec_25 | rn_route_1_02 | Gleam | route_1 Old Chord Shrine (35,−60), after `flag_game_cleared` | cosmetic Ledger clasp + `i_chime_crown` ×2 |
+
+(Tale page 2 is in the cave; see q_side_veil_tales.)
+
+### 2.8 NPCs (non-trainer, or trainer-backed where marked)
+
+| Id | Zone | Pos (x,z) | Role | Gist |
+|---|---|---|---|---|
+| npc_oriel | town_1 | (−25,−24) | mentor (Chordwright) | Gives the starter, Ledger and tutorial. Runs q_foster_leftover and q_second_clutch. Blunt and warm. |
+| npc_cass | varies | per rival table | rival (`t_rival_1..6`) | Loud and funny. Joins at the Stillhouse. |
+| npc_hk_maud / npc_ch_pip | town_1 | (−22,22) / (−18,22) | Hearthkeeper / Chandler | Heal line (CD §2.4). Rest-until options. |
+| npc_hk_tobin / npc_ch_garrow | town_2 | (20,20) / (24,20) | Hearthkeeper / Chandler | — |
+| npc_hk_ysolde / npc_ch_nell | town_3 | (25,25) / (29,25) | Hearthkeeper / Chandler | Nell gossips about the survey guild. |
+| npc_hk_lake / npc_hk_volcano / npc_hk_snowpeak / npc_hk_league | lake (60,70) / volcano (80,20) / snowpeak (40,60) / league (0,30) | — | generic keepers | — |
+| npc_wick | route_2 (35,65); route_4 (80,15) | — | traveling peddler | Stock rotates by Keynote count. |
+| npc_steward_1..4 | forest (8,76); cave (6,−4); route_4 (26,10); snowpeak (8,46) | — | Resonance Stewards | "Need a hand with that stone?" |
+| npc_marra | town_2 (−30,15) → town_3 (−35,−20) | — | Kinsong researcher (D7 rename) | q_side_kinsong_survey. |
+| npc_villager_chime | town_1 | (30,−10) | q_side_fallen_chime | His wind-chime fell at dawn and rolled into the stream. |
+| npc_hollow_warden | forest | (0,12) | q_side_hollow_hum | Hollow trees stopped humming near the rig. |
+| npc_bellwright | town_2 | (−45,−10) | q_side_offkey_bells | The quarry bells are off-key. |
+| npc_foreman | cave | (72,14) | q_side_miners_samples; miners' camp | — |
+| npc_storyteller | route_3 | (−40,20) | q_side_veil_tales | Tells of "curtains of dusk". |
+| npc_boardwalker | lake | (0,50) | hint | Explains the Mere Hall piles. |
+| npc_courier | town_3 | (30,0) | q_side_market_courier | — |
+| npc_kitewright | town_3 | (−50,40) | q_side_kite_contest | — |
+| npc_beaconkeeper | lake | (58,68) | q_side_gleam_beacons | — |
+| npc_forge_steward | volcano | (6,−30) | vent alternative | "Hall's too hot. I'll vent it for you." |
+| npc_brann | cave (−50,−55); snowpeak (0,−60) | — | admin (`t_admin_brann_1`) | Ch11: steps aside. |
+| npc_vey | route_3 (−25,5); route_4 (−55,−38) | — | admin (`t_admin_vey_1`, `t_admin_vey_2`) | Stage whispers. |
+| npc_odile | route_5 (0,−88); snowpeak (0,−84) | — | founder (`t_odile`) | A control-for-safety motive (D6). |
+| npc_rhea | league | (0,−22) | the Concordant (`t_champion`) | — |
+| npc_miners ×3 | cave | (74,6), (66,18), (78,14) | ambient | Worried about their strayed kin. |
+| npc_hamlet ×4 | lake | around (55,65) | ambient | Stilt-hamlet life. |
+
+**Character-builder archetypes** (release gate GC-02).
+- **Named unique builders (21):** Arden (the protagonist), Oriel, Cass, Rhea, Odile, Brann, Vey, the 6 Cantors, Marra, Wick, Maud, Tobin, Ysolde, Pip, Garrow, Nell.
+- **Shared archetypes (8):** hearthkeeper, chandler, steward, stillmark_engineer, villager_adult, villager_child, miner, hall_tuner.
+- **Trainer-class archetypes (12):** hiker, kite_flyer, scout, bell_ringer, fen_wader, angler, sail_hand, cliff_runner, forge_hand, pilgrim, ski_patrol, aurora_chaser.
 
 ### 2.9 Trainers
 
-Team families refer to family ids; Systems Designer defines exact species/levels/moves/AI tier within these bounds. Sight range default 8 m (cone 60°); "M" = mandatory (blocks path or story), "O" = optional. Positions in host zone frame (trial staff in interior frame).
+Levels follow systems §14.1 for major battles. Optional trainers have ≤ 3 kin from ch5 onward (D23). Sight range is 8 m (0 = must talk). M = mandatory (story or path), O = optional.
 
-| Id | Zone | Pos (x,z) | Class (WN) | Size | Lv | Families | M/O |
+| Id | Zone | Pos (x,z) | Archetype | Size | Lv | Families | M/O |
 |---|---|---|---|---|---|---|---|
-| t_rival_1 | town_1 | (5, −35) | Rival | 1 | 5 | rival starter | M (non-blocking) |
-| t_r1_01 | route_1 | (−10, 40) | Kite-flyer | 1 | 4 | f07 | O |
-| t_r1_02 | route_1 | (15, 0) | Picnicker | 2 | 4–5 | f04, f05 | O |
-| t_r1_03 | route_1 | (−20, −55) | Beetle-hat kid | 2 | 5–6 | f04, f08 | O |
-| t_fo_01 | forest | (−30, 60) | Moss hiker | 2 | 7–8 | f04, f05 | O |
-| t_fo_02 | forest | (10, 20) | Moth catcher | 2 | 8–9 | f10, f04 | O |
-| t_fo_03 | forest | (40, 10) | Twin scouts | 2 | 8–9 | f07, f08 | O |
-| t_fo_04 | forest | (−60, −10) | Night-watcher | 3 | 8–10 | f09, f08, f09 | O |
-| t_hush_g01 | forest | (20, −15) | Hush member | 2 | 9–10 | f08, f09 | M |
-| t_hush_g02 | forest | (35, −20) | Hush member | 2 | 10–11 | f09, f08 | M |
-| t_trial1_j1 | trial_1 | (−8, 10) | Grove junior | 2 | 10–11 | f04 | O |
-| t_trial1_j2 | trial_1 | (8, 0) | Grove junior | 2 | 10–11 | f04, f07 | O |
-| t_trial1_leader | trial_1 | (0, −20) | Lantern-warden Pim | 3 | 10–12 | f04, f07, f04 (ace stage 2) | M |
-| t_r2_01 | route_2 | (10, 70) | Climber | 2 | 12–13 | f05, f07 | O |
-| t_r2_02 | route_2 | (−25, 40) | Rockhound | 3 | 12–13 | f05, f05, f08 | O |
-| t_r2_03 | route_2 | (20, 0) | Bridge painter | 2 | 13–14 | f07, f10 | O |
-| t_r2_04 | route_2 | (−10, −35) | Dusk jogger | 3 | 13–14 | f09, f08, f04 | O |
-| t_rival_2 | route_2 | (0, −70) | Rival | 3 | 14–16 | starter + f07 + f05 | M (non-blocking) |
-| t_trial2_j1 | trial_2 | (−8, 10) | Sailcloth junior | 2 | 15–16 | f07 | O |
-| t_trial2_j2 | trial_2 | (8, 0) | Sailcloth junior | 3 | 15–16 | f07, f10 | O |
-| t_trial2_j3 | trial_2 | (0, −8) | Sailcloth junior | 2 | 16–17 | f07, f05 | O |
-| t_trial2_leader | trial_2 | (0, −20) | Miller Aeri | 3 | 16–18 | f07, f10, f07 (ace stage 2) | M |
-| t_r3_01 | route_3 | (70, 10) | Canyon guide | 3 | 17–18 | f05, f09 | O |
-| t_r3_02 | route_3 | (40, −20) | Glider twins | 2 | 18–19 | f07, f07 | O |
-| t_r3_03 | route_3 | (0, 25) | Sinkhole diver | 3 | 18–19 | f08, f08, f09 | O |
-| t_r3_04 | route_3 | (−35, −10) | Stargazer | 3 | 19–20 | f09, f10, f05 | O |
-| t_hush_g03 | route_3 | (−80, 5) | Hush member | 3 | 19–20 | f08, f09, f05 | M |
-| t_cv_01 | cave | (60, −20) | Crystal miner | 3 | 20–21 | f05 | O |
-| t_cv_02 | cave | (10, 30) | Spelunker | 3 | 20–22 | f09, f06 | O |
-| t_cv_03 | cave | (−30, 50) | Echo singer | 3 | 21–22 | f05, f08, f10 | O |
-| t_hush_g04 | cave | (40, −45) | Hush member | 3 | 21–22 | f08, f09 | M |
-| t_hush_g05 | cave | (20, −55) | Hush member | 3 | 22–23 | f09, f05 | M |
-| t_hush_admin_1 | cave | (30, −62) | Admin Sabine | 3 | 22–24 | f08, f09, f08 (ace stage 2) | M |
-| t_trial3_j1 | trial_3 | (−8, 10) | Chisel junior | 3 | 22–23 | f05 | O |
-| t_trial3_j2 | trial_3 | (8, 0) | Chisel junior | 3 | 22–23 | f05, f09 | O |
-| t_trial3_leader | trial_3 | (0, −20) | Sculptor Tamaru | 4 | 22–25 | f05 ×3, f09 (ace f05 stage 2) | M |
-| t_lk_01 | lake | (40, 80) | Reed painter | 3 | 25–26 | f04, f10 | O |
-| t_lk_02 | lake | (−60, 50) | Swimmer | 3 | 25–27 | f06, f07 | O |
-| t_lk_03 | lake | (−70, −20) | Birdwatcher | 3 | 26–27 | f07, f10, f04 | O |
-| t_lk_04 | lake | (70, −10) | Angler | 4 | 26–28 | f06, f08, f04, f06 | O |
-| t_hush_g06 | lake | (−75, 10) | Hush pump tech | 3 | 27–28 | f08, f09, f05 | M |
-| t_rival_3 | lake | (0, 60) | Rival | 4 | 27–29 | starter + f07 + f05 + gift-A-counter | M (non-blocking) |
-| t_trial4_j1 | trial_4 | (−8, 10) | Skater junior | 3 | 28–29 | f06 | O |
-| t_trial4_j2 | trial_4 | (8, 0) | Skater junior | 3 | 28–30 | f06, f07 | O |
-| t_trial4_leader | trial_4 | (0, −20) | Skater Ilse | 4 | 29–32 | f06, f06, f07, f06 (ace stage 2) | M |
-| t_r4_01 | route_4 | (70, −5) | Ash sweeper | 3 | 30–31 | f08, f05 | O |
-| t_r4_02 | route_4 | (35, 20) | Spring attendant | 4 | 30–32 | f04, f08, f06, f10 | O |
-| t_r4_03 | route_4 | (0, −15) | Road surveyor | 3 | 31–32 | f05, f07 | O |
-| t_r4_04 | route_4 | (−30, 10) | Glassblower | 4 | 32–33 | f10, f05, f08, f09 | O |
-| t_hush_g07 | route_4 | (−85, 0) | Hush lookout | 3 | 32–33 | f08, f09, f07 | M |
-| t_vo_01 | volcano | (60, 30) | Volcanologist | 4 | 33–34 | f05, f08 | O |
-| t_vo_02 | volcano | (20, −10) | Obsidian carver | 4 | 34–35 | f05, f09 | O |
-| t_vo_03 | volcano | (−60, −20) | Firewalker | 4 | 34–36 | f08, f05, f07, f09 | O |
-| t_hush_g08 | volcano | (−20, 45) | Hush foreman | 4 | 34–35 | f08, f05, f09 | M |
-| t_hush_admin_2 | volcano | (−30, 55) | Admin Corwin | 4 | 35–37 | f09, f08, f05, f09 (ace stage 3) | M |
-| t_hush_warden | volcano vault | (−40, 64) | Vault warden | 4 | 38–39 | f08, f09, f05, f06 | O (q_side_foundry_rescue) |
-| t_trial5_j1 | trial_5 | (−8, 10) | Forge junior | 4 | 35–36 | f05, f08 | O |
-| t_trial5_j2 | trial_5 | (8, 0) | Forge junior | 4 | 35–37 | f08, f05 | O |
-| t_trial5_leader | trial_5 | (0, −20) | Smith Oduya | 5 | 35–39 | f05, f08, f02 (stage 2), f08, f02 (ace stage 3) | M |
-| t_r5_01 | route_5 | (15, 70) | Pilgrim | 4 | 38–39 | f10, f06 | O |
-| t_r5_02 | route_5 | (−20, 30) | Mountaineer | 4 | 38–40 | f05, f07, f06 | O |
-| t_r5_03 | route_5 | (20, −20) | Ski patrol | 4 | 39–40 | f06, f07 | O |
-| t_r5_04 | route_5 | (−10, −60) | Wind monk | 5 | 39–41 | f07, f10, f09 | O |
-| t_rival_4 | route_5 | (0, −85) | Rival | 5 | 40–42 | starter (stage 3) + 4 | M (non-blocking) |
-| t_sp_01 | snowpeak | (30, 70) | Aurora chaser | 4 | 41–42 | f10, f06 | O |
-| t_sp_02 | snowpeak | (−40, 40) | Yeti-suit hiker | 5 | 41–43 | f06, f05, f07 | O |
-| t_sp_03 | snowpeak | (60, 0) | Ice sculptor | 5 | 42–43 | f06, f09, f10 | O |
-| t_trial6_j1 | trial_6 | (−8, 10) | Observatory junior | 4 | 42–43 | f10 | O |
-| t_trial6_j2 | trial_6 | (8, 0) | Observatory junior | 5 | 42–44 | f10, f06 | O |
-| t_trial6_leader | trial_6 | (0, −20) | Astronomer Lio | 6 | 40–45 | f10 ×3, f06, f07, f10 ace stage 3 | M |
-| t_hush_g09 | snowpeak | (−8, −80) | Hush sentry | 4 | 43–44 | f08, f09, f06 | M |
-| t_hush_boss | snowpeak | (0, −84) | Director Vell | 6 | 43–47 | f09 (ace stage 3), f08, f09, f08, f05, f07 | M |
-| t_rival_final | league | (0, 10) | Rival | 6 | 46–48 | starter stage 3 + 5 | M (non-blocking) |
-| t_champion | league | (0, −20) | Champion Solenne | 6 | 46–50 | f04, f07, f06, f08, f05 (all stage 3), ace f09 stage 3 Lv 50 | M |
-| t_rival_post | town_1 | (5, −35) | Rival (postgame) | 6 | 55 | mixed | O |
+| t_rival_1 | town_1 | (5,−35) | Cass | 1 | 5 | rival starter | M (loss continues) |
+| t_r1_01 | route_1 | (−10,40) | kite_flyer | 1 | 4 | f07 | O |
+| t_r1_02 | route_1 | (15,0) | villager_child | 2 | 5–6 | f04, f05 | O |
+| t_r1_03 | route_1 | (−20,−40) | scout | 2 | 6–7 | f10, f08 | O |
+| t_fo_01 | forest | (−30,55) | hiker | 2 | 8–9 | f04, f05 | O |
+| t_fo_02 | forest | (40,10) | scout | 2 | 9–10 | f07, f08 | O |
+| t_fo_03 | forest | (−60,−10) | hiker | 2 | 10–11 | f09, f10 | O |
+| t_still_01 | forest | (20,−15) | stillmark_engineer | 2 | 10–11 | f08, f05 | M |
+| t_still_02 | forest | (32,−22) | stillmark_engineer | 2 | 10–11 | f09, f08 | M |
+| t_hall1_01 | trial_1 | (−8,10) | hall_tuner | 2 | 10–11 | f04 | M |
+| t_hall1_02 | trial_1 | (8,0) | hall_tuner | 2 | 11–12 | f04, f07 | M |
+| t_cantor_1 | trial_1 | (0,−20) | Wren | 2 | 12, 14 | c10 Dozebud 12, ace c20 Whirlseed (gale·verdant) 14 | M |
+| t_r2_01 | route_2 | (10,70) | hiker | 2 | 12–13 | f05, f07 | O |
+| t_r2_02 | route_2 | (−25,40) | bell_ringer | 2 | 13–14 | f05, f08 | O |
+| t_r2_03 | route_2 | (20,0) | kite_flyer | 3 | 13–14 | f07, f07, f10 | O |
+| t_r2_04 | route_2 | (−10,−35) | scout | 2 | 14–15 | f09, f04 | O |
+| t_rival_2 | route_2 | (0,−70) | Cass | 2 | 15, 17 | starter + f07 | M |
+| t_hall2_01 | trial_2 | (−8,10) | hall_tuner | 2 | 15–16 | f05 | M |
+| t_hall2_02 | trial_2 | (8,0) | hall_tuner | 3 | 16–17 | f05, f05, f07 | M |
+| t_cantor_2 | trial_2 | (0,−20) | Dorran | 3 | 17, 18, 20 | f05 (c13, c13, c14 ace) | M |
+| t_cv_01 | cave | (60,−20) | miner | 2 | 17–18 | f05, f08 | O |
+| t_cv_02 | cave | (30,40) | miner | 3 | 17–19 | f05, f09, f08 | O |
+| t_cv_03 | cave | (−40,50) | scout | 2 | 19–20 | f09, f08 | O |
+| t_still_03 | cave | (−20,−30) | stillmark_engineer | 2 | 19–20 | f05, f08 | M |
+| t_still_04 | cave | (−40,−45) | stillmark_engineer | 2 | 19–20 | f09, f05 | M |
+| t_admin_brann_1 | cave | (−50,−58) | Brann | 2 | 20, 22 | f05 (c14), f06 (c17) | M |
+| t_r3_01 | route_3 | (70,10) | fen_wader | 3 | 20–21 | f08, f08, f04 | O |
+| t_r3_02 | route_3 | (30,−25) | angler | 2 | 21–22 | f08, f07 | O |
+| t_r3_03 | route_3 | (−10,25) | fen_wader | 3 | 21–22 | f04, f09, f08 | O |
+| t_r3_04 | route_3 | (−70,−15) | scout | 2 | 22–23 | f05, f10 | O |
+| t_still_05 | route_3 | (−35,−8) | stillmark_engineer | 2 | 21–22 | f08, f09 | M |
+| t_admin_vey_1 | route_3 | (−25,5) | Vey | 3 | 21, 22, 23 | f08, f09, f08 (c23 ace) | M |
+| t_rival_3 | route_3 | (90,0) | Cass | 3 | 21, 22, 24 | starter + f07 + f05 | M |
+| t_lk_01 | lake | (40,80) | angler | 3 | 23–24 | f08, f04, f10 | O |
+| t_lk_02 | lake | (−60,40) | sail_hand | 2 | 23–25 | f07, f08 | O |
+| t_lk_03 | lake | (−70,−30) | angler | 3 | 24–25 | f08, f09, f04 | O |
+| t_lk_04 | lake | (70,−10) | sail_hand | 3 | 24–25 | f07, f10, f05 | O |
+| t_hall3_01 | trial_3 | (−8,10) | hall_tuner | 2 | 22–23 | f08 (c23) | M |
+| t_hall3_02 | trial_3 | (8,0) | hall_tuner | 3 | 23–24 | f08, f03 | M |
+| t_cantor_3 | trial_3 | (0,−20) | Nerys | 3 | 23, 24, 26 | c23, c23, c08 ace | M |
+| t_hall4_01 | trial_4 | (−8,10) | hall_tuner | 3 | 27–28 | f07 | M |
+| t_hall4_02 | trial_4 | (8,0) | hall_tuner | 3 | 28–29 | f07, f10 | M |
+| t_cantor_4 | trial_4 | (0,−20) | Tamsin | 4 | 29, 30, 30, 32 | c20, c20, c29, c21 ace | M |
+| t_r4_01 | route_4 | (70,−5) | cliff_runner | 3 | 29–30 | f07, f05 | O |
+| t_r4_02 | route_4 | (40,20) | kite_flyer | 3 | 30–31 | f07, f10 | O |
+| t_r4_03 | route_4 | (−10,−25) | cliff_runner | 3 | 31–32 | f05, f09 | O |
+| t_still_06 | route_4 | (−70,−30) | stillmark_engineer | 3 | 31–32 | f08, f05, f09 | M |
+| t_still_07 | route_4 | (−40,−30) | stillmark_engineer | 3 | 32 | f09, f08, f06 | M |
+| t_admin_vey_2 | route_4 | (−55,−38) | Vey | 3 | 32, 33, 34 | f09 (c26), f08 (c24 ace) | M |
+| t_rival_4 | route_4 | (−85,−5) | Cass | 4 | 32, 33, 34, 35 | starter (stage 3 at 35) + 3 | M |
+| t_vo_01 | volcano | (60,30) | forge_hand | 3 | 33–34 | f05, f08 | O |
+| t_vo_02 | volcano | (20,−10) | forge_hand | 3 | 34–35 | f05, f09 | O |
+| t_vo_03 | volcano | (−60,−20) | hiker | 3 | 35–36 | f07, f08, f05 | O |
+| t_hall5_01 | trial_5 | (−8,10) | hall_tuner | 3 | 34–35 | f02, f05 | M |
+| t_hall5_02 | trial_5 | (8,0) | hall_tuner | 3 | 35–36 | f08, f02 | M |
+| t_cantor_5 | trial_5 | (0,−20) | Bastian | 4 | 35, 36, 36, 38 | c14, c05, c24, c06 ace | M |
+| t_r5_01 | route_5 | (15,70) | pilgrim | 3 | 37–38 | f10, f06 | O |
+| t_r5_02 | route_5 | (−20,30) | ski_patrol | 3 | 38–39 | f06, f07 | O |
+| t_r5_03 | route_5 | (20,−20) | pilgrim | 3 | 39–40 | f09, f10, f05 | O |
+| t_rival_5 | route_5 | (0,−70) | Cass | 5 | 39, 40, 40, 41, 42 | starter (stage 3) + 4, own picks | M |
+| t_sp_01 | snowpeak | (−30,75) | ski_patrol | 3 | 40–41 | f06, f07 | O |
+| t_sp_02 | snowpeak | (−40,10) | aurora_chaser | 3 | 41–42 | f10, f06 | O |
+| t_sp_03 | snowpeak | (60,0) | aurora_chaser | 3 | 42–43 | f06, f09, f10 | O |
+| t_hall6_01 | trial_6 | (−8,10) | hall_tuner | 3 | 40–41 | f06 | M |
+| t_hall6_02 | trial_6 | (8,0) | hall_tuner | 3 | 41–42 | f06, f10 | M |
+| t_cantor_6 | trial_6 | (0,−20) | Isaure | 5 | 40, 41, 41, 42, 43 | c17, c17, c09, c18, c18 ace | M |
+| t_still_08 | snowpeak | (−10,−50) | stillmark_engineer | 3 | 42–43 | f08, f09, f06 | M |
+| t_odile | snowpeak | (0,−84) | Odile | 6 (phase A 3 + phase B 3) | A: 42, 43, 43. B: 44, 45, 46 | A: f08, f10, f09; B: f10, f08, ace c27 Emberfold | M |
+| t_rival_6 | league | (0,10) | Cass | 6 | 44, 45, 45, 46, 46, 47 | starter (stage 3) + 5 | M |
+| t_champion | league | (0,−20) | Rhea | 6 | 46, 47, 47, 48, 48, 50 | f04, f07, f06, f05, f09 (stage 3s), ace c30 Coronaleen | M |
+| t_rival_post | town_1 | (5,−35) | Cass | 6 | 55 | mixed | O (post-game) |
 
-Totals: 75 trainers — 26 story-mandatory (of which the 5 rival battles `t_rival_1..4` and `t_rival_final` are non-blocking) and 49 optional.
+**Totals:**
+- 71 trainers.
+- 37 mandatory: 6 rivals, 6 Cantors, 12 hall Tuners, 8 Stillmark engineers, 3 admin battles, Odile, and the champion.
+- 34 optional: 33 route trainers plus the post-game rematch.
+
+**Chapter trainer count for the systems economy re-run (D23).** Optional ones are in brackets:
+- ch1: 1 [3]
+- ch2: 5 [3]
+- ch3: 4 [4]
+- ch4: 3 [3]
+- ch5: 3 [4]
+- ch6: 3 [4]
+- ch7: 3 [0]
+- ch8: 4 [3]
+- ch9: 3 [3]
+- ch10: 1 [3]
+- ch11: 5 [3]
+- ch12: 2 [0]
 
 ---
 
-## 3. Gates, unlock conditions, softlock proof
+## 3. Gates and no-softlock proof
 
 ### 3.1 Gate list
 
-| Gate | Where | Mandatory? | Requirement | Type needed | Earliest point action is unlocked |
-|---|---|---|---|---|---|
-| G0 | town_1 north exit | yes | `flag_starter_chosen` | — | ev_01 |
-| G1 | route_1 Tri-Gate (0, −25) | yes | Spark **or** Kindle **or** Surge | electric / fire / water (= starter) | ev_03 |
-| G2 | forest Sprout Bridge (−20, −70) | yes | Bloom; `flag_trial_1_cleared` | verdant | ev_05 |
-| G3 | town_2 Gust Gap (−63, 0) | yes | Updraft | gale | ev_08 |
-| G4 | route_3 cave mouth (−80, 5) | yes | defeat t_hush_g03 | — | ev_09 |
-| G4b | cave hideout barricade | yes | `flag_cave_hideout_cleared` | — | ev_10 |
-| G5 | town_2 boulder (40, −66) | yes | Shift | stone | ev_11 |
-| G5b | lake ferry | yes | `flag_lake_pump_stopped` | — | ev_13 |
-| G6 | lake outflow (0, −80) | yes | Freeze | frost | ev_15 |
-| G7 | trial_5 door | yes | `flag_foundry_raided` | — | ev_17 |
-| G8 | route_4 Scorch Gap (−62, 5) | yes | Updraft | gale | ev_08 |
-| G9 | town_3 rust-lock (0, −70) | yes | Dissolve | toxin | ev_18 |
-| G10 | route_5 river (0, 10) | yes | Freeze | frost | ev_15 |
-| G11 | snowpeak ice tunnel (0, −55) | yes | Illuminate | lumen | ev_20 |
-| G12 | snowpeak Summit Gate (0, −94) | yes | 6 crests ∧ `flag_faction_boss_defeated` | — | ev_21 |
-| S-T | cave cracked wall (60, 78) | no | Shift | stone | ev_11 |
-| trial doors | §2.2 | yes | previous crest (+ chapter flag) | — | — |
-
-### 3.2 No-softlock proof (mandatory field actions)
-
-For each mandatory type-gated gate: the type is obtainable **in zones reachable before that gate without crossing it**, in **clear day** (default conditions, no time/weather dependence), with at least one other time/weather also available.
-
-| Gate | Type | Obtainable before gate (zone: table, weight) | Earliest source | Notes |
+| Gate | Where | Kind | Requirement | Satisfied at |
 |---|---|---|---|---|
-| G1 | electric/fire/water | the chosen starter `c01`/`c04`/`c07` (ev_01) | ev_01 | Release/deposit of the starter is blocked until `flag_resonance_tutorial_done` (the player also has no other creature before route_1 grass). |
-| G2 | verdant | `c10` route_1 day 35 / night 25; forest day 30 / night 15; `c11` forest 5/5 | route_1 | Ranger at Forest Camp hints at the need before the ravine. |
-| G3 | gale | `c19` route_1 day 40 / night 20; forest 20/5; route_2 day 25; `c20` route_2 day 5 | route_1 | |
-| G5 | stone | `c13` route_1 day 15; forest day 5; route_2 35/25; route_3 20/15; cave upper 30; `c14` route_2, route_3, cave | route_1 | |
-| G6 | frost | `c16` cave upper 15, cave deep 20 (time-invariant); lake day 20 / night 20 (south shore, before G6); `c17` cave deep, lake | cave | Lake south shore reachable after G5 without crossing G6. |
-| G8 | gale | as G3 (all zones remain reachable via waystones) | route_1 | |
-| G9 | toxin | `c22` route_1 night 20; forest 25/25; route_2 15/30; route_3 20/20; cave upper 15; route_4 10/10; volcano 10/7; `c23` route_3, cave deep, lake, route_4, volcano | route_1 (night), forest (day) | |
-| G10 | frost | as G6 | cave | |
-| G11 | lumen | `c28` route_1 day 10; forest 15/15; route_2 night 15; route_3 night 15; lake 15/20; route_4 5/20; route_5 7/10; snowpeak 7/10 (south of tunnel); `c29` lake, route_4, route_5, snowpeak | route_1 (day) | |
+| E1 | town_1 N | flag | `flag_starter_chosen` | ev_02 |
+| **R1** | forest (0,70) | **mandatory Rootcall** | verdant kin + `flag_resonance_tutorial` | ev_04/ev_06 |
+| E3 | forest N | flag | `flag_trial_1_cleared` | ev_08 |
+| trial_1 door | forest | flag | `flag_stillmark_first_seen` | ev_07 |
+| trial_2 door | town_2 | flag | `flag_rival_2_done` | ev_09 |
+| E5 | town_2 W | flag | `flag_trial_2_cleared` | ev_10 |
+| **R2** | cave (0,−10) | **mandatory Heave** | stone kin + `i_keynote_1` | ev_11 |
+| E6 | cave NW | flag | `flag_cave_miners_saved` | ev_12 |
+| E7 | route_3 E | flag | `flag_rival_3_done` | ev_14 |
+| trial_3 door | lake | flag | `flag_rival_3_done` | ev_14 |
+| E8 | lake N causeway | flag | `flag_trial_3_cleared` | ev_15 |
+| E9 | town_3 W | flag | `flag_trial_4_cleared` | ev_16 |
+| **R3** | route_4 (20,5) | **mandatory Gust** | gale kin + `i_keynote_3` | ev_17 |
+| E10 | route_4 W | flag | `flag_rival_4_done` | ev_20 |
+| trial_5 door | volcano | flag + vent | `flag_rival_4_done`; vent cooled by Swell **or** the steward talk | ev_20 |
+| E11 | town_3 N | flag | `flag_trial_5_cleared` | ev_21 |
+| E12 | route_5 N | flag | `flag_odile_revealed` | ev_23 |
+| **R4** | snowpeak (0,40) | **mandatory Rime** | frost kin + `i_keynote_5` | ev_24 |
+| summit path | snowpeak (0,−60) | flag | `flag_trial_6_cleared` | ev_25 |
+| E13 | snowpeak N lift | flag + items | `flag_nullbell_broken` ∧ 6 Keynotes | ev_27 |
 
-Additional guarantees:
-1. **Unlock precedes use:** each gate's category unlock event occurs in a zone reachable before the gate (G2 via trial_1 in forest south of the ravine; G3 trial_2 in town_2 east of the Gust Gap; G5 trial_3 in cave; G6 trial_4 on the lake island, south of the outflow; G9 trial_5 in volcano, reachable via town_3 west without G9; G11 trial_6 in snowpeak south of the tunnel).
-2. **Catchable ≠ caught:** capture devices never run out: pedlars at every rest site sell `i_capture_t1`; if the player has 0 capture devices and less money than one `i_capture_t1`, the mentor's "care package" (5 × `i_capture_t1`, delivered by the nearest healer on next heal, repeatable, `flag`-less) triggers. Systems Designer owns the money floor; this is the world-side fallback.
-3. **Fainted lead:** healing points exist on the near side of every gate (see safe-return list); storage terminals at every healing point let the player swap in a stored creature of the needed type.
-4. **Release protection:** besides the G1 rule, no protection is needed: every gated type is a wild family with respawning spawns in ≥ 3 zones reachable by fast travel.
-5. **Permanent openings:** every opened gate persists as a flag (Bloom bridge, boulder, ice path, rust-lock, lit crystals); Updraft gaps have vents on both sides; so the player can always walk back to any healing point, shop, or earlier zone. No one-way drop exists in mandatory paths; the only one-sided object (cave cracked wall) is optional and becomes two-way when opened.
-6. **Battles:** no mandatory battle is unwinnable-by-construction: all wild zones respawn indefinitely (grinding is possible though not intended), rival battles are non-blocking, and lost Hush/leader battles reset to retry.
-7. **Trial interiors** contain only type-free puzzles.
-8. **Ferry** is a scripted two-way transport, always available after `flag_lake_pump_stopped`.
-9. **Reachability of the whole graph** (validator requirement, §9): with the flag set produced by the main quest sequence, a BFS from `town_1` over edges whose gates are satisfied reaches all 14 exterior zones and all 6 trial doors.
+### 3.2 Proof for the four mandatory nodes (CD R1–R7)
+
+| Node | Register unlocked before the node | Type obtainable before the node (day-clear weight > 0, zones reachable without crossing it) | Steward |
+|---|---|---|---|
+| R1 Rootgate | tutorial (ev_04, town_1) | **Static c10 Dozebud Lv 4 (guaranteed, route_1 stile).** Also c10 route_1: day 35 / night 20. | npc_steward_1 (8,76) |
+| R2 Heave | Keynote 1 (forest) | c13 Rollith: route_1 day 15; forest day 10; route_2 day 30 / night 25; cave upper 40 (time-invariant, before the node) | npc_steward_2 (6,−4) |
+| R3 Gust | Keynote 3 (lake) | c19 Gustling: route_1 day 35 / night 10; forest day 20 / night 5; route_2 day 25; route_4 lower slope day 10. c20 Whirlseed: route_2, route_3, lake, route_4 lower day 30 / night 15 | npc_steward_3 (26,10) |
+| R4 Rime | Keynote 5 (volcano) | c16 Rimelet / c17 Sleetribbon: route_5 day 20/25, night 15/20; snowpeak glacier foot, below the falls | npc_steward_4 (8,46) |
+
+**Additional guarantees:**
+1. Any troupe member counts, fainted or not (R3; D2). HP never blocks a node.
+2. Stewards cover even a troupe with none of the needed type (R1).
+3. Mandatory transformations are permanent and committed together with their flag (R4).
+4. No mandatory node sits on a return path (R5):
+   - Everything south of R1 is reachable without it.
+   - Gust has a return vent at (8,5).
+   - The cave Heave passage stays open.
+   - The Rime stairs stay frozen.
+5. Waystones never need a type (R6).
+6. Starter types are on no mandatory node (D2). The volcano vent has a talk alternative. Hall gimmicks have lever alternatives.
+7. Capture devices never run out (systems §15.3): 0 devices and less than 200 money means the Hearthkeeper gives 5 `i_chime_reed`.
+8. No mandatory purchase exists, and no level gate exists (systems §15.12–13).
+9. Validator (QA D-35 / CD R7) must hold: for every mandatory node, the type appears in the union of encounter tables of zones reachable before the node, **or** a Steward exists. Here both hold.
 
 ---
 
 ## 4. Encounters
 
-### 4.1 Rules for the tables
-- Runtime uses **weights**. Day and night each have a base weight table (sums to 100). Weather multiplies base weights by type, then renormalizes:
+### 4.1 Table rules
+- **Weights:** runtime uses weights. Each wild zone has a Day and a Night base table, each summing to 100. The day-clear column is the "base table" for QA D-06.
+- **Weather multipliers** use the **primary** type (the family type) and are renormalized:
   - rain: verdant ×1.5, toxin ×1.5, gale ×0.5, lumen ×0.75
   - fog: shade ×2.0, lumen ×1.5, gale ×0.5
   - snow: frost ×2.0, verdant ×0.25, toxin ×0.5
-  - clear: ×1 for all
-- Probabilities below are the resolved values `weight / Σweight`, rounded to 3 decimals by largest-remainder so each column prints exactly 1.000. Values were computed by a script from the weights (not hand-typed); the content validator must recompute them from weights and compare within ±0.001.
-- Level is uniform integer in [lo, hi]. `—` = not present in that condition.
-- Attuned type does not change encounter weights (it affects battle only; Systems Designer defines the bonus).
-- Weather availability per zone is listed in the zone sheets; columns only exist for applicable weathers.
+  - sunlight: stone ×1.25, gale ×1.25, shade ×0.5, frost ×0.5
+  - clear: ×1
+- **Probabilities** = weight / Σweight. They are rounded to 3 decimals by largest remainder, so each column prints exactly 1.000. A script generated them from the weights. Validators recompute them within ±0.001.
+- **Level:** uniform integer in [lo, hi].
+- **Evolution-level rule (D23), enforced by the generator:** no stage-2 appears below its family's 1→2 level, and no stage-3 below its 2→3 level (D11).
+  - f04 16/32; f05 20/36; f06 22/38; f07 14/30; f08 18/34; f09 24/40; f10 26/44.
+- **Attunement** has no effect on encounter weights.
 
-### 4.2 Roaming wild creatures and respawn
-
-| Zone | Max roaming | Anchors | Contact radius (default) |
-|---|---|---|---|
-| route_1 | 6 | 14 | 1.2 m (species override from creatures.md body scale) |
-| forest | 8 | 18 | 〃 |
-| route_2 | 7 | 15 | 〃 |
-| route_3 | 7 | 15 | 〃 |
-| cave | 5 upper + 5 deep | 16 | 〃 |
-| lake | 8 | 18 | 〃 |
-| route_4 | 7 | 15 | 〃 |
-| volcano | 8 | 16 | 〃 |
-| route_5 | 7 | 15 | 〃 |
-| snowpeak | 8 | 16 | 〃 |
-
-Rules:
-1. **Zone entry:** immediately populate `ceil(max × 0.6)` creatures at anchors ≥ 25 m from the arrival point. Each creature's species and level are rolled from the current time/weather table with the zone RNG stream.
-2. **Refill:** a spawn tick runs every 5 s (game-time while in exploration state only). If count < max and the slot's respawn delay (12 s) has elapsed, spawn at a random anchor ≥ 30 m from the player and outside the camera frustum; if none qualifies, use the farthest anchor ≥ 20 m; if none, skip the tick.
-3. **Contact:** player capsule overlapping a creature's contact sphere starts an encounter if the global encounter lock is free; the lock is taken synchronously so overlapping creatures cannot stack encounters. Only the touched creature enters battle.
-4. **After battle** (win, capture, flee, or player wipe): the battled creature is removed (starting its slot's 12 s respawn delay); player gets 4 s of encounter immunity; creatures within 8 m play a startle animation and move away for 3 s.
-5. **Despawn:** creatures > 80 m from the player for 20 s despawn quietly (slot delay applies). On day/night or weather change, existing creatures stay; new spawns use the new table.
-6. **Exclusion zones:** no anchor within 25 m of arrival points, 12 m of trainers, healing points, waystones, exit triggers, trial doors, or scripted-event areas while their event is pending.
-7. **Behavior:** species behavior (curious approach / shy flee / territorial chase) comes from creatures.md; any chasing creature moves at ≤ 80 % of player run speed so encounters are always avoidable.
-8. **Determinism:** zone RNG stream = seeded from (saveSeed, zoneId, entryCounter); not persisted mid-zone (roaming creatures are not saved; only committed state is saved).
+### 4.2 Roaming (D21; rendering §2.6)
+- **Cap:** `maxWild = 6` in every wild zone on every quality profile. The cave splits it 3 upper + 3 lower, and the lower 3 activate after `flag_cave_heave_gate`.
+- **On zone entry:** 4 creatures spawn immediately at wild-region cells ≥ 25 m from the arrival spawn.
+- **Refill, contact, lock, grace:** spawn distance ≥ 20 m and outside the frustum; respawn 15–30 s after a despawn; single-encounter lock; 3 s cooldown plus 3 m grace. All of these are exactly rendering §2.6.
+- **Two contacts in one frame:** the nearest wins. The other creature plays a startle and flees 12 m (QA U-ENC-02).
+- **Species and level** come from `sim/world/encounters.ts` with the gameplay RNG. Position uses the presentation RNG.
+- **Static encounter:** `st_route_1_dozebud` does not count against the cap.
 
 ### 4.3 Encounter tables
 
 #### route_1
 
-| Creature | Type (stage) | Lv | Day wt | Night wt | Day clear | Day rain | Night clear | Night rain |
-|---|---|---|---|---|---|---|---|---|
-| c10 | verdant (1) | 3–6 | 35 | 25 | 0.350 | 0.553 | 0.250 | 0.333 |
-| c13 | stone (1) | 4–6 | 15 | — | 0.150 | 0.158 | — | — |
-| c19 | gale (1) | 3–6 | 40 | 20 | 0.400 | 0.210 | 0.200 | 0.089 |
-| c22 | toxin (1) | 4–6 | — | 20 | — | — | 0.200 | 0.267 |
-| c25 | shade (1) | 4–7 | — | 35 | — | — | 0.350 | 0.311 |
-| c28 | lumen (1) | 5–7 | 10 | — | 0.100 | 0.079 | — | — |
-| **Sum** | | | 100 | 100 | **1.000** | **1.000** | **1.000** | **1.000** |
+| Id | Species | Type (stage) | Lv | Day wt | Night wt | Day clear | Day rain | Night clear | Night rain |
+|---|---|---|---|---|---|---|---|---|---|
+| c10 | Dozebud | verdant (1) | 3–6 | 35 | 20 | 0.350 | 0.545 | 0.200 | 0.273 |
+| c13 | Rollith | stone (1) | 4–6 | 15 | — | 0.150 | 0.156 | — | — |
+| c19 | Gustling | gale (1) | 3–6 | 35 | 10 | 0.350 | 0.182 | 0.100 | 0.045 |
+| c22 | Ringdrip | toxin (1) | 4–6 | — | 20 | — | — | 0.200 | 0.273 |
+| c25 | Snipling | shade (1) | 4–7 | — | 30 | — | — | 0.300 | 0.273 |
+| c28 | Dawnfry | lumen (1) | 4–7 | 15 | 20 | 0.150 | 0.117 | 0.200 | 0.136 |
+| **Sum** | | | | 100 | 100 | **1.000** | **1.000** | **1.000** | **1.000** |
 
 #### forest
 
-| Creature | Type (stage) | Lv | Day wt | Night wt | Day clear | Day rain | Day fog | Night clear | Night rain | Night fog |
-|---|---|---|---|---|---|---|---|---|---|---|
-| c10 | verdant (1) | 6–10 | 30 | 15 | 0.300 | 0.387 | 0.308 | 0.150 | 0.194 | 0.107 |
-| c11 | verdant (2) | 11–12 | 5 | 5 | 0.050 | 0.064 | 0.051 | 0.050 | 0.064 | 0.036 |
-| c13 | stone (1) | 7–9 | 5 | — | 0.050 | 0.043 | 0.051 | — | — | — |
-| c19 | gale (1) | 7–9 | 20 | 5 | 0.200 | 0.086 | 0.103 | 0.050 | 0.021 | 0.018 |
-| c22 | toxin (1) | 6–9 | 25 | 25 | 0.250 | 0.323 | 0.256 | 0.250 | 0.323 | 0.178 |
-| c25 | shade (1) | 7–10 | — | 35 | — | — | — | 0.350 | 0.301 | 0.500 |
-| c28 | lumen (1) | 7–10 | 15 | 15 | 0.150 | 0.097 | 0.231 | 0.150 | 0.097 | 0.161 |
-| **Sum** | | | 100 | 100 | **1.000** | **1.000** | **1.000** | **1.000** | **1.000** | **1.000** |
+| Id | Species | Type (stage) | Lv | Day wt | Night wt | Day clear | Day rain | Day fog | Night clear | Night rain | Night fog |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| c10 | Dozebud | verdant (1) | 7–11 | 35 | 20 | 0.350 | 0.461 | 0.359 | 0.200 | 0.258 | 0.143 |
+| c13 | Rollith | stone (1) | 7–10 | 10 | — | 0.100 | 0.088 | 0.102 | — | — | — |
+| c19 | Gustling | gale (1) | 7–10 | 20 | 5 | 0.200 | 0.088 | 0.103 | 0.050 | 0.021 | 0.018 |
+| c22 | Ringdrip | toxin (1) | 7–10 | 20 | 25 | 0.200 | 0.264 | 0.205 | 0.250 | 0.323 | 0.178 |
+| c25 | Snipling | shade (1) | 8–11 | — | 35 | — | — | — | 0.350 | 0.301 | 0.500 |
+| c28 | Dawnfry | lumen (1) | 8–11 | 15 | 15 | 0.150 | 0.099 | 0.231 | 0.150 | 0.097 | 0.161 |
+| **Sum** | | | | 100 | 100 | **1.000** | **1.000** | **1.000** | **1.000** | **1.000** | **1.000** |
 
 #### route_2
 
-| Creature | Type (stage) | Lv | Day wt | Night wt | Day clear | Day rain | Night clear | Night rain |
-|---|---|---|---|---|---|---|---|---|
-| c10 | verdant (1) | 12–14 | 15 | — | 0.150 | 0.225 | — | — |
-| c13 | stone (1) | 11–14 | 35 | 25 | 0.350 | 0.350 | 0.250 | 0.225 |
-| c14 | stone (2) | 16 | 5 | — | 0.050 | 0.050 | — | — |
-| c19 | gale (1) | 11–14 | 25 | — | 0.250 | 0.125 | — | — |
-| c20 | gale (2) | 16 | 5 | — | 0.050 | 0.025 | — | — |
-| c22 | toxin (1) | 12–14 | 15 | 30 | 0.150 | 0.225 | 0.300 | 0.404 |
-| c25 | shade (1) | 12–15 | — | 25 | — | — | 0.250 | 0.225 |
-| c26 | shade (2) | 16 | — | 5 | — | — | 0.050 | 0.045 |
-| c28 | lumen (1) | 12–15 | — | 15 | — | — | 0.150 | 0.101 |
-| **Sum** | | | 100 | 100 | **1.000** | **1.000** | **1.000** | **1.000** |
+| Id | Species | Type (stage) | Lv | Day wt | Night wt | Day clear | Day rain | Night clear | Night rain |
+|---|---|---|---|---|---|---|---|---|---|
+| c10 | Dozebud | verdant (1) | 12–15 | 15 | — | 0.150 | 0.225 | — | — |
+| c11 | Lullstalk | verdant·toxin (2) | 16 | 5 | 5 | 0.050 | 0.075 | 0.050 | 0.067 |
+| c13 | Rollith | stone (1) | 11–15 | 30 | 25 | 0.300 | 0.300 | 0.250 | 0.225 |
+| c19 | Gustling | gale (1) | 11–13 | 25 | — | 0.250 | 0.125 | — | — |
+| c20 | Whirlseed | gale·verdant (2) | 14–16 | 10 | — | 0.100 | 0.050 | — | — |
+| c22 | Ringdrip | toxin (1) | 12–15 | 15 | 25 | 0.150 | 0.225 | 0.250 | 0.337 |
+| c25 | Snipling | shade (1) | 12–15 | — | 30 | — | — | 0.300 | 0.270 |
+| c28 | Dawnfry | lumen (1) | 12–15 | — | 15 | — | — | 0.150 | 0.101 |
+| **Sum** | | | | 100 | 100 | **1.000** | **1.000** | **1.000** | **1.000** |
 
 #### route_3
 
-| Creature | Type (stage) | Lv | Day wt | Night wt | Day clear | Day rain | Day fog | Night clear | Night rain | Night fog |
-|---|---|---|---|---|---|---|---|---|---|---|
-| c13 | stone (1) | 15–18 | 20 | 15 | 0.200 | 0.205 | 0.200 | 0.150 | 0.135 | 0.102 |
-| c14 | stone (2) | 19–21 | 10 | — | 0.100 | 0.103 | 0.100 | — | — | — |
-| c19 | gale (1) | 15–18 | 20 | — | 0.200 | 0.102 | 0.100 | — | — | — |
-| c20 | gale (2) | 19–21 | 10 | — | 0.100 | 0.051 | 0.050 | — | — | — |
-| c22 | toxin (1) | 15–18 | 20 | 20 | 0.200 | 0.308 | 0.200 | 0.200 | 0.269 | 0.135 |
-| c23 | toxin (2) | 20–21 | 5 | 10 | 0.050 | 0.077 | 0.050 | 0.100 | 0.135 | 0.068 |
-| c25 | shade (1) | 15–18 | 15 | 30 | 0.150 | 0.154 | 0.300 | 0.300 | 0.270 | 0.407 |
-| c26 | shade (2) | 19–21 | — | 10 | — | — | — | 0.100 | 0.090 | 0.136 |
-| c28 | lumen (1) | 15–18 | — | 15 | — | — | — | 0.150 | 0.101 | 0.152 |
-| **Sum** | | | 100 | 100 | **1.000** | **1.000** | **1.000** | **1.000** | **1.000** | **1.000** |
+| Id | Species | Type (stage) | Lv | Day wt | Night wt | Day clear | Day rain | Day fog | Night clear | Night rain | Night fog |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| c11 | Lullstalk | verdant·toxin (2) | 19–23 | 15 | 10 | 0.150 | 0.186 | 0.158 | 0.100 | 0.124 | 0.073 |
+| c13 | Rollith | stone (1) | 19–20 | 10 | — | 0.100 | 0.083 | 0.105 | — | — | — |
+| c14 | Cairnback | stone (2) | 20–23 | 10 | 5 | 0.100 | 0.082 | 0.105 | 0.050 | 0.041 | 0.036 |
+| c20 | Whirlseed | gale·verdant (2) | 19–23 | 15 | — | 0.150 | 0.062 | 0.079 | — | — | — |
+| c22 | Ringdrip | toxin (1) | 19–21 | 25 | 20 | 0.250 | 0.309 | 0.263 | 0.200 | 0.248 | 0.145 |
+| c23 | Brineloop | toxin·water (2) | 19–23 | 20 | 20 | 0.200 | 0.247 | 0.211 | 0.200 | 0.247 | 0.145 |
+| c25 | Snipling | shade (1) | 19–23 | — | 25 | — | — | — | 0.250 | 0.206 | 0.364 |
+| c26 | Marionyx | shade (2) | 24 | — | 5 | — | — | — | 0.050 | 0.041 | 0.073 |
+| c28 | Dawnfry | lumen (1) | 20–23 | 5 | 15 | 0.050 | 0.031 | 0.079 | 0.150 | 0.093 | 0.164 |
+| **Sum** | | | | 100 | 100 | **1.000** | **1.000** | **1.000** | **1.000** | **1.000** | **1.000** |
 
 #### lake
 
-| Creature | Type (stage) | Lv | Day wt | Night wt | Day clear | Day rain | Day fog | Night clear | Night rain | Night fog |
-|---|---|---|---|---|---|---|---|---|---|---|
-| c11 | verdant (2) | 24–28 | 20 | 10 | 0.200 | 0.293 | 0.195 | 0.100 | 0.145 | 0.070 |
-| c14 | stone (2) | 25–28 | 10 | — | 0.100 | 0.097 | 0.098 | — | — | — |
-| c16 | frost (1) | 24–27 | 20 | 20 | 0.200 | 0.195 | 0.195 | 0.200 | 0.193 | 0.140 |
-| c17 | frost (2) | 30–31 | 5 | 5 | 0.050 | 0.049 | 0.049 | 0.050 | 0.048 | 0.035 |
-| c20 | gale (2) | 25–28 | 15 | — | 0.150 | 0.073 | 0.073 | — | — | — |
-| c23 | toxin (2) | 25–28 | 10 | 10 | 0.100 | 0.146 | 0.098 | 0.100 | 0.144 | 0.070 |
-| c25 | shade (1) | 24–27 | — | 10 | — | — | — | 0.100 | 0.096 | 0.140 |
-| c26 | shade (2) | 25–28 | — | 20 | — | — | — | 0.200 | 0.193 | 0.281 |
-| c28 | lumen (1) | 24–27 | 15 | 20 | 0.150 | 0.110 | 0.219 | 0.200 | 0.145 | 0.211 |
-| c29 | lumen (2) | 30–31 | 5 | 5 | 0.050 | 0.037 | 0.073 | 0.050 | 0.036 | 0.053 |
-| **Sum** | | | 100 | 100 | **1.000** | **1.000** | **1.000** | **1.000** | **1.000** | **1.000** |
+| Id | Species | Type (stage) | Lv | Day wt | Night wt | Day clear | Day rain | Day fog | Night clear | Night rain | Night fog |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| c11 | Lullstalk | verdant·toxin (2) | 22–26 | 20 | 10 | 0.200 | 0.261 | 0.195 | 0.100 | 0.133 | 0.069 |
+| c14 | Cairnback | stone (2) | 22–26 | 10 | — | 0.100 | 0.087 | 0.098 | — | — | — |
+| c20 | Whirlseed | gale·verdant (2) | 22–26 | 15 | — | 0.150 | 0.065 | 0.073 | — | — | — |
+| c22 | Ringdrip | toxin (1) | 22–23 | 10 | 5 | 0.100 | 0.130 | 0.098 | 0.050 | 0.067 | 0.035 |
+| c23 | Brineloop | toxin·water (2) | 22–26 | 25 | 25 | 0.250 | 0.326 | 0.244 | 0.250 | 0.334 | 0.172 |
+| c25 | Snipling | shade (1) | 22–24 | — | 15 | — | — | — | 0.150 | 0.133 | 0.207 |
+| c26 | Marionyx | shade (2) | 24–27 | — | 15 | — | — | — | 0.150 | 0.133 | 0.207 |
+| c28 | Dawnfry | lumen (1) | 22–25 | 15 | 20 | 0.150 | 0.098 | 0.219 | 0.200 | 0.133 | 0.207 |
+| c29 | Lumarlin | lumen (2) | 26–27 | 5 | 10 | 0.050 | 0.033 | 0.073 | 0.100 | 0.067 | 0.103 |
+| **Sum** | | | | 100 | 100 | **1.000** | **1.000** | **1.000** | **1.000** | **1.000** | **1.000** |
 
 #### route_4
 
-| Creature | Type (stage) | Lv | Day wt | Night wt | Day clear | Day rain | Night clear | Night rain |
-|---|---|---|---|---|---|---|---|---|
-| c11 | verdant (2) | 29–31 | 10 | — | 0.100 | 0.132 | — | — |
-| c14 | stone (2) | 28–32 | 20 | 15 | 0.200 | 0.176 | 0.150 | 0.138 |
-| c15 | stone (3) | 35 | 5 | — | 0.050 | 0.044 | — | — |
-| c20 | gale (2) | 29–33 | 20 | 5 | 0.200 | 0.088 | 0.050 | 0.023 |
-| c22 | toxin (1) | 28–30 | 10 | 10 | 0.100 | 0.132 | 0.100 | 0.138 |
-| c23 | toxin (2) | 28–32 | 30 | 25 | 0.300 | 0.395 | 0.250 | 0.345 |
-| c26 | shade (2) | 29–33 | — | 20 | — | — | 0.200 | 0.184 |
-| c28 | lumen (1) | 28–31 | 5 | 20 | 0.050 | 0.033 | 0.200 | 0.138 |
-| c29 | lumen (2) | 33–34 | — | 5 | — | — | 0.050 | 0.034 |
-| **Sum** | | | 100 | 100 | **1.000** | **1.000** | **1.000** | **1.000** |
+| Id | Species | Type (stage) | Lv | Day wt | Night wt | Day clear | Day rain | Night clear | Night rain |
+|---|---|---|---|---|---|---|---|---|---|
+| c11 | Lullstalk | verdant·toxin (2) | 28–31 | 10 | — | 0.100 | 0.164 | — | — |
+| c14 | Cairnback | stone (2) | 28–32 | 20 | 10 | 0.200 | 0.219 | 0.100 | 0.103 |
+| c19 | Gustling | gale (1) | 28–29 | 10 | — | 0.100 | 0.055 | — | — |
+| c20 | Whirlseed | gale·verdant (2) | 28–29 | 30 | 15 | 0.300 | 0.164 | 0.150 | 0.077 |
+| c21 | Samaraptor | gale·verdant (3) | 30–32 | 5 | — | 0.050 | 0.028 | — | — |
+| c23 | Brineloop | toxin·water (2) | 28–32 | 20 | 20 | 0.200 | 0.329 | 0.200 | 0.308 |
+| c25 | Snipling | shade (1) | 28–29 | — | 10 | — | — | 0.100 | 0.103 |
+| c26 | Marionyx | shade (2) | 28–32 | — | 25 | — | — | 0.250 | 0.256 |
+| c28 | Dawnfry | lumen (1) | 28–30 | — | 5 | — | — | 0.050 | 0.038 |
+| c29 | Lumarlin | lumen (2) | 28–32 | 5 | 15 | 0.050 | 0.041 | 0.150 | 0.115 |
+| **Sum** | | | | 100 | 100 | **1.000** | **1.000** | **1.000** | **1.000** |
 
 #### volcano
 
-| Creature | Type (stage) | Lv | Day wt | Night wt | Day clear | Day fog | Night clear | Night fog |
-|---|---|---|---|---|---|---|---|---|
-| c14 | stone (2) | 33–37 | 25 | 20 | 0.250 | 0.246 | 0.200 | 0.162 |
-| c15 | stone (3) | 39–40 | 5 | 5 | 0.050 | 0.049 | 0.050 | 0.041 |
-| c20 | gale (2) | 34–37 | 17 | 10 | 0.170 | 0.084 | 0.100 | 0.041 |
-| c22 | toxin (1) | 33–35 | 10 | 7 | 0.100 | 0.098 | 0.070 | 0.057 |
-| c23 | toxin (2) | 33–37 | 30 | 25 | 0.300 | 0.296 | 0.250 | 0.203 |
-| c24 | toxin (3) | 40 | 3 | 5 | 0.030 | 0.030 | 0.050 | 0.041 |
-| c26 | shade (2) | 34–37 | 10 | 25 | 0.100 | 0.197 | 0.250 | 0.406 |
-| c27 | shade (3) | 40 | — | 3 | — | — | 0.030 | 0.049 |
-| **Sum** | | | 100 | 100 | **1.000** | **1.000** | **1.000** | **1.000** |
+| Id | Species | Type (stage) | Lv | Day wt | Night wt | Day clear | Day sunlight | Day fog | Night clear | Night sunlight | Night fog |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| c14 | Cairnback | stone (2) | 32–35 | 30 | 20 | 0.300 | 0.323 | 0.353 | 0.200 | 0.274 | 0.154 |
+| c15 | Lodestodon | stone·electric (3) | 36–37 | 5 | 5 | 0.050 | 0.054 | 0.059 | 0.050 | 0.068 | 0.039 |
+| c20 | Whirlseed | gale·verdant (2) | 32–33 | 15 | — | 0.150 | 0.161 | 0.088 | — | — | — |
+| c21 | Samaraptor | gale·verdant (3) | 32–36 | 15 | 10 | 0.150 | 0.161 | 0.088 | 0.100 | 0.137 | 0.038 |
+| c23 | Brineloop | toxin·water (2) | 32–34 | 30 | 20 | 0.300 | 0.258 | 0.353 | 0.200 | 0.219 | 0.154 |
+| c24 | Venomantle | toxin·water (3) | 34–37 | 5 | 10 | 0.050 | 0.043 | 0.059 | 0.100 | 0.110 | 0.077 |
+| c26 | Marionyx | shade (2) | 32–37 | — | 35 | — | — | — | 0.350 | 0.192 | 0.538 |
+| **Sum** | | | | 100 | 100 | **1.000** | **1.000** | **1.000** | **1.000** | **1.000** | **1.000** |
 
 #### route_5
 
-| Creature | Type (stage) | Lv | Day wt | Night wt | Day clear | Day snow | Day fog | Night clear | Night snow | Night fog |
-|---|---|---|---|---|---|---|---|---|---|---|
-| c14 | stone (2) | 38–42 | 15 | — | 0.150 | 0.107 | 0.151 | — | — | — |
-| c16 | frost (1) | 38–40 | 10 | 10 | 0.100 | 0.143 | 0.100 | 0.100 | 0.148 | 0.074 |
-| c17 | frost (2) | 38–42 | 30 | 25 | 0.300 | 0.429 | 0.302 | 0.250 | 0.371 | 0.185 |
-| c20 | gale (2) | 38–42 | 20 | 10 | 0.200 | 0.143 | 0.100 | 0.100 | 0.074 | 0.037 |
-| c21 | gale (3) | 44 | 3 | — | 0.030 | 0.021 | 0.015 | — | — | — |
-| c26 | shade (2) | 39–42 | — | 20 | — | — | — | 0.200 | 0.148 | 0.297 |
-| c27 | shade (3) | 44 | — | 5 | — | — | — | 0.050 | 0.037 | 0.074 |
-| c28 | lumen (1) | 38–40 | 7 | 10 | 0.070 | 0.050 | 0.106 | 0.100 | 0.074 | 0.111 |
-| c29 | lumen (2) | 38–42 | 15 | 20 | 0.150 | 0.107 | 0.226 | 0.200 | 0.148 | 0.222 |
-| **Sum** | | | 100 | 100 | **1.000** | **1.000** | **1.000** | **1.000** | **1.000** | **1.000** |
+| Id | Species | Type (stage) | Lv | Day wt | Night wt | Day clear | Day snow | Day fog | Night clear | Night snow | Night fog |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| c14 | Cairnback | stone (2) | 37–39 | 10 | — | 0.100 | 0.069 | 0.098 | — | — | — |
+| c15 | Lodestodon | stone·electric (3) | 37–41 | 10 | — | 0.100 | 0.069 | 0.097 | — | — | — |
+| c16 | Rimelet | frost (1) | 37–39 | 20 | 15 | 0.200 | 0.276 | 0.195 | 0.150 | 0.222 | 0.102 |
+| c17 | Sleetribbon | frost (2) | 37–41 | 25 | 20 | 0.250 | 0.345 | 0.244 | 0.200 | 0.297 | 0.136 |
+| c21 | Samaraptor | gale·verdant (3) | 37–41 | 15 | 5 | 0.150 | 0.103 | 0.073 | 0.050 | 0.037 | 0.017 |
+| c25 | Snipling | shade (1) | 37–38 | — | 10 | — | — | — | 0.100 | 0.074 | 0.135 |
+| c26 | Marionyx | shade (2) | 37–39 | — | 25 | — | — | — | 0.250 | 0.185 | 0.339 |
+| c27 | Emberfold | shade·fire (3) | 40–41 | — | 5 | — | — | — | 0.050 | 0.037 | 0.068 |
+| c29 | Lumarlin | lumen (2) | 37–41 | 20 | 20 | 0.200 | 0.138 | 0.293 | 0.200 | 0.148 | 0.203 |
+| **Sum** | | | | 100 | 100 | **1.000** | **1.000** | **1.000** | **1.000** | **1.000** | **1.000** |
 
 #### snowpeak
 
-| Creature | Type (stage) | Lv | Day wt | Night wt | Day clear | Day snow | Day fog | Night clear | Night snow | Night fog |
-|---|---|---|---|---|---|---|---|---|---|---|
-| c15 | stone (3) | 44–46 | 5 | — | 0.050 | 0.037 | 0.047 | — | — | — |
-| c17 | frost (2) | 42–46 | 30 | 25 | 0.300 | 0.445 | 0.286 | 0.250 | 0.385 | 0.175 |
-| c18 | frost (3) | 48 | 5 | 5 | 0.050 | 0.074 | 0.048 | 0.050 | 0.077 | 0.035 |
-| c20 | gale (2) | 42–45 | 15 | — | 0.150 | 0.111 | 0.071 | — | — | — |
-| c21 | gale (3) | 45–48 | 10 | 5 | 0.100 | 0.074 | 0.048 | 0.050 | 0.038 | 0.018 |
-| c26 | shade (2) | 42–45 | — | 15 | — | — | — | 0.150 | 0.115 | 0.211 |
-| c27 | shade (3) | 46–48 | — | 10 | — | — | — | 0.100 | 0.077 | 0.140 |
-| c28 | lumen (1) | 42–44 | 7 | 10 | 0.070 | 0.052 | 0.100 | 0.100 | 0.077 | 0.105 |
-| c29 | lumen (2) | 42–46 | 25 | 25 | 0.250 | 0.185 | 0.357 | 0.250 | 0.192 | 0.263 |
-| c30 | lumen (3) | 48 | 3 | 5 | 0.030 | 0.022 | 0.043 | 0.050 | 0.039 | 0.053 |
-| **Sum** | | | 100 | 100 | **1.000** | **1.000** | **1.000** | **1.000** | **1.000** | **1.000** |
+| Id | Species | Type (stage) | Lv | Day wt | Night wt | Day clear | Day snow | Day fog | Night clear | Night snow | Night fog |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| c15 | Lodestodon | stone·electric (3) | 40–44 | 10 | — | 0.100 | 0.067 | 0.095 | — | — | — |
+| c16 | Rimelet | frost (1) | 40–41 | 15 | 10 | 0.150 | 0.200 | 0.143 | 0.100 | 0.138 | 0.070 |
+| c17 | Sleetribbon | frost (2) | 40–44 | 30 | 25 | 0.300 | 0.400 | 0.286 | 0.250 | 0.345 | 0.175 |
+| c18 | Borealoop | frost·lumen (3) | 40–44 | 5 | 10 | 0.050 | 0.067 | 0.048 | 0.100 | 0.138 | 0.070 |
+| c21 | Samaraptor | gale·verdant (3) | 40–44 | 15 | — | 0.150 | 0.100 | 0.071 | — | — | — |
+| c26 | Marionyx | shade (2) | 40–41 | — | 15 | — | — | — | 0.150 | 0.103 | 0.210 |
+| c27 | Emberfold | shade·fire (3) | 40–44 | — | 15 | — | — | — | 0.150 | 0.103 | 0.211 |
+| c29 | Lumarlin | lumen (2) | 40–44 | 20 | 20 | 0.200 | 0.133 | 0.286 | 0.200 | 0.138 | 0.211 |
+| c30 | Coronaleen | lumen·shade (3) | 44 | 5 | 5 | 0.050 | 0.033 | 0.071 | 0.050 | 0.035 | 0.053 |
+| **Sum** | | | | 100 | 100 | **1.000** | **1.000** | **1.000** | **1.000** | **1.000** | **1.000** |
 
-#### cave (upper level, y 0..10) — time- and weather-invariant
+#### cave — upper galleries (east, before the Heave gate) — time- and weather-invariant
 
-| Creature | Type (stage) | Lv | Weight | Probability |
-|---|---|---|---|---|
-| c13 | stone (1) | 18–21 | 30 | 0.300 |
-| c14 | stone (2) | 20–22 | 15 | 0.150 |
-| c16 | frost (1) | 18–21 | 15 | 0.150 |
-| c22 | toxin (1) | 18–21 | 15 | 0.150 |
-| c25 | shade (1) | 18–21 | 25 | 0.250 |
-| **Sum** | | | 100 | **1.000** |
+| Id | Species | Type (stage) | Lv | Weight | Probability |
+|---|---|---|---|---|---|
+| c13 | Rollith | stone (1) | 16–19 | 40 | 0.400 |
+| c22 | Ringdrip | toxin (1) | 16–17 | 20 | 0.200 |
+| c23 | Brineloop | toxin·water (2) | 18–19 | 15 | 0.150 |
+| c25 | Snipling | shade (1) | 16–19 | 25 | 0.250 |
+| **Sum** | | | | 100 | **1.000** |
 
-#### cave (deep level, y -30..-10) — time- and weather-invariant
+#### cave — lower galleries (west, behind the Heave gate) — time- and weather-invariant
 
-| Creature | Type (stage) | Lv | Weight | Probability |
-|---|---|---|---|---|
-| c14 | stone (2) | 22–25 | 30 | 0.300 |
-| c16 | frost (1) | 22–24 | 20 | 0.200 |
-| c17 | frost (2) | 26 | 5 | 0.050 |
-| c23 | toxin (2) | 24–26 | 10 | 0.100 |
-| c25 | shade (1) | 22–24 | 15 | 0.150 |
-| c26 | shade (2) | 22–25 | 20 | 0.200 |
-| **Sum** | | | 100 | **1.000** |
+| Id | Species | Type (stage) | Lv | Weight | Probability |
+|---|---|---|---|---|---|
+| c13 | Rollith | stone (1) | 19 | 25 | 0.250 |
+| c14 | Cairnback | stone (2) | 20–21 | 25 | 0.250 |
+| c22 | Ringdrip | toxin (1) | 19 | 10 | 0.100 |
+| c23 | Brineloop | toxin·water (2) | 19–21 | 15 | 0.150 |
+| c25 | Snipling | shade (1) | 19–21 | 25 | 0.250 |
+| **Sum** | | | | 100 | **1.000** |
 
 ---
 
-## 5. Obtainability
+## 5. Obtainability (all 30; QA D-25 runs per starter choice)
 
-### 5.1 Matrix (all 30)
+| Id | Species | Family / stage | Types | How obtained | Earliest |
+|---|---|---|---|---|---|
+| c01 | Fizzkit | f01 / 1 | electric | Starter; else leftover (ch8, Lv 25) or second clutch (after trial_5, Lv 30) per §2.6 | ch1 / ch8 / ch9+ |
+| c02 | Crackleap | f01 / 2 | electric | evolve c01 at 16 | — |
+| c03 | Tempestrel | f01 / 3 | electric·gale | evolve c02 at 34 | — |
+| c04 | Wickwool | f02 / 1 | fire | Starter / leftover / second clutch | ch1 / ch8 / ch9+ |
+| c05 | Kilnhorn | f02 / 2 | fire | evolve 16 | — |
+| c06 | Magmouflon | f02 / 3 | fire·stone | evolve 34 | — |
+| c07 | Rippleback | f03 / 1 | water | Starter / leftover / second clutch | ch1 / ch8 / ch9+ |
+| c08 | Tidesleek | f03 / 2 | water | evolve 16 | — |
+| c09 | Floeguard | f03 / 3 | water·frost | evolve 34 | — |
+| c10 | Dozebud | f04 / 1 | verdant | static (route_1); wild route_1, forest, route_2 | ch1 |
+| c11 | Lullstalk | f04 / 2 | verdant·toxin | wild route_2 (Lv 16), route_3, lake, route_4; evolve 16 | ch3 |
+| c12 | Belladrowse | f04 / 3 | verdant·toxin | **evolution only** (32) | — |
+| c13 | Rollith | f05 / 1 | stone | wild route_1, forest, route_2, route_3, cave | ch1 |
+| c14 | Cairnback | f05 / 2 | stone | wild cave lower, route_3, lake, route_4, volcano, route_5; evolve 20 | ch4 |
+| c15 | Lodestodon | f05 / 3 | stone·electric | wild volcano (36–37), route_5, snowpeak; evolve 36 | ch9 |
+| c16 | Rimelet | f06 / 1 | frost | wild route_5, snowpeak | ch10 |
+| c17 | Sleetribbon | f06 / 2 | frost | wild route_5, snowpeak; evolve 22 | ch10 |
+| c18 | Borealoop | f06 / 3 | frost·lumen | wild snowpeak; evolve 38 | ch11 |
+| c19 | Gustling | f07 / 1 | gale | wild route_1, forest, route_2, route_4 | ch1 |
+| c20 | Whirlseed | f07 / 2 | gale·verdant | wild route_2 (14–16), route_3, lake, route_4, volcano; evolve 14 | ch3 |
+| c21 | Samaraptor | f07 / 3 | gale·verdant | wild route_4 (30–32), volcano, route_5, snowpeak; evolve 30 | ch8 |
+| c22 | Ringdrip | f08 / 1 | toxin | wild route_1 (night), forest, route_2, cave, route_3, lake | ch1 |
+| c23 | Brineloop | f08 / 2 | toxin·water | wild cave, route_3, lake, route_4, volcano; evolve 18 | ch4 |
+| c24 | Venomantle | f08 / 3 | toxin·water | wild volcano (34–37); evolve 34 | ch9 |
+| c25 | Snipling | f09 / 1 | shade | wild route_1 (night), forest (night), route_2 (night), cave (any time), route_3, lake, route_4, route_5 | ch1 |
+| c26 | Marionyx | f09 / 2 | shade | wild route_3 (night, 24), lake, route_4, volcano, route_5, snowpeak; evolve 24 | ch5 |
+| c27 | Emberfold | f09 / 3 | shade·fire | wild route_5 (night, 40–41), snowpeak (night); evolve 40 | ch10 |
+| c28 | Dawnfry | f10 / 1 | lumen | wild route_1, forest, route_2 (night), route_3, lake, route_4 | ch1 |
+| c29 | Lumarlin | f10 / 2 | lumen | wild lake (26–27), route_4, route_5, snowpeak; evolve 26 | ch6 |
+| c30 | Coronaleen | f10 / 3 | lumen·shade | wild snowpeak (Lv 44, weight 5); evolve 44, or `i_evo_prism` on c29 at any level | ch10 (prism) |
 
-| Id | Family / stage | Primary type | How obtained | Earliest |
-|---|---|---|---|---|
-| c01 | f01 / 1 | electric | starter choice; else gift A or B (§5.2) | ch1 / ch5 / ch6 |
-| c02 | f01 / 2 | electric | evolve c01 | — |
-| c03 | f01 / 3 | electric | evolve c02 | — |
-| c04 | f02 / 1 | fire | starter choice; else gift A or B | ch1 / ch5 / ch6 |
-| c05 | f02 / 2 | fire | evolve c04 | — |
-| c06 | f02 / 3 | fire | evolve c05 | — |
-| c07 | f03 / 1 | water | starter choice; else gift A or B | ch1 / ch5 / ch6 |
-| c08 | f03 / 2 | water | evolve c07 | — |
-| c09 | f03 / 3 | water | evolve c08 | — |
-| c10 | f04 / 1 | verdant | wild: route_1, forest, route_2 | route_1 |
-| c11 | f04 / 2 | verdant | wild: forest (rare), lake, route_4; evolve c10 | forest |
-| c12 | f04 / 3 | verdant | **evolution only** (c11) | — |
-| c13 | f05 / 1 | stone | wild: route_1, forest, route_2, route_3, cave upper | route_1 |
-| c14 | f05 / 2 | stone | wild: route_2 (rare), route_3, cave, lake, route_4, volcano, route_5; evolve c13 | route_2 |
-| c15 | f05 / 3 | stone | wild rare: route_4, volcano, snowpeak; evolve c14 | route_4 |
-| c16 | f06 / 1 | frost | wild: cave (both levels), lake, route_5 | cave |
-| c17 | f06 / 2 | frost | wild: cave deep (rare), lake, route_5, snowpeak; evolve c16 | cave |
-| c18 | f06 / 3 | frost | wild rare: snowpeak; evolve c17 | snowpeak |
-| c19 | f07 / 1 | gale | wild: route_1, forest, route_2, route_3 | route_1 |
-| c20 | f07 / 2 | gale | wild: route_2 (rare) … snowpeak (7 zones); evolve c19 | route_2 |
-| c21 | f07 / 3 | gale | wild rare: route_5, snowpeak; evolve c20 | route_5 |
-| c22 | f08 / 1 | toxin | wild: route_1 (night), forest, route_2, route_3, cave upper, route_4, volcano | route_1 |
-| c23 | f08 / 2 | toxin | wild: route_3, cave deep, lake, route_4, volcano; evolve c22 | route_3 |
-| c24 | f08 / 3 | toxin | wild rare: volcano; evolve c23 | volcano |
-| c25 | f09 / 1 | shade | wild: route_1 (night), forest (night), route_2 (night), route_3, cave, lake (night) | route_1 |
-| c26 | f09 / 2 | shade | wild: route_2 (night, rare), route_3, cave deep, lake, route_4, volcano, route_5, snowpeak; evolve c25 | route_2 |
-| c27 | f09 / 3 | shade | wild rare: volcano (night), route_5 (night), snowpeak (night); evolve c26 | volcano |
-| c28 | f10 / 1 | lumen | wild: route_1 (day), forest, route_2 (night), route_3 (night), lake, route_4, route_5, snowpeak | route_1 |
-| c29 | f10 / 2 | lumen | wild: lake (rare), route_4 (night), route_5, snowpeak; evolve c28 | lake |
-| c30 | f10 / 3 | lumen | wild rare: snowpeak; evolve c29 | snowpeak |
+**Coverage.** Every wild line's stage 1 (c10, c13, c16, c19, c22, c25, c28) is catchable. c12 is evolution-only. c25 is time-invariant in the cave, so no line needs night play.
 
-Checks: every stage-1 of every wild line (c10, c13, c16, c19, c22, c25, c28) is catchable; c12 is evolution-only (allowed). Stage-1s of the shade line appear only at night in routes 1–2 but also time-invariantly in the cave, so no line requires night play. All 30 are completable in one save: 21 wild-line species via capture/evolution + 3 starter lines × 3 via choice + two deterministic gifts + evolution.
+**Water, fire and electric outside the starters** (creatures.md secondaries):
+- water: c23 (from Lv 18, cave) and c24
+- fire: c27 (Lv 40+)
+- electric: c15 (Lv 36+)
 
-### 5.2 The two unchosen starters (deterministic, single-player, no waits)
-
-Cyclic order: **electric (c01) → fire (c04) → water (c07) → electric**. Gift A = the next line after the chosen one; Gift B = the remaining one. The rival picks Gift B's line (rival's creature is therefore the species the player later rescues; Creative Director may reverse to "type-advantage" pick if the Systems type chart supports it).
-
-| Player chose | Gift A (ch5) | Gift B (ch6) | Rival's starter |
-|---|---|---|---|
-| c01 Voltra | c04 | c07 | c07 |
-| c04 Emberhorn | c07 | c01 | c01 |
-| c07 Rippleback | c01 | c04 | c04 |
-
-- **Gift A — ev_12, main story (unmissable):** on first entering `town_2` with `flag_trial_3_cleared`, the mentor waits at the Tending House (18, 26): "This one kept humming your crest melody." Delivers stage-1 Gift A at **Lv 22**, holding nothing, with its standard learnset for Lv 22. Sets `flag_gift_a_received`. The path to G5 (the lake) is in town_2, so the event fires before the player can progress. If party is full, the creature goes to storage with an on-screen notice (storage cap 300 per ANCHORS; if storage is also full the event waits and repeats on each town_2 entry, with the mentor asking the player to make room — Systems/UI own the full-storage message).
-- **Gift B — q_side_foundry_rescue (optional but always available, journal auto-adds):** after `flag_trial_5_cleared`, the Foundry vault rust-lock (−40, 60) can be Dissolved (toxin, which the player necessarily has for G9). Inside, defeat `t_hush_warden` (4 creatures, Lv 38–39), then `npc_captive_keeper` releases the captive stage-1 Gift B at **Lv 30**. Sets `flag_gift_b_received`. Reminders: the mentor calls via Tuning Fork on entering town_3 after `flag_trial_5_cleared` if not done, and again at the league gate hall.
-- Both gifts are delivered at stage 1 so the encyclopedia registers stage 1 and later stages via evolution. If Systems' stage-1→2 level threshold is below the gift level, the creature evolves at its first level-up (evolution check on level-up).
+**Dawn Prism (`i_evo_prism`) sources:**
+- a guaranteed visible pickup on route_5 (−30,−60) (ch10, at about Lv 38, which is before 44);
+- the Galewick Chandlery (3000);
+- q_side_kinsong_survey stage 2 does not give one.
 
 ---
 
 ## 6. Quests
 
-Main quests (`q_main_*`) auto-start; journal shows current step and target zone/marker. Rewards in coins are provisional (Systems owns the economy).
+Main quests use CD ids `q_main_ch01..ch12`, and each completes on its chapter's last flag. Money is **post-D23 scaling**: main rewards ×¼ and side rewards ×½ of the v1 values. Systems v2 may retune them.
 
-| Id | Ch | Prerequisite | Steps (completion flag per step) | Rewards |
+| Id | Prereq | Steps (flags, CD §4) | Reward |
+|---|---|---|---|
+| q_main_ch01 | new game | starter → rival 1 → tutorial → capture tutorial → route_1 Waystone | starter, Ledger, 5 `i_chime_reed`, 3 `i_salve_1` |
+| q_main_ch02 | `flag_capture_tutorial` | Rootgate → Stillmark sighting → trial_1 | `i_keynote_1`, `i_disc_05`, 200 |
+| q_main_ch03 | `flag_trial_1_cleared` | rival 2 → trial_2 | `i_keynote_2`, `i_disc_10`, 375 |
+| q_main_ch04 | `flag_trial_2_cleared` | Heave gate → Brann → miners saved | 500, `i_chime_brass` ×3 |
+| q_main_ch05 | `flag_cave_miners_saved` | Vey 1 → fen stone restored → rival 3 | 500 |
+| q_main_ch06 | `flag_rival_3_done` | trial_3 | `i_keynote_3`, `i_disc_02`, 625 |
+| q_main_ch07 | `flag_trial_3_cleared` | trial_4 → Odile named | `i_keynote_4`, `i_disc_13`, 875 |
+| q_main_ch08 | `flag_trial_4_cleared` | Gust ascent → Stillhouse → Vey 2 → leftover rescued → rival 4 | `i_disc_09`, 1000 |
+| q_main_ch09 | `flag_rival_4_done` | vent → trial_5 | `i_keynote_5`, `i_disc_15`, 1125 |
+| q_main_ch10 | `flag_trial_5_cleared` | rival 5 → Odile revealed | 750 |
+| q_main_ch11 | `flag_odile_revealed` | Rime falls → trial_6 → Brann → Odile → Null Bell | `i_keynote_6`, `i_disc_18`, 2000, `i_chime_crown` |
+| q_main_ch12 | `flag_nullbell_broken` ∧ all trials | Spire open → rival 6 → Concordant | 3750, credits |
+
+| Id | Giver @ zone | Prereq | Steps | Reward |
 |---|---|---|---|---|
-| q_main_01 First Resonance | 1 | new game | choose starter (`flag_starter_chosen`) → rival 1 (`flag_rival_1_done`) → open Tri-Gate (`flag_resonance_tutorial_done`) | starter, Tuning Fork, 5 `i_capture_t1`, 3 `i_tonic_s` |
-| q_main_02 The Dimmed Tree | 2 | q_main_01 | reach Great Lantern Tree → defeat 2 Hush (`flag_forest_damper_removed`) → clear trial_1 (`flag_trial_1_cleared`) → cross Sprout Bridge | Crest 1, D01, Bloom, fast travel, 800 |
-| q_main_03 Windward | 3 | q_main_02 | route_2 rival (`flag_rival_2_done`) → reach town_2 (`flag_town2_arrived`) → clear trial_2 | Crest 2, D02, Updraft, 1500 |
-| q_main_04 Hollow Voices | 4 | q_main_03 | cross Gust Gap → defeat cave-mouth Hush (`flag_route3_blockade_cleared`) → clear hideout (`flag_cave_hideout_cleared`, `flag_veil_unlocked`) → clear trial_3 | Crest 3, D03, Shift, Veil, 2500 |
-| q_main_05 Glasswater | 5 | q_main_04 | receive Gift A (`flag_gift_a_received`) → move boulder → stop pump (`flag_lake_pump_stopped`) → rival 3 → clear trial_4 → freeze outflow | Gift A, Crest 4, D04, Freeze, 3500 |
-| q_main_06 Kiln | 6 | q_main_05 | reach town_3 (`flag_town3_arrived`) → cross Scorch Gap → raid Foundry (`flag_foundry_raided`) → clear trial_5 | Crest 5, D05, Dissolve, 4500 |
-| q_main_07 Rimewind | 7 | q_main_06 | dissolve north gate → freeze river → rival 4 → reach snowpeak → clear trial_6 | Crest 6, D06, Illuminate, 5500 |
-| q_main_08 The Great Damper | 8 | q_main_07 | light ice tunnel (`flag_ice_tunnel_lit`) → defeat Hush sentry → defeat Director Vell (`flag_faction_boss_defeated`) | 8000, `i_capture_t4` ×1 |
-| q_main_09 Chorus Spire | 8 | q_main_08 | enter league → defeat rival (`flag_rival_final_done`) → defeat champion (`flag_champion_defeated`) | 15000, credits, `flag_postgame` |
+| q_foster_leftover | Oriel, town_1 | `flag_leftover_rescued` | §2.6 | leftover starter Lv 25, `flag_leftover_obtained` |
+| q_second_clutch | Oriel, town_1 | `flag_trial_5_cleared` ∧ `flag_leftover_obtained` | §2.6 | rival-line starter Lv 30, `flag_triad_complete` |
+| q_side_fallen_chime | npc_villager_chime, town_1 | `flag_starter_chosen` | find `i_q_windchime` in the route_1 stream bed (−38,−20) → return | 250, `i_salve_1` ×3 |
+| q_side_hollow_hum | npc_hollow_warden, forest | `flag_stillmark_first_seen` | re-wake 4 hollow trees at (−40,60), (50,30), (−75,0), (15,−10). Each accepts Rootcall, Spark, Kindle **or** an `i_q_glowcap` (4 lie visible at (−30,30), (65,45), (−65,−30), (5,55)) → return | `i_chime_brass` ×3, `i_salve_2` ×2 |
+| q_side_offkey_bells | npc_bellwright, town_2 | `flag_rival_2_done` | retune 3 bells: Spark at each (−10,−30), (30,−20), (−45,−35), **or** bring 3 `i_q_clapper` from route_2 (40,70), (−40,0), (25,−40) → return | 750, `i_cure_all` ×2 |
+| q_side_miners_samples | npc_foreman, cave | `flag_trial_2_cleared` | find 4 hidden crystal samples: cave (75,−40), (20,70) upper; (−75,40), (−20,−75) lower → return | `i_chime_silver` ×3, 1000 |
+| q_side_kinsong_survey | npc_marra | `flag_rival_2_done` | stage 1: 10 species sung; stage 2: 20; stage 3: 30 | S1 `i_chime_brass` ×5; S2 `i_chime_silver` ×5 + 1500; S3 Kinsong gold edging (cosmetic) + `i_chime_crown` ×2 |
+| q_side_veil_tales | npc_storyteller, route_3 | `i_keynote_4` | pass 3 Veil curtains (route_3 (−60,30); cave (−80,−20) `rn_cave_05`; town_3 cellar (−35,−28)); read the tale pages → return | 1000, `i_revive_2` |
+| q_side_kite_contest | npc_kitewright, town_3 | `i_keynote_3` | Gust at route_2 (30,−50), route_4 (70,−35), town_3 cliff vent (−60,−60) `rn_town_3_03` to retrieve 3 kites → return | 750, `i_salve_3` ×3 |
+| q_side_market_courier | npc_courier, town_3 | `flag_trial_3_cleared` | deliver a parcel to npc_hk_volcano (after `flag_rival_4_done`) → return the reply | `i_chime_silver` ×5, 1250 |
+| q_side_gleam_beacons | npc_beaconkeeper, lake | `i_keynote_6` | Gleam 3 shore beacons (−60,−50), (60,−20), (−40,60) (`rn_lake_03..05`) → return | `i_salve_4` ×3, 750 |
+| q_side_rival_rematch | npc_cass, town_1 | `flag_game_cleared` | defeat t_rival_post | `i_chime_crown`, 1500 |
 
-Side quests:
-
-| Id | Giver @ zone | Prerequisite | Steps | Rewards |
-|---|---|---|---|---|
-| q_side_lost_kettle | npc_grandpa_kettle, town_1 | `flag_starter_chosen` | find `i_old_kettle` (sparkle, visible) in route_1 stream bed (−38, −20) → return | 500, `i_tonic_s` ×3 |
-| q_side_lantern_moths | npc_lantern_apprentice, forest | `flag_forest_damper_removed` | relight 4 moss lanterns at (−40, 70), (50, 30), (−75, 0), (15, −10); each accepts Spark **or** Kindle **or** Illuminate **or** a `i_glowcap` (4 glowcaps lie visibly in forest at (−30, 30), (65, 45), (−65, −30), (5, 60)) → return | D25, `i_capture_t2` ×3 |
-| q_side_windmill_repair | npc_miller, town_2 | `flag_town2_arrived` | restart 3 windmills: Spark each, **or** bring `i_gear` ×3 (route_2 at (40, 70), (−40, 0), (25, −40)) → return | D26, 1500 |
-| q_side_kite_contest | npc_kite_girl, route_1 | `flag_trial_2_cleared` | Updraft at route_1 Kite Hill (25, 30), route_2 vent (−30, −20), route_3 mesa (−10, −22) to retrieve 3 kites → return | 1500, `i_tonic_m` ×3 |
-| q_side_survey | npc_archivist, town_2 (later town_3) | `flag_town2_arrived` | stage 1: register 10 species; stage 2: 20; stage 3: all 30 | S1: D27; S2: `i_capture_t3` ×5 + 3000; S3: Archivist's Sash (cosmetic outfit) + `i_capture_t4` ×2 |
-| q_side_shade_tales | npc_storyteller, route_3 | `flag_veil_unlocked` | pass 3 shadow curtains (route_3 sinkhole, cave curtain, town_3 museum basement) and read each "tale page" → return | D28, 2000 |
-| q_side_geode_survey | npc_geologist, cave | `flag_route3_blockade_cleared` | find 4 hidden geode samples: cave (75, −40) upper, (−20, 70) upper, (−75, 40) deep, (10, −75) deep (after hideout) → return | `i_capture_t3` ×3, 2000 |
-| q_side_market_courier | npc_courier, town_3 | `flag_town3_arrived` | deliver parcel to npc_basecamp_keeper (volcano) → bring reply back | `i_capture_t3` ×5, 2500 |
-| q_side_foundry_rescue | auto (journal), volcano | `flag_trial_5_cleared` | Dissolve vault lock (−40, 60) → defeat t_hush_warden → talk to npc_captive_keeper | Gift B (§5.2), `i_capture_t3` ×2 |
-| q_side_lake_lights | npc_lodge_keeper, lake | `flag_trial_6_cleared` | Illuminate 3 shore shrines (−60, −50), (60, −20), (−40, 60) → return | D29, `i_tonic_max` ×3 |
-| q_side_rival_rematch | npc_rival, town_1 | `flag_postgame` | defeat t_rival_post (6, Lv 55) | D30, `i_capture_t4` ×1 |
-
-Totals: 9 main + 11 side quests. No quest step requires real-time waiting, trading, or another player.
+This adds cave node `rn_cave_05` (Veil, (−80,−20)) and town_3 node `rn_town_3_03` (Gust vent, (−60,−60)) to §2.7. Neither has an item reward beyond its quest. Nothing here requires real-time waits, trading, or another player.
 
 ---
 
 ## 7. Items
 
-### 7.1 Overworld pickups (V = visible prop, H = hidden: shimmer visible within 3 m, or revealed by Illuminate within 10 m)
+### 7.1 Pickups (V = visible; H = hidden, shown as a shimmer within 3 m)
+
+Ids are `pk_<zone>_<nn>`, one-time, and saved in the collected set.
 
 | Zone | V/H | Pos (x,z) | Item × qty |
 |---|---|---|---|
-| town_1 | V | (28, 30) | `i_tonic_s` ×2 |
-| town_1 | H | (3, −2) fountain rim | `i_capture_t1` ×1 |
-| route_1 | V | (20, 50) | `i_capture_t1` ×3 |
-| route_1 | V | (−30, 10) | `i_tonic_s` ×1 |
-| route_1 | H | (−15, 60) | `i_coin_pouch_s` (200) |
-| forest | V | (−20, 50) | `i_tonic_s` ×2 |
-| forest | V | (50, 20) | `i_cure_basic` ×2 |
-| forest | V | (−60, −20) | `i_capture_t1` ×3 |
-| forest | V | (5, 15) | D08 |
-| forest | H | (70, −10) | `i_revive` ×1 |
-| route_2 | V | (−30, 60) | `i_tonic_m` ×1 |
-| route_2 | V | (35, −10) | `i_capture_t2` ×2 |
-| route_2 | H | (0, −20) | `i_revive` ×1 |
-| town_2 | V | (−50, 30) | `i_cure_all` ×1 |
-| town_2 | H | (−30, −40) | `i_coin_pouch_m` (800) |
-| route_3 | V | (60, −20) | `i_tonic_m` ×2 |
-| route_3 | V | (−20, 30) | `i_capture_t2` ×3 |
-| route_3 | V | (−40, 20) | D11 |
-| route_3 | H | (10, −30) | `i_revive` ×1 |
-| cave | V | (50, 40) | `i_tonic_m` ×1 |
-| cave | V | (−10, 50) | `i_capture_t2` ×2 |
-| cave | V | (−60, −10) | `i_cure_all` ×1 |
-| lake | V | (−50, 60) | `i_tonic_l` ×1 |
-| lake | V | (70, 30) | `i_revive` ×1 |
-| lake | V | (−80, −60) | `i_capture_t3` ×2 |
-| lake | H | (30, 90) | `i_coin_pouch_m` (800) |
-| town_3 | H | (50, −50) lookout top | `i_revive` ×1 |
-| route_4 | V | (70, 30) | `i_tonic_l` ×1 |
-| route_4 | V | (0, 20) | `i_capture_t3` ×2 |
-| route_4 | V | (−40, −30) | `i_charge_restore` ×1 |
-| route_4 | H | (20, −40) | `i_revive` ×1 |
-| volcano | V | (50, −10) | `i_tonic_l` ×2 |
-| volcano | V | (−50, 20) | `i_cure_all` ×2 |
-| volcano | V | (20, 70) | D17 |
-| volcano | H | (−80, 0) | `i_coin_pouch_l` (2000) |
-| route_5 | V | (30, 60) | `i_tonic_l` ×1 |
-| route_5 | V | (−30, −10) | `i_revive` ×2 |
-| route_5 | H | (40, −70) | `i_charge_restore` ×2 |
-| snowpeak | V | (−60, 50) | `i_tonic_max` ×1 |
-| snowpeak | V | (60, −10) | `i_revive_full` ×1 |
-| snowpeak | H | (−20, 70) | `i_coin_pouch_l` (2000) |
+| town_1 | V | (28,30) | `i_salve_1` ×2 |
+| town_1 | H | (3,−2) | `i_chime_reed` ×1 |
+| route_1 | V | (20,50) | `i_chime_reed` ×3 |
+| route_1 | V | (−30,10) | `i_cure_poison` ×1 |
+| route_1 | H | (−15,60) | `i_salve_1` ×2 |
+| forest | V | (−20,50) | `i_salve_1` ×2 |
+| forest | V | (50,20) | `i_cure_sleep` ×2 |
+| forest | V | (−60,−20) | `i_chime_reed` ×3 |
+| forest | H | (70,−10) | `i_escape` ×1 |
+| route_2 | V | (−30,60) | `i_salve_2` ×1 |
+| route_2 | V | (35,−10) | `i_chime_brass` ×2 |
+| route_2 | H | (0,−20) | `i_revive_1` ×1 |
+| town_2 | V | (−50,30) | `i_cure_all` ×1 |
+| town_2 | H | (−30,−40) | `i_charge_1` ×1 |
+| cave | V | (50,40) | `i_salve_2` ×2 |
+| cave | V | (−10,50) | `i_chime_brass` ×2 |
+| cave | V | (−60,−10) | `i_cure_all` ×1 |
+| route_3 | V | (60,−20) | `i_salve_2` ×2 |
+| route_3 | V | (−20,30) | `i_cure_poison` ×3 |
+| route_3 | H | (10,−30) | `i_revive_1` ×1 |
+| lake | V | (−50,40) | `i_salve_3` ×1 |
+| lake | V | (70,30) | `i_revive_1` ×1 |
+| lake | V | (−80,−60) | `i_chime_silver` ×2 |
+| lake | H | (30,90) | `i_charge_1` ×2 |
+| town_3 | H | (50,−50) | `i_revive_1` ×1 |
+| route_4 | V | (70,30) | `i_salve_3` ×1 |
+| route_4 | V | (0,20) | `i_chime_silver` ×2 |
+| route_4 | V | (−40,−10) | `i_charge_1` ×1 |
+| route_4 | H | (20,−40) | `i_revive_1` ×1 |
+| volcano | V | (50,−10) | `i_salve_3` ×2 |
+| volcano | V | (−50,20) | `i_cure_burn` ×3 |
+| volcano | H | (−80,0) | `i_revive_2` ×1 |
+| route_5 | V | (30,60) | `i_salve_3` ×1 |
+| route_5 | **V** | **(−30,−60)** | **`i_evo_prism` ×1 (guaranteed; systems §12.1)** |
+| route_5 | H | (40,−70) | `i_charge_2` ×1 |
+| snowpeak | V | (−60,50) | `i_salve_4` ×1 |
+| snowpeak | V | (60,−10) | `i_revive_2` ×1 |
+| snowpeak | H | (−20,70) | `i_cure_frost` ×3 |
 
-Quest-item pickups (`i_old_kettle`, `i_glowcap` ×4, `i_gear` ×3, geode samples ×4) are listed in §6. Secret rewards are in §2.7. Pickups are one-time (saved as `pickup_<zone>_<index>` in the save's collected set).
+Quest items (`i_q_windchime`, `i_q_glowcap` ×4, `i_q_clapper` ×3, crystal samples ×4) are new key-kind ids for `items.json` (§11 Q2).
 
-### 7.2 Teaching discs (30 slots; Systems Designer maps each slot to a move id `m###` and decides reusability)
+### 7.2 Etudes / teaching discs (`i_disc_01..18`, systems §12.2; each has exactly one source)
 
-| Disc | Source | Suggested type / band |
+| Disc | Move | Source |
 |---|---|---|
-| D01–D06 | trial_1..trial_6 leader rewards | verdant / gale / stone / frost / fire / lumen, matching trial, mid-power |
-| D07 | sec_01 route_1 islet | water, early |
-| D08 | forest visible (5, 15) | lumen, early |
-| D09 | sec_03 forest conduit | electric, early |
-| D10 | sec_04 route_2 ledge | stone, early-mid |
-| D11 | route_3 visible (−40, 20) | shade, mid |
-| D12 | sec_09 route_3 sinkhole | shade, mid |
-| D13 | sec_06 cave curtain | toxin, mid |
-| D14 | sec_10 lake islet | water, mid |
-| D15 | sec_11 museum basement | lumen, mid |
-| D16 | sec_12 route_4 crust | toxin, mid-late |
-| D17 | volcano visible (20, 70) | fire, mid-late |
-| D18 | sec_14 obsidian curtain | shade, late |
-| D19 | sec_15 route_5 avalanche cave | frost, late |
-| D20 | sec_16 snowpeak ice wall | gale, late |
-| D21, D22 | town_2 shop | neutral-utility (e.g. protect-like, stat-up) |
-| D23, D24 | town_3 shop | electric / verdant coverage |
-| D25–D30 | side quest rewards (§6) | D25 fire, D26 electric, D27 verdant, D28 shade, D29 lumen, D30 frost (late, strong) |
-
-Type coverage: every one of the 10 types has ≥ 2 disc slots.
+| i_disc_01 | Heat Ribbon | Knellstone Chandlery (2000) |
+| i_disc_02 | Deluge Beam | trial_3 reward (Nerys) |
+| i_disc_03 | Arc Lash | Larkhollow Chandlery after trial_1 (1500) |
+| i_disc_04 | Draining Bloom | forest Kindle secret sec_03 |
+| i_disc_05 | Rock Tumble | trial_1 reward (Wren) |
+| i_disc_06 | Sleet Spray | Knellstone Chandlery (2000) |
+| i_disc_07 | Razor Draft | route_4 Gust secret sec_17 |
+| i_disc_08 | Sludge Lob | Knellstone Chandlery (2000) |
+| i_disc_09 | Umbral Pulse | Vey 2 defeat reward (ev_19) |
+| i_disc_10 | Prism Ray | trial_2 reward (Dorran) |
+| i_disc_11 | Bulwark (universal) | Larkhollow Chandlery (1500) |
+| i_disc_12 | Buzz Field | Knellstone Chandlery (1500) |
+| i_disc_13 | Quake Stomp | trial_4 reward (Tamsin) |
+| i_disc_14 | Rime Beam | Galewick Chandlery (3000) |
+| i_disc_15 | Stormcoil Bolt | trial_5 reward (Bastian) |
+| i_disc_16 | Kiln Blast | Galewick Chandlery (3000) |
+| i_disc_17 | Night Rake | cave Spark secret sec_08 |
+| i_disc_18 | Radiant Mend | trial_6 reward (Isaure) |
 
 ---
 
-## 8. Environmental storytelling and character-forward presentation
+## 8. Environmental storytelling (character-forward, colorful)
 
-The world's visual argument: **Resonance is color and sound**; the Hush's Dampers **mute** both. Every story beat is shown, not just told, through saturation and sound.
-
-1. **Muting as a visible state.** Any area under a Hush Damper renders at reduced saturation (shader parameter `muteAmount` 0–0.7 in a radius, e.g. 25 m around the forest Damper) and its ambience layer is low-passed. Defeating the Damper plays a radial "color wave" (0.8 s) and the zone theme's melody layer returns. Rendering Engineer owns the implementation; the World data provides radius and center per Damper (forest (25, −25) r 25; cave hideout (30, −55) r 30; lake pump (−75, 10) r 35; volcano Foundry (−30, 50) r 30; Great Damper (0, −90) r 60 plus region-wide 0.2 mute on all zones until ev_21).
-2. **Creatures at work and play (towns).** Kettlebrook: small verdant creatures tending herb planters, a lumen creature asleep in the Chime Tower. Pinwheel Rise: gale creatures on harnesses turning windmills; kids racing them with pinwheels. Crossvale: market stalls with stone creatures hauling carts, a toxin creature cleaning the gutters (a sympathetic take on the type). Each town has ≥ 6 ambient creature vignettes with clear silhouettes and one exaggerated emotional pose each (sleep, cheer, sulk, show-off, startled, proud).
-3. **The rival's trail.** Chalk doodles of the rival's starter appear on walls one zone ahead of each rival battle (route_1 Tri-Gate, route_2 arch, lake dock, route_5 cairns) — cheerful, boastful, then (after rival 3) a doodle of both starters side by side.
-4. **Faction evidence.** Grey Hush equipment crates with a stylized closed-mouth glyph, abandoned headphones (they wear sound-cancelling hoods), dead lanterns and dim crystals near their sites; after defeat, locals decorate the same spots.
-5. **Landmark sightlines.** Chime Tower visible from route_1; Great Lantern Tree glow visible from route_1's north end; Pinwheel Rise windmills visible from route_2; Mount Kiln's glow visible from town_3 at night; Aurora over snowpeak visible from every northern zone at night. Each is a far-LOD silhouette (Rendering budget).
-6. **Murals and champions.** Museum murals in town_3 depict past champions with their partners in dynamic poses — a lore hook for Resonance and a showcase for the character language.
-7. **Trial personalities.** Each trial interior is staged as its leader's workshop: lantern garden, sail loft, sculpture hall, ice rink, forge, star dome; leaders have signature entrance animations (Creative Director) and their creatures idle in-character around the stage.
-8. **Weather mood.** Rain in forest makes lanterns flicker brighter; fog on route_3 reveals the storyteller's ghost-shadow puppets; snow on snowpeak makes the aurora hum (music layer).
+1. **Silenced stones.** A Chordstone under a Stillmark coil-rig renders its surroundings at reduced saturation, with low-passed ambience.
+   - Data per site: center and radius. Sites: forest (25,−25) r 25; cave (−50,−55) r 30; route_3 (−20,0) r 30; route_4 Stillhouse (−55,−35) r 35; summit (0,−84) r 60. There is also a 0.2 region-wide mute until `flag_nullbell_broken`.
+   - Restoring a stone plays a radial color wave (0.8 s), and the zone melody returns.
+2. **The survey guild (D6).** Stillmark sites look like tidy engineering jobs rather than lairs: tripods, clipboards on posts, coil-rigs, brass ear-muff helmets on hooks, coil lanterns with the guild mark etched on the glass, neatly stacked felt baffles, and "Stone under service" signboards. Engineers are polite, busy, and slightly condescending, and they explain their measurements.
+   - The strays pens (cave (−65,−40), Stillhouse (−55,−42)) show the cost of the plan: frightened kin who ran when their stones went quiet, fed and fenced "for safekeeping".
+   - Nothing is stolen from people.
+3. **Kin at work and play.** Each town has at least 6 ambient kin vignettes with clear silhouettes and one exaggerated emotional pose each:
+   - Larkhollow: Dozebud napping in orchard crates; Gustling carrying chime-strings.
+   - Knellstone: Rollith rolling quarry spoil; Cairnback hauling a cart.
+   - Galewick: Whirlseed turning sail-mills; Dawnfry lighting the market at dusk.
+4. **Cass's trail.** Chalk doodles of Cass's starter appear one zone ahead of each rival battle, at the route_1 Chordstone, the route_2 cairn, the route_3 boardwalk, and the Stillhouse gate. After rival 4, the doodles show both starters side by side.
+5. **Landmark sightlines.** Each is a far-LOD silhouette:
+   - the Great Hollow Tree, from route_1's north end;
+   - the Knell towers, from route_2;
+   - the Mere Hall piles, from route_3's east end;
+   - Galewick's sails, from the lake;
+   - Cindral's glow, from Galewick at night;
+   - the Hoarcrown aurora, from every northern zone.
+6. **Weather mood.**
+   - Rain makes Murmurwood's lantern fungus glow brighter.
+   - Fog in Sallowfen brings out the frogsong layer and the storyteller's shadow puppets.
+   - Snow on Hoarcrown hums in the aurora music layer.
 
 ---
 
-## 9. Pacing estimate (unmeasured; for planning only)
+## 9. Pacing (estimates, not measured; CD §4 chapter budget)
 
-| Chapter | Zones | Main-path estimate |
+| Ch | Zones | Estimate |
 |---|---|---|
-| 1 | town_1, route_1 | 0:35 |
-| 2 | forest, trial_1 | 0:60 |
-| 3 | route_2, town_2, trial_2 | 0:60 |
-| 4 | route_3, cave, trial_3 | 1:20 |
-| 5 | lake, trial_4 | 1:00 |
-| 6 | town_3, route_4, volcano, trial_5 | 1:20 |
-| 7 | route_5, snowpeak, trial_6 | 1:10 |
-| 8 | summit, league | 0:35 |
-| **Total** | | **≈ 8:00 main path** (+ ≈ 2–3 h optional side content) |
-
-These are design estimates, **not playtested**.
+| 1 | town_1, route_1 | 40 m |
+| 2 | route_1, forest, trial_1 | 50 m |
+| 3 | route_2, town_2, trial_2 | 55 m |
+| 4 | cave | 40 m |
+| 5 | route_3 | 40 m |
+| 6 | lake, trial_3 | 50 m |
+| 7 | town_3, trial_4 | 45 m |
+| 8 | route_4 (Stillhouse) | 55 m |
+| 9 | volcano, trial_5 | 50 m |
+| 10 | route_5 | 35 m |
+| 11 | snowpeak, trial_6 | 60 m |
+| 12 | league | 40 m |
+| **Total** | | **≈ 9 h 20 m critical path** (estimate); optional content adds ≈ 1.5–3 h |
 
 ---
 
 ## 10. Acceptance criteria
 
-1. Content JSON contains exactly the 14 exterior zones and 6 trial interiors listed, with sizes, exits, arrival points, waystones and safe-return points matching §1.3–§1.4 (validator compares ids and coordinates).
-2. Graph validator: every exit has a reciprocal exit; BFS from `town_1`, applying main-quest flags in order, reaches every zone and trial door; with no flags set, only `town_1` is reachable.
-3. Softlock validator: for each mandatory gate in §3.1 with a type requirement, the required type appears (as primary or secondary) in a wild table of a zone reachable before that gate, in the day-clear column with weight > 0; plus starter rule for G1.
-4. Every encounter table's weights sum to 100 per time band; recomputed weather probabilities match §4.3 within ±0.001 and each printed column sums to 1.000.
-5. Obtainability validator: each of c01–c30 has ≥ 1 source (wild table, evolution from an obtainable species, or gift event); gift A and B mapping produces exactly the two unchosen starters for each of the 3 choices.
-6. Every `t_*` referenced in §2.9 exists with team size and level range within the stated bounds; trial leader ace levels are 12/18/25/32/39/45 and champion ace 50.
-7. Every quest's prerequisites reference existing flags; no quest step requires real-time waits or multiplayer.
-8. All 30 disc slots have exactly one source; all pickups have unique ids and coordinates inside zone bounds and outside exclusion zones.
-9. Roaming limits in §4.2 enforced at runtime (QA: count never exceeds max; no stacked encounters in a 60 s scripted overlap test).
-10. Playtime is reported as "estimate — not measured" until QA playtests.
+1. **Zone content.** Zone JSON (`ZoneSpec`) exists for the 14 exterior zones and 6 hall interiors. Sizes, exits, spawn ids and coordinates, waystones, Hearthrests, and at least one `battleStages` entry per zone must match §1.3–§1.4 and §2.4.
+2. **Graph.** Every exit has a reciprocal exit. The one-sided shortcuts E14/E15 are declared. A BFS from `town_1`, applying CD §4.2 flags in chapter order, reaches every zone and hall door. With no flags set, only town_1 is reachable.
+3. **Mandatory gates.**
+   - Exactly 4 nodes are marked `mandatory: true`: rn_forest_01, rn_cave_01, rn_route_4_01, rn_snowpeak_01.
+   - Each has a Steward within 15 m.
+   - Each type is in a reachable encounter table before its node (QA D-35 / CD R7), for all 3 starter choices.
+   - No starter type is on a mandatory node.
+4. **Encounter tables.** Each time band sums to 100 per zone. Recomputed probabilities match §4.3 within ±0.001. No stage-2/3 appears below its evolution level (D23). maxWild = 6 in every zone.
+5. **Obtainability.** D-25 passes for each starter choice. Leftover and rival-line mapping follows §2.6.
+6. **Items.** Every referenced item id exists in `items.json` (plus the listed quest-item additions). `i_disc_01..18` each have exactly one source. `i_evo_prism` has a guaranteed pickup.
+7. **Trainers.** Trainer ids, counts and levels match §2.9. Cantor aces are 14/20/26/32/38/43 and the champion ace is 50. Rival battles number 6.
+8. **Quests.** Every quest prerequisite references an existing flag. No real-time wait or multiplayer dependency exists (QA D-36). The Swell 60 s reset and Wick's rotation are clock-free for completion.
+9. **Playtime.** Playtime is labeled "estimate" until playtested.
 
-## 11. Dependencies
+## 11. Dependencies, risks, unresolved questions
 
-- **Creative Director (`creative_direction.md`):** final names for everything WN; final Resonance verb names/visuals; chapter dialogue; rival/antagonist identities; whether rival picks Gift B's line or the type-advantaged line; zone music themes.
-- **Creature Art Director (`creatures.md`):** secondary types of stage 2/3 creatures (may broaden gate eligibility, never narrow it); habitat consistency with §4.3; body scale → contact radius; roaming behavior class per species.
-- **Systems Designer (`systems.md`):** item ids/prices/effects (`i_*` here are provisional), capture tiers, money floor/penalty, evolution levels (gift levels 22/30 assume stage-1→2 around Lv 16–20), attuned-type battle bonus, weather battle effects, exact trainer teams/AI tiers, disc → move mapping, storage cap behavior.
-- **Rendering Engineer:** feasibility of 200×200 zones with the listed terrain heights, far-LOD landmarks, mute shader, ferry and Updraft glide animations; roaming counts within active-creature budgets (max 10 in cave, 8 elsewhere).
-- **QA Lead:** graph, softlock, encounter-sum and obtainability validators (§10).
+**Dependencies:**
+- CD: dialogue for all world NPCs; the hall gimmick lever alternatives (§1.4); the league Hearthrest addition.
+- Systems v2: trainer counts per chapter (§2.9 totals) for the economy re-run; team species within the listed families; money scaling.
+- Creatures: final species names (D7 applied here); body scale → contact radius.
+- Rendering: `battleStages`, wild regions, the ceiling-shell cave (D17), cliff and vent transitions; the saturation mute shader as optional polish (fallback: no mute).
+- QA: D-05/D-06/D-25/D-30..D-36 against this data.
 
-## 12. Risks
+**Risks:**
 
-| Risk | Impact | Mitigation |
-|---|---|---|
-| Only starter families are primary fire/water/electric; lake has no wild water-primary species, volcano no wild fire-primary | Thematic dissonance; fire trial leader must use the f02 starter line | Ask creatures.md to give a secondary water type to c17/c11 and secondary fire to c23/c14 stage 2/3; trial_5 leader uses f02 (allowed: NPCs may own starter lines). |
-| 20 scenes is a large content load for one developer | Schedule | Shared trial interior layout; shared rest-site prefab; route zones reuse spawn/anchor generators; towns use one kit. |
-| Updraft/ferry scripted movement edge cases (interrupts, reload mid-glide) | Stuck states | Scripted movements are atomic: saves are blocked during them; on reload the player spawns at the departure side. |
-| Night-only flavor (shade in early routes) could frustrate | Minor | Cave provides time-invariant shade; rest-until-dusk at any healer. |
-| Gift levels vs evolution thresholds | Gift may evolve immediately | Documented; Systems may adjust gift level. |
-| Level curve relies on optional trainers | Under-leveled at trials | Systems tunes XP; wild levels ramp with trial targets. |
-| Stage-3 rare wild spawns (c15, c18, c21, c24, c27, c30) at weights 3–5 | Could trivialize late trials if caught early | They appear only in zones after the trial where they'd matter most; weights ≤ 5. |
+| Risk | Mitigation |
+|---|---|
+| Linear chain reduces loops | Optional tunnel (E14) and lake shortcut (E15) |
+| Frost is available only from ch10, just before the Rime gate | Stewards; guaranteed weights in route_5 day and night |
+| Gift starters arrive above their evolution level and evolve immediately | The player can cancel or defer (systems §8.3); this is flavorful ("it grew up in the pen") |
+| 71 trainers vs the systems economy | Chapter counts supplied; systems v2 re-runs |
+| Evolution-rule tightness leaves few stage-2s early | Accepted; stage-2 variety arrives from ch3 |
 
-## 13. Unresolved questions
-
-1. Final names for all WN entries (blocked on creative_direction.md).
-2. Should field actions accept **any** party member of the type (friendlier) instead of the lead with one-button swap (current design)? World design works either way.
-3. Should the rival choose Gift B's line (current) or the line with type advantage over the player's?
-4. Do wild stage-3 rares (weights 3–5) fit the Systems difficulty curve, or should they be evolution-only like c12?
-5. Is `league` acceptable as an extra zone id, or should the champion venue be a `snowpeak` sub-area?
-6. Should the Tri-Gate (G1) also accept verdant (Bloom) to stay passable if a future change allows releasing the starter? Currently prevented by the release block.
-7. Money currency name and exact penalty on wipe (Systems/Creative).
+**Unresolved questions:**
+1. D10 lists `i_hush_1..2` / `i_thread`, but `items.json` has `i_repel_1..2` / `i_escape`. Which is canonical? This document uses the items.json ids.
+2. Quest key items (`i_q_windchime`, `i_q_glowcap`, `i_q_clapper`, crystal samples) need adding to `items.json`.
+3. Is the league landing Hearthrest acceptable to CD? It is not in the CD §2.4 list.
+4. Route_5's fixed blue-hour lighting vs clock-based encounter bands: is this acceptable to CD?

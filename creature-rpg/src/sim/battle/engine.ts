@@ -290,15 +290,15 @@ export function computeDamage(
     if (t === 'shade') x = Math.floor((x * 3) / 2);
     else if (t === 'lumen') x = Math.floor(x / 2);
   }
-  // 2 resonance / attunement
   const attuned = t !== 'none' && s.attunedType != null && t === s.attunedType;
-  if (attuned) x = aTr === 'tr_resonant' ? Math.floor((x * 3) / 2) : Math.floor((x * 6) / 5);
   // 3 crit
   if (opts.crit) x = Math.floor((x * 3) / 2);
   // 4 random
   x = Math.floor((x * opts.random) / 100);
   // 5 STAB
   if (t !== 'none' && aTypes.includes(t as TypeId)) x = aTr === 'tr_adaptive' ? x * 2 : Math.floor((x * 3) / 2);
+  // 5b Resonance / attunement (DECISIONS D3): ×11/10, or ×6/5 with tr_resonant
+  if (attuned) x = aTr === 'tr_resonant' ? Math.floor((x * 6) / 5) : Math.floor((x * 11) / 10);
   // 6 effectiveness (quarters)
   const eff = effectiveness(c, t, dTypes);
   x = Math.floor((x * eff) / 4);

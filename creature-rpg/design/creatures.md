@@ -1,8 +1,29 @@
 # Creatures — Art Direction, Build Specs and Species Data
 
-Owner: Creature Art Director · Status: design v1 (2026-09-24) · Binding inputs: `design/MASTER_PROMPT.md`, `design/ANCHORS.md`.
+Owner: Creature Art Director · Status: **design v2** (2026-09-24) · Binding inputs: `design/MASTER_PROMPT.md`, `design/ANCHORS.md`, `design/DECISIONS.md` (wins over this file where they differ).
 
-This document defines all 30 species (`c01`–`c30`, families `f01`–`f10`): their identity, appearance, faces, animation, procedural build specs, per-species numbers for the Systems Designer, the silhouette-preview procedure and the originality audit. Nothing here has been built, rendered or measured yet. Every "readable at 20 px" statement is a **design target** that the silhouette script (section 7) must verify. None of it has been verified yet.
+This document defines all 30 species (`c01`–`c30`, families `f01`–`f10`): their identity, appearance, faces, animation, procedural build specs, per-species numbers for the Systems Designer, the silhouette-preview procedure and the originality audit. Nothing here has been built, rendered or measured yet. Every "readable at 20 px" statement is a **design target** that the silhouette check (section 7) must verify. None of it has been verified yet.
+
+### v2 change log (review round 1 → DECISIONS.md)
+**For builder agents:** section-4 table formats and **part names are unchanged**. Any row that changed in v2 carries **"(v2)"** in its Part or Field cell. A row marked "(v2) REMOVED" must not be built. Rows without a marker are identical to v1.
+
+| # | Change | Where | Source |
+|---|---|---|---|
+| 1 | Renames: c11 Nodbell → **Lullstalk**, c27 Cinderscrim → **Emberfold**, c30 Umbraleen → **Coronaleen** | everywhere | D7 |
+| 2 | Floeguard (c09) redesign: no helmet, whiskers reduced to two short nubs, shell on back and tail-fan only | §4 c09 | D7 |
+| 3 | Evolution levels adopted from systems | §5 | D11 |
+| 4 | Base-stat band fixes (c12, c20, c21, c30). Catch rate, XP yield and growth are now systems-derived | §5 | D12 |
+| 5 | One canonical trait per species | §5.1 | D13 |
+| 6 | Palette contrast fixes (13 species) | §4 colour rows | CAD review §1.2 |
+| 7 | Scale: c30 → 4.8 m long / H 1.75 m; c19 → H 0.40 m | §0, §4 | CAD review CD-2 |
+| 8 | Head resizes (9 species) | §4 part rows | CAD review §7.2 |
+| 9 | 8-state face frames; family eye classes; pupil whitelist; brow meshes; mouth atlas | §2.4, §4 face rows | D14, CAD review CD-3 to CD-6 |
+| 10 | Clip timing, in-place attacks, capture reaction ≤ 250 ms, event names | §2.5 | D15, CAD review SY-6, QA-2, RA-11 |
+| 11 | Material classes, emissive clamp, rim gain, anchors, role aliases, budgets | §2.2, §2.6, §2.7 | D16, CAD review RA-1 to RA-10 |
+| 12 | New per-species runtime data: eye class, pupil, roaming temperament, attack style, rimGain, silhouette side yaw | §5.2 | CAD review §7.1 |
+| 13 | Cry parameter table | §5.3 | CAD review CD-9 |
+| 14 | Silhouette procedure: GC-07 is canonical, with per-species side-view angle | §7.1 | D27 |
+| 15 | Habitats: world.md encounter tables are canonical; c28 is a day spawn, not dawn-only | §4 reading guide | CAD review WD-1, WD-4 |
 
 ---
 
@@ -22,7 +43,7 @@ H = model height in metres in the neutral idle pose, measured from the lowest po
 | c08 | Tidesleek | f03 | 2 | water | elongated serpentine swimmer | 0.80 | 2.00 L | SR | slate blue / aqua |
 | c09 | Floeguard | f03 | 3 | water · frost | upright armoured biped | 1.60 | 1.10 L | BP | ice white / slate |
 | c10 | Dozebud | f04 | 1 | verdant | curled ball (pod-hugger) | 0.35 | 0.40 L | RB | moss green / tan |
-| c11 | Nodbell | f04 | 2 | verdant · toxin | long-armed biped | 1.20 | 0.60 L | BP | moss green / foxglove purple |
+| c11 | Lullstalk | f04 | 2 | verdant · toxin | long-armed biped | 1.20 | 0.60 L | BP | moss green / foxglove purple |
 | c12 | Belladrowse | f04 | 3 | verdant · toxin | canopy-backed knuckle-walker | 2.20 | 2.00 L | QL | dark green / deep purple |
 | c13 | Rollith | f05 | 1 | stone | rolling armoured ball | 0.30 | 0.45 L | RB | warm grey / tan |
 | c14 | Cairnback | f05 | 2 | stone | domed quadruped, club tail | 0.90 | 1.60 L | QL | stone grey / lichen ochre |
@@ -30,7 +51,7 @@ H = model height in metres in the neutral idle pose, measured from the lowest po
 | c16 | Rimelet | f06 | 1 | frost | sidewinding hatchling serpent | 0.25 | 0.60 L | SR | frost white / ice cyan |
 | c17 | Sleetribbon | f06 | 2 | frost | sail-finned serpent | 0.70 | 3.00 L | SR | periwinkle / white |
 | c18 | Borealoop | f06 | 3 | frost · lumen | floating ring-serpent | 1.80 | 1.60 span | FL | polar navy / aurora green |
-| c19 | Gustling | f07 | 1 | gale | round hopping fledgling | 0.30 | 0.35 L | RB | off-white / sky blue |
+| c19 | Gustling | f07 | 1 | gale | round hopping fledgling | **0.40** (v2) | 0.47 L | RB | off-white / sky blue |
 | c20 | Whirlseed | f07 | 2 | gale · verdant | samara-winged swift | 0.60 | 1.40 span | WG | blue / seed tan |
 | c21 | Samaraptor | f07 | 3 | gale · verdant | rotor-winged hover raptor | 1.50 | 2.00 rotor | WG | deep green / gold |
 | c22 | Ringdrip | f08 | 1 | toxin | six-armed land octopus | 0.30 | 0.50 L | RD | amber / electric blue |
@@ -38,10 +59,10 @@ H = model height in metres in the neutral idle pose, measured from the lowest po
 | c24 | Venomantle | f08 | 3 | toxin · water | cloaked tripod octopus | 1.80 | 1.60 span | RD | deep violet / blue |
 | c25 | Snipling | f09 | 1 | shade | flat cut-out biped | 0.40 | 0.25 L | FT | ink black / violet |
 | c26 | Marionyx | f09 | 2 | shade | suspended marionette | 1.10 | 0.50 L | FL | ink black / ghost cyan |
-| c27 | Cinderscrim | f09 | 3 | shade · fire | folding-screen spectre | 2.00 | 1.10 span | FT | char black / ember orange |
+| c27 | Emberfold | f09 | 3 | shade · fire | folding-screen spectre | 2.00 | 1.10 span | FT | char black / ember orange |
 | c28 | Dawnfry | f10 | 1 | lumen | round floating fry | 0.30 | 0.45 L | FL | peach / pink |
-| c29 | Lumarlin | f10 | 2 | lumen | air-swimming marlin | 0.80 | 2.00 L | FL | pearl white / gold |
-| c30 | Umbraleen | f10 | 3 | lumen · shade | floating baleen whale | 2.00 | 5.50 L | FL | indigo / corona gold |
+| c29 | Lumarlin | f10 | 2 | lumen | air-swimming marlin | 0.80 | 2.00 L | FL | pearl white / periwinkle (v2) |
+| c30 | Coronaleen | f10 | 3 | lumen · shade | floating baleen whale | **1.75** (v2) | **4.80 L** (v2) | FL | indigo / corona gold |
 
 Every type appears exactly once as a secondary type, except toxin, verdant and water, which each appear on two stages of the same family. The primary→secondary pairs form a derangement: f01 electric→gale, f02 fire→stone, f03 water→frost, f04 verdant→toxin, f05 stone→electric, f06 frost→lumen, f07 gale→verdant, f08 toxin→water, f09 shade→fire, f10 lumen→shade. No two families share a secondary, and no family repeats its primary. The secondary type arrives at different stages to vary the strategy: at stage 2 for f04, f07 and f08, and at stage 3 for all other families.
 
@@ -84,6 +105,17 @@ Four names had minor, non-creature or niche hits that are accepted as low risk a
 | Umbraleen | A deity name on a small fan wiki (*The Glory Frontier*) | Niche fan work. Low risk. Fallback name: **Coronaleen** |
 
 Naming rules going forward: each name is a two-root English or Latin portmanteau of 12 characters or fewer. A name must not reuse the prefix plus suffix pattern of any known genre creature, and must not use "-mon", "-chu" or "-saur" endings.
+
+### 1.4 v2 renames (DECISIONS D7)
+Review round 1 produced originality and name-similarity findings, and the orchestrator ruled three renames:
+
+| Species | v1 name | v2 name |
+|---|---|---|
+| c11 | Nodbell | **Lullstalk** |
+| c27 | Cinderscrim | **Emberfold** |
+| c30 | Umbraleen | **Coronaleen** |
+
+The screening in 1.1–1.3 records v1 as searched. The name-similarity scan of the v2 names (release gate GC-13) is owned by the Release agent, and this document does not repeat it. Both 1.3 and the §11 risk row refer to v1 names.
 
 ---
 
@@ -128,8 +160,22 @@ ANCHORS rules out any DCC tool, image generator or asset download. **Each specie
   - `PAPER`: 1.0 / 0 / 0, flat
   - `SKIN_WET`: 0.3 / 0 / 0.5
   - `GLOW`: MeshBasicMaterial with vertex colours, `toneMapped:false` so it feeds bloom
-- **Emissive:** each species gives an idle intensity. Clips may drive it through the `emissiveGain` channel, clamped to 0–4.
-- **Rim light:** one shared fresnel-rim shader chunk, injected with `onBeforeCompile`, with per-species `rimColor` and `rimStrength` (0–1) and power 2.5. It exists to keep dark creatures (f09, c06, c30) legible against dark zones. The Rendering Engineer owns the implementation, and this document owns the values.
+- **Emissive (v2):** each species gives an idle intensity. **Resting emissive is clamped to ≤ 1.5.** Transient flares through the `emissiveGain` channel are allowed up to **3.0**, for ≤ 250 ms around `impact` only. Wherever section 4 says glow 3.5 or 4, read 3.0. Resting values above 1.5 in section 4 read as 1.5; this covers the c06 underlayer at 1.6, the c18 core at 2.0, the c27 core at 2.5 and the c30 corona at 2.0. Bloom and colour pre-brightening keep them reading as glowing.
+- **Rim light (v2):** rendering's shared rim chunk applies. The per-species value in section 4 ("Rim `#hex` s") gives `rimColor` and a gain: `rimGain = s ÷ 0.35`, clamped to 0.6–1.7 and multiplied by rendering's global phase strength (0.25 exploration day / 0.45 night / 0.5 battle). §5.2 lists every rimGain. The purpose is unchanged: to keep dark creatures (f09, c06, c30) legible.
+- **Material-class mapping (v2)** onto rendering §4.3. Each creature uses ≤ 4 classes plus the eye and mouth materials. Rendering is asked to add `membrane`, `ice` and `paper`.
+
+| CR preset | Rendering class |
+|---|---|
+| FUR | `fur` |
+| SCALE | `scale` |
+| SHELL | `shell` |
+| STONE | `skin`, roughness 0.9, with vertex AO |
+| METAL | `shell`, metalness 0.6 |
+| ICE | `ice` (new) |
+| MEMBRANE | `membrane` (new) |
+| PAPER | `paper` (new) |
+| SKIN_WET | `shell`, Balanced settings |
+| GLOW | `glow` |
 
 ### 2.3 Shared profile and shape library
 Lathe profiles are `(radius, height)` point pairs, normalised to 0..1, and are revolved around Y. For creatures lying along Z, the lathe is rotated so its axis runs along Z. The builders scale each profile by `rmax` and `h`.
@@ -165,10 +211,39 @@ Extrude shapes are 2D outlines in the XY plane, normalised to a unit bounding bo
 Species-specific shapes (S25_*, S26_*, S27_*) are defined inline in their specs.
 
 ### 2.4 Faces (canvas textures)
-- Each eye is a separate **sphere scaled flat (z×0.6)**, or a front-facing cap, carrying its own `CanvasTexture`. The size is 256² on High, 128² on Balanced and 64² on Mobile. The mipmaps must be generated so the pupil survives at distance.
-- The eye generator takes these parameters: `shape` (round | almond | long-almond | droopy | none-sclera), `sclera` hex, `iris` hex (radial gradient to 70% L), `irisRatio`, `pupil` (round | v-oval | slit | h-bar | w-shape | none), `pupilRatio`, `highlights` (1–3, always upper-left toward the key light), `lidCoverage` 0–0.6, `lidAngle` in degrees (+ is inner corner up, which reads sad or worried; − reads angry or determined).
-- **Expression frames** are generated per species, and clips switch between them: `open`, `half`, `closed`, `happy` (upward arcs), `hurt` (squeezed wedges), `faint` (closed downward arcs, not spirals or crosses).
-- Mouths are either a painted `M` decal (a canvas on a curved patch of the head sphere) or a `jaw` mesh where the spec lists one. Brows are either painted onto the eye canvas or small geometry parts, and each spec states which.
+- **(v2) Eye parts and atlas.**
+  - The `eye` parts in section 4 keep their names and positions. Rendering's `paddedDisc` (5% bulge) may replace the flattened sphere.
+  - Each species has one **8-cell face atlas** (DECISIONS D14), in the order `open, half, closed, happy, hurt, faint, determined, surprised`.
+  - Cell size is 256 px on High, 256 px on Balanced and 128 px on Mobile. Mipmaps are on.
+  - The right eye is a UV-mirrored copy of the left.
+- **(v2) Eye class per family.** Each family uses one Creative Direction eye class, and this **overrides the shape word in each species' Face row**. Iris colour, pupil ratio, highlights and lid values in the Face rows still apply.
+- **(v2) Pupil whitelist:** round, vertical ellipse (`v-oval`, 1:2.2), `h-bar`, and `ring`. The `slit` and `w-shape` pupils are withdrawn. The f08 h-bar is pending Creative Direction approval; the fallback is `v-oval`.
+- **(v2) Sclera:** every eye has an off-white sclera (`#F7F3EA`) at least as a thin ring. The only exceptions are c06, c15 and c18, whose eyes are emissive iris-only, pending Creative Direction approval; the fallback is a thin sclera ring.
+- **Eye generator parameters:**
+  - `class` (E1–E5)
+  - `sclera` hex
+  - `iris` hex (radial gradient to 70% L)
+  - `irisRatio`
+  - `pupil`, from the whitelist
+  - `pupilRatio`
+  - `highlights`: 1–3 at 10–11 o'clock, plus a secondary at 4–5 o'clock
+  - `lidCoverage` 0–0.6
+  - `lidAngle` in degrees: + is inner corner up (sad or worried), − is angry or determined
+- **Frame recipes:**
+
+| Frame | Recipe |
+|---|---|
+| `open` | the base eye |
+| `half` | lid at 50%; also used as the sleepy/status idle |
+| `closed` | lid fully down |
+| `happy` | lower lid up 30%, upward arcs |
+| `hurt` | squeezed converging wedges, highlights −50% |
+| `faint` | closed downward arcs, never spirals or crosses |
+| `determined` | upper lid down 20%, lidAngle −15 |
+| `surprised` | open 115%, pupil −20% |
+
+- **(v2) Brows:** every species with a `head` part gets **brow meshes**: capsules, r 0.012–0.02 H and 0.6–0.9 × eye width, floating above each eye and rotating per frame (+8 happy, −15 determined, +20 surprised, +12 hurt). Where a Face row says "brows: painted" or "none", add them as parts named `brow ×2` (v2). Existing geometric brow parts (e.g. c02, c21) already satisfy this rule.
+- **(v2) Mouths:** a species with a `jaw` part keeps it. Any other species uses rendering's 4-cell **mouth atlas** (`neutral, open, smile, grimace`) on a small paddedDisc at the old `M` decal position. The `mouth` rows in section 4 keep their names, and the slot `M` now means "mouth atlas". f09 keeps its cut-out mouth slits.
 
 ### 2.5 Animation system and clip conventions
 - Rigid part hierarchy with **no skinning**. Animated parts stay separate `Object3D`s. Static children that share a material are merged at build time.
@@ -186,18 +261,29 @@ Species-specific shapes (S25_*, S26_*, S27_*) are defined inline in their specs.
 | RIG_BALL | c10 c13 | roll-to-speed coupling, curl and uncurl |
 | RIG_FLAT | c25 c26 c27 | layered-plate parallax, hinge folds, **12 fps stepped interpolation** (the shade family's signature feel) |
 
-- **Durations:**
+- **Durations (v2, D15: this document is the timing authority):**
   - `idle` loops, 2.4–4.0 s
   - `move` loops, 0.5–1.4 s
-  - `attack` 0.9–1.3 s, with event markers `windup`, `contact` (the damage/VFX sync point, usually 40–55% of the clip), `recover`
+  - `attack` **0.4–1.3 s**, with events `windup` (optional), **`impact`** (renamed from `contact`; at 40–55% of the clip) and `recover` (optional). Wherever section 4 says "`contact` N%", read `impact` N%.
   - `hit` 0.35–0.5 s
-  - `capture` 0.6–1.2 s of species reaction, then the shared dematerialise effect (0.5 s, owned by the capture system). The same clip played at 2× speed with an added shake is the break-out reaction.
+  - `capture` (v2): a species reaction pose of **≤ 250 ms**, followed by the shared absorb owned by the capture system. The total fits systems §7.3. Section 4's capture descriptions give the *pose* to hit in that window. Their longer durations, including "1.0 s" for c06 and "1.2 s" for c30, are withdrawn. Break-out is the same pose played at 2× with a shake.
   - `faint` 1.0–1.6 s, ending in a hold pose
   - `victory` 1.2–1.8 s
-- **Reduced motion** (accessibility setting): translational amplitudes ×0.5, spins capped at 180°, no camera shake from creature events. Contact markers keep their timing.
-- Each species should have two attack variants: `attack` (physical or contact) and `attack_special` (ranged or emission). Where only one is described, `attack_special` is the same motion with contact replaced by a VFX spawn at the listed emitter part.
+- **(v2) Attacks play in place.** The move's `anim` (systems §9.1) owns root travel toward the target and the VFX envelope. The presenter aligns the clip's `impact` with the move's `impactMs`. Travel phrases in section 4 ("leaps 1.2 H", "sprints 2 H", "dives") describe the intended look and help pick the move anim. Species clips must not translate the root beyond ±0.3 H.
+- **(v2) Required clips:** the 7 required clips are `idle, move, attack, hit, capture, faint, victory`. `attack_special` and `attackStatus` are optional overrides. When absent, `attack_special` is `attack` with the impact replaced by a VFX spawn at the listed `fx_*` part, and `attackStatus` is rendering's library clip with species amplitude.
+- **Reduced motion (v2):**
+  - No squash or stretch.
+  - Translational amplitudes ×0.5.
+  - Spins capped at 180°.
+  - No camera shake.
+  - Emissive pulses held at their mean value.
+  - Durations and event times are unchanged.
+- **(v2) Squash and stretch caps:** 15% at stage 1 (20% for `hit` only), 10% at stage 2 and 6% at stage 3. The c19 hit puff and the c23 hit squash in section 4 are clamped to these caps.
+- **(v2) f09 stepping:** stepped (12 fps) clips reset their step phase on the triggering event, so the first reaction pose shows on the impact frame.
 
-### 2.6 Budgets (targets, proposed to the Rendering Engineer)
+### 2.6 Budgets (v2: DECISIONS D16 governs)
+- **Hard limits (D16):** LOD0 ≤ 12,000 triangles (stage-3 large ≤ 16,000). Draw calls may exceed rendering's v1 target where parts must stay separate for animation. This is a documented deviation, to be measured on reference hardware.
+- **Authoring targets** (guidance only):
 
 | Stage | Triangles High / Mobile | Draw calls after merging | Animated nodes |
 |---|---|---|---|
@@ -205,7 +291,52 @@ Species-specific shapes (S25_*, S26_*, S27_*) are defined inline in their specs.
 | 2 | ≤ 5,500 / 2,800 | ≤ 14 | ≤ 36 |
 | 3 | ≤ 8,000 / 4,000 | ≤ 18 | ≤ 48 |
 
-These are targets and none have been measured. The only per-frame CPU-rebuilt geometry is c24's three web panels (36 vertices) and c26's strings (drawn as `LineSegments`).
+- **LOD2:** keep every part tagged `silhouette:true`, merged, with animation reduced to root motion plus at most one orbit or spin. The tagged parts are:
+  - c01 fork prongs
+  - c03 sail panels
+  - c06 horn rings
+  - c12 canopy lobes
+  - c15 lodestones and boulder
+  - c18 plumes and core
+  - c21 rotor blades
+  - c24 web panels
+  - c26 crossbar
+  - c27 side panels
+  - c29 bill and dorsal sail
+  - c30 corona
+- None of these budgets has been measured. The only per-frame CPU-rebuilt geometry is c24's three web panels (36 vertices) and c26's strings (drawn as `LineSegments`).
+
+### 2.7 (v2) Contract mapping: anchors and part roles
+Section-4 part names are **kept as written**. Builders expose them under the rendering/gate role vocabulary through an alias table, so no part is renamed:
+
+| CR part name(s) | Role |
+|---|---|
+| torso, body, dome, shell (c13), under-body, forequarters, head base (f08) | `body` |
+| head | `head` |
+| jaw, lower jaw | `jaw` |
+| neck ×n | `neck` |
+| eye ×2 | `eye_l`, `eye_r` |
+| brow ×2 | `brow_l`, `brow_r` |
+| ear ×2 | `ear_*` |
+| horn / horn nub / horn ring / horn plate | `horn_*` |
+| crest, crest blade, head crest, crown nub, head spine, leaf crown | `crest` |
+| tail, tail segments, tail rings | `tail_<n>` |
+| leg / foreleg / hind leg / thigh… | `limb_fl/fr/bl/br` (bipeds `limb_l/r`) |
+| arm / upper arm / forearm | `limb_arm_l/r` |
+| sail, flank flap, wing, wing blade, rotor blade | `wing_*` |
+| fin, dorsal, rudder, plume, streamer, pectoral, flukes, tail fan, tail shield | `fin_*` |
+| carapace, tail plate, scute, basalt plate | `shell` |
+| segment / loop segment / body seg | `segment_<n>` |
+| f08 arms | `arm_<n>` |
+| f09 plates | `panel_*` |
+| anything else | `accessory_*` |
+
+**Anchors.** Required: `mouth, eyeL, eyeR, head, core, hitCenter, overhead, captureTarget, feet`. Optional: `hornTip`, `tailTip`. The `fx_*` parts in section 4 are extra anchors. Species without a separate head use their face-bearing part as `head`:
+- c23: body base
+- c25: head front plate
+- c27: centre panel
+- c28: body
+- c29 and c30: body seg 1
 
 ---
 
@@ -217,14 +348,14 @@ A **motif** is the element that appears on all three stages and must stay visibl
 |---|---|---|---|---|
 | f01 | Fizzkit → Crackleap → Tempestrel | Rib-strut side sails with a yellow **zig-seam** along the trailing edge, and a **two-prong fork** tail tip | quadruped with folded flank flaps → biped with wrist-to-hip sails → kite glider with one delta sail per side and slender tucked limbs | jittery skitter-hopper → show-off sprinter → aloof storm-rider that hovers |
 | f02 | Wickwool → Kilnhorn → Magmouflon | **Glowing horn cores** whose emissive ridges light from the tip, plus charcoal hooves that spark | calf with cream fleece clusters and horn nubs → lean cliff-leaping ram with a smouldering charcoal mane and spiral horns → fore-massed giant with basalt plates, magma seams and horns closed into kiln rings | bouncy pronker → rearing charger → immovable stomping guardian |
-| f03 | Rippleback → Tidesleek → Floeguard | **Shingled shell plates** (overlapping scallops) and a white muzzle with whisker pads | otter pup with a plated tail → 8-segment serpentine swimmer with dorsal scutes and a rudder → upright biped with a carapace breastplate and a fan-shell tail used as a shield | playful tool-user (pebble) → sly speed-swimmer → stoic shield-bearer |
-| f04 | Dozebud → Nodbell → Belladrowse | **Moss mantle, hanging bell-flowers, dark eye-mask** stripes on sleepy half-lidded eyes | ball curled around a seed pod → lanky biped with arms to its ankles → quadruped knuckle-walker carrying a canopy tree hung with bells | clingy sleeper → languid ambusher that "nods off" → serene sentinel sheltering others |
+| f03 | Rippleback → Tidesleek → Floeguard | **Shingled shell plates** (overlapping scallops) and a white muzzle with whisker pads | otter pup with a plated tail → 8-segment serpentine swimmer with dorsal scutes and a rudder → upright biped with a back carapace (v2: no chest shell or helmet) and a fan-shell tail used as a shield | playful tool-user (pebble) → sly speed-swimmer → stoic shield-bearer |
+| f04 | Dozebud → Lullstalk → Belladrowse | **Moss mantle, hanging bell-flowers, dark eye-mask** stripes on sleepy half-lidded eyes | ball curled around a seed pod → lanky biped with arms to its ankles → quadruped knuckle-walker carrying a canopy tree hung with bells | clingy sleeper → languid ambusher that "nods off" → serene sentinel sheltering others |
 | f05 | Rollith → Cairnback → Lodestodon | **Hex-plate dome carapace** and a pale snout shield | rolling ball → low glyptodont-like quadruped with a stacked-stone club tail → colossus with geode crystal ridges and orbiting lodestones in place of the club | startled roller → grumpy tail-swinger → solemn magnetic controller |
 | f06 | Rimelet → Sleetribbon → Borealoop | **Translucent ice crest fins** and a **six-armed flake** tail or core | sidewinding hatchling → long limbless serpent with a sail-fin row → floating closed ring-coil with aurora plumes, a flake core and small forelimbs | shy cold-clinger → vain graceful hunter → dreamlike night guide |
 | f07 | Gustling → Whirlseed → Samaraptor | **Samara (maple-seed) wings** with a nut at the root, twin tail streamers, cheek swirl marks | round fledgling with stub seed-wings → slender swift with long blade wings → upright raptor whose wings became a two-blade rotor over its back | bubbly hopper → prankish autorotating diver → proud hovering hunter |
 | f08 | Ringdrip → Brineloop → Venomantle | **Glowing blue ring spots** that flash when threatened, and **six arms** (never eight) | radial crawler → upright on 4 leg-arms with 2 lasso arms and a translucent brine-filled mantle → tall tripod with 3 raised arms joined by a cloak web | nervous flasher → cocky trickster → regal intimidator |
-| f09 | Snipling → Marionyx → Cinderscrim | **Flat layered cut-out plates**, punched eye-holes lit from behind, **12 fps stepped motion** | hopping paper cut-out → floating marionette hung from its own crossbar crown → three-panel folding screen backlit by an ember core | mischievous mimic → theatrical show-off → dramatic avenger that projects shadow illusions |
-| f10 | Dawnfry → Lumarlin → Umbraleen | **Lateral light-stripe** (emissive band or spots), crescent dorsal fin, pale belly | round fry → marlin with a light-bill and sail fin → vast baleen whale with an eclipse corona crown | cheerful light-chaser → disciplined duellist → ancient eclipse-bringer |
+| f09 | Snipling → Marionyx → Emberfold | **Flat layered cut-out plates**, punched eye-holes lit from behind, **12 fps stepped motion** | hopping paper cut-out → floating marionette hung from its own crossbar crown → three-panel folding screen backlit by an ember core | mischievous mimic → theatrical show-off → dramatic avenger that projects shadow illusions |
+| f10 | Dawnfry → Lumarlin → Coronaleen | **Lateral light-stripe** (emissive band or spots), crescent dorsal fin, pale belly | round fry → marlin with a light-bill and sail fin → vast baleen whale with an eclipse corona crown | cheerful light-chaser → disciplined duellist → ancient eclipse-bringer |
 
 Evolution rule check: every stage change alters body plan, locomotion type or limb count as well as scale and palette (see the section 0 body-plan column). No stage is a recolour or uniform rescale of a sibling builder, and each builder is separate code.
 
@@ -232,7 +363,9 @@ Evolution rule check: every stage change alters body plan, locomotion type or li
 
 Reading guide:
 - **Habitat** gives the lore home first, then the *suggested* encounter zones for the World Designer, who owns the final encounter tables.
-- Starters (c01, c04, c07) are never wild at stage 1. How players obtain the two unchosen starters is defined in `world.md`.
+- Starters (c01, c04, c07) are never wild at stage 1. How players obtain the two unchosen starters is defined in `world.md` and DECISIONS D5.
+- **(v2)** The **encounter tables in `world.md` are canonical** for zones, levels and time bands. The "Suggested" zones below are superseded, and the lore text is flavour only. There are two bands, day and night; there are no dawn-only spawns. One zone request is still open with the World Designer: moving c24 from the volcano to the lake at night.
+- **(v2)** Clip text reads under the §2.5 v2 rules: attacks play in place, `impact` replaces `contact`, capture is a ≤ 250 ms pose, and emissive values are clamped.
 - Build-spec numbers are multiples of H (section 2.1). "Anim" names the clip channels that drive a part: `br` breathing, `gait` locomotion, `look` head aim, `wave` chain wave, `flap`, `blink` eye frames, `glow` emissiveGain, `jaw`, `fx` VFX emitter anchor. `—` means the part is static and gets merged.
 
 ### f01 — Fizzkit line (electric)
@@ -307,7 +440,7 @@ Reading guide:
 | torso | lathe L_egg h0.42 rmax0.16 | pelvis @ (0,0.12,0.04) · pitch 30 fwd | P | br |
 | belly plate | sphere (0.12,0.18,0.08) | torso front @ (0,0.18,0.12) | P+ | — |
 | neck | capsule r0.06 len0.12 | torso @ (0,0.40,0.06) · pitch −20 | P | look |
-| head | sphere (0.14,0.12,0.18) | neck @ (0,0.10,0.04) | P | look |
+| head (v2) | sphere (0.14,**0.13**,0.18) | neck @ (0,0.10,0.04) | P | look |
 | jaw | half-sphere (0.10,0.04,0.12) | head @ (0,−0.06,0.07) | P | jaw |
 | eye ×2 | sphere r0.045, x×1.3 | head @ (±0.08,0.03,0.10) | E | blink |
 | brow ×2 | capsule r0.015 len0.06 | head @ (±0.08,0.07,0.10) · roll ±15 | P− | — |
@@ -396,7 +529,7 @@ Reading guide:
 | torso | sphere (0.28,0.22,0.34) | root @ (0,0.50,0) | P | br, gait |
 | fleece cluster ×7 | sphere r0.12–0.16 (fluffy) around the top, sides and rump | torso | S | br (lagged) |
 | neck | capsule r0.08 len0.12 · pitch −35 | torso @ (0,0.12,0.28) | P | look |
-| head | sphere (0.17,0.16,0.19) | neck end @ (0,0.08,0.04) | P | look |
+| head (v2) | sphere (0.17,**0.17**,0.19) | neck end @ (0,0.08,0.04) | P | look |
 | muzzle | sphere (0.10,0.08,0.10) | head @ (0,−0.06,0.15) | P+ | — |
 | forelock | sphere r0.08 (fluffy) | head @ (0,0.14,0) | S | — |
 | ear ×2 | capsule r0.04 len0.14, z×0.4 · roll ±60 droop | head @ (±0.15,0.06,−0.02) | P | lag |
@@ -415,7 +548,7 @@ Reading guide:
 | Habitat | Lore: basalt ledges of `volcano` and `route_4`. Not wild in the main game. |
 | Personality | Proud and stubborn. Challenges rivals but is fiercely loyal. |
 | Distinctive anatomy | The fleece is gone except for a **smoky charcoal mane collar** around its neck and shoulders, flecked with embers. Mountain-goat proportions. **Horns in one full spiral each**, with 8 glowing ridge rings. Chin tuft. Short flat tail. |
-| Dominant colours | P `#8E2F22` red-brown · S `#3B2B26` charcoal · A `#FFA431` ember |
+| Dominant colours (v2) | P `#B5502F` red-brown · S `#3B2B26` charcoal · A `#FFA431` ember |
 | Materials | Coat `FUR` r 0.8. Mane `FUR` r 1.0 with emissive fleck vertex colours. Horns `SHELL` r 0.35 with emissive ridge stripes (A 1.5). Rim `#FFB070` 0.35. |
 | Face | Narrower **almond** eyes. Iris `#FF9A2E`, **h-bar** (goat) pupil, 1 highlight, lidAngle −12. Brows: geometric wedges. Mouth: `jaw` mesh. Ears held horizontal. |
 
@@ -435,7 +568,7 @@ Reading guide:
 | torso | lathe L_pear along Z, h0.60 rmax0.17 (chest end forward) | root @ (0,0.58,0) | P | br, gait |
 | mane cluster ×5 | sphere r0.10–0.14 (fluffy) | torso front-top | S | br |
 | neck | capsule r0.08 len0.22 · pitch −40 | torso @ (0,0.08,0.28) | P | look |
-| head | sphere (0.10,0.11,0.16) | neck end | P | look |
+| head (v2) | sphere (0.10,**0.13**,0.16) | neck end | P | look |
 | muzzle | capsule r0.06 len0.08 along Z | head @ (0,−0.04,0.12) | P+ | — |
 | jaw | half-capsule r0.05 len0.07 | muzzle bottom | P+ | jaw |
 | chin tuft | cone r0.03 h0.08, pointing down | jaw | S | — |
@@ -463,9 +596,9 @@ Reading guide:
 | idle | Slow deep breathing (shoulder mass rises 0.02 H). Smoke curls from the nostrils and the horn rings every 3 s. The magma underlayer pulses. The head turns slowly at 0.2 Hz. |
 | move (heavy walk) | Walks at 0.8 Hz with a lateral sway (roll ±4°). Each forefoot plant spawns a dust ring. The plates shiver as each foot lands. |
 | attack | Rears 20° and slams both forelegs down (shockwave `fx_ground` at `contact` 40%), then shoves forward with its horn rings (second hit tick at 70%). |
-| attack_special | Lowers its head. The horn rings glow white-hot (glow 3.5) and release a heat wave cone from `fx_horns`. |
+| attack_special | Lowers its head. The horn rings glow white-hot (glow 3.0, v2 clamp) and release a heat wave cone from `fx_horns`. |
 | hit | Barely moves: head recoils 10°, the plates flash brighter, a grunt. |
-| capture | Braces its legs wide and roars (jaw). The capture reaction lasts 1.0 s instead of 0.6 s. |
+| capture (v2) | Braces its legs wide and roars (jaw), as a ≤ 250 ms pose. |
 | faint | Kneels front first, then slumps. The magma dims to dark red, then black, over 1.5 s, and the smoke stops. |
 | victory | Stamps twice (dust rings) and exhales a long smoke plume. |
 
@@ -478,7 +611,7 @@ Reading guide:
 | magma underlayer | sphere (0.33,0.30,0.50), 0.02 inside the plates | root @ (0,0.64,−0.05) | A (emissive) | glow |
 | basalt plate ×12 | extrude X_hexplate r0.09–0.12, depth 0.03, random yaw, gaps 0.01–0.02 | on the shoulder mass and back | P− | br |
 | neck | capsule r0.16 len0.12 · pitch 30 down-forward | forequarters @ (0,0.02,0.28) | S | look |
-| head | sphere (0.14,0.15,0.18) | neck end → world ≈ (0,0.66,0.52) | S | look |
+| head (v2) | sphere (0.14,**0.14**,0.18) | neck end → world ≈ (0,0.66,0.52) | S | look |
 | brow plate ×2 | box 0.10×0.03×0.06 | head @ (±0.06,0.09,0.10) | P− | — |
 | muzzle | sphere (0.10,0.09,0.10) | head @ (0,−0.06,0.14) | S | — |
 | jaw | half-sphere (0.09,0.04,0.09) | muzzle bottom | S | jaw |
@@ -502,7 +635,7 @@ Reading guide:
 | Distinctive anatomy | Brown otter pup whose **tail is covered in 5 overlapping shingle-plates** ending in a rounded paddle plate. White whisker-pad muzzle. Small round ears. Webbed hind feet. A pebble prop. **Nothing shell-like on the belly or chest**, ever. |
 | Dominant colours | P `#5B4636` otter brown · S `#3FA7B5` sea teal · P+ `#F1E6D2` muzzle/chest |
 | Materials | Fur `FUR` r 0.85, dropping to r 0.5 while its "wet" flag is set (water zones or after water moves). Tail plates `SHELL` r 0.25 with a vertex hue-shift toward `#6FD0C8` at the edges. Rim `#BFF6FF` 0.3. |
-| Face | Glossy **round** eyes: sclera hidden (none-sclera), iris `#1B1B1B`, pupil 0.8, 2 highlights. Brows: small raised painted arcs. Mouth: wide painted smile with whisker dots (M). Round nose `D`. |
+| Face (v2) | Glossy **round** eyes (E1) with a thin off-white sclera ring, iris `#1B1B1B`, pupil 0.8, 2 highlights. Brows: small raised painted arcs. Mouth: wide painted smile with whisker dots (M). Round nose `D`. |
 
 | Clip | Motion |
 |---|---|
@@ -580,10 +713,10 @@ Reading guide:
 | H / length | 1.60 m / 1.10 m (incl. tail shield) |
 | Habitat | Lore: floe edges below `snowpeak` where it meets `lake`. Not wild in the main game. |
 | Personality | Stoic, protective and patient. Moves last and stands its ground. |
-| Distinctive anatomy | The shingle plates have fused into a **chest-and-back carapace** with frost crystals on the shoulders. **The tail is a broad scalloped fan-shell used as a shield**: rested on the ground in idle, swung forward to block. A shell "helmet" cap with a brow ridge. Thick webbed forepaws. **It never holds a shell in its hand as a blade** (see audit). |
+| Distinctive anatomy (v2) | The shingle plates have fused into a **back carapace only** (no chest shell and no shoulder shells), with a ridge of frost crystals along its spine. The chest is bare pale fur. **No helmet**: the head is a bare otter head with brow meshes. The whiskers are reduced to **two short nubs**. **The tail is a broad scalloped fan-shell used as a shield**: rested on the ground in idle, swung forward to block. A shell "helmet" cap with a brow ridge. Thick webbed forepaws. **It never holds a shell in its hand as a blade** (see audit). |
 | Dominant colours | S `#CFE9F5` ice-white carapace · P `#3E4E63` slate fur · A `#1FA6C9` cyan seams |
 | Materials | Fur `FUR` r 0.75. Carapace `SHELL` r 0.2, clearcoat 1.0. Frost crystals `ICE` opacity 0.88, emissive A 0.3. Seams emissive A 0.4. Rim `#E8FBFF` 0.5. |
-| Face | **Droopy** calm eyes, lidCoverage 0.3. Iris `#1F5FA6`, round pupil 0.35, 1 highlight. Brows: helmet ridge (geometry). Mouth: firm closed line (M) plus a `jaw`. Frost-tinted whiskers. |
+| Face (v2) | Family class E1 (round) with a calm lidCoverage of 0.3. Iris `#1F5FA6`, round pupil 0.35, 1 highlight. Brows: `brow ×2` meshes (there is no helmet ridge). Mouth: `jaw` plus the mouth atlas. Two short frost-tinted whisker nubs. |
 
 | Clip | Motion |
 |---|---|
@@ -600,17 +733,19 @@ Reading guide:
 |---|---|---|---|---|
 | pelvis | sphere (0.22,0.20,0.20) | root @ (0,0.40,0) | P | gait |
 | torso | lathe L_egg h0.50 rmax0.24 | pelvis @ (0,0.10,0) | P | br |
-| carapace front | half-lathe L_dome rmax0.25 h0.12, facing +Z | torso @ (0,0.25,0.14) | S | br |
+| carapace front (v2) REMOVED | — (the shell is on the back and tail-fan only) | — | — | — |
+| chest (v2) | sphere (0.20,0.24,0.10) | torso @ (0,0.22,0.14) | P+ | br |
 | carapace back | half-lathe L_dome rmax0.27 h0.14, facing −Z | torso @ (0,0.25,−0.14) | S | br |
-| seam band | torus R0.25 r0.012 at the carapace junction | torso | A | glow |
-| pauldron ×2 | half-sphere (0.12,0.08,0.12) | torso @ (±0.22,0.42,0) | S | gait |
-| frost crystal ×6 | cone r0.02–0.035 h0.06–0.10 | pauldrons | S (ICE) | glow |
-| head | sphere (0.16,0.15,0.16) | torso @ (0,0.52,0.03) | P | look |
-| helmet cap | lathe L_dome rmax0.15 h0.08 + brow box 0.20×0.03×0.04 | head top | S | — |
+| seam band (v2) | torus R0.25 r0.012, **arc 180°**, along the back-carapace rim only | torso | A | glow |
+| pauldron ×2 (v2) REMOVED | — (no shoulder shell) | — | — | — |
+| frost crystal ×6 (v2) | cone r0.02–0.035 h0.06–0.10, in a row along the spine | carapace back, top ridge | S (ICE) | glow |
+| head (v2) | sphere (0.16,**0.14**,0.16) | torso @ (0,0.52,0.03) | P | look |
+| helmet cap (v2) REMOVED | — (no helmet) | — | — | — |
+| brow ×2 (v2) | capsule r0.015 len0.06 | head @ (±0.07,0.08,0.12) | P− | expression |
 | muzzle | sphere (0.09,0.07,0.08) | head @ (0,−0.05,0.12) | P+ | — |
 | jaw | half-sphere (0.08,0.03,0.07) | muzzle bottom | P+ | jaw |
 | nose | sphere r0.03 | muzzle front | D | — |
-| whisker ×6 | tube r0.004 len0.16 | muzzle | A (tint) | — |
+| whisker ×6 (v2) REMOVED → whisker nub ×2 (v2) | cone r0.012 h0.04, pointing outward | muzzle sides @ (±0.07,0,0.04) | A (tint) | — |
 | eye ×2 | sphere r0.035 | head @ (±0.07,0.03,0.12) | E | blink |
 | arm ×2 | capsule r0.07 len0.22 → capsule r0.065 len0.20 → paw sphere (0.08,0.05,0.08) + web extrude 0.10×0.06 | torso @ (±0.26,0.36,0) | P | gait |
 | leg ×2 | thigh sphere r0.13 → capsule r0.07 len0.14 → webbed foot extrude 0.18×0.12 | pelvis @ (±0.12,−0.08,0) | P | gait |
@@ -628,7 +763,7 @@ Reading guide:
 | Habitat | Lore: mossy understorey of `forest`. Suggested: `forest`, `route_2` (common, day). |
 | Personality | Sleepy, gentle and clingy. Never lets go of its pod. |
 | Distinctive anatomy | A moss-covered baby sloth wrapped around a **seed pod as large as its body**, gripping it with long hooked claws. A **dark eye-mask** on its tan face. A single closed **bell-bud sprout** on its head (the motif). |
-| Dominant colours | P `#7FA650` moss green · S `#C9B48A` tan face · D `#8A5A3B` pod brown |
+| Dominant colours (v2) | P `#6E9444` moss green · S `#E3D2AC` tan face · D `#8A5A3B` pod brown |
 | Materials | Moss `FUR` r 1.0 with the fluffy tag and a bumpy noise normal. Face `FUR` r 0.9. Pod `SHELL` r 0.6 with seam tubes. Claws `#3A3028` r 0.4. Rim `#E8FFC0` 0.25. |
 | Face | **Droopy** eyes, lidCoverage 0.5. Iris `#5A3A22`, round pupil 0.5, 1 small highlight. Brows: none; the eye-mask patches are painted on the face decal and slope downward. Mouth: gentle painted smile (M), with a yawn frame. |
 
@@ -657,16 +792,16 @@ Reading guide:
 | bud stem | tube r0.01 len0.12, slight curve | body @ (0,0.32,0.05) | P− | lag |
 | bud | lathe L_teardrop rmax0.035 h0.07 | stem tip | `#B05FC4` | lag |
 
-#### c11 · Nodbell
+#### c11 · Lullstalk
 | Field | Value |
 |---|---|
-| Family / stage / types | f04 · stage 2 · verdant / toxin (from c10 at Lv 18) |
+| Family / stage / types | f04 · stage 2 · verdant / toxin (from c10 at Lv 16, v2) |
 | Body plan · rig | lanky biped with arms reaching its ankles (knuckle-crutch walker) · RIG_BIPED |
 | H / length | 1.20 m / 0.60 m |
 | Habitat | Lore: hanging-vine groves in `forest`. Suggested: `forest` (uncommon, dusk and night). |
 | Personality | Languid and deceptively strategic. Waits, sways, then strikes mid-"nod". |
 | Distinctive anatomy | **Very long arms** (reaching its ankles) ending in 3 hooked claws. Short legs. A **mossy hooded mantle** over its shoulders and head. **Three hanging clusters of foxglove-like bells** (from both shoulders and its crown) with speckled throats. The pod is gone. |
-| Dominant colours | P `#4E7D3A` moss green · A `#B05FC4` foxglove purple · S `#9C8466` fur |
+| Dominant colours (v2) | P `#3A6128` moss green · A `#C98BDB` foxglove purple · S `#9C8466` fur |
 | Materials | Moss `FUR` r 1.0. Fur `FUR` r 0.9. Bells `MEMBRANE` r 0.5, emissive A 0.1, throat spots `#F1E7A0` via texture. Rim `#D9A6FF` 0.25. |
 | Face | Long face with dark eye stripes (painted). **Droopy** eyes, lidCoverage 0.45. Iris `#8C6A2F`, round pupil 0.4, 1 highlight. Brows: none (the stripes read as brows). Mouth: small painted mouth with an "o" drowsy frame. |
 
@@ -700,13 +835,13 @@ Reading guide:
 #### c12 · Belladrowse
 | Field | Value |
 |---|---|
-| Family / stage / types | f04 · stage 3 · verdant / toxin (from c11 at Lv 33) |
+| Family / stage / types | f04 · stage 3 · verdant / toxin (from c11 at Lv 32, v2) |
 | Body plan · rig | massive quadruped knuckle-walker with a canopy tree on its back · RIG_QUAD |
 | H / length | 2.20 m (to canopy top) / 2.00 m |
 | Habitat | Lore: the oldest glades of `forest`. Suggested: `forest` deep glade (rare, any time). |
 | Personality | Serene and slow. A patient guardian that lets small creatures shelter in its canopy. |
 | Distinctive anatomy | Bulky body with long forelimbs whose claws curl so it walks on its knuckles. **A trunk rising from its back into a 4-lobed canopy**, from which **vines and 12 dark bells hang like a curtain**. Low, forward-set head with moss brows and a moss beard. **No shell and no rock spikes** (see audit). |
-| Dominant colours | P `#2F5B2E` dark canopy green · A `#8E3FB0` deep purple bells · S `#6F5A48` fur |
+| Dominant colours (v2) | P `#22421F` dark canopy green · A `#B36BD1` deep purple bells · S `#6F5A48` fur |
 | Materials | Canopy `FUR` r 0.95 with noise-displaced lobes. Bark `#5A4632` `STONE` r 0.95. Bells `MEMBRANE` emissive A 0.2 with gold `#E9D34A` speckles. Rim `#C9FF9E` 0.2. |
 | Face | Broad mask. **Droopy** eyes, lidCoverage 0.55. Iris `#C28A2E`, round pupil 0.4, 1 highlight. Brows: moss tuft spheres. Mouth: wide gentle painted line (M) plus a `jaw` for yawns and roars. |
 
@@ -751,9 +886,9 @@ Reading guide:
 | Habitat | Lore: scree and tunnels. Suggested: `cave` (common), `route_3` gravel banks. |
 | Personality | Timid. Rolls away when startled, but curious once calm. |
 | Distinctive anatomy | A near-spherical **hex-plate dome** covering three quarters of its body. A pointed snout with a **pale snout-shield**. A **banded tail that wraps around like a belt** to seal the ball. Stubby legs. |
-| Dominant colours | P `#9A8F80` warm grey · S `#E0C7A8` tan · P− `#5E564D` plate lines |
+| Dominant colours (v2) | P `#7F7466` warm grey · S `#E0C7A8` tan · P− `#5E564D` plate lines |
 | Materials | Shell `STONE` r 0.85 with the hex pattern as vertex-colour P− grooves plus 6 raised plates. Skin `FUR` r 0.7. Rim `#FFF1D6` 0.2. |
-| Face | Small beady eyes (none-sclera), iris `#111`, 1 highlight. Brows: none. Mouth: tiny painted line at the snout tip. |
+| Face (v2) | Small beady eyes (E5) with a thin off-white sclera ring, iris `#111`, 1 highlight. Brows: none. Mouth: tiny painted line at the snout tip. |
 
 | Clip | Motion |
 |---|---|
@@ -771,10 +906,10 @@ Reading guide:
 | shell | lathe L_dome as a near-sphere, rmax0.42 h0.80 (covers the top ¾) | root @ (0,0.45,0) · pitch −10 | P | br, roll |
 | crown plate ×6 | extrude X_hexplate r0.08, depth 0.03 | shell top | P | — |
 | belly | sphere (0.34,0.20,0.36) | shell @ (0,−0.18,0) | S | — |
-| head | sphere (0.12,0.10,0.15) | shell @ (0,−0.05,0.36) | S | retract (z −0.2) |
+| head (v2) | sphere **(0.18,0.17,0.20)** | shell @ (0,−0.05,0.36) | S | retract (z −0.2) |
 | snout | cone r0.06 h0.12, forward | head front | S | — |
 | snout shield | sphere cap r0.04 | snout tip | S+ | — |
-| eye ×2 | sphere r0.025 | head @ (±0.06,0.03,0.08) | E | blink |
+| eye ×2 (v2) | sphere r0.03 | head @ (±0.09,0.05,0.14) | E | blink |
 | leg ×4 | capsule r0.05 len0.12 | shell @ (±0.20,−0.30,±0.16) | S | gait, retract |
 | tail band ×4 | torus R0.05 r0.02, chained | shell rear @ (0,−0.15,−0.38) | P | wrap |
 | tail tip | cone r0.03 h0.06 | band4 | P | wrap |
@@ -788,7 +923,7 @@ Reading guide:
 | Habitat | Lore: cave galleries. Suggested: `cave` (uncommon), `route_3` cliffs (rare). |
 | Personality | Grumpy, territorial and dependable. It cannot roll any more and resents it. |
 | Distinctive anatomy | A **high elongated hex-plate dome** with **ochre lichen patches**. An armoured head cap. Short massive legs with nails. **A tail of 5 ring bands ending in a club of 4 stacked flat stones (a cairn) with short spikes.** |
-| Dominant colours | P `#7A7468` stone grey · S `#C4B454` lichen ochre · D `#4A4038` skin |
+| Dominant colours (v2) | P `#6C665B` stone grey · S `#C4B454` lichen ochre · D `#4A4038` skin |
 | Materials | Dome `STONE` r 0.9 with lichen as vertex-colour S blotches. Skin `FUR` r 0.8. The club stones alternate P and S. Rim `#FFF4C2` 0.2. |
 | Face | Small, half-lidded suspicious eyes (lidCoverage 0.35, lidAngle −8). Iris `#B89A3A`, round pupil 0.4, 1 highlight. Brows: the head cap. Mouth: blunt muzzle with a `jaw`. |
 
@@ -809,7 +944,7 @@ Reading guide:
 | dome rim | torus R0.50 r0.04, z×1.4 | dome base | P− | — |
 | crown plate ×8 | extrude X_hexplate r0.08, depth 0.03 | dome top | P/S | — |
 | under-body | sphere (0.40,0.18,0.62) | root @ (0,0.26,0) | D | gait |
-| head | sphere (0.14,0.12,0.16) | under-body @ (0,0.02,0.60) | D | look, retract |
+| head (v2) | sphere (0.14,**0.13**,0.16) | under-body @ (0,0.02,0.60) | D | look, retract |
 | head cap | lathe L_dome rmax0.15 h0.07 | head top | P | — |
 | muzzle | sphere (0.08,0.07,0.08) | head front | D+ | — |
 | jaw | half-sphere (0.07,0.03,0.07) | muzzle | D | jaw |
@@ -871,7 +1006,7 @@ Reading guide:
 | Habitat | Lore: under snow crusts. Suggested: `snowpeak` (common), `route_5` high section (snow weather). |
 | Personality | Shy and cold-loving. Clings to cold rock and hides under snow. |
 | Distinctive anatomy | Big head (40% of its length). **A single tall translucent ice crest on its head**, like a small sail, plus 4 small crests along its back. **A six-armed flake-shaped tail tip.** Frost freckles under its eyes. **No legs and no feelers** (see audit). |
-| Dominant colours | P `#EAF6FF` frost white · S `#8FD8E8` ice cyan · A `#B7A9F2` lavender underside (minor) |
+| Dominant colours (v2) | P `#EAF6FF` frost white · S `#5FB8D0` ice cyan · A `#B7A9F2` lavender underside (minor) |
 | Materials | Body `ICE`-lite (r 0.25, opacity 0.95, emissive S 0.1). Crests `ICE` r 0.1, opacity 0.85. Rim `#FFFFFF` 0.6 (strong, so it reads on snow). |
 | Face | Big **round** eyes (60% of the head front). Iris `#6FB6E8`, round pupil 0.6, 3 highlights. Brows: none. Mouth: small open painted smile (M). Three frost-freckle dots per cheek. |
 
@@ -899,7 +1034,7 @@ Reading guide:
 #### c17 · Sleetribbon
 | Field | Value |
 |---|---|
-| Family / stage / types | f06 · stage 2 · frost (from c16 at Lv 26) |
+| Family / stage / types | f06 · stage 2 · frost (from c16 at Lv 22, v2) |
 | Body plan · rig | long limbless serpent with a sail-fin row and neck ribbons · RIG_CHAIN |
 | H / length | 0.70 m (head raised) / 3.00 m |
 | Habitat | Lore: wind-scoured snowfields. Suggested: `snowpeak` (uncommon; more common in snow weather). |
@@ -907,7 +1042,7 @@ Reading guide:
 | Distinctive anatomy | 12-segment serpent. **5 separate translucent dorsal sail-fins** in a row. **Two long ribbon fins trailing from the base of the neck** (not the head). A wedge head with a brow crest. **A flake-shaped tail fin.** Hex-flake scale pattern. No orbs and no horn. |
 | Dominant colours | P `#8C8FE0` periwinkle-lavender · S `#E6F6FF` frost white · P+ `#D6F0FF` belly |
 | Materials | Scales `SCALE` r 0.35, clearcoat 0.4, with a hex-flake normal pattern. Fins `ICE` opacity 0.75, emissive `#CFEFFF` 0.2. Rim `#FFFFFF` 0.5. |
-| Face | Narrow **long-almond** eyes. Iris `#A8E6FF`, **slit** pupil, 1 highlight, lidAngle −5. Brows: the crest (geometry). Mouth: long thin painted line plus a `jaw`. |
+| Face (v2) | Narrow eyes (family class E3, lengthened). Iris `#A8E6FF`, **vertical-ellipse** pupil (1:2.2), 1 highlight, lidAngle −5. Brows: the crest (geometry). Mouth: long thin painted line plus a `jaw`. |
 
 | Clip | Motion |
 |---|---|
@@ -935,7 +1070,7 @@ Reading guide:
 #### c18 · Borealoop
 | Field | Value |
 |---|---|
-| Family / stage / types | f06 · stage 3 · frost / lumen (from c17 at Lv 40) |
+| Family / stage / types | f06 · stage 3 · frost / lumen (from c17 at Lv 38, v2) |
 | Body plan · rig | floating ring-coil serpent with small forelimbs · RIG_CHAIN + RIG_FLOAT |
 | H / span | 1.80 m / 1.60 m · hoverGap 0.3 H |
 | Habitat | Lore: the summit sky on clear nights. Suggested: `snowpeak` summit (rare, night, clear weather). |
@@ -943,14 +1078,14 @@ Reading guide:
 | Distinctive anatomy | Its body forms a **near-closed vertical ring** (the tail tucks behind the head with a gap, **not a tail-biting ouroboros**). **Ten aurora ribbon-plumes** stream from the ring's outer edge. **A glowing six-armed flake core floats at the ring's centre.** It has grown **two small clawed forelimbs** near the head, which hold the ring's rim. Navy body flecked with emissive star dots. |
 | Dominant colours | P `#1B2A4A` polar navy · A `#47E6A8`→`#B266FF` aurora gradient (green dominant) · S `#E8F7FF` crests and core |
 | Materials | Body `SCALE` r 0.35 with emissive star-fleck vertex colours. Plumes `GLOW` opacity 0.7 with a vertex gradient. Core `GLOW` S 2.0. Rim `#9FFFD9` 0.5. |
-| Face | Long head. Eyes with no sclera: iris gradient green→violet, emissive 0.5, thin slit pupil, 2 highlights. Brows: crest fins. Mouth: closed painted smile line (M). |
+| Face (v2) | Long head. Eyes with no sclera (an exception pending Creative Direction; the fallback is a thin sclera ring): iris gradient green→violet, emissive 0.5, **vertical-ellipse** pupil, 2 highlights. Brows: crest fins. Mouth: closed painted smile line (M). |
 
 | Clip | Motion |
 |---|---|
 | idle | The ring sways (roll ±8°) and bobs 0.05 H. The plumes stream on a wind noise. The core spins (yaw 20°/s). |
 | move (air-roll) | Tilts the ring forward 30° and rolls through the air like a slow wheel (pitch rotation), with the plumes trailing. |
 | attack | The ring spins fast as a wheel (pitch 2 rev/s for 0.4 s), then rolls into the target (`contact` 55%). |
-| attack_special | Holds the ring still, facing the target. The core flares (glow 4) and fires an aurora beam from `fx_core`. |
+| attack_special | Holds the ring still, facing the target. The core flares (glow 3.0, v2 clamp) and fires an aurora beam from `fx_core`. |
 | hit | The ring kinks (the chain around the struck point bends 20°), the plumes scatter and the core dims for 0.1 s. |
 | capture | The ring tightens (radius ×0.6) around the core and collapses into its light. |
 | faint | The ring opens into a drooping arc and sinks to the ground. The plumes fade to grey. |
@@ -974,11 +1109,11 @@ Reading guide:
 |---|---|
 | Family / stage / types | f07 · stage 1 · gale |
 | Body plan · rig | round hopping fledgling with stub seed-wings · RIG_WING (hop mode) |
-| H / length | 0.30 m / 0.35 m |
+| H / length (v2) | **0.40 m** / 0.47 m (the whole model scales with H; part dimensions are unchanged) |
 | Habitat | Lore: breezy meadows. Suggested: `route_1` (common), `route_2` (common), grassy edges of `town_1`'s route exits (day). |
 | Personality | Bubbly, loud and fearless far beyond its ability. |
 | Distinctive anatomy | A near-spherical fluffy body with a sky-blue back cap. **Two stub wings shaped like samaras** (a round nut at the root and a thin blade). **Twin tail streamers.** Big feet. Cheek swirl marks. A tiny wide gape beak. |
-| Dominant colours | P `#F4F1E8` off-white · S `#7FB3D5` sky blue · A `#E07A5F` cheek swirl (minor) |
+| Dominant colours (v2) | P `#F4F1E8` off-white · S `#6AA3CC` sky blue · A `#E07A5F` cheek swirl (minor) |
 | Materials | Down `FUR` r 1.0 with the fluffy tag (noise displacement 0.02). Wings `MEMBRANE` r 0.6, opacity 1. Beak `#F2B05E` r 0.5. Rim `#FFFFFF` 0.35. |
 | Face | Big **round** eyes. Iris `#2B1D14`, pupil 0.7, 2 highlights. Brows: painted blue feather tufts, lidAngle +5. Mouth: split beak (upper and lower cones) whose lower half opens wide for cries. |
 
@@ -1014,7 +1149,7 @@ Reading guide:
 | Habitat | Lore: cliff updrafts. Suggested: `route_3`, `route_5` (uncommon, day), `forest` canopy gaps (rare). |
 | Personality | Restless, playful and a prankster. Never lands for long. |
 | Distinctive anatomy | Streamlined spindle body. **Each wing is one long samara blade** with visible veins and a **green nut at the wrist**. Long twin streamers. A small leaf crest. **It autorotates like a falling maple seed** (its signature behaviour). No visible legs in flight. |
-| Dominant colours | P `#6BA7C9` blue · S `#C7A05A` seed tan · A `#3D6B45` leaf green |
+| Dominant colours (v2) | P `#3F7FA6` blue · S `#E2C585` seed tan · A `#3D6B45` leaf green |
 | Materials | Feathers `FUR` r 0.7. Blades `MEMBRANE` r 0.55, opacity 0.95, with P− veins. Rim `#FFF2C8` 0.35. |
 | Face | Sharp **almond** eyes. Iris `#E0B040`, round pupil 0.35, 1 highlight, lidAngle −10. Brows: painted A swept marks. Mouth: short wide beak with `jaw`. |
 
@@ -1033,7 +1168,7 @@ Reading guide:
 |---|---|---|---|---|
 | torso | lathe L_spindle along Z, h0.60 rmax0.12 | root @ (0,0.45,0) | P | br |
 | belly | vertex gradient to P+ | torso | — | — |
-| head | sphere (0.12,0.11,0.12) | torso front @ (0,0.04,0.30) | P | look |
+| head (v2) | sphere (0.12,**0.13**,0.12) | torso front @ (0,0.04,0.30) | P | look |
 | beak | cone r0.04 h0.06 + jaw half-cone | head front | `#3A342A` | jaw |
 | eye ×2 | sphere r0.035, x×1.3 | head @ (±0.07,0.03,0.07) | E | blink |
 | leaf crest | extrude X_leaf 0.12×0.04, depth 0.01 | head top · pitch −40 | A | lag |
@@ -1044,7 +1179,7 @@ Reading guide:
 #### c21 · Samaraptor
 | Field | Value |
 |---|---|
-| Family / stage / types | f07 · stage 3 · gale / verdant (from c20 at Lv 31) |
+| Family / stage / types | f07 · stage 3 · gale / verdant (from c20 at Lv 30, v2) |
 | Body plan · rig | upright stilt-legged raptor hovering under a two-blade rotor · RIG_WING (rotor mode) |
 | H / rotor diameter | 1.50 m / 2.00 m · hoverGap 0.2 H |
 | Habitat | Lore: high passes where it hunts. Suggested: `route_5` (rare, day), `snowpeak` lower slopes (rare). |
@@ -1091,7 +1226,7 @@ Reading guide:
 | Habitat | Lore: tide pools and marsh margins. Suggested: `lake` shore (common), `route_3` marsh (common, rain boosts). |
 | Personality | Nervous: it flashes its rings when scared. A curious poker. |
 | Distinctive anatomy | An amber bulbous mantle tilted back. **6 arms** (not 8). **Emissive blue rings** on its mantle and arms. Eyes on top ridges with bulgy lid caps. A side siphon. Toxic droplets form at its arm tips. |
-| Dominant colours | P `#E8C547` amber · A `#2E6BFF` electric blue rings · P+ `#F6E8B5` underside |
+| Dominant colours (v2) | P `#E3C77A` amber · A `#2E6BFF` electric blue rings · P+ `#F6E8B5` underside |
 | Materials | Skin `SKIN_WET` r 0.3, clearcoat 0.5. Rings emissive A: idle 0.5, threatened 2.5. Rim `#FFF6C0` 0.35. |
 | Face | Eyes with **h-bar** pupils. Iris `#D9A21E`, 1 highlight. Brows: bulgy lid caps (geometry; expression comes from rotating the caps). Mouth: hidden (beak underneath). |
 
@@ -1119,13 +1254,13 @@ Reading guide:
 #### c23 · Brineloop
 | Field | Value |
 |---|---|
-| Family / stage / types | f08 · stage 2 · toxin / water (from c22 at Lv 22) |
+| Family / stage / types | f08 · stage 2 · toxin / water (from c22 at Lv 18, v2) |
 | Body plan · rig | upright octopus on 4 leg-arms with 2 lasso arms · RIG_RADIAL (tetrapod) |
 | H / length | 0.90 m / 0.70 m |
 | Habitat | Lore: brackish lake inlets. Suggested: `lake` (uncommon), `route_3` marsh (rare, rain). |
 | Personality | A cocky trickster that juggles water droplets. |
 | Distinctive anatomy | **Stands upright on 4 thick leg-arms.** **2 long upper arms** that it twirls into lasso loops. **Its mantle is swollen, translucent and visibly full of sloshing brine**, like a water balloon, with an internal water-surface disc. The eyes sit on the body below the mantle. A curling snorkel siphon. The rings have grown into large loops. **No external bubble helmet** (see audit). |
-| Dominant colours | P `#D98F2B` ochre orange · A `#2E6BFF` blue rings · S `#9FE3F0` brine |
+| Dominant colours (v2) | P `#D6A865` ochre · A `#2458D6` blue rings · S `#9FE3F0` brine |
 | Materials | Skin `SKIN_WET` r 0.3, clearcoat 0.6. Mantle shell `ICE`-like, opacity 0.45, r 0.05, fresnel rim `#CFFFFF` 0.7. Inner brine disc S at opacity 0.6. Rim `#FFD7A0` 0.3. |
 | Face | Larger eyes with h-bar pupils. Iris `#D9A21E`, 2 highlights. Brows: tilted lid caps (a wry look). Mouth: hidden. |
 
@@ -1156,7 +1291,7 @@ Reading guide:
 #### c24 · Venomantle
 | Field | Value |
 |---|---|
-| Family / stage / types | f08 · stage 3 · toxin / water (from c23 at Lv 37) |
+| Family / stage / types | f08 · stage 3 · toxin / water (from c23 at Lv 34, v2) |
 | Body plan · rig | tall tripod octopus with a 3-arm cloak web · RIG_RADIAL (tripod) |
 | H / span | 1.80 m / 1.60 m (web fully open) |
 | Habitat | Lore: the dark centre of `lake`. Suggested: `lake` deep water edge (rare, night). |
@@ -1164,7 +1299,7 @@ Reading guide:
 | Distinctive anatomy | Stands on **3 support arms as a tripod**. **3 raised display arms are joined by a dark web** that it spreads like a cloak and reveals **bold blue-and-gold ring patterns** on the inside. A tall hooded mantle. Cuttlefish-like **W-shaped pupils**. |
 | Dominant colours | P `#5A2A6E` deep violet · A `#3FA0FF` ring blue (+ `#F0C040` gold secondary accent) · D `#2A1830` web |
 | Materials | Skin `SKIN_WET` r 0.35, clearcoat 0.4. Web `MEMBRANE` opacity 0.95, r 0.6, with the ring pattern texture (emissive A 1.0; 3.0 during display). Rim `#C79BFF` 0.35. |
-| Face | Hooded eyes (lidCoverage 0.4) with **w-shape** pupils. Iris `#F0C040`, 1 highlight. Brows: lid caps. Mouth: hidden. |
+| Face (v2) | Hooded eyes (lidCoverage 0.4) with **h-bar** pupils (v2). Iris `#F0C040`, 1 highlight. Brows: lid caps. Mouth: hidden. |
 
 | Clip | Motion |
 |---|---|
@@ -1179,7 +1314,7 @@ Reading guide:
 
 | Part | Primitive & dims (×H) | Parent @ offset · rot | Slot | Anim |
 |---|---|---|---|---|
-| head | sphere (0.24,0.20,0.24) | root @ (0,1.00,0) | P | br, look |
+| head (v2) | sphere **(0.20,0.14,0.20)** | root @ (0,1.00,0) | P | br, look |
 | mantle hood | lathe L_bulb h0.50 rmax0.20 · pitch −20 | head @ (0,0.22,−0.06) | P | br |
 | eye ×2 | sphere r0.05 | head @ (±0.12,0.04,0.17) | E | blink |
 | lid cap ×2 | half-sphere r0.055 | over the eyes | P | expression |
@@ -1231,7 +1366,7 @@ Family note: every f09 clip is evaluated at **12 fps stepped interpolation** (ho
 #### c26 · Marionyx
 | Field | Value |
 |---|---|
-| Family / stage / types | f09 · stage 2 · shade (from c25 at Lv 28) |
+| Family / stage / types | f09 · stage 2 · shade (from c25 at Lv 24, v2) |
 | Body plan · rig | jointed marionette suspended from its own floating crossbar crown · RIG_FLAT + pendulum |
 | H / depth | 1.10 m (including the crossbar) / 0.50 m · feet 0.1 H above the ground |
 | Habitat | Lore: abandoned stages and ruins. Suggested: `route_4` (night, uncommon), `volcano` ruins (night, uncommon). |
@@ -1267,10 +1402,10 @@ Family note: every f09 clip is evaluated at **12 fps stepped interpolation** (ho
 | thigh / shin ×2 | extrude slat 0.05×0.18, depth 0.04 | hip pins | P | swing, gait |
 | foot ×2 | extrude pointed 0.10×0.04 | shin end | P | swing |
 
-#### c27 · Cinderscrim
+#### c27 · Emberfold
 | Field | Value |
 |---|---|
-| Family / stage / types | f09 · stage 3 · shade / fire (from c26 at Lv 42) |
+| Family / stage / types | f09 · stage 3 · shade / fire (from c26 at Lv 40, v2) |
 | Body plan · rig | a hovering three-panel folding screen backlit by an ember core · RIG_FLAT |
 | H / span | 2.00 m / 1.10 m (panels at 30°) · hoverGap 0.05 H |
 | Habitat | Lore: burned theatres on the slopes of `volcano`. Suggested: `volcano` (night, rare). |
@@ -1285,7 +1420,7 @@ Family note: every f09 clip is evaluated at **12 fps stepped interpolation** (ho
 | idle | The panels slowly flex on their hinges (±10°). Embers drift up and the core flickers. Hover bob 0.03 H. |
 | move (glide) | Folds its panels narrower (to 60°) and glides with a trail of hem smoke. |
 | attack | The slat arms slash in an X (`contact` 50%), leaving ember trails. |
-| attack_special | The panels snap fully open (flat, 180° spread) and the core flares (glow 4). It projects its cut-out pattern as a moving silhouette beam (`fx_core`). On High, it casts a light cookie of the pattern. |
+| attack_special | The panels snap fully open (flat, 180° spread) and the core flares (glow 3.0, v2 clamp). It projects its cut-out pattern as a moving silhouette beam (`fx_core`). On High, it casts a light cookie of the pattern. |
 | hit | The panels fold shut in front of the core and it rocks back. |
 | capture | Folds all its panels flat into a single stack. |
 | faint | The panels topple outward, the core fades to embers and smoke rises. |
@@ -1310,10 +1445,10 @@ Family note: every f09 clip is evaluated at **12 fps stepped interpolation** (ho
 | Family / stage / types | f10 · stage 1 · lumen |
 | Body plan · rig | round floating fry ("swims" in air) · RIG_FLOAT |
 | H / length | 0.30 m / 0.45 m · hoverGap 0.8 H |
-| Habitat | Lore: mist over dawn water. Suggested: `lake` (dawn only, uncommon), `route_5` (dawn, uncommon). |
+| Habitat (v2) | Lore: mist over morning water. Encounters per world.md (day band). |
 | Personality | Cheerful. Drawn to lanterns and to trainers' lights. |
 | Distinctive anatomy | A chubby round body with a **large fan tail with glowing edges**, a **small crescent dorsal fin**, tiny pectoral fins, and a **lateral light-stripe** along its side. Big eyes and a round "o" mouth. |
-| Dominant colours | P `#FFD6A0` peach · S `#F59AB5` pink fins · A `#FFF4C2` glow |
+| Dominant colours (v2) | P `#FFD6A0` peach · S `#E0708F` pink fins · A `#FFF4C2` glow |
 | Materials | Body `SKIN_WET` r 0.35, clearcoat 0.4. Fins `MEMBRANE` opacity 0.8 with emissive A edges (1.2). Stripe emissive A 1.0. Rim `#FFFFFF` 0.45. |
 | Face | Huge **round** eyes. Iris `#9B7AD6`, pupil 0.6, 3 highlights. Brows: none. Mouth: a torus ring that opens and closes (scale). |
 
@@ -1341,13 +1476,13 @@ Family note: every f09 clip is evaluated at **12 fps stepped interpolation** (ho
 #### c29 · Lumarlin
 | Field | Value |
 |---|---|
-| Family / stage / types | f10 · stage 2 · lumen (from c28 at Lv 30) |
+| Family / stage / types | f10 · stage 2 · lumen (from c28 at Lv 26, v2) |
 | Body plan · rig | streamlined air-swimming marlin with a light-bill · RIG_FLOAT (chain) |
 | H / length | 0.80 m (sail raised) / 2.00 m · hoverGap 0.4 H |
 | Habitat | Lore: high cold air over the passes. Suggested: `route_5` (uncommon, day), `snowpeak` (rare). |
 | Personality | Competitive, disciplined and an honourable duellist. |
 | Distinctive anatomy | A pearl spindle body with a periwinkle back. **A long glowing gold bill.** **A tall crescent sail-fin that folds flat at speed.** A sickle tail. Long pectoral fins. **The lateral light-stripe is now bright.** |
-| Dominant colours | P `#F2F0FF` pearl white · A `#FFD86B` gold · S `#8BA6E8` periwinkle back |
+| Dominant colours (v2) | P `#F2F0FF` pearl white · S `#8BA6E8` periwinkle back (**dominant pair: pearl/periwinkle**) · A `#FFD86B` gold accent |
 | Materials | Body `SHELL` r 0.25, clearcoat 0.8 (pearl), with a vertex gradient to S on its back. Bill emissive A 1.5. Fins `MEMBRANE` opacity 0.9. Rim `#FFF3C4` 0.5. |
 | Face | Sleek **almond** eyes. Iris `#FFD86B`, round pupil 0.35, 1 highlight, lidAngle −8. Brows: a painted S stripe. Mouth: a thin line under the base of the bill (M). |
 
@@ -1373,18 +1508,18 @@ Family note: every f09 clip is evaluated at **12 fps stepped interpolation** (ho
 | tail | extrude X_fin_crescent (sickle) span 0.55, vertical | seg4 end | S | wave |
 | stripe | vertex emissive band A along the flanks | segments | A | glow |
 
-#### c30 · Umbraleen
+#### c30 · Coronaleen
 | Field | Value |
 |---|---|
-| Family / stage / types | f10 · stage 3 · lumen / shade (from c29 at Lv 44) |
+| Family / stage / types | f10 · stage 3 · lumen / shade (from c29 with the Dawn Prism or at Lv 44, v2) |
 | Body plan · rig | vast floating baleen whale with an eclipse corona crown · RIG_FLOAT (chain) |
-| H / length | 2.00 m / 5.50 m · hoverGap 0.25 H · **battle framing: see Risks** |
+| H / length (v2) | **1.75 m / 4.80 m** (the whole model scales with H; part dimensions are unchanged) · hoverGap 0.25 H · battle framing: see Risks |
 | Habitat | Lore: the sky over `snowpeak`, seen during eclipses. Suggested: `snowpeak` summit (night, clear, rare; World Designer may prefer a scripted encounter). |
 | Personality | Ancient, gentle and solemn. Locals say eclipses happen when it passes overhead. |
 | Distinctive anatomy | Indigo-black body with emissive star flecks. **A dark eclipse disc on its forehead ringed by a 12-ray gold-white corona** that rotates slowly. Long knobbly-edged pectoral flippers with glowing edges. Pale lavender belly grooves that glow gold when it sings. **The lateral stripe is now a row of 7 glowing spots.** A tiny crescent dorsal fin. Horizontal flukes. **No wings** (see audit). |
 | Dominant colours | P `#231F3A` eclipse indigo · A `#FFE8A3` corona gold-white · S `#C9C3E6` belly lavender |
 | Materials | Skin `SCALE` r 0.4, clearcoat 0.3, with emissive star-fleck vertex colours. Corona `GLOW` A 2.0. Belly grooves as vertex stripes S with an emissive gold channel (0 idle, 1.5 singing). Rim `#FFE8A3` 0.4. |
-| Face | Small eyes set low near the corner of the mouth. Iris `#FFE8A3`, round pupil 0.4, 1 highlight, kind heavy lids (lidCoverage 0.35). Brows: none. Mouth: long curved jawline with a `jaw` (opens 15°) showing a baleen comb texture. |
+| Face (v2) | Small eyes (E3, r 0.045 H) set low near the corner of the mouth. Iris `#FFE8A3`, **ring** pupil 0.4, 1 highlight, kind heavy lids (lidCoverage 0.35). Brows: none. Mouth: long curved jawline with a `jaw` (opens 15°) showing a baleen comb texture. |
 
 | Clip | Motion |
 |---|---|
@@ -1393,7 +1528,7 @@ Family note: every f09 clip is evaluated at **12 fps stepped interpolation** (ho
 | attack | A breach-like arc: rises 0.4 H and belly-flops forward (`contact` 60%) with a dust and light shockwave. |
 | attack_special | Opens its mouth and inhales. Light particles are pulled in and the local battle light dims 30% (Balanced and High only). Then it exhales a beam from `fx_corona`. |
 | hit | The body shudders (a high-frequency ±1° roll for 0.3 s) and the corona flickers. |
-| capture | Curls head toward tail and the corona collapses inward. The reaction lasts 1.2 s. |
+| capture (v2) | Curls head toward tail and the corona collapses inward, as a ≤ 250 ms pose. |
 | faint | Sinks slowly to the ground and lands on its belly with dust. The corona thins to a ring, then goes out. The pectorals droop. |
 | victory | Sings: the belly grooves glow gold and the corona flares. |
 
@@ -1401,7 +1536,7 @@ Family note: every f09 clip is evaluated at **12 fps stepped interpolation** (ho
 |---|---|---|---|---|
 | body seg ×5 | lathe L_spindle split into 5 chained pieces, total len 2.75 along Z, rmax 0.42; head seg x×1.1 y×0.85 | root @ (0,0.45,1.30) | P (belly S) | wave |
 | lower jaw | half-lathe len0.70 rmax0.30 | seg1 bottom | P, inner baleen texture | jaw |
-| eye ×2 | sphere r0.035 | seg1 @ (±0.36,−0.10,0.05) | E | blink |
+| eye ×2 (v2) | sphere **r0.045** | seg1 @ (±0.36,−0.10,0.05) | E | blink |
 | eclipse disc | cylinder r0.18 h0.02 | seg1 top @ (0,0.36,0.15) · pitch −20 | D `#0B0A12` | — |
 | corona | extrude X_corona inner 0.20 outer 0.34, depth 0.02 | behind the eclipse disc | A (GLOW) | spin, glow, fx_corona |
 | pectoral ×2 | extrude humpback flipper (len 0.90, w 0.20, 6 knobs on the leading edge), depth 0.04 | seg2 @ (±0.40,−0.15,0.10) | P, edge A | sweep |
@@ -1411,57 +1546,65 @@ Family note: every f09 clip is evaluated at **12 fps stepped interpolation** (ho
 
 ---
 
-## 5. Base stats and progression numbers (for the Systems Designer)
+## 5. Base stats and progression numbers (v2)
 
-The Systems Designer owns every formula. This section supplies per-species inputs only.
-- **Catch rate uses a 0–255 scale.** 255 is easiest, and the value feeds the Systems capture formula.
-- **Base XP yield rule used here:** round(BST × 0.20) for stage 1, × 0.35 for stage 2 and × 0.48 for stage 3.
-- **Growth curve** is fast, medium or slow. Systems defines the XP-per-level tables.
-- All evolution happens by level. Stage 1 evolves to stage 2 at the level in the "Evo 1→2" column, and stage 2 to stage 3 at the "Evo 2→3" column.
+- **This section supplies:** base stats (the six stats), traits and runtime presentation data.
+- **Systems-derived fields** (DECISIONS D12, systems §2.1; shown for reference, never hand-entered):
+  - catch rate on the 0–255 scale: stage 1 = 190, stage 2 = 90, stage 3 = 45, starter families = 45
+  - XP yield: floor(BST/5) at stage 1, floor(BST/3) at stage 2, floor(BST×4/9) at stage 3
+  - growth curve, set per family
+- **Evolution levels** follow D11 (systems §8.3). f10 stage 2→3 happens with the Dawn Prism (`i_evo_prism`) or at Lv 44.
+- **Stat totals:**
+  - Starters: every line totals **310 / 405 / 525**, with a different stat spread per line.
+  - Every species is inside the systems bands: stage 1 280–320, stage 2 395–435, stage 3 505–535.
+  - Totals range from 285 to 535.
+  - Late lines (f06, f09, f10) are the strongest.
+- **(v2) Changes:** four species were adjusted to fit the bands:
 
-Design targets met:
-- Starters: every line totals **310 / 405 / 525**, with a different stat spread per line.
-- Wild lines: totals range from **285 to 540**.
-- Early lines are weaker: f07 and f04 fall between 285 and 495.
-- Late lines are stronger: f06, f09 and f10 run from 310 to 540.
+| id | Change | New BST |
+|---|---|---|
+| c12 | atk 90 → 95, spe 35 → 40 | 505 |
+| c20 | hp 55 → 60 | 395 |
+| c21 | hp 75 → 80, def 65 → 70, spd 70 → 75 | 505 |
+| c30 | hp 130 → 125 | 535 |
 
-| id | Name | HP | Atk | Def | SpA | SpD | Spe | BST | XP | Catch (0–255) | Evo 1→2 | Evo 2→3 | Growth |
+| id | Name | HP | Atk | Def | SpA | SpD | Spe | BST | XP (derived) | Catch (derived) | Evo 1→2 | Evo 2→3 | Growth (derived) |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|
 | c01 | Fizzkit | 40 | 45 | 38 | 62 | 45 | 80 | 310 | 62 | 45 | 16 | — | medium |
-| c02 | Crackleap | 55 | 58 | 50 | 82 | 58 | 102 | 405 | 142 | 45 | — | 34 | medium |
-| c03 | Tempestrel | 70 | 72 | 62 | 110 | 76 | 135 | 525 | 252 | 45 | — | — | medium |
+| c02 | Crackleap | 55 | 58 | 50 | 82 | 58 | 102 | 405 | 135 | 45 | — | 34 | medium |
+| c03 | Tempestrel | 70 | 72 | 62 | 110 | 76 | 135 | 525 | 233 | 45 | — | — | medium |
 | c04 | Wickwool | 55 | 65 | 58 | 45 | 45 | 42 | 310 | 62 | 45 | 16 | — | medium |
-| c05 | Kilnhorn | 72 | 88 | 72 | 58 | 60 | 55 | 405 | 142 | 45 | — | 34 | medium |
-| c06 | Magmouflon | 95 | 118 | 100 | 70 | 80 | 62 | 525 | 252 | 45 | — | — | medium |
+| c05 | Kilnhorn | 72 | 88 | 72 | 58 | 60 | 55 | 405 | 135 | 45 | — | 34 | medium |
+| c06 | Magmouflon | 95 | 118 | 100 | 70 | 80 | 62 | 525 | 233 | 45 | — | — | medium |
 | c07 | Rippleback | 52 | 50 | 55 | 55 | 58 | 40 | 310 | 62 | 45 | 16 | — | medium |
-| c08 | Tidesleek | 65 | 70 | 62 | 72 | 66 | 70 | 405 | 142 | 45 | — | 34 | medium |
-| c09 | Floeguard | 90 | 85 | 112 | 88 | 95 | 55 | 525 | 252 | 45 | — | — | medium |
-| c10 | Dozebud | 60 | 40 | 50 | 45 | 60 | 35 | 290 | 58 | 235 | 18 | — | medium |
-| c11 | Nodbell | 80 | 60 | 65 | 65 | 85 | 40 | 395 | 138 | 110 | — | 33 | medium |
-| c12 | Belladrowse | 110 | 90 | 85 | 75 | 100 | 35 | 495 | 238 | 55 | — | — | medium |
-| c13 | Rollith | 45 | 55 | 85 | 30 | 45 | 40 | 300 | 60 | 190 | 20 | — | medium |
-| c14 | Cairnback | 65 | 85 | 115 | 40 | 60 | 45 | 410 | 144 | 100 | — | 36 | medium |
-| c15 | Lodestodon | 85 | 95 | 135 | 80 | 75 | 35 | 505 | 242 | 45 | — | — | medium |
-| c16 | Rimelet | 45 | 40 | 55 | 65 | 60 | 45 | 310 | 62 | 150 | 26 | — | slow |
-| c17 | Sleetribbon | 60 | 70 | 60 | 85 | 65 | 80 | 420 | 147 | 90 | — | 40 | slow |
-| c18 | Borealoop | 80 | 60 | 80 | 115 | 110 | 75 | 520 | 250 | 40 | — | — | slow |
-| c19 | Gustling | 40 | 50 | 35 | 40 | 35 | 85 | 285 | 57 | 255 | 14 | — | fast |
-| c20 | Whirlseed | 55 | 75 | 45 | 55 | 45 | 115 | 390 | 137 | 120 | — | 31 | fast |
-| c21 | Samaraptor | 75 | 100 | 65 | 75 | 70 | 105 | 490 | 235 | 60 | — | — | fast |
-| c22 | Ringdrip | 48 | 45 | 45 | 60 | 55 | 47 | 300 | 60 | 190 | 22 | — | medium |
-| c23 | Brineloop | 65 | 55 | 70 | 80 | 75 | 60 | 405 | 142 | 100 | — | 37 | medium |
-| c24 | Venomantle | 85 | 70 | 80 | 105 | 95 | 70 | 505 | 242 | 45 | — | — | medium |
-| c25 | Snipling | 40 | 60 | 40 | 60 | 45 | 70 | 315 | 63 | 140 | 28 | — | slow |
-| c26 | Marionyx | 55 | 85 | 55 | 80 | 60 | 90 | 425 | 149 | 80 | — | 42 | slow |
-| c27 | Cinderscrim | 70 | 95 | 65 | 120 | 80 | 100 | 530 | 254 | 35 | — | — | slow |
-| c28 | Dawnfry | 60 | 35 | 50 | 65 | 65 | 45 | 320 | 64 | 120 | 30 | — | slow |
-| c29 | Lumarlin | 65 | 90 | 55 | 75 | 60 | 85 | 430 | 151 | 75 | — | 44 | slow |
-| c30 | Umbraleen | 130 | 80 | 90 | 110 | 90 | 40 | 540 | 259 | 25 | — | — | slow |
+| c08 | Tidesleek | 65 | 70 | 62 | 72 | 66 | 70 | 405 | 135 | 45 | — | 34 | medium |
+| c09 | Floeguard | 90 | 85 | 112 | 88 | 95 | 55 | 525 | 233 | 45 | — | — | medium |
+| c10 | Dozebud | 60 | 40 | 50 | 45 | 60 | 35 | 290 | 58 | 190 | 16 | — | fast |
+| c11 | Lullstalk | 80 | 60 | 65 | 65 | 85 | 40 | 395 | 131 | 90 | — | 32 | fast |
+| c12 | Belladrowse (v2) | 110 | **95** | 85 | 75 | 100 | **40** | 505 | 224 | 45 | — | — | fast |
+| c13 | Rollith | 45 | 55 | 85 | 30 | 45 | 40 | 300 | 60 | 190 | 20 | — | slow |
+| c14 | Cairnback | 65 | 85 | 115 | 40 | 60 | 45 | 410 | 136 | 90 | — | 36 | slow |
+| c15 | Lodestodon | 85 | 95 | 135 | 80 | 75 | 35 | 505 | 224 | 45 | — | — | slow |
+| c16 | Rimelet | 45 | 40 | 55 | 65 | 60 | 45 | 310 | 62 | 190 | 22 | — | medium |
+| c17 | Sleetribbon | 60 | 70 | 60 | 85 | 65 | 80 | 420 | 140 | 90 | — | 38 | medium |
+| c18 | Borealoop | 80 | 60 | 80 | 115 | 110 | 75 | 520 | 231 | 45 | — | — | medium |
+| c19 | Gustling | 40 | 50 | 35 | 40 | 35 | 85 | 285 | 57 | 190 | 14 | — | fast |
+| c20 | Whirlseed (v2) | **60** | 75 | 45 | 55 | 45 | 115 | 395 | 131 | 90 | — | 30 | fast |
+| c21 | Samaraptor (v2) | **80** | 100 | **70** | 75 | **75** | 105 | 505 | 224 | 45 | — | — | fast |
+| c22 | Ringdrip | 48 | 45 | 45 | 60 | 55 | 47 | 300 | 60 | 190 | 18 | — | medium |
+| c23 | Brineloop | 65 | 55 | 70 | 80 | 75 | 60 | 405 | 135 | 90 | — | 34 | medium |
+| c24 | Venomantle | 85 | 70 | 80 | 105 | 95 | 70 | 505 | 224 | 45 | — | — | medium |
+| c25 | Snipling | 40 | 60 | 40 | 60 | 45 | 70 | 315 | 63 | 190 | 24 | — | slow |
+| c26 | Marionyx | 55 | 85 | 55 | 80 | 60 | 90 | 425 | 141 | 90 | — | 40 | slow |
+| c27 | Emberfold | 70 | 95 | 65 | 120 | 80 | 100 | 530 | 235 | 45 | — | — | slow |
+| c28 | Dawnfry | 60 | 35 | 50 | 65 | 65 | 45 | 320 | 64 | 190 | 26 | — | slow |
+| c29 | Lumarlin | 65 | 90 | 55 | 75 | 60 | 85 | 430 | 143 | 90 | — | prism or 44 | slow |
+| c30 | Coronaleen (v2) | **125** | 80 | 90 | 110 | 90 | 40 | 535 | 237 | 45 | — | — | slow |
 
-Stat identity by line:
+Stat identity by line (unchanged from v1):
 - f01 is a fast special attacker.
 - f02 is a physical bruiser that gets bulkier.
-- f03 is balanced, gets fast at stage 2, then becomes a slow wall at stage 3. This mirrors its anatomy (a sleek swimmer that becomes a shield-bearer).
+- f03 is balanced, gets fast at stage 2, then becomes a slow wall.
 - f04 is a slow special-defence tank.
 - f05 is a physical wall that gains special attack through its electric typing.
 - f06 is a special attacker.
@@ -1470,50 +1613,102 @@ Stat identity by line:
 - f09 is a fast mixed attacker.
 - f10 goes from support fry to physical lancer to an HP-heavy special whale.
 
-Evolution levels are spaced to fit the ANCHORS level range (party around Lv 5 at start and around Lv 50 at the champion). The latest evolution is Lv 44 (c29→c30).
+### 5.1 Traits (v2: one canonical trait per species, DECISIONS D13)
+The v1 trait ideas (two per species, with invented effects) are withdrawn. Every species has exactly one trait id from systems §10. Display names come from the Creative Director; D13 fixes two of them: `tr_reckless` displays as *Headlong* and `tr_sturdy_core` as *Keystone Core*.
 
-### 5.1 Passive trait ideas
-Status names are placeholders. The Systems Designer maps them to real statuses:
-- `Numbed` is the paralysis class.
-- `Chilled` is the frostbite and slow class.
-- `Drowsy` is the sleep class.
-- `Toxified` is the poison class.
-- `Burn` is the fire damage-over-time class.
-
-Proposal: each wild individual rolls one trait from its species list. Starters always get trait 1.
-
-| id | Trait 1 — effect | Trait 2 — effect |
+| id | Trait | Rationale |
 |---|---|---|
-| c01 | **Sparkhide**: contact attackers have a 20% chance to become Numbed | — |
-| c02 | Sparkhide | **Sprint Start**: Speed ×1.2 on its first turn after entering battle |
-| c03 | Sparkhide | **Storm Sail**: electric moves ×1.2 in gale weather or gale-attuned zones |
-| c04 | **Kindle Core**: the first time its HP falls below 50% in a battle, it heals 1/8 max HP and its fire moves deal ×1.2 for 3 turns | — |
-| c05 | Kindle Core | **Headstrong**: opponents cannot lower its Attack |
-| c06 | Kindle Core | **Kiln Plating**: super-effective damage taken ×0.8 |
-| c07 | **Shell Tail**: the first physical hit it takes each battle deals ×0.5 | — |
-| c08 | Shell Tail | **Slipstream**: Speed ×1.5 in rain or water-attuned zones |
-| c09 | Shell Tail | **Floe Bulwark**: contact attackers have a 30% chance to become Chilled |
-| c10 | **Deep Doze**: sleep lasts 1 fewer turn, and it heals 1/16 max HP per sleeping turn | — |
-| c11 | Deep Doze | **Nodding Pollen**: contact attackers have a 20% chance to become Drowsy |
-| c12 | Nodding Pollen | **Canopy Shelter**: heals 1/16 max HP at the end of each turn, or 1/8 if it used no damaging move that turn |
-| c13 | **Curl Guard**: damage taken ×0.75 while it is at full HP | — |
-| c14 | Curl Guard | **Club Rebound**: a contact attacker has a 30% chance to lose 1/8 of its max HP |
-| c15 | Club Rebound | **Lodestone Field**: when it enters battle, the opponent's Speed drops 1 stage |
-| c16 | **Hoarfrost Hide**: contact attackers have a 20% chance to become Chilled | — |
-| c17 | Hoarfrost Hide | **Rime Glide**: Speed ×1.5 in snow weather |
-| c18 | Rime Glide | **Borealis Ring**: once per battle on entry, special damage to its side ×0.67 for 3 turns |
-| c19 | **Updraft**: gale moves ×1.2 while it is at full HP | — |
-| c20 | Updraft | **Samara Spin**: after it uses a gale move, 30% chance of +1 Speed stage |
-| c21 | Samara Spin | **Rotor Hover**: immune to moves tagged `ground_quake` |
-| c22 | **Warning Rings**: the first time its HP falls below 50%, the opponent's accuracy drops 1 stage | — |
-| c23 | Warning Rings | **Brine Ballast**: immune to Burn, and heals 1/16 max HP per turn in rain |
-| c24 | Warning Rings | **Venom Mantle**: contact attackers have a 30% chance to become Toxified |
-| c25 | **Cutout**: the first damaging move aimed at it each battle has accuracy ×0.8 | — |
-| c26 | Cutout | **Puppeteer**: when the opponent raises a stat, 30% chance it raises the same stat by 1 |
-| c27 | Puppeteer | **Backlight**: shade moves ×1.2 at night and fire moves ×1.2 by day |
-| c28 | **First Light**: heals 1/16 max HP per turn at dawn or by day | — |
-| c29 | First Light | **Glint Bill**: contact moves get +1 critical-hit stage |
-| c30 | First Light | **Eclipse Body**: the first super-effective hit it takes each battle deals ×1 instead |
+| c01 | `tr_last_stand` | starter line |
+| c02 | `tr_last_stand` | starter line |
+| c03 | `tr_static_hide` | charged skin |
+| c04 | `tr_last_stand` | starter line |
+| c05 | `tr_last_stand` | starter line |
+| c06 | `tr_reckless` | charging ram |
+| c07 | `tr_last_stand` | starter line |
+| c08 | `tr_last_stand` | starter line |
+| c09 | `tr_frost_hide` | frost-rimed carapace; a slow shield-bearer gains little from speed traits |
+| c10 | `tr_early_riser` | the sleeper wakes fast |
+| c11 | `tr_toxic_skin` | pollen bells |
+| c12 | `tr_regrowth` | canopy shelter |
+| c13 | `tr_sturdy_core` | curl guard |
+| c14 | `tr_thorned` | club rebound |
+| c15 | `tr_charge_sink` | lodestone absorbs electric moves |
+| c16 | `tr_frost_hide` | hoarfrost hide |
+| c17 | `tr_snow_coat` | snowfield hunter |
+| c18 | `tr_clear_mind` | serene guide |
+| c19 | `tr_small_strikes` | small, fierce pecks |
+| c20 | `tr_keen_focus` | precise dives |
+| c21 | `tr_keen_focus` | raptor precision |
+| c22 | `tr_toxic_skin` | toxic rings |
+| c23 | `tr_tide_sink` | brine-filled mantle |
+| c24 | `tr_menace` | ring intimidation display |
+| c25 | `tr_fog_veil` | cut-out elusiveness |
+| c26 | `tr_quick_feet` | the puppet shrugs off status |
+| c27 | `tr_flame_sink` | ember core absorbs fire |
+| c28 | `tr_regrowth` | light-fed healing |
+| c29 | `tr_keen_focus` | glint bill (crit +1) |
+| c30 | `tr_resonant` | eclipse resonance |
+
+Twenty distinct ids are used. No stage-1 species has `tr_adaptive`, which is the systems balance gate.
+
+### 5.2 (v2) Runtime presentation data (`CreatureVisualSpec` fields)
+- **Eye class** follows the family (§2.4): f01 E2 · f02 E5 · f03 E1 · f04 E4 · f05 E5 · f06 E3 · f07 E1 · f08 E2 · f09 E3 (cut-out) · f10 E3.
+- **Temperament** is the roaming behaviour (rendering §2.6). **Attack style** is `ClipParams.attackStyle` (rendering §4.5).
+- **rimGain** multiplies rendering's global rim strength (§2.2).
+- **sideYaw** is the angle for the GC-07 "side" silhouette view (D27). 0 means a true +X side view. A non-zero angle is used only for planar designs, which the battle yaw clamp never shows edge-on.
+
+| id | pupil | temperament | attack style | rimGain | sideYaw |
+|---|---|---|---|---|---|
+| c01 | v-oval | skittish | lunge | 1.0 | 0 |
+| c02 | round | curious | spin | 1.14 | 0 |
+| c03 | round | territorial | lunge | 1.43 | 35 |
+| c04 | round | curious | lunge | 0.86 | 0 |
+| c05 | h-bar | territorial | slam | 1.0 | 0 |
+| c06 | h-bar | wander | slam | 0.86 | 0 |
+| c07 | round | curious | spin | 0.86 | 0 |
+| c08 | round | curious | lunge | 1.29 | 0 |
+| c09 | round | territorial | spin | 1.43 | 0 |
+| c10 | round | wander | lunge | 0.71 | 0 |
+| c11 | round | wander | slam | 0.71 | 0 |
+| c12 | round | wander | slam | 0.6 | 0 |
+| c13 | round | skittish | spin | 0.6 | 0 |
+| c14 | round | territorial | slam | 0.6 | 0 |
+| c15 | v-oval | territorial | cast | 1.0 | 0 |
+| c16 | round | skittish | lunge | 1.7 | 0 |
+| c17 | v-oval | territorial | breath | 1.43 | 0 |
+| c18 | v-oval | wander | spin | 1.43 | 40 |
+| c19 | round | curious | lunge | 1.0 | 0 |
+| c20 | round | skittish | spin | 1.0 | 30 |
+| c21 | round | territorial | lunge | 1.0 | 0 |
+| c22 | h-bar | skittish | lunge | 1.0 | 0 |
+| c23 | h-bar | curious | cast | 0.86 | 0 |
+| c24 | h-bar | territorial | cast | 1.0 | 0 |
+| c25 | cut-out | curious | lunge | 1.43 | 45 |
+| c26 | cut-out | curious | slam | 1.43 | 30 |
+| c27 | cut-out | territorial | cast | 1.14 | 45 |
+| c28 | round | curious | spin | 1.29 | 0 |
+| c29 | round | territorial | lunge | 1.43 | 0 |
+| c30 | ring | wander | breath | 1.14 | 0 |
+
+### 5.3 (v2) Cry parameters (creative_direction §8.6)
+- Each family has one voice and one pitch contour. Contour breakpoints are (t 0–1, semitone offset), and timing stretches ×1.15 per stage.
+- Every stage-to-stage pitch drop is **at least 5 semitones** (a ratio of 1.335 or more). This was checked for every pair.
+- The type fx follows CD §8.6 for the primary type. The secondary type's fx is added at 50% mix from the stage that gains it.
+- Faint and happy variants are derived as CD §8.6 describes.
+- ADSR is the default (attack 15 ms, decay 120 ms, sustain 0.4, release 200 ms) unless the table says otherwise.
+
+| Family | voice | contour | basePitchHz st1 / st2 / st3 | durationMs st1 / st2 / st3 | Other params |
+|---|---|---|---|---|---|
+| f01 | fm | (0,0)(.4,+7)(.7,+3)(1,+10) | 820 / 520 / 300 | 320 / 480 / 700 | harmonicity 3, modIndex 8 |
+| f02 | saw_formant | (0,0)(.2,+5)(.6,+2)(1,−4) | 680 / 420 / 200 | 380 / 560 / 900 | F1 700, F2 1200, noiseMix 0.2 |
+| f03 | am | (0,+2)(.3,−3)(.6,+4)(1,0) | 760 / 460 / 240 | 300 / 480 / 760 | vibrato 5 Hz / 0.2 |
+| f04 | saw_formant | (0,+4)(.5,−2)(1,−9) | 560 / 340 / 140 | 600 / 850 / 1200 | F1 400, F2 900, attack 60 ms |
+| f05 | noise_formant | (0,0)(.3,−2)(1,−6) | 600 / 360 / 150 | 280 / 450 / 800 | noiseMix 0.45, F1 350, F2 1000 |
+| f06 | fm | (0,+9)(.5,+12)(1,+4) | 900 / 560 / 330 | 400 / 600 / 900 | harmonicity 4, vibrato 6 Hz / 0.3 |
+| f07 | fm | (0,0)(.25,+12)(.5,+5)(1,+9) | 880 / 540 / 320 | 280 / 420 / 650 | harmonicity 1, modIndex 2 |
+| f08 | am | (0,0)(.3,+4)(.6,−4)(1,+2) | 640 / 400 / 200 | 350 / 520 / 800 | vibrato 4 Hz / 0.35 |
+| f09 | noise_formant | (0,−3)(.4,+6)(.8,−6)(1,0) | 580 / 380 / 180 | 320 / 500 / 760 | noiseMix 0.3, F1 500, F2 2400 |
+| f10 | fm | (0,0)(.3,+5)(.6,+7)(1,+12) | 700 / 440 / 160 | 450 / 750 / 1200 | harmonicity 2, modIndex 3, sustain 0.6 |
 
 ---
 
@@ -1531,6 +1726,8 @@ Proposal: each wild individual rolls one trait from its species list. Starters a
 ## 7. Silhouette sheet (reproducible preview procedure)
 
 ### 7.1 Procedure (to be implemented as `tools/silhouettes` — not yet built, not yet run)
+
+**(v2) Canonical procedure (D27).** Release gate **GC-07** is the single silhouette specification: side and ¾ views, unlit black masks, 256 px and 20 px, box-downsampled and thresholded, with the gate's thresholds and fill limits. For planar designs, the "side" view uses the per-species `sideYaw` in §5.2 (c03 35°, c18 40°, c20 30°, c25 45°, c26 30°, c27 45°); every other species uses 0°. The steps below are kept only as an **optional supplementary report** (a native 20 px render and a colour pass). They are informational and never replace GC-07 results.
 1. A dev-only route, `/dev/silhouettes?ids=c01,…&pose=idle0|attackContact&view=battle|side`, mounts each species builder alone. It uses the **production builder code**; no special-cased meshes are allowed.
 2. **Silhouette mode:**
    - Override every material with `MeshBasicMaterial({color:#000})`.
@@ -1576,7 +1773,7 @@ Proposal: each wild individual rolls one trait from its species list. Starters a
 | c06 | QL | Massive shoulders tapering to small hips, head ringed by horn loops | front-heavy wedge; horn rings (holes read at 256, a bump at 20); short legs |
 | c07 | QS | Sitting otter with a thick plated tail curling out | upright seated pose; tail as thick as its body; round head |
 | c08 | SR | Long low S-body with a raised periscope head and a tail rudder | long horizontal S; vertical head stalk; rudder notch |
-| c09 | BP | Stout upright figure with a big fan shield beside it | fan semicircle at its side; rounded shoulders; helmet cap |
+| c09 | BP | Stout upright figure with a big fan shield beside it (v2) | fan semicircle at its side; domed back carapace with a crystal ridge; bare round otter head |
 | c10 | RB | A ball wrapped around a smaller ball, with a sprout | double-circle outline; claw arcs; bud dot on top |
 | c11 | BP | Stooped figure with arms to the ground and hanging bells | arms longer than its legs; 3 dangling blobs; hood hump |
 | c12 | QL | A walking tree: body below, lobed canopy above, a curtain of bells | canopy mass wider than the body; dangling fringe; low head |
@@ -1612,7 +1809,7 @@ No two species share a (category, dominant colour pair):
 | RB | c10 moss green/tan · c13 warm grey/tan · c19 off-white/sky blue |
 | RD | c22 amber/blue · c23 ochre orange/blue · c24 deep violet/blue |
 | FT | c25 ink black/violet · c27 char black/ember orange |
-| FL | c18 navy/aurora green · c26 ink black/ghost cyan · c28 peach/pink · c29 pearl white/gold · c30 indigo/corona gold |
+| FL | c18 navy/aurora green · c26 ink black/ghost cyan · c28 peach/pink · c29 pearl white/periwinkle (v2) · c30 indigo/corona gold |
 
 Known near-pairs to watch in the first real run:
 - **c22 vs c23** (same category, blue rings, yellow vs orange body): they differ by posture. c22 is low and radial, while c23 stands upright on 4 legs.
@@ -1643,7 +1840,7 @@ Scope and method:
 | c06 | ⚠ **Camerupt** (fire/ground quadruped with volcanic humps); Torkoal; Tauros | **Changed during this pass:** the original "vent crater on the hump" was removed because it echoed Camerupt's signature. Heat now vents through the **horn kiln-rings**, and magma shows only as seams between basalt hex-plates. Ram skull, bison taper, with no crater anywhere on its back. |
 | c07 | ⚠ **Oshawott** (sea-otter starter with a scalchop shell on its belly); Buizel (sea weasel with a flotation collar) | The shell plates are **only on the tail**, as shingles. The body is brown with a teal shell, and it carries a pebble tool. Constraints: never a shell on the chest or belly, never a detachable shell. |
 | c08 | Floatzel/Buizel; Dewgong; Milotic | An 8-segment serpentine otter with a dorsal hex-scute row and a vertical shell rudder, in a periscope pose. It has no twin tails, no flotation collar and no head fins. |
-| c09 | ⚠ **Dewott/Samurott** (bipedal/quadruped otter line with shell blades); Empoleon (armoured penguin) | The shell becomes a carapace **and a tail-shield**. It is **never held as a blade or sword**, and there is no horned helm or seamitar. Frost crystals, a slate and ice palette, a defensive-guardian behaviour. Constraint: the arms never grip shell parts. |
+| c09 | ⚠ **Dewott/Samurott** (bipedal/quadruped otter line with shell blades); Empoleon (armoured penguin) | The shell becomes a carapace **and a tail-shield**. It is **never held as a blade or sword**, and there is no horned helm or seamitar. Frost crystals, a slate and ice palette, a defensive-guardian behaviour. Constraint: the arms never grip shell parts. **(v2, finding F-0-06):** no helmet or head cap of any kind, whiskers reduced to two short nubs, and shell only on the back carapace and tail-fan (no chest or shoulder shell). |
 | c10 | Slakoth (sloth); Snorlax (sleeper) | A moss-backed sloth hugging a seed pod as big as itself, with a bell-bud sprout. The pod-hugging silhouette is its signature. |
 | c11 | Vigoroth; Ludicolo; Bellsprout (bell plant) | A long-armed crutch-walking sloth-biped with a moss hood and foxglove bell clusters. No bell-shaped head, no sombrero pad. |
 | c12 | ⚠ **Torterra** (tortoise carrying a tree); Tropius; Slaking | Carrying a tree is a shared idea. Distinctions: a **mammal knuckle-walker with no shell and no rock spikes**, a 4-lobe canopy, and a **curtain of hanging bells and vines**. Its mask face and droopy eyes continue the family. Constraint: never add shell plates or rock horns. |
@@ -1678,9 +1875,9 @@ Scope and method:
    - A unit test asserts that no two builders produce the same (part-name set, primitive-type multiset) signature.
    - No builder calls another species' builder. Shared primitives, profiles and rig templates are allowed.
 3. **Evolution:** for each family, the stage-to-stage part-name sets differ by ≥ 30% (Jaccard distance), and the section 3 motif parts exist on all three stages.
-4. **Clips:** every species has `idle`, `move`, `attack`, `attack_special`, `hit`, `capture`, `faint` and `victory`. Every attack has `windup`, `contact` and `recover` markers. Reduced-motion mode meets the caps in 2.5 (checked by unit test on the clip data).
-5. **Faces:** every species has the six expression frames (or the cut-out equivalents for f09) generated at all three texture sizes. On a screenshot at battle distance under the Mobile profile, each species' pupils or eyeholes are visible. This is a reviewer check with the screenshot filed as evidence. Not run yet.
-6. **Silhouettes:** the section 7.1 script runs in CI and produces sheets and `metrics.json`. No unallow-listed pair reaches 20 px IoU ≥ 0.85, and the colour pass matches the declared pairs within ΔE 15. Separately, a human identification test on the shuffled 20 px sheet should reach ≥ 27/30 correct matches. Not run yet.
+4. **Clips (v2):** every species has the 7 required clips (`idle`, `move`, `attack`, `hit`, `capture`, `faint`, `victory`). `attack_special` and `attackStatus` are optional. Every attack has an `impact` event at 40–55% of its duration. Capture reaction poses are ≤ 250 ms. Reduced-motion mode meets the §2.5 v2 rules (checked by unit test on the clip data). Clip durations meet release gate GC-05, with the bounds amended per D15.
+5. **Faces (v2):** every species has the 8-cell atlas (`open, half, closed, happy, hurt, faint, determined, surprised`; cut-out equivalents for f09) at 256/256/128 px, plus brow meshes and a jaw or mouth atlas. On a screenshot at battle distance under the Mobile profile, each species' pupils or eyeholes are visible. This is a reviewer check with the screenshot filed as evidence. Not run yet.
+6. **Silhouettes (v2):** release gate GC-07 passes with the §5.2 `sideYaw` values. A human identification test on the shuffled 20 px sheet should reach ≥ 27/30 correct matches. Not run yet.
 7. **Budgets:** a script counts triangles, draw calls and animated nodes per species per profile and meets section 2.6. Frame rate is not part of this criterion.
 8. **Stats:** a unit test confirms that each BST equals the sum of its six stats, and that the starter totals are exactly 310/405/525.
 9. **Originality:** the character-consistency gate reviews the rendered models against every ⚠ constraint in section 8 and records its result in `design/reviews/character_consistency.md`.
@@ -1689,7 +1886,7 @@ Scope and method:
 ## 10. Dependencies
 - **systems.md:** the formulas for catch (0–255), XP yield and growth curves; the status classes that the trait placeholders map to (Numbed, Chilled, Drowsy, Toxified, Burn); weather and attunement ids; the move tag `ground_quake`; the rule for trait assignment. Also move animation refs, which should reference the `attack`/`attack_special` clips and the `fx_*` anchors defined here.
 - **world.md:**
-  - final encounter tables and time-of-day bands (dawn and night are used here)
+  - final encounter tables and time-of-day bands (day and night; v2 has no dawn-only spawns)
   - how the two unchosen starters are obtained
   - whether c30 is a scripted encounter
   - confirmation that every species is obtainable
@@ -1709,7 +1906,7 @@ Scope and method:
 | Production volume: 30 builders × 8 clips = 240 clips | Schedule | Rig templates (2.5) generate the base motion. Species override only their signature tracks. Build in encounter order (starters and early lines first). |
 | f09 flat creatures read as broken or thin from oblique angles | Readability | Plate layering ≥ 0.15 H, a battle yaw clamp of ±50°, strong rim light, and the silhouette check from both views. The fallback is to thicken plates to 0.08 H. |
 | The 12 fps stepped animation on f09 could be mistaken for a performance bug | Perception | Limit it to f09. Document it in the encyclopedia. QA notes it as intended. |
-| Oversized species (c30 at 5.5 m, c12 canopy, c15 orbit) break battle framing | Layout | Builders export a bounding sphere. The battle camera frames each species per its bounding sphere. c30 may use a battle display scale of 0.75 (a display clamp, not a separate mesh). |
+| Oversized species (c30 at 4.8 m (v2), c12 canopy, c15 orbit) break battle framing | Layout | Builders export a bounding sphere. The battle camera frames each species per its bounding sphere. c30 may use a battle display scale of 0.75 (a display clamp, not a separate mesh). |
 | Transparency sorting artefacts (ice fins, membranes, c23 mantle) | Visual | depthWrite off on thin fins, explicit renderOrder, no transmission. |
 | Emissive-heavy designs lose their accents when bloom is off (Mobile) | Readability | Emissive colours are chosen to read unlit. A key must also stand out when rendered unlit. |
 | c24 per-frame web rebuild and c26 per-frame strings cost CPU | Perf | 36 vertices and 5 line segments respectively. Update only while the model is visible. |
@@ -1720,11 +1917,13 @@ Scope and method:
 
 ## 12. Unresolved questions
 1. Should stage-1 wild species be allowed dual types? This document keeps all stage-1s mono-type as the brief implies.
-2. Trait assignment: does each individual roll one trait, or does each species have fixed traits? This is Systems' call. The proposal is in 5.1.
-3. Is c30 (Umbraleen) a normal rare wild encounter, or a scripted one tied to the story? This is for the World Designer and Creative Director.
+2. ~~Trait assignment~~: resolved by D13 (one fixed trait per species, §5.1).
+3. Is c30 (Coronaleen) a normal rare wild encounter, or a scripted one tied to the story? This is for the World Designer and Creative Director.
 4. Should the battle display scale for c30 be capped (0.75) or should the camera pull back? This is for the Rendering Engineer.
 5. Should any evolution use a non-level trigger (e.g. a Resonance landmark)? All are level-based here. The Creative Director may tie one line (f06 or f10 suggested) to a landmark, provided it cannot softlock.
-6. The status mapping for the placeholder names in 5.1 is still to be settled.
+6. ~~Status mapping~~: resolved. v2 traits use canonical systems statuses, and the display names are in D8.
 7. Variants (alternate colourings, sexes) are out of scope for v1. The recommendation is none, to protect the silhouette and colour uniqueness table.
 8. Legal trademark screening of the final names (section 1 is a web screen only).
-9. Voice and cry descriptors per species: should this document supply them, or will the audio section own them fully?
+9. ~~Cry descriptors~~: resolved. This document supplies them (§5.3).
+10. (v2) Pending Creative Direction approval: h-bar pupils for f08; emissive sclera-less eyes for c06, c15 and c18; atlas mouths for species without a jaw. Pending the World Designer: moving c24 from the volcano to the lake at night.
+11. (v2) The name-similarity scan of Lullstalk, Emberfold and Coronaleen belongs to the Release agent (GC-13).

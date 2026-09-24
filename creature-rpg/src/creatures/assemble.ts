@@ -2,7 +2,7 @@
 // build-spec tables in design/creatures.md (dimensions in multiples of H) and this module
 // turns them into a named Object3D hierarchy with materials, faces, anchors and bounds.
 import * as THREE from 'three';
-import { box, capsule, cone, cylinder, ellipsoid, extrude, lathe, segs, torus, tube, vertexNoise, triCount, type Lod, type Quality } from './primitives';
+import { box, capsule, cone, cylinder, ellipsoid, extrude, lathe, segs as segsBase, torus, tube, vertexNoise, triCount, type Lod, type Quality } from './primitives';
 import { injectRim, makeMaterial, shade, type Preset } from './materials';
 import { discGeometry, faceAtlas, FaceRig, type EyeSpec, type MouthSpec } from './face';
 
@@ -119,7 +119,23 @@ function colorOf(v: SpeciesVisual, slot: Slot | undefined): string {
 
 const DEG = Math.PI / 180;
 
-function buildGeometry(p: Prim, H: number, lod: Lod, q: Quality): THREE.BufferGeometry | null {
+function primSize(p: Prim): number {
+  switch (p.t) {
+    case 'sphere': return 2 * (typeof p.r === 'number' ? p.r : Math.max(...p.r));
+    case 'capsule': return Math.max(p.len, 2 * p.r);
+    case 'cone': case 'cyl': return Math.max(p.h, 2 * p.r);
+    case 'lathe': return Math.max(p.h, 2 * p.rmax);
+    case 'torus': return 2 * p.R;
+    case 'tube': return 4 * p.r0;
+    default: return 1;
+  }
+}
+
+function buildGeometry(p: Prim, H: number, lod: Lod, q0: Quality): THREE.BufferGeometry | null {
+  const size = primSize(p) * H;
+  const segs = (k: Parameters<typeof segsBase>[0], l: Lod, q: Quality) => segsBase(k, l, q, size);
+  void q0;
+  const q = q0;
   switch (p.t) {
     case 'sphere': {
       const [w, hs] = segs('sphere', lod, q);
@@ -272,7 +288,7 @@ export function assemble(v: SpeciesVisual, opts: BuildOpts): CreatureModel {
         prev.add(seg);
         parts[seg.name] = seg;
         tags.set(seg.name, [...sideTags.filter((x) => !x.startsWith('fx:')), `chain:${i}:${ch.n}`]);
-        const [rad, cap] = segs('capsule', opts.lod, opts.quality);
+        const [rad, cap] = segsBase('capsule', opts.lod, opts.quality, Math.max(r * 2, segLen));
         const g = capsule(r, Math.max(0.001, segLen - r), rad, cap, r2);
         g.translate(0, -r * 0.6, 0);
         if (pd.fluffy) vertexNoise(g, pd.fluffy * H, 3 / H, i + 1);

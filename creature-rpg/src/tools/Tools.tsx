@@ -2,7 +2,10 @@ import { Canvas, useFrame } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
 import { useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
-import { SPECIES_VISUALS } from '../creatures/registry';
+import { SPECIES_VISUALS as KIN } from '../creatures/registry';
+import { humanVisual } from '../creatures/humans';
+import { LOOKS, playerLook } from '../data/looks';
+const SPECIES_VISUALS = { ...KIN, ...(new URLSearchParams(location.search).get('humans') ? Object.fromEntries([['arden', humanVisual(playerLook(0,0,0))], ...Object.entries(LOOKS).map(([k, l]) => [k, humanVisual(l)])]) : {}) } as typeof KIN;
 import { assemble } from '../creatures/assemble';
 import { Animator, type ActionName } from '../creatures/anim';
 
@@ -53,47 +56,44 @@ function Viewer() {
 }
 
 function Sheet({ silhouette }: { silhouette: boolean }) {
-  const ids = Object.keys(SPECIES_VISUALS);
+  const ids = (params.get('ids')?.split(',') ?? Object.keys(SPECIES_VISUALS)).filter((i) => SPECIES_VISUALS[i]);
   const cols = Number(params.get('cols') ?? 6);
   const size = Number(params.get('cell') ?? 160);
   const rows = Math.ceil(ids.length / cols);
+  const yaw = Number(params.get('yaw') ?? 35);
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: `repeat(${cols}, ${size}px)`, gap: 2, background: silhouette ? '#fff' : '#223', width: cols * (size + 2), height: rows * (size + 2) }} id="sheet">
-      {ids.map((id) => {
-        const H = SPECIES_VISUALS[id].H;
-        const d = Math.max(H, SPECIES_VISUALS[id].parts.length ? H : H) * 2.4;
-        return (
-          <div key={id} style={{ width: size, height: size, position: 'relative' }}>
-            <Canvas frameloop="demand" camera={{ position: [d * 0.9, H * 0.6, d * 0.9], fov: 40 }} gl={{ preserveDrawingBuffer: true }} onCreated={(s) => s.camera.lookAt(0, H * 0.5, 0)}>
-              <color attach="background" args={[silhouette ? '#ffffff' : '#9fb7c9']} />
-              <hemisphereLight args={['#dbe8ff', '#5a4a3a', 1]} />
-              <directionalLight position={[3, 5, 4]} intensity={2} />
-              <FitCreature id={id} silhouette={silhouette} />
-            </Canvas>
-            {!silhouette && <span style={{ position: 'absolute', left: 2, top: 1, fontSize: 11, color: '#fff' }}>{id}</span>}
-          </div>
-        );
-      })}
+    <div style={{ position: 'fixed', left: 0, top: 0, width: cols * size, height: rows * size, background: silhouette ? '#fff' : '#9fb7c9' }} id="sheet">
+      <Canvas orthographic gl={{ preserveDrawingBuffer: true, antialias: !silhouette }} camera={{ position: [0, 0, 50], zoom: 1, near: 0.1, far: 200 }} style={{ width: cols * size, height: rows * size }}>
+        <color attach="background" args={[silhouette ? '#ffffff' : '#9fb7c9']} />
+        <hemisphereLight args={['#dbe8ff', '#5a4a3a', 1]} />
+        <directionalLight position={[3, 5, 8]} intensity={2} />
+        {ids.map((id, i) => (
+          <FitCreature key={id} id={id} silhouette={silhouette} cx={((i % cols) + 0.5) * size - (cols * size) / 2} cy={(rows * size) / 2 - (Math.floor(i / cols) + 0.5) * size} size={size} yaw={yaw} />
+        ))}
+      </Canvas>
+      {!silhouette && ids.map((id, i) => <span key={id} style={{ position: 'absolute', left: (i % cols) * size + 3, top: Math.floor(i / cols) * size + 2, fontSize: 11, color: '#fff', textShadow: '0 1px 2px #000' }}>{id}</span>)}
     </div>
   );
 }
 
-function FitCreature({ id, silhouette }: { id: string; silhouette: boolean }) {
+function FitCreature({ id, silhouette, cx, cy, size, yaw }: { id: string; silhouette: boolean; cx: number; cy: number; size: number; yaw: number }) {
   const model = useMemo(() => {
     const m = assemble(SPECIES_VISUALS[id], { lod: 0, quality: 'high' });
     if (silhouette) m.root.traverse((o) => { if ((o as THREE.Mesh).isMesh) (o as THREE.Mesh).material = new THREE.MeshBasicMaterial({ color: '#000000' }); });
     new Animator(m).update(0.001);
-    // fit: scale so the bounding sphere fills the view
+    m.root.rotation.y = (yaw * Math.PI) / 180;
+    m.root.updateMatrixWorld(true);
     const box = new THREE.Box3().setFromObject(m.root);
-    const size = box.getSize(new THREE.Vector3());
-    const H = SPECIES_VISUALS[id].H;
-    const s = (H * 1.3) / Math.max(size.x, size.y, size.z);
-    m.root.scale.setScalar(s);
+    const sz = box.getSize(new THREE.Vector3());
+    const s = (size * 0.86) / Math.max(sz.x, sz.y);
     const c = box.getCenter(new THREE.Vector3());
-    m.root.position.set(-c.x * s, -box.min.y * s + (H * 0.5 - size.y * s * 0.5), -c.z * s);
-    return m;
-  }, [id, silhouette]);
-  return <primitive object={model.root} />;
+    const g = new THREE.Group();
+    g.add(m.root);
+    g.scale.setScalar(s);
+    g.position.set(cx - c.x * s, cy - c.y * s, 0);
+    return g;
+  }, [id, silhouette, cx, cy, size, yaw]);
+  return <primitive object={model} />;
 }
 
 export default function Tools() {

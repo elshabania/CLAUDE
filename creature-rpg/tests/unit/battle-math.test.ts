@@ -23,9 +23,9 @@ describe('stats (systems §16 vectors)', () => {
 
 describe('damage (systems §16 vectors)', () => {
   const s = createBattle(c, { kind: 'trainer', playerParty: [player], foeParty: [rival], ai: 'normal', ambientWeather: 'rain', attunedType: 'electric' }, 1);
-  it('Arc Lash = 50 with random 85', () => {
+  it('Arc Lash = 48 with random 85 (D3: ×11/10 after STAB)', () => {
     const r = computeDamage(c, s, act(s, 'player'), act(s, 'foe'), c.moves.m025, { crit: false, random: 85 });
-    expect(r.dmg).toBe(50);
+    expect(r.dmg).toBe(48);
     expect(r.eff).toBe(8);
     expect(r.attuned).toBe(true);
   });

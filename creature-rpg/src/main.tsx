@@ -3,7 +3,7 @@ import { createRoot } from 'react-dom/client';
 import './ui/theme.css';
 
 const params = new URLSearchParams(location.search);
-const tool = params.get('tool');
+const tool = import.meta.env.DEV || import.meta.env.VITE_QA === '1' ? params.get('tool') : null;
 const App = lazy(() => (tool ? import('./tools/Tools') : import('./app/App')));
 
 createRoot(document.getElementById('root')!).render(

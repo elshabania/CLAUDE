@@ -217,7 +217,7 @@
   }
  },
  {
-  "id": "i_repel_1",
+  "id": "i_hush_1",
   "name": "Hush Incense",
   "kind": "repel",
   "price": 300,
@@ -228,7 +228,7 @@
   }
  },
  {
-  "id": "i_repel_2",
+  "id": "i_hush_2",
   "name": "Deep Hush Incense",
   "kind": "repel",
   "price": 500,
@@ -239,7 +239,7 @@
   }
  },
  {
-  "id": "i_escape",
+  "id": "i_thread",
   "name": "Homeward Thread",
   "kind": "escape",
   "price": 400,
@@ -418,7 +418,7 @@
   "id": "i_disc_14",
   "name": "Etude: Rime Beam",
   "kind": "disc",
-  "price": 3000,
+  "price": null,
   "sell": 0,
   "desc": "A wax cylinder that teaches Rime Beam. Reusable.",
   "params": {
@@ -442,7 +442,7 @@
   "id": "i_disc_16",
   "name": "Etude: Kiln Blast",
   "kind": "disc",
-  "price": 3000,
+  "price": null,
   "sell": 0,
   "desc": "A wax cylinder that teaches Kiln Blast. Reusable.",
   "params": {

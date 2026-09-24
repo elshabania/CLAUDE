@@ -158,7 +158,7 @@ export function sampleGrid(g: HeightGrid, x: number, z: number): number {
   const h10 = g.heights[iz * g.nx + ix + 1];
   const h01 = g.heights[(iz + 1) * g.nx + ix];
   const h11 = g.heights[(iz + 1) * g.nx + ix + 1];
-  // match triangle split used by the mesh (diagonal from (0,0) to (1,1))
+  // match the mesh/collider triangulation: split along the (1,0)-(0,1) anti-diagonal
   if (tx + tz <= 1) return h00 + (h10 - h00) * tx + (h01 - h00) * tz;
   return h11 + (h01 - h11) * (1 - tx) + (h10 - h11) * (1 - tz);
 }

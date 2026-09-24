@@ -34,10 +34,10 @@ Check status values:
 | Reviewer(s) | release-character-agent; second reviewer: <name> |
 | Orchestrator acknowledgement | <name / pending> |
 | Supersedes | <entry anchor or "none"> |
-| Automated report | reports/gate/character/<sha>/report.json (sha256: <hex>) — exit code <0|1> |
-| Silhouette sheets | reports/gate/character/<sha>/silhouettes_256.png, silhouettes_20.png, silhouette_pairs.csv |
-| Manual captures | reports/review/phase<N>/<sha>/screens/ (<count> files) |
-| Rubric | reports/review/phase<N>/<sha>/rubric.csv |
+| Automated report | qa/evidence/phase_<N>/char/report.json (sha256: <hex>; `commit` = build commit) — exit code <0|1> |
+| Silhouette sheets | qa/evidence/phase_<N>/char/silhouettes_256.png, silhouettes_20.png, silhouettes_20_native.png, silhouette_pairs.csv |
+| Manual captures | qa/evidence/phase_<N>/char/screens/ (<count> files) |
+| Rubric | qa/evidence/phase_<N>/char/rubric.csv |
 | QA gate (same commit) | <link to QA record> — <decision> |
 
 ### Scope
@@ -46,7 +46,7 @@ In-scope species/characters/surfaces per gate doc §2.1: <list>
 ### Automated checks
 | Check | Status | Notes / evidence |
 |---|---|---|
-| GC-00 … GC-16 (GC-17 for deploys) | pass/fail/warn/not_run/not_applicable | <path or reason> |
+| GC-00 … GC-16, GC-18 (GC-17 for deploys) | pass/fail/warn/not_run/not_applicable | <path or reason> |
 
 ### Checklist items
 | Item | Status | Evidence (scene files, report keys) |
@@ -76,7 +76,7 @@ Roster means: Appeal x.x / Expr. x.x / Read. x.x / Cohesion x.x
 - <check>: <reason>
 
 ### Decision
-**<pass | conditional_pass | fail>**. Rationale: <one paragraph>. A fail blocks this phase and every deployment until the problem is corrected and retested on a new build commit.
+**<pass | conditional_pass | fail>** (conditional_pass is not allowed at Phase 7 or for production; gate doc v2 §1.1). Rationale: <one paragraph>. A fail blocks this phase and every deployment until the problem is corrected and retested on a new build commit.
 ```
 
 ---
@@ -244,3 +244,144 @@ What this blocks:
 - Builders for the protagonist and c01 should wait for F-0-07 to F-0-10 to be resolved.
 
 Retest: a re-review of the revised documents, recorded as a new entry that references this one. The originality items F-0-02 to F-0-06 need the renamed or redesigned specs. F-0-01 needs the revised §2.3.
+
+---
+
+## Phase 0 (design) re-review — pending doc revisions — 2026-09-24  {#p0-design-rereview}
+
+| Field | Value |
+|---|---|
+| Date | 2026-09-24 |
+| Phase / target | Phase 0: design gate, re-review / no deployment |
+| Build commit | none (design documents only) |
+| Inputs | `design/DECISIONS.md` (orchestrator rulings D1–D28); gate doc revised to **v2** (`release_character_gate.md`), applying F-0-23. The revised `creative_direction.md`, `creatures.md`, `world.md` and `systems.md` **have not landed yet**; other agents are revising them now. |
+| Reviewer(s) | release-character-agent; second reviewer still pending |
+| Supersedes | none. This follows `#p0-design-review`, whose `fail` stands until this entry is decided. |
+| Automated report | Not run (no build). |
+
+### Name-similarity run (method and limits)
+- **Metric set:** the gate v2 GC-13 metric set: Jaro-Winkler (JW), Levenshtein distance ≤ 2, and a shared substring of ≥ 5 characters, all computed on lowercase names.
+- **Species reference list:** **845 creature names**, mostly Pokémon across all generations, plus the Digimon, Palworld, Temtem, Coromon, Cassette Beasts and Monster Rancher names from the gate v2 denylist. The list was typed from general knowledge. **It is partial and not exhaustive.**
+- **Character reference list:** about 190 names of Pokémon professors, rivals, gym leaders, Elite Four members, champions, villains and protagonists, plus a few anime and Digimon characters. Also partial.
+- **Scripts:** these ran as one-off scripts in the session scratchpad, which is not in the repo. GC-13 must re-run against QA's maintained `franchise_names.txt` once it exists.
+- **The first run was too small.** The first-pass run (`#p0-design-review`) used about 400 names. The larger list surfaced **new hits that the first run missed** (Venomantle–Venonat, Samaraptor–Staraptor). Results from any partial list are a floor, not a clearance.
+- **Thresholds (gate v2 GC-13):**
+  - JW ≥ 0.88 fails.
+  - JW 0.80–0.88, Levenshtein ≤ 2, or a shared substring ≥ 5 is a warn that needs a judgment.
+  - For names of 6 characters or fewer, only an exact match or Levenshtein ≤ 1 decides a fail.
+
+### Results: the 30 final species names (post-D7)
+| id | Name | Closest (JW) | 2nd (JW) | Lev ≤ 2 | Substr ≥ 5 | Status | Judgment |
+|---|---|---|---|---|---|---|---|
+| c01 | Fizzkit | Nickit 0.746 | Finizen 0.705 | — | — | clear | — |
+| c02 | Crackleap | Cacnea 0.817 | Crabrawler 0.771 | — | — | warn | Keep: no semantic or anatomy overlap (Cacnea is a cactus) |
+| c03 | Tempestrel | Tentacruel 0.720 | Tepig 0.707 | — | — | clear | — |
+| c04 | Wickwool | Carkol 0.722 | Wimpod 0.700 | — | — | clear | — |
+| c05 | Kilnhorn | Kilowattrel 0.785 | Kingler 0.770 | — | — | clear | — |
+| c06 | Magmouflon | Magmar 0.813 | Magmortar 0.811 | — | "magmo" (Magmortar) | warn | Keep, with a recorded note: "magma" is a dictionary root and "mouflon" is distinct. There is no Magmar or Magmortar anatomy (no humanoid form, no arm cannons). **Three weak signals together** (JW, substring, fire type) mean the orchestrator may still choose to rename. |
+| c07 | Rippleback | Riolu 0.707 | Rillaboom 0.695 | — | — | clear | Name is clear. The design stays on the watchlist (gate §4.2). |
+| c08 | Tidesleek | Indeedee 0.727 | Treecko 0.705 | — | — | clear | — |
+| c09 | Floeguard | Floette 0.803 | Florges 0.783 | — | — | warn | Keep: a flower fairy vs an armoured otter |
+| c10 | Dozebud | Drowzee 0.743 | Doduo 0.741 | — | — | clear | — |
+| c11 | **Lullstalk** (new) | Lurantis 0.728 | Lugia 0.716 | — | — | **clear** | The D7 rename resolves F-0-04. It has no "-bell" suffix. |
+| c12 | Belladrowse | Bellossom 0.842 | Bellsprout 0.829 | — | — | warn | Keep (judgment carried from F-0-17). It is acceptable now that c11 no longer uses "-bell". |
+| c13 | Rollith | Growlithe 0.841 | Rowlet 0.797 | — | — | warn | Keep: no overlap |
+| c14 | Cairnback | Carbink 0.865 | Cacnea 0.763 | — | — | warn | Keep: "cairn" is English; different anatomy |
+| c15 | Lodestodon | Loudred 0.790 | Obstagoon 0.756 | — | — | clear | — |
+| c16 | Rimelet | Ribombee 0.824 | Primeape 0.780 | — | — | warn | Keep: no overlap |
+| c17 | Sleetribbon | Steelix 0.771 | Sylveon 0.751 | — | — | clear | — |
+| c18 | Borealoop | Boldore 0.784 | Breloom 0.757 | — | — | clear | — |
+| c19 | Gustling | Gulpin 0.856 | Slaking 0.780 | — | — | warn | Keep: no overlap |
+| c20 | Whirlseed | Whismur 0.783 | Wailord 0.721 | — | — | clear | — |
+| c21 | **Samaraptor** | **Staraptor 0.869** | Samurott 0.809 | **Staraptor (2)** | **"raptor" (Staraptor)** | **warn → rename recommended** | This is a naming-formula echo (gate §4.2): Staraptor is star + "-raptor", Samaraptor is samara + "-raptor". Both are raptor birds and flying types. It trips all three metrics. **Recommend rename (Major under §4.2).** |
+| c22 | Ringdrip | Kingdra 0.780 | Regidrago 0.694 | — | "ingdr" (Kingdra) | warn | Keep: coincidental letters |
+| c23 | Brineloop | **Breloom 0.873** | Brionne 0.831 | — | — | warn | Keep: Breloom is a mushroom; Brionne is a sea lion (judgment carried from F-0-17). "Brine" is English. |
+| c24 | **Venomantle** | **Venonat 0.911** | Veemon 0.769 | — | "manti" (Fomantis), "antle" (Stantler) | **FAIL (new)** | JW ≥ 0.88. Venonat and its evolution Venomoth are Bug/Poison; Venomantle is toxin/water. It shares the "Veno-" poison root and the poison typing. **Rename required.** Previously missed because the smaller list lacked Venonat. |
+| c25 | Snipling | Dipplin 0.780 | Snivy 0.761 | — | — | clear | — |
+| c26 | Marionyx | Marill 0.833 | Aron 0.833 | — | — | warn | Keep: no overlap. Note: "Mario" is a substring; Nintendo trademark sensitivity is low but recorded. |
+| c27 | **Emberfold** (new) | Emboar 0.811 | Electrode 0.733 | — | — | warn | Keep: a pig starter vs a folding-screen spectre. "Ember" is English (and a Pokémon move name, which is acceptable as a dictionary word inside a compound). The D7 rename resolves F-0-03. |
+| c28 | Dawnfry | Dragonair 0.705 | Dartrix 0.695 | — | — | clear | — |
+| c29 | **Lumarlin** | Lumineon 0.825 | Lucario 0.824 | — | — | **warn → rename suggested** | Lumineon is a luminous neon fish (Water); Lumarlin is a luminous marlin (lumen). The "Lum-" prefix and a glowing-fish concept are shared, though the anatomy differs (a billed marlin vs a flat butterfly fish). Minor. Suggest a rename; the orchestrator decides. |
+| c30 | **Coronaleen** (new) | Corsola 0.834 | Cottonee 0.827 | — | — | warn | Keep: coral and cotton vs a whale. The D7 rename resolves F-0-02. |
+
+**Summary for species:**
+- **New fail:** c24 Venomantle (JW 0.911 to Venonat).
+- **New rename recommended:** c21 Samaraptor (Staraptor naming formula).
+- **Rename suggested:** c29 Lumarlin (Lumineon).
+- **Warns with keep judgments:** 13 names: Crackleap, Magmouflon, Floeguard, Belladrowse, Rollith, Cairnback, Rimelet, Gustling, Ringdrip, Brineloop, Marionyx, Emberfold and Coronaleen.
+- **The three D7 renames** (Lullstalk, Emberfold, Coronaleen) introduce no failures.
+
+### Results: character and other display names (post-D7)
+| Name | Closest franchise name (JW) | Lev | Status | Judgment |
+|---|---|---|---|---|
+| **Arden** (new default protagonist name, D7) | **Arven** 0.893 (a major character in Pokémon Scarlet/Violet) | **1** | **FAIL (new)** | One letter from a current franchise lead. Under the short-name rule, Levenshtein 1 is decisive. **Rename required.** Candidates checked in the same run with no warn or fail: **Hollis** (0.733), **Emrys** (0.783), **Corwin** (0.746), **Fenwick** (0.657), **Hewitt** (0.679), **Holt** (0.778). |
+| **Marra** Aske (D7) | Marshal 0.853 | 3 | warn (a short name, so JW is not decisive) | Keep. Aske vs Wake (0.833) is noise. |
+| Dorran **Flint** (trial_2 stone Cantor) | **Flint**, exact: Pokémon Elite Four (Sinnoh), and Brock's father, a former Rock-type gym leader in the anime | 0 | **FAIL (new, kind-scoped exact match)** | Name plus role is close to a stone gym-leader relative, and the surname matches exactly. **Rename the surname.** Candidate checked: **Shale** (0.790 to Shauna; clear). |
+| Cass Rookwell | Cress 0.805 | 2 | warn | Keep |
+| Odile Graven | Graven vs Arven 0.878 | 2 | warn | Keep: a surname, no role overlap |
+| Oriel Vantasse | Oriel vs Gordie 0.822 | — | warn (noise) | Keep |
+| Brann Coldcourt | Brann vs Brendan 0.832 | — | warn (noise) | Keep |
+| Vey Lanternlow | Lanternlow vs Lance 0.813 | — | warn (noise) | Keep |
+| Tamsin Galloway | Tamsin vs Tai 0.867 | — | warn (noise) | Keep |
+| Isaure Frostmere | Isaure vs Surge 0.822; Frostmere vs Rose 0.815 | — | warn (noise) | Keep |
+| Garrow (Chandler) | Gary 0.825 | 2 | warn | Keep |
+| Rhea Rookwell, Wren Mossgrave, Nerys Tidewell, Bastian Coalridge, Maud, Tobin, Ysolde, Pip, Nell, Wick | all < 0.80 | — | clear | — |
+| Trait names (D13): *Headlong*, *Keystone Core* | "Headlong Rush" (a Pokémon move); "Key Stone" (the Pokémon Mega Evolution item) | — | Tier B warn | Keep, provisionally: both are English words used for an unrelated concept. Re-check in the full trait list once systems v2 lands. |
+| Status names (D8): Scorch (SCH), Blight (BLT), Jolt (JLT), Drowse (DRW), Rimebite (RMB), Muddled | no exact franchise status names; the codes differ from SLP/BRN/PSN/PAR/FRZ | — | clear | The D8 rename resolves F-0-13. |
+| Item ids (D10): `i_hush_1..2`, `i_thread`, `i_chime_*` | — | — | clear (ids) | Display names come from the CD glossary. Check them once they land. |
+
+### Status of Phase 0 findings after DECISIONS.md
+| Finding | Ruling | Status |
+|---|---|---|
+| F-0-01 Stillmark ≈ Team Plasma | D6 (goal, public face, look and methods all changed) | **Accepted in principle.** Closes once CD §2.3 and world v2 text land. Watch item added: avoid an energy-corporation framing (Macro Cosmos, Team Galactic). |
+| F-0-02 Umbraleen | D7 → Coronaleen | Resolved (clear; warn only vs Corsola) |
+| F-0-03 Cinderscrim | D7 → Emberfold | Resolved (warn only vs Emboar; judged keep) |
+| F-0-04 Nodbell | D7 → Lullstalk | Resolved (clear) |
+| F-0-05 Juniper | D7 → Marra Aske | Resolved (warn only; judged keep) |
+| F-0-06 Floeguard | D7: no helmet, whisker nubs, shell only on back and tail | Accepted. Closes when the `creatures.md` c09 spec lands, and is re-checked at the Phase 2 and 3 cover test of the whole line. |
+| F-0-07 cross-document cast and terms | D1, D2, D4, D5, D10 | Pending world v2, systems v2 and the CD glossary |
+| F-0-08 face states | D14 | Resolved in gate v2 (GC-04). Pending the `creatures.md` and CD text. |
+| F-0-09 timing | D15 | Resolved in gate v2 (GC-05) |
+| F-0-10 proportion bands | **no ruling** | **Open.** Gate v2 CC-05 and GC-08 are warn-only until the CD publishes per-plan bands. |
+| F-0-11 LOD2 features | D16 | Resolved in gate v2 (GC-18). Pending the rendering text. |
+| F-0-12 Rowan | D7 → Arden | **Superseded by the new failure F-0R-01** (Arden–Arven) |
+| F-0-13 status codes | D8 | Resolved |
+| F-0-14 identical sibling pedlars | no explicit ruling | Open. Pending world v2 (D1 adopts the CD cast, including the peddler Wick). |
+| F-0-15 item and terminology leaks | D10 (ids) | Partly resolved. The rendering §10.6 import summary still says "badges": open, and covered by gate v2 GC-12. |
+| F-0-16 trait clones | D13 | Resolved for names. The numbers are unchanged; that is accepted as mechanics. |
+| F-0-17 warn-band judgments | — | Carried forward, now extended by the tables above |
+| F-0-18 Rippleback render check | — | Phase 2 cover test (unchanged) |
+| F-0-19 c30 Wind Fish | D7 rename | Watch item kept (gate §4.2) |
+| F-0-20 pupil types | no ruling | Open (CD or Creature Art Director) |
+| F-0-21 "A wild…" pool | no ruling | Open. GC-14 now warns if more than half the pool starts with "A wild". |
+| F-0-22 four harnesses | D27 | Resolved in gate v2 (§3.1, §3.5) |
+| F-0-23 gate self-alignment | — | Done: gate v2 |
+
+### New findings in this re-review
+| ID | Severity | Affected requirement | Finding | Consequence | Proposed resolution | Owner |
+|---|---|---|---|---|---|---|
+| F-0R-01 | Major | CC-10; GC-13 | The D7 default protagonist name **Arden** is Levenshtein 1 from **Arven** (Pokémon Scarlet/Violet), JW 0.893 | GC-13 fails, and the name is shown constantly and in previews | Pick a new default. Checked clear: Hollis, Emrys, Corwin, Fenwick, Hewitt, Holt. | Orchestrator / CD |
+| F-0R-02 | Major | CC-10; GC-13 | c24 **Venomantle** is JW 0.911 to **Venonat** (Bug/Poison), with a shared poison root and typing | GC-13 fails | Rename, then re-run the check | Creature Art Director |
+| F-0R-03 | Major | CC-10; §4.2 naming formula | c21 **Samaraptor** is JW 0.869, Levenshtein 2 and shares the "raptor" substring with **Staraptor**. Both are raptor birds and flying types, and the name uses the same X + "raptor" formula. | A recognizable naming echo of a well-known species | Rename without the "-raptor" suffix | Creature Art Director |
+| F-0R-04 | Major | CC-10; kind-scoped character list | The trial_2 stone Cantor's surname **Flint** exactly matches a Pokémon Elite Four member and the anime's Rock-type gym-leader father of Brock | A name plus stone-leader role echo | Rename the surname (for example **Shale**, checked clear) | CD |
+| F-0R-05 | Minor | CC-10 | c29 **Lumarlin** is JW 0.825 to **Lumineon**, with a shared "Lum-" prefix and glowing-fish concept | A weak but thematic echo | Rename suggested; the orchestrator decides | Creature Art Director |
+| F-0R-06 | Note | CC-10 | c06 Magmouflon has three weak signals (JW 0.813 Magmar, substring "magmo" with Magmortar, fire type) | Judged keep | The orchestrator may rename at no design cost | Orchestrator |
+| F-0R-07 | Note | Method | The expanded reference list found two hits that the first run missed | Partial lists under-report | GC-13 must use QA's maintained list, and each gate records the list version | QA, release agent |
+
+### Not run / Not measured
+- Every automated gate check: Not run (no build).
+- Every render-based check and rubric score: Not run (no renders).
+- Review of the revised creative_direction, creatures, world and systems text: **Not run yet, because those revisions have not landed.**
+- Name similarity: run against partial reference lists from general knowledge. This is not a trademark-register or web search.
+- Second reviewer: pending.
+
+### Decision
+**pending** until the revised documents land.
+
+To move to `pass` or `conditional_pass`, all of the following are needed:
+1. The revised creative_direction, creatures, world and systems text reflects D1–D16, and I have re-read it.
+2. F-0R-01 to F-0R-04 are resolved by renames, and the new names re-checked.
+3. F-0-10 has a ruling or a CD per-plan band table. Until then CC-05 stays warn-only, and it may be carried forward as a Minor condition.
+4. The open Minor items F-0-14, F-0-15 (import summary), F-0-20 and F-0-21 are either fixed or carried forward as conditions.
+
+The earlier `fail` (`#p0-design-review`) remains the recorded design-gate decision until this entry is closed.

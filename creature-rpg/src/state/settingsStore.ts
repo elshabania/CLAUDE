@@ -103,7 +103,7 @@ export interface QualityParams {
 }
 
 export const QUALITY: Record<QualityProfile, QualityParams> = {
-  high: { dpr: 2, shadows: true, shadowSize: 2048, vegetation: 1, drawDistance: 220, particles: 1, bloom: true, ao: true, dof: true, antialias: true, maxWild: 8, faceTex: 256, water: 'full' },
+  high: { dpr: 2, shadows: true, shadowSize: 2048, vegetation: 1, drawDistance: 220, particles: 1, bloom: true, ao: true, dof: true, antialias: true, maxWild: 6, faceTex: 256, water: 'full' },
   balanced: { dpr: 1.5, shadows: true, shadowSize: 1024, vegetation: 0.65, drawDistance: 160, particles: 0.6, bloom: true, ao: false, dof: false, antialias: true, maxWild: 6, faceTex: 256, water: 'full' },
-  mobile: { dpr: 1.25, shadows: false, shadowSize: 512, vegetation: 0.35, drawDistance: 110, particles: 0.35, bloom: false, ao: false, dof: false, antialias: false, maxWild: 4, faceTex: 128, water: 'simple' },
+  mobile: { dpr: 1.25, shadows: false, shadowSize: 512, vegetation: 0.35, drawDistance: 110, particles: 0.35, bloom: false, ao: false, dof: false, antialias: false, maxWild: 6, faceTex: 128, water: 'simple' },
 };

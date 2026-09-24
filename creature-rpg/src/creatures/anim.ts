@@ -180,6 +180,12 @@ export class Animator {
         } else if (tag === 'jaw') {
           const open = action === 'attack' || action === 'special' ? Math.sin(Math.min(1, at * 2) * Math.PI) * 0.45 : 0;
           rx += open;
+        } else if (tag === 'armswing') {
+          const side = name.endsWith('_R') ? Math.PI : 0;
+          rx += -Math.sin(gaitPhase + side) * 0.6 * w * rm + Math.sin(t * 1.2 + side) * 0.03;
+        } else if (tag === 'knee') {
+          const side = name.endsWith('_R') ? Math.PI : 0;
+          rx += Math.max(0, Math.sin(gaitPhase + side + Math.PI / 2)) * 0.7 * w;
         } else if (tag === 'orbit' && !fainted) {
           ry += t * 0.8;
         }

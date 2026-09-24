@@ -353,11 +353,19 @@
    {
     "evo": true,
     "level": 38,
+    "move": "m096"
+   },
+   {
+    "level": 40,
     "move": "m019"
    },
    {
     "level": 42,
     "move": "m059"
+   },
+   {
+    "level": 44,
+    "move": "m099"
    },
    {
     "level": 47,
@@ -391,6 +399,10 @@
     "move": "m066"
    },
    {
+    "level": 17,
+    "move": "m035"
+   },
+   {
     "level": 18,
     "move": "m065"
    },
@@ -401,6 +413,10 @@
    {
     "level": 26,
     "move": "m086"
+   },
+   {
+    "level": 27,
+    "move": "m038"
    },
    {
     "evo": true,
@@ -451,6 +467,10 @@
     "move": "m076"
    },
    {
+    "level": 20,
+    "move": "m015"
+   },
+   {
     "level": 22,
     "move": "m074"
    },
@@ -466,6 +486,10 @@
     "evo": true,
     "level": 34,
     "move": "m036"
+   },
+   {
+    "level": 36,
+    "move": "m019"
    },
    {
     "level": 38,
@@ -536,8 +560,16 @@
     "move": "m089"
    },
    {
+    "level": 42,
+    "move": "m005"
+   },
+   {
     "level": 44,
     "move": "m058"
+   },
+   {
+    "level": 46,
+    "move": "m007"
    },
    {
     "level": 48,
@@ -597,11 +629,15 @@
    {
     "evo": true,
     "level": null,
-    "move": "m100"
+    "move": "m088"
    },
    {
     "level": 46,
     "move": "m007"
+   },
+   {
+    "level": 50,
+    "move": "m100"
    }
   ]
  },
@@ -646,7 +682,7 @@
    "level3": 38,
    "item3": null,
    "move2": "m055",
-   "move3": "m019"
+   "move3": "m096"
   },
   "f07": {
    "level2": 14,
@@ -674,7 +710,7 @@
    "level3": 44,
    "item3": "i_evo_prism",
    "move2": "m097",
-   "move3": "m100"
+   "move3": "m088"
   }
  },
  "discCoverage": {

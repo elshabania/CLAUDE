@@ -1,833 +1,899 @@
 # Rendering and Architecture
 
-Owner: Rendering Engineer / technical architect
-Status: Design v1 (2026-09-24). Nothing in this document has been measured. Every performance number below is a **target or budget**. None is a result. Measured results go in `design/reviews/perf_*.md` once real reference hardware has run the benchmark in section 7.
+Owner: Rendering Engineer / technical architect.
+Status: **Design v2** (2026-09-24). This version is revised to match `design/DECISIONS.md` (binding: D1–D28), the review round (`design/reviews/*.md`) and the code already in `src/`.
 
-Binding inputs: `design/MASTER_PROMPT.md` and `design/ANCHORS.md`. Other design documents were being written in parallel and did not exist when this was written. Places where this document depends on their decisions are listed under Dependencies (section 13).
+**Nothing here has been measured on real hardware.** Every performance number is a **target or budget**. The only numbers presented as facts are two kinds of count, and both are labelled where they appear:
+- triangle and draw-call counts from constructing geometry in Node
+- package sizes
+
+Measured results will go in `design/reviews/perf_*.md` once real reference hardware has run the benchmark in section 7.
+
+Changes from v1, summarized:
+- Toolchain as installed (D24).
+- The creature contract now describes the implemented declarative part-table assembler, with separate animated `Object3D`s and no skinning (D16 deviation).
+- Faces use the 8-cell atlas at 256 / 256 / 128 px cells, with a UV-mirrored right eye (D14).
+- Creature clip durations are authoritative (D15).
+- A single-level cave with a ceiling shell (D17).
+- A Rapier **trimesh** terrain collider (D25).
+- 6 wild creatures per zone on every profile (D21).
+- The single silhouette spec is GC-07 (D27).
+- Static Vercel deployment (D28).
+- The review-round fixes are listed in 0.3.
 
 ---
 
-## 0. Verified toolchain (pinned versions)
+## 0. Toolchain, implementation status, change log
 
-On 2026-09-24 I checked the versions below against the npm registry (`npm view`). I also read the type definitions from tarballs downloaded with `npm pack` into a scratch directory, which does not touch the project. `node_modules` does not exist in the project, and no packages were installed there.
+### 0.1 Pinned toolchain (D24; as installed in `package.json`)
 
-| Package | Pin | Why this exact pin (verified fact) |
+| Package | Version | Notes (verified against the registry or package sources on 2026-09-24) |
 |---|---|---|
-| `three` | `0.186.1` | Latest. `postprocessing@6.39.5` has the peer range `three >=0.168 <0.187`, so **three must stay below 0.187** until postprocessing widens that range. |
-| `@types/three` | `0.186.0` | Matches three's minor version. |
-| `react`, `react-dom` | `19.3.0` | `@react-three/fiber@9.8.0` has the peer range `react >=19 <19.4`. |
-| `@react-three/fiber` | `9.8.0` | Canvas props confirmed: `gl` (object, or a sync/async factory), `dpr: number \| [min,max]`, `frameloop: 'always'\|'demand'\|'never'`, `shadows: boolean\|'basic'\|'percentage'\|'soft'\|'variance'\|Partial<WebGLShadowMap>`, `flat`, `linear`, `performance`. |
-| `@react-three/drei` | `10.7.8` | Uses `PerformanceMonitor` (`onIncline/onDecline/onFallback/bounds/flipflops`), `Detailed`, `Bvh`, `Sky`, `Preload`, `StatsGl`. **We never use `useDetectGPU`.** It depends on `detect-gpu`, which fetches benchmark data from a CDN at runtime, and that is a network dependency we refuse. |
-| `@react-three/rapier` | `2.2.0` | Bundles `@dimforge/rapier3d-compat@0.19.2`. `Physics` props confirmed: `timeStep: number\|'vary'`, `paused`, `interpolate`, `updatePriority`, `updateLoop: 'follow'\|'independent'`, `gravity`, `numSolverIterations`, `debug`. Hooks confirmed: `useRapier`, `useBeforePhysicsStep`, `useAfterPhysicsStep`, `interactionGroups`. `HeightfieldCollider` args: `[widthSubdivs, depthSubdivs, heights[], scale{x,y,z}]`. It has no flags slot, and its scale handling is buggy (see 3.1), so the terrain collider is created imperatively instead. |
-| `@dimforge/rapier3d-compat` | via above (`0.19.2`) | Confirmed: `world.createCharacterController(offset)`, `KinematicCharacterController.enableAutostep(maxHeight, minWidth, includeDynamicBodies)`, `enableSnapToGround(distance)`, `setMaxSlopeClimbAngle(rad)`, `setMinSlopeSlideAngle(rad)`, `setSlideEnabled`, `setApplyImpulsesToDynamicBodies`, `setUp`, `computeColliderMovement(collider, delta, flags?, groups?, predicate?)`, `computedMovement()`, `computedGrounded()`. `world.castShape(pos, rot, vel, shape, targetDistance, maxToi, stopAtPenetration, flags?, groups?, excludeCollider?, excludeBody?, predicate?)` and `world.castRay(ray, maxToi, solid, ...)`. `ColliderDesc.heightfield(nrows, ncols, heights: Float32Array, scale, flags?)` with heights in **column-major** order. The compat build inlines its WASM: `rapier.mjs` is 2.24 MB raw, **~836 KB gzipped** (measured with `gzip -c \| wc -c` on the tarball file). That size is why Rapier is lazy-loaded (section 6.3). |
-| `@react-three/postprocessing` | `3.1.2` | Peer `@react-three/fiber >=9.7.0`, `postprocessing ^6.36`. Effects confirmed: `Bloom`, `SMAA`, `FXAA`, `Vignette`, `DepthOfField` (`target`, `worldFocusDistance`, `worldFocusRange`, `bokehScale`), `ToneMapping`, `SSAO`, and `N8AO` (exported from `passes/N8AO`: `halfRes`, `quality`, `aoRadius`, `distanceFalloff`, `intensity`, `aoSamples`, `denoiseSamples`). `EffectComposer` props: `multisampling`, `resolutionScale`, `frameBufferType`, `enableNormalPass`. |
-| `postprocessing` | `6.39.5` | Peer of the above. |
-| `zustand` | `5.0.15` | `zustand/vanilla`, `zustand/react`, `zustand/middleware` (`subscribeWithSelector`), `zustand/shallow`. |
-| `tone` | `15.1.22` | Confirmed: `start()`, `getTransport()`, `getDestination()`, `getContext()`, `Channel`, `CrossFade`, `Offline`/`OfflineContext`, and the `lookAhead` and `latencyHint` context options. We use the `get*()` accessors, not the legacy `Tone.Transport` singletons. |
-| `zod` | `4.x` (latest `4.6.5`) | v4 API: `z.object`, `z.discriminatedUnion`, `safeParse`, `z.toJSONSchema`. |
-| `vite` | `8.x` (latest `8.3.1`) | `@vitejs/plugin-react@6.1.1` requires `vite ^8`. |
-| `vitest` | `5.0.1` | Peer `vite ^6.4 \|\| ^7 \|\| ^8`. |
-| `@playwright/test` | **`1.56.1`** (not the latest, 1.63) | The container's preinstalled browsers are `/opt/pw-browsers/chromium-1194` and `chromium_headless_shell-1194`. Revision 1194 is Chromium 141.0.7390.37, which is what `playwright-core@1.56.1`'s `browsers.json` expects. 1.57 expects revision 1200, which is not installed and cannot be assumed downloadable. |
-| `typescript` | `5.9.3` | The npm `latest` tag is now `7.0.2` (the native compiler). This project pins 5.9.3 for editor and plugin stability. Upgrading is listed under Unresolved questions. |
+| `three` / `@types/three` | 0.186.1 / 0.186.0 | `postprocessing@6.39.5` has the peer range `three >=0.168 <0.187`, so **three stays below 0.187** until that range widens. |
+| `react`, `react-dom` | 19.2.0 | Inside `@react-three/fiber@9.8.0`'s peer range (`>=19 <19.4`). `@types/react` 19.3.0 is a harmless mismatch. |
+| `@react-three/fiber` | 9.8.0 | Canvas `gl` (object or sync/async factory), `dpr: number \| [min,max]`, `frameloop`, `shadows`. |
+| `@react-three/drei` | 10.7.8 | Used: `PerformanceMonitor`, `Detailed`, `Sky`, `View`, `OrbitControls` (tools only). **Never used: `useDetectGPU`**, because it fetches benchmark data from a CDN. |
+| `@react-three/rapier` | 2.2.0 | Bundles `@dimforge/rapier3d-compat@0.19.2`. `Physics` props (`timeStep`, `paused`, `interpolate`, `updateLoop`), `useRapier`, `useBeforePhysicsStep`/`useAfterPhysicsStep`, `interactionGroups`. Known problem: `<HeightfieldCollider>` mis-scales (`scaleColliderArgs` multiplies `scale.x` three times) and has no flags slot. It is irrelevant now, because D25 uses a trimesh. |
+| `@dimforge/rapier3d-compat` | 0.19.2 | `createCharacterController(offset)`, `enableAutostep`, `enableSnapToGround`, `setMaxSlopeClimbAngle`, `setMinSlopeSlideAngle`, `computeColliderMovement`, `computedMovement`, `computedGrounded`, `castShape`, `castRay`, `ColliderDesc.trimesh(vertices, indices, flags?)`. The WASM is inlined, so `rapier.mjs` is about **836 KB gzipped** (counted with gzip over the package file). |
+| `@react-three/postprocessing` / `postprocessing` | 3.1.2 / 6.39.5 | `Bloom`, `SMAA`, `FXAA`, `Vignette`, `DepthOfField`, `ToneMapping`, `N8AO` (from `n8ao@2`). |
+| `zustand` | 5.0.15 | |
+| `tone` | 15.1.22 | Uses the `start()`, `getTransport()`, `getDestination()`, `getContext()` and `Offline` accessors, not the legacy singletons. |
+| `zod` | 4.6.5 | |
+| `vite` / `@vitejs/plugin-react` | 8.3.1 / 6.1.1 | |
+| `vitest` | 5.0.1 | Node environment only. |
+| `tsx` | 4.23.15 | Runs `scripts/*.ts` through esbuild. It is unaffected by TypeScript 7. |
+| `typescript` | **7.0.2** | `tsc -p tsconfig.json` type-checks the current tree with exit 0. **TS 7 exposes no JavaScript compiler API**: `require('typescript')` exports only `version` and `versionMajorMinor`. Therefore no tool in this repo may depend on `ts.createSourceFile`. Gate and architecture scans use regex over source text and JSON (D24). |
+| `@playwright/test` | 1.56.1 | Matches the preinstalled `/opt/pw-browsers/chromium-1194` (Chromium 141.0.7390.37). Version 1.57 expects revision 1200, which is not installed. |
 
-Three.js facts used below, verified in `three@0.186.1` source: `InstancedMesh.computeBoundingSphere/computeBoundingBox` account for instances. `BufferGeometryUtils.mergeGeometries` exists. `ACESFilmicToneMapping`, `AgXToneMapping` and `NeutralToneMapping` exist. `WebGLRenderer.compileAsync(scene, camera)` exists and uses `KHR_parallel_shader_compile`. `renderer.info.render.{calls,triangles}` and `info.memory.{geometries,textures}` exist. The `CSM` addon is at `three/addons/csm/CSM.js`. The `Sky` addon exists.
+### 0.2 Implementation status (what exists in `src/` today)
+
+| Area | Files | Status |
+|---|---|---|
+| Pure battle sim | `src/sim/battle/{engine,ai,types}.ts`, `src/sim/{rng,stats,progression,types,content}.ts` | Implemented; unit-tested (`tests/unit/battle-math.test.ts`) |
+| Persistence | `src/persistence/{saveManager,saveTypes,migrations,validate}.ts` | Implemented (schema v2, migration 1→2); unit-tested (`tests/unit/persistence.test.ts`) |
+| Creature assembler | `src/creatures/{assemble,primitives,materials,face,anim,registry}.ts`, `species/c01.ts` | Implemented; 1 of 30 species so far |
+| Dev tools | `src/tools/Tools.tsx` (`?tool=viewer\|sheet\|silhouettes`) | Implemented (the silhouette sheet needs rework, see 11.3) |
+| Zone data types and terrain function | `src/world/zoneTypes.ts`, `src/world/terrain/heightfield.ts` | Implemented (height function and grid); meshes and collider not yet |
+| Settings / quality table | `src/state/settingsStore.ts` | Implemented; `QUALITY` needs the D21 and 6.1 edits listed in 0.3 |
+| Input | `src/ui/input/input.ts` | Implemented (keyboard, pointer lock and drag, touch joystick) |
+| App shell | `src/main.tsx`, `src/app/App.tsx` | Stub (a "loading" screen) |
+| Scene, zone rendering, camera, controller, presenter, audio, UI screens | — | Not yet implemented; specified below |
+
+### 0.3 Code follow-ups required by this revision
+
+These are listed here so the implementation converges on this document. The owner is the integration owner.
+
+1. `settingsStore.QUALITY`:
+   - remove `maxWild` (D21: the zone data value, 6)
+   - set `mobile.antialias = true` (context MSAA on tile GPUs; see 6.1)
+   - set `mobile.shadows = true` with `shadowSize 1024` for characters only, falling back to blob shadows
+2. `ZoneSpec.maxWild`: the validator requires the value 6 (D21).
+3. Terrain render mesh and trimesh collider must use the **same diagonal as `sampleGrid`**: triangles (i00, i10, i01) and (i10, i11, i01), split along the 10–01 anti-diagonal. The comment in `heightfield.ts` says "(0,0) to (1,1)", which does not match the code's `tx + tz <= 1` test. The code is the reference, so fix the comment.
+4. `primitives.segs()` must become size-adaptive (4.6, D16). Counted today with `assemble(c01)` in Node: **14,158 triangles and 39 draw calls on High LOD0**, which is over D16's 12k.
+5. `assemble.ts`:
+   - add a `mergeStatic` pass (4.6)
+   - add `userData.role` per the vocabulary in 4.1
+   - add the `silhouette: true` tag, which keeps a part at LOD2
+6. `anim.ts`: per-species clip durations and the contact fraction come from `SpeciesVisual.rig.durations` (D15). The current values (attack 1.0 × stageScale, contact 0.45) become fallbacks.
+7. `tools/Tools.tsx` `Sheet`: replace one `<Canvas>` per cell with one context rendering into a tiled render target. Thirty or more WebGL contexts exceed Chromium's live-context limit (typically 16) and lose contexts. Implement GC-07 exactly (11.3).
+8. `main.tsx`: honour `?tool=` only when `import.meta.env.DEV` or `VITE_QA=1` (D28).
+9. `scripts/validate-data.ts` is referenced by `npm run validate-data` but does not exist yet.
+10. `vite.config.ts` `test.include` should add `tests/data/**` and `tests/arch/**` when those suites land.
 
 ---
 
 ## 1. Module layout, data flow, state machines
 
-### 1.1 Directory tree
+### 1.1 Directory tree (existing files marked ✓)
 
 ```
 creature-rpg/
-  index.html                       viewport-fit=cover, <div id="root">, no external fonts or CDN
-  vite.config.ts                   manualChunks (see 6.3), worker config
-  vitest.config.ts                 environment: node only (no jsdom/happy-dom; UI logic tested via pure reducers)
-  playwright.config.ts             chromium only, executablePath from /opt/pw-browsers if present
+  index.html ✓  vite.config.ts ✓ (base './')  tsconfig.json ✓  package.json ✓
   src/
-    main.tsx                       React root; mounts <App/>
-    app/
-      App.tsx                      one <Canvas> + <UiRoot/>; top-level error boundary
-      appMachine.ts                app state machine (pure reducer, see 1.4)
-      bootstrap.ts                 storage probe, quality detect, settings load, data load
-    sim/                           PURE. No imports from three, react, tone, zustand, DOM, window, Date, Math.random
-      rng.ts                       seeded PRNG (sfc32) with serializable state
-      battle/
-        engine.ts                  createBattle(), chooseAiAction(), resolveTurn(), applyDecision()
-        events.ts                  BattleEvent union (1.3)
-        damage.ts, status.ts, weather.ts, capture.ts, ai.ts, turnOrder.ts
-        battleMachine.ts           battle state machine (pure reducer, see 1.5)
-      progression/
-        xp.ts, evolution.ts, learnset.ts, rewards.ts, economy.ts
-      world/
-        encounters.ts              encounter roll from tables (zone, time phase, weather) -> species+level
-        quests.ts, flags.ts        quest/flag evaluation (pure)
-        clock.ts                   game-clock phase from committed time value
-      instances.ts                 creature instance factory (unique ids from seeded counter)
+    main.tsx ✓                     lazy-loads App or (dev/QA only) tools
+    app/App.tsx ✓(stub)            one <Canvas> + <UiRoot/>; error boundary; appMachine
+    app/appMachine.ts              app state machine (pure reducer, 1.4)
+    app/bootstrap.ts               storage probe, settings load, quality detect, content registry
+    sim/ ✓                         PURE: no three/react/tone/zustand/DOM/Date/Math.random
+      rng.ts ✓                     sfc32, serializable RngState [4×u32], seedRng (splitmix32)
+      content.ts ✓                 Content interface injected into every sim function
+      stats.ts ✓ progression.ts ✓ types.ts ✓
+      battle/engine.ts ✓           createBattle, openingEvents, resolveTurn, applyReplace, capture math
+      battle/ai.ts ✓               chooseAiAction(c, s) via aiView() projection + separate rngAI stream
+      battle/types.ts ✓            BattleState, BattleSetup, Action, BattleEvent union
+      battle/battleMachine.ts      battle state machine (pure reducer, 1.5)
+      world/encounters.ts, quests.ts, clock.ts
     data/
-      content/*.json               creatures, moves, types, items, encounters, zones, quests, dialogue, trainers, progression
-      schemas/*.ts                 zod schemas, one per file; exported inferred types
-      validate.ts                  schema + cross-reference validation (ids exist, learnsets reference moves, ...)
-      index.ts                     typed, frozen, validated content registry (Object.freeze deep in dev)
-    world/                         overworld presentation (R3F)
-      ZoneScene.tsx                driven by ZoneSpec; mounts terrain, water, vegetation, props, actors, sensors
-      terrain/  heightfield.ts (pure, worker-safe), TerrainMesh.tsx, terrainMaterial.ts
-      water/    WaterSurface.tsx, waterMaterial.ts, normalNoise.ts
-      vegetation/ scatter.ts (pure, worker-safe), VegetationLayer.tsx, windChunk.glsl.ts
-      props/    procedural prop builders (rocks, fences, houses, signposts, trial buildings, field-action objects)
-      actors/   TrainerController.tsx, FollowerCreature.tsx, WildCreature.tsx, NpcActor.tsx, wildAi.ts, navGrid.ts
-      camera/   ThirdPersonCamera.tsx, BattleCameraDirector.ts, shots.ts
-      lighting/ SunRig.tsx, dayNight.ts, fog.ts
-      weather/  RainField.tsx, SnowField.tsx, FogBanks.tsx
-      post/     PostStack.tsx
-      battle/   BattleStage.tsx, BattlePresenter.ts (timeline), vfx/*
-      workers/  zoneGen.worker.ts (heightfield + scatter + navgrid)
+      content/*.json ✓(types, moves, items, families; more to come)
+      schemas/*.ts, validate.ts, index.ts
+    world/
+      zoneTypes.ts ✓               ZoneSpec / TerrainSpec (data contract)
+      terrain/heightfield.ts ✓     analytic height fn, grid, sampleGrid, slopeAt (pure, worker-safe)
+      terrain/TerrainMesh.tsx, terrainCollider.ts, terrainMaterial.ts
+      cave/caveShell.ts            ceiling shell + rim walls (D17)
+      water/, vegetation/, props/ (kit builders), vista/
+      actors/ TrainerController.tsx, FollowerCreature.tsx, WildCreature.tsx, wildAi.ts, navGrid.ts
+      camera/ ThirdPersonCamera.tsx, BattleCameraDirector.ts
+      lighting/ SunRig.tsx, dayNight.ts, fog.ts, mute.ts (Damper desaturation)
+      weather/, post/PostStack.tsx, battle/BattleStage.tsx, battle/BattlePresenter.ts, battle/vfx/
+      workers/zoneGen.worker.ts    grid + scatter + navgrid off the main thread
       resources.ts                 ResourceScope (dispose tracking)
-    creatures/
-      contract.ts                  CreatureBuilder types (section 4.1)
-      registry.ts                  speciesId -> builder (lazy import per family chunk)
-      primitives/                  capsule, lathe profiles, tapered tube, ear/horn/fin/wing generators, merge helpers
-      materials/                   material library (fur, scale, shell, skin, glow, eye), rim-light chunk
-      face/                        face atlas painter (canvas), FaceRig
-      anim/                        clip runtime, blend layers, standard clip library, clip events
-      species/f01/c01.ts ... f10/c30.ts   30 bespoke builders + per-family motif helpers
-      lod.ts, cache.ts             LOD tiers, ref-counted model cache
-      trainers/                    trainer/NPC builders (same contract; humanoid part set)
-    ui/                            React DOM overlays only; the encyclopedia viewer places a drei <View> tracking a DOM rect (8.1), its only R3F usage
-      screens/ Title, Hud, Dialogue, BattleUi, PartyMenu, Bag, Storage, Encyclopedia, Map, Journal, Settings, Shop, Results, Evolution
-      input/   InputManager.ts, keyboard.ts, pointer.ts, touch.ts, gamepad.ts, contexts.ts
-      components/, theme/, i18n/strings.en.json
-      perf/    PerfOverlay.tsx
-    audio/
-      AudioDirector.ts, MusicDirector.ts, sfx.ts, cries.ts (param synthesis), buses.ts, songs/*
-    persistence/
-      saveSchema.ts                zod envelope + payload schemas per version
-      migrations.ts                v1->v2->... chain
-      storage.ts                   localStorage adapter with probe, quota handling
-      saveManager.ts               atomic write, load with recovery, export/import
-      checksum.ts                  FNV-1a 32-bit over canonical JSON
-    state/
-      appStore.ts                  app machine state
-      gameStore.ts                 COMMITTED game state (the only thing saved)
-      sessionStore.ts              volatile exploration state (zone runtime, encounter lock, wild roster)
-      battleStore.ts               sim BattleState + presenter "displayed" state
-      settingsStore.ts             settings (saved under its own key)
-      selectors.ts
-    bench/                         scripted traversal/battle bots, metric collector (URL-flag gated)
-    tools/                         silhouette/face capture scenes; URL-flag gated, lazy-imported chunk (never in the entry chunk)
-  tests/
-    unit/sim/**, unit/progression/**, unit/persistence/**, unit/creatures/** (builder contracts in node with three, no WebGL)
-    data/validate.test.ts         runs data validator over content/
-    arch/boundaries.test.ts       import-graph rule checks (1.2)
-    fixtures/saves/v1.json ...    frozen historical saves for migration tests
-    fixtures/battles/*.json       seeded battle scripts + expected event logs (golden)
-    smoke/*.spec.ts               Playwright
-    tools/silhouettes.spec.ts, tools/characterGate.spec.ts
-  scripts/check-bundle.mjs         gzip size check against budgets
+    creatures/ ✓
+      assemble.ts ✓                declarative part-table assembler → CreatureModel
+      primitives.ts ✓              geometry helpers, lathe profiles, segs()
+      materials.ts ✓               presets + shared rim chunk (injectRim, rimUniforms)
+      face.ts ✓                    8-state eye atlas + 4-state mouth atlas, FaceRig
+      anim.ts ✓                    tag-driven Animator (time-based)
+      registry.ts ✓                import.meta.glob('./species/c*.ts') → SPECIES_VISUALS
+      species/c01.ts ✓ … c30.ts    one bespoke SpeciesVisual per species
+      characters/                  humanoid kit builder + named-character specs
+      cache.ts, lod.ts
+    ui/ input/input.ts ✓, screens/*, components/*, strings.en.json, perf/PerfOverlay.tsx
+    ui/theme.css ✓
+    audio/ AudioDirector.ts, MusicDirector.ts, sfx.ts, cries.ts, buses.ts, songs/*
+    persistence/ ✓ saveManager.ts, saveTypes.ts, migrations.ts, validate.ts
+    state/ settingsStore.ts ✓, appStore.ts, gameStore.ts, sessionStore.ts, battleStore.ts
+    tools/Tools.tsx ✓              dev/QA-only viewer, sheet, silhouettes (11.3)
+    bench/                         URL-flag bots and metric collector
+  tests/ unit/ ✓, fixtures/saves/ ✓, data/, arch/, smoke/, tools/
+  scripts/ shot.mjs ✓, extract-systems.py ✓, validate-data.ts, check-bundle.mjs, gate/
 ```
 
-### 1.2 Dependency rules, enforced by `tests/arch/boundaries.test.ts`
+### 1.2 Dependency rules (enforced by `tests/arch/boundaries.test.ts`, a regex import scan, D24)
 
-The test parses import statements with a regex over `src/**`. Any violation fails CI.
-
-| Module | May import | Must NOT import |
+| Module | May import | Must not import |
 |---|---|---|
-| `sim/` | `sim/`, type-only from `data/schemas` | three, react, @react-three/*, tone, zustand, `world/`, `ui/`, `audio/`, `persistence/`, `state/`. It also must not reference the globals `window`, `document`, `Date`, `Math.random` or `performance` (checked by regex). |
-| `data/` | zod, `data/` | everything else |
-| `persistence/` | `data/schemas`, `sim/` types, zod | three, react, tone |
-| `creatures/` | three, `creatures/`, `data/` types | react, rapier, `sim/`, `state/` |
-| `world/` | three, R3F, drei, rapier, postprocessing, `creatures/`, `state/`, `sim/` (read-only calls), `data/` | `persistence/` (it saves through `state/` actions only) |
-| `ui/` | react, `state/`, `data/`, `sim/` pure helpers (e.g. damage preview text) | rapier, tone (it plays sounds through `audio/` facade functions only) |
+| `sim/` | `sim/` | three, react, @react-three/*, tone, zustand, zod, `world/`, `ui/`, `audio/`, `persistence/`, `state/`; the globals `window`, `document`, `Date`, `Math.random`, `performance` |
+| `data/` | zod, `data/`, types from `sim/types` | everything else |
+| `persistence/` | zod, `sim/` types, `data/` types | three, react, tone |
+| `creatures/` | three, `creatures/` | react, rapier, `sim/`, `state/` (tools and world wrap creatures in React) |
+| `world/` | three, R3F, drei, rapier, postprocessing, `creatures/`, `state/`, `sim/` (pure calls), `data/` | `persistence/` (it saves only through `state/` actions) |
+| `ui/` | react, `state/`, `data/`, `sim/` pure helpers | rapier, tone (sound only through the `audio/` facade) |
 | `audio/` | tone, `state/` (subscribe), `data/` | three, react |
 | `state/` | zustand, `sim/`, `data/`, `persistence/` | three, tone |
 
 ### 1.3 Data flow and the sim/presentation boundary
 
 ```
- data/content/*.json --zod+xref validate--> ContentRegistry (frozen)
-                                               |
-         +-------------------------------------+-------------------------+
-         v                                                               v
-   sim/* pure functions  <-- decisions --  state/ stores  --subscribe-->  world/ (R3F), ui/ (DOM), audio/
-         |                                   ^     |
-         | returns {nextState, events[]}     |     +-- commit() --> persistence/saveManager (checkpoints only)
-         +-----------------------------------+
+ data/content/*.json --zod + xref validate--> Content (frozen, injected)
+                                                  |
+      sim/* pure functions  <-- actions --  state/ stores  --subscribe-->  world/ (R3F), ui/ (DOM), audio/
+      returns {state, events[]}  ------------->  |   commit(checkpoint) --> persistence/SaveManager
 ```
 
-The battle sim API lives in `sim/battle/engine.ts`. It is pure and synchronous, and it is fully deterministic given the content registry, the setup and the RNG state.
+**Implemented battle API** (`src/sim/battle/engine.ts`, `ai.ts`):
 
 ```ts
-createBattle(setup: BattleSetup, seed: number): BattleState      // setup: player party snapshot, opponent (wild|trainer), zone attunement, weather, difficulty
-chooseAiAction(state: BattleState): Action                        // reads only the opponent side's view; never the pending player action
-resolveTurn(state: BattleState, player: Action, ai: Action): { state: BattleState; events: BattleEvent[] }
-applyDecision(state: BattleState, d: Decision): { state; events } // forced switch, move-replace prompt, nickname etc.
+createBattle(c: Content, setup: BattleSetup, seed: number): BattleState
+openingEvents(c, s): { state; events }                       // send-outs + entry traits
+chooseAiAction(c, s): { action: Action; rngAI: RngState }    // called BEFORE the player's command
+resolveTurn(c, s, playerAction: Action, aiAction: Action): { state; events }
+applyReplace(c, s, {kind:'switch', to} | {kind:'flee'}): { state; events }
+captureValue / shakeThreshold / playerPartyAfter(s)
 ```
 
-`BattleState` holds `rngState` (four uint32 values), so replaying from a snapshot is exact. The engine never mutates its input. It uses structural copying, and the test suite deep-freezes inputs.
+Properties of this API:
+- `BattleState` carries `rng` and `rngAI` as two independent sfc32 streams. The AI stream is seeded with `seed ^ 0x9E3779B9`.
+- The AI reads only `aiView()`. That view is a sanitized copy: the player's bench is hidden, and potentials and temperament are normalised. The AI is called before the player command exists, so it can never read the queued action (systems §6, §13).
+- Rendering, audio and UI never draw from either stream.
+- The engine does not mutate its input.
+- **Golden logs**: `tests/fixtures/battles/*.json` holds `{seed, setup, actions[]} → events[]`. The logs must be reproduced exactly.
 
-`BattleEvent` is a discriminated union. Every event has a `seq` number and a `side`:
-`turnStart, actionOrder, switchOut, switchIn, moveUsed, moveMissed, moveFailed, damage{target, amount, hpBefore, hpAfter, effectiveness, crit, attuned}, heal, statusApplied, statusCured, statusTick, statChange, weatherStart, weatherTick, weatherEnd, traitTriggered, itemUsed, captureAttempt{deviceTier, shakes:0..3, success}, fleeAttempt{success}, faint, forcedSwitchRequired{side}, xpGain, levelUp{newStats}, moveLearnPrompt{moveId}, moveLearned, evolutionQueued{from,to}, rewardGranted, message{key, params}, battleEnd{outcome: 'win'|'loss'|'fled'|'captured'}`.
+`BattleEvent` uses the discriminator `t`. The implemented union includes: `turnStart, sendOut, recall, moveUsed{anim}, moveMissed, moveFailed, blocked, noTarget, damage{hpBefore,hpAfter,eff,crit,attuned,source}, heal, statusApplied, statusCured, statusBlocked, cantAct, wokeUp, dizzyApplied, dizzyEnd, statChange, weatherStart, weatherEnd, traitTriggered, itemUsed, captureAttempt{shakes,success}, captureDeflected, fleeAttempt, faint, xpGain, levelUp, moveLearned, moveLearnPending, evolutionQueued, needReplace, weary, message, battleEnd`.
 
-The **BattlePresenter** (`world/battle/BattlePresenter.ts`) consumes `events[]` and builds a **timeline** of cues. Each cue has a start time, a duration and a track: `camera`, `anim`, `vfx`, `sfx`, `hpBar`, `text`, `face`. A mapping table in the presenter covers each event type. For example, `moveUsed` becomes: a camera shot on the attacker (0.35 s), then the attacker's `attack` clip. The clip's `impact` event at normalized time `t_i` triggers the move's VFX and SFX. The following `damage` event is scheduled at that impact time.
+The presentation layer also expects these events. Systems v2 owns adding them:
+- `phaseChange{attunedType}` for the two-phase Odile battle (D22)
+- `dizzySelfHit`
 
-Timing rules:
-- Cue durations are in seconds of presentation time. The "text speed" and "battle animations: full/reduced/off" settings scale them. Reduced motion replaces camera cuts that move with cross-dissolves and holds.
-- The presenter drives `battleStore.displayed`, which holds HP bars, status icons and the visible creature. It does this with `applyEventToDisplayed(displayed, event)`, a **pure** reducer.
-- Invariant: applying all events of a turn to the previous displayed state gives exactly the sim's post-turn values for HP, status, active creature and faint flags. A property test runs this over 1,000 seeded random battles.
-- Skipping or fast-forwarding a timeline applies the remaining events instantly through the same reducer, so presentation can never drift from the sim.
-- The presenter never calls sim functions. Only the battle machine (1.5) does.
+Internal names stay unchanged. Display strings come from `strings.en.json`: statuses per D8, and "rings" instead of shakes per D9.
 
-Exploration uses the same boundary. The sim decides encounter species and level (`sim/world/encounters.ts`, seeded by `gameStore.rngState`). Rendering decides only where and how a wild creature moves around.
+**BattlePresenter** (`world/battle/BattlePresenter.ts`) turns `events[]` into a **timeline** of cues. Each cue has a start, a duration and a track: `camera | anim | vfx | sfx | hpBar | text | face`.
 
-### 1.4 App state machine
+Timing:
+- Each `moveUsed.anim` (systems §9.1: 16 ids) maps to the attacker's species clip and a generic, type-tinted VFX envelope.
+  - `melee_lunge`, `melee_sweep`, `charge_rush`, `dash_through`, `multi_hit_flurry` and `ground_wave` use the `attack` clip.
+  - `projectile_*`, `beam`, `burst_area` and `rain_down` use the `special` clip.
+  - `debuff_cloud`, `aura_self`, `shield`, `heal_glow` and `weather_call` use the `status` clip.
+- **D15: species clip durations are authoritative.** The move `anim` owns root travel across the stage and the VFX envelope. The species clip animates in place.
+- The presenter schedules the damage/HP cue at the clip's **contact event** (40–55% of the clip). It stretches the move VFX so its impact coincides with that contact, rather than bending the clip to systems' `impactMs`. `impactMs` is used only when a species has no clip for that slot.
+- "Battle speed: Normal / Fast ×1.35" scales clips and cues together, so timing ratios are preserved.
+- The presenter updates `battleStore.displayed` only through the pure reducer `applyEventToDisplayed(displayed, event)`.
+- **Invariant:** after the last event of a turn, `displayed` equals the sim state for HP, status, active creature and faint flags. A property test checks this over 1,000 seeded battles.
+- Skip or fast-forward applies the remaining events through the same reducer.
+- The presenter never calls the sim.
 
-The app machine is a hand-written, table-driven reducer: `appTransition(state, event) -> state`. An illegal transition throws in dev. In production it logs and is ignored. The unit test enumerates every state and event pair against the table. Three states beyond the brief's list are **additions**: `boot`, `zoneLoading` and `whiteout`.
+### 1.4 App state machine (`app/appMachine.ts`, table-driven pure reducer)
 
-| State | Entry actions | Events -> next state |
+An illegal transition throws in dev and is logged and ignored in production. A unit test enumerates every state × event pair.
+
+| State | Entry actions | Events → next |
 |---|---|---|
-| `boot` | storage probe, settings load, quality detect, content validation (dev: throws; prod: pre-validated at build) | `BOOT_OK` -> `title`; `BOOT_FATAL` -> `title` with an error banner (the game can still be played without saves) |
-| `title` | title scene, music after first gesture | `NEW_GAME` (confirm if a save exists) -> `zoneLoading`; `CONTINUE` -> `zoneLoading`; `OPEN_SETTINGS` stays in `title` (a UI sub-view) |
-| `zoneLoading` | fade out (250 ms), dispose the old zone scope, generate the new zone (worker), `compileAsync`, spawn the player at the entry spawn, **checkpoint save** (10.4) | `ZONE_READY` -> `exploration`; `ZONE_FAILED` -> `exploration` in the previous zone, with an error toast |
-| `exploration` | input context `explore`; wild AI active; the game clock runs | `TALK` / `SIGN` / `TRIGGER_CUTSCENE` -> `dialogue`; `WILD_CONTACT` or `TRAINER_SIGHT` -> `battleTransition`; `OPEN_MENU` -> `menu`; `EXIT_ZONE` -> `zoneLoading`; `FIELD_ACTION` -> `dialogue` (a scripted sequence); `EVOLUTION_READY` (from item use) -> `evolution` |
-| `dialogue` | input context `dialogue`; wild AI frozen; the clock is paused | `DIALOGUE_END` -> `exploration`; `DIALOGUE_BATTLE` -> `battleTransition`; `DIALOGUE_SHOP` / `DIALOGUE_HEAL` -> `menu` (shop/heal sub-view) |
-| `battleTransition` | lock encounters; freeze all actors; pick the battle stage (2.7); screen wipe (0.8 s, or a 0.3 s dissolve with reduced motion); build battle models; `createBattle` | `BATTLE_READY` -> `battle` |
-| `battle` | battle machine (1.5) owns input | `BATTLE_EXIT{outcome}`: if the evolution queue is not empty -> `evolution`; if outcome is `loss` -> `whiteout`; otherwise -> `exploration` (after the **checkpoint save**) |
-| `evolution` | full-screen evolution presentation in the current zone; can be cancelled for battle-triggered evolutions if the Systems Designer allows | `EVOLUTION_DONE` (commit + **save**): if the queue has more -> `evolution`; otherwise -> `exploration` |
-| `whiteout` | fade to black, heal the party, apply the defeat penalty (Systems), warp to the last healing point | `WARPED` -> `zoneLoading` |
-| `menu` | input context `menu`; the world is paused (`frameloop` stays `always` for the menu 3D viewer, and the sim clock is paused) | `CLOSE_MENU` -> `exploration`; `FAST_TRAVEL` -> `zoneLoading`; `USE_EVOLUTION_ITEM` -> `evolution` |
+| `boot` | storage probe, settings, quality detect, content registry | `BOOT_OK` → `title`; `BOOT_FATAL` → `title` + error banner (playable without saves) |
+| `title` | 3D backdrop; audio starts on first gesture | `NEW_GAME` (with a confirmation if a save exists) → `zoneLoading`; `CONTINUE` → `zoneLoading` |
+| `zoneLoading` | fade 250 ms; dispose the old ResourceScope; worker generation; `compileAsync`; spawn at the entry spawn; **checkpoint save** | `ZONE_READY` → `exploration`; `ZONE_FAILED` → previous zone + toast |
+| `exploration` | input context `explore`; wild AI on; clock runs | `TALK`/`SIGN`/`CUTSCENE`/`FIELD_ACTION` → `dialogue`; `WILD_CONTACT`/`TRAINER_SIGHT` → `battleTransition`; `OPEN_MENU` → `menu`; `EXIT_ZONE` → `zoneLoading`; `SCRIPTED_MOVE` (Gust updraft, ferry) → `scripted` |
+| `scripted` | the KCC is disabled and the player follows an authored path; **saves blocked** | `SCRIPTED_DONE` → `exploration` (commit if the move changed state) |
+| `dialogue` | wild AI frozen, clock paused | `DIALOGUE_END` → `exploration`; `DIALOGUE_BATTLE` → `battleTransition`; `DIALOGUE_SHOP`/`HEAL` → `menu` |
+| `battleTransition` | encounter lock; freeze actors; choose a stage (2.7); wipe 0.8 s (0.3 s dissolve under reduced motion); build battle models; `createBattle` | `BATTLE_READY` → `battle` |
+| `battle` | battle machine owns input | `BATTLE_EXIT{outcome}`: evolution queue not empty → `evolution`; `loss` → `whiteout` (except the Rival 1 story rule, D20); otherwise commit + save → `exploration` |
+| `evolution` | Crescendo presentation in place | `EVOLUTION_DONE` (commit + save) → next queued evolution or `exploration` |
+| `whiteout` | fade, heal, penalty, warp to the **last healing point visited** | `WARPED` → `zoneLoading` |
+| `menu` | world paused; the encyclopedia `<View>` may render | `CLOSE_MENU` → `exploration`; `FAST_TRAVEL` → `zoneLoading`; `USE_EVOLUTION_ITEM` / `PARTY_EVOLVE` → `evolution` |
 
-The machine is the only path that changes `appStore.mode`. Components render according to that mode and never set it directly.
-
-### 1.5 Battle state machine
-
-`sim/battle/battleMachine.ts` is also a pure reducer, and it wraps the engine. `intro` and `prompt` are additions to the brief's list.
+### 1.5 Battle state machine (`sim/battle/battleMachine.ts`)
 
 | State | Meaning | Transitions |
 |---|---|---|
-| `intro` | send-out presentation | `INTRO_DONE` -> `select` |
-| `select` | player picks Fight / Bag / Switch / Run (a submenu for moves, targets or items). **The AI action is computed after the player commits, from `chooseAiAction(state)`. That function only sees public state and the AI's own side, and it receives no player action.** | `COMMIT(action)` -> `resolve` |
-| `resolve` | synchronous `resolveTurn` produces events (0 frames) | always -> `animate` |
-| `animate` | presenter plays the timeline | `TIMELINE_DONE`: if an event `forcedSwitchRequired{player}` is pending -> `forcedSwitch`; if `captureAttempt.success` -> `capture`; if `battleEnd` -> `end`; otherwise -> `select`. `PROMPT` (move-learn / level-up choice) -> `prompt` |
-| `prompt` | modal decision mid-timeline (e.g. replace a move) | `DECIDE(d)` -> `applyDecision` -> back to `animate` (resume the timeline) |
-| `forcedSwitch` | the player's active creature fainted; they must choose a non-fainted party member. Run is disabled here. If no member is left, the sim already emitted `battleEnd{loss}`. | `COMMIT(switch)` -> `resolve` (the switch-in resolves with no opposing action) |
-| `capture` | post-capture flow: nickname (optional), then party (if under 6) or storage placement (full storage: see Systems/World; the capture device is not consumed if storage is full, and capture is not offered) | `CAPTURE_DONE` -> `end` |
-| `end` | results: XP distribution, level-ups, learn prompts, rewards, evolution queue | `RESULTS_DONE` -> emit `BATTLE_EXIT{outcome}` to the app machine |
-
-Test obligation: golden event logs. `tests/fixtures/battles/*.json` holds seed, setup, action script and expected `events[]`. The sim must reproduce each log byte for byte after `JSON.stringify`.
+| `intro` | `openingEvents` presentation | `INTRO_DONE` → `select` |
+| `select` | `chooseAiAction` has already run on `AIView` + `rngAI`. The player now picks Moves / Satchel / Swap / Retreat (display names per CD; internal `move/item/switch/run`). | `COMMIT(action)` → `resolve` |
+| `resolve` | synchronous `resolveTurn` | → `animate` |
+| `animate` | presenter timeline | `TIMELINE_DONE`: `needReplace{player}` → `forcedSwitch`; `captureAttempt.success` → `capture`; `battleEnd` → `end`; otherwise → `select`. `PROMPT` (`moveLearnPending`) → `prompt` |
+| `prompt` | move-replacement modal | `DECIDE` → back to `animate` |
+| `forcedSwitch` | pick a non-fainted member; wild battles also offer Flee (`applyReplace`) | `COMMIT` → `animate` |
+| `capture` | nickname (optional) → party if under 6 → storage if under 300 → **both full: mandatory release prompt** (D18). The pre-throw confirmation happens in `select` when `setup.storageFull`. | `CAPTURE_DONE` → `end` |
+| `end` | XP, level-ups, learn prompts, rewards, evolution queue | `RESULTS_DONE` → `BATTLE_EXIT` |
 
 ### 1.6 Stores (zustand 5)
 
-- `gameStore` is the **committed** state and the only thing serialized. It holds: player profile, party (instance ids), instances by id, storage, inventory, money, flags, quest states, encyclopedia seen/caught sets, the current zone plus entry-spawn id, the game clock value, `rngState`, playtime seconds and settings version. Every mutation goes through named actions (`commitBattleResult`, `commitCapture`, `commitEvolution`, `commitPurchase`, `enterZone`, ...). Each action states whether it is a checkpoint (10.4).
-- `sessionStore` is volatile and never saved. It holds the wild roster (spawned ids, positions), the encounter lock, the current battle-stage choice, loading progress and the transient field-action state.
-- `battleStore` holds the sim `BattleState`, the machine state, `displayed`, the timeline cursor and pending prompts. It is discarded when the battle ends.
-- `settingsStore` is persisted under its own key (10.1), and a write happens immediately on change (debounced by 300 ms).
-- `appStore` holds the machine state plus the input context stack.
-
-Per-frame rule: **nothing that changes every frame goes through React state.** Player position, camera, input axes and animation time live in mutable refs or plain objects owned by R3F components. Code reads them in `useFrame` via `store.getState()`. The HUD reads position at 4 Hz for the minimap through a throttled transient subscription (`subscribeWithSelector`).
+- `gameStore` holds **committed** state only. It is exactly `SavePayload` (`persistence/saveTypes.ts`). All mutations go through named actions (`commitBattleResult`, `commitCapture`, `commitEvolution`, `commitPurchase`, `enterZone`, `solveNode`, …), and each declares whether it is a checkpoint (10.4).
+- `sessionStore` is volatile: wild roster, encounter lock, stage, loading progress.
+- `battleStore` holds `BattleState`, the machine state, `displayed`, the timeline cursor and prompts.
+- `settingsStore` ✓ is persisted under `crpg:settings` with a 300 ms debounce.
+- `appStore` holds the machine state and the input-context stack.
+- **Per-frame rule:** positions, camera, input axes and animation time never go through React state. `useFrame` reads `getState()`. The HUD samples position at 4 Hz.
 
 ---
 
 ## 2. Scene organization
 
-### 2.1 Canvas
+### 2.1 One Canvas
 
-There is exactly one `<Canvas>` for the whole app. It is mounted once and never remounted, because remounting loses the WebGL context and all compiled programs.
-
-```
-<Canvas
-  gl={{ antialias: profile === 'mobile', powerPreference: 'high-performance', stencil: false, depth: true, alpha: false }}
-  dpr={[1, profile.dprCap]}
-  shadows={profile.shadows ? 'soft' : false}
-  frameloop={appVisible ? 'always' : 'never'}
-  camera={{ fov: 55, near: 0.1, far: profile.drawDistance }}
-  flat={false}>
-  <SceneRouter/>   // title backdrop | ZoneScene (+ battle staging) | evolution stage
-  <PostStack/>     // section 5.4; not mounted on Mobile
-  {perf && <PerfProbe/>}
+```tsx
+<Canvas gl={{ antialias: Q.antialias, powerPreference: 'high-performance', stencil: false, alpha: false }}
+        dpr={[1, Q.dpr]} shadows={Q.shadows ? 'soft' : false}
+        frameloop={visible ? 'always' : 'never'} camera={{ fov: 55, near: 0.1, far: Q.drawDistance }}>
+  <SceneRouter/>  <PostStack/> (not mounted on Mobile)  {perf && <PerfProbe/>}
 </Canvas>
 ```
 
-`antialias` is a context-creation flag. It is chosen at boot from the detected profile. Switching between Mobile and the other profiles in Settings shows "applies after restart" for AA only. Every other setting applies live.
+The Canvas is mounted once and never remounted. `antialias` is a context-creation flag: a change between Mobile and the other profiles shows "applies after restart", while every other setting applies live. The encyclopedia viewer uses drei `<View>` inside the same context.
 
-### 2.2 ZoneScene (data-driven)
+### 2.2 ZoneScene (driven by `ZoneSpec`)
 
-```
-<ZoneScene zone={ZoneSpec} key={zone.id}>              // key forces full unmount on zone change
-  <SunRig/> <SkyDome/> <ZoneFog/>
-  <Physics timeStep={1/60} interpolate updateLoop="independent" gravity={[0,0,0]}>  // gravity 0: no dynamic bodies need it; the KCC applies its own gravity
-    <TerrainCollider/>                                 // heightfield, created imperatively (3.1)
-    <StaticPropColliders/>                             // cuboid/cylinder/convex per prop (no trimesh except buildings)
-    <ZoneSensors/>                                     // exits, triggers, field-action targets, water volumes
-    <TrainerController/>                               // kinematic-position body + KCC
+```tsx
+<ZoneScene zone={spec} key={spec.id}>
+  <LightRig/> <SkyDome/> <ZoneFog/> <VistaLayer/>
+  <Physics timeStep={1/60} interpolate updateLoop="independent" gravity={[0,0,0]} paused={mode!=='exploration'&&mode!=='scripted'}>
+    <TerrainCollider/>         {/* trimesh from the render grid (D25) */}
+    <PropColliders/>           {/* cuboid/cylinder; trimesh only for kit pieces with overhangs */}
+    <CaveShellCollider/>       {/* cave only (D17) */}
+    <ZoneSensors/>             {/* exits, triggers, resonance nodes, trainer sight */}
+    <TrainerController/>
   </Physics>
-  <TerrainMesh/> <WaterSurface/> <Vegetation/> <PropsVisual/>
-  <FollowerCreature/> <WildCreatures/> <Npcs/>
-  <Weather/>
-  <ThirdPersonCamera/> or <BattleCameraDirector/>
-  <BattleStage/>  (mounted in battleTransition/battle only)
+  <TerrainMesh/> <Water/> <Vegetation/> <Props/> <Follower/> <WildCreatures/> <Npcs/> <Weather/>
+  <ThirdPersonCamera/> | <BattleCameraDirector/>  <BattleStage/>
 </ZoneScene>
 ```
 
-There is one Rapier world per zone. `<Physics>` sits under the zone key, so it is created with the zone and destroyed with it. Rapier WASM is initialized once (the first `<Physics>` mount awaits `init()` from the lazy chunk). During `battle`, `<Physics paused>` is set. Physics is overworld-only, per the brief. Battles use no physics.
+There is one Rapier world per zone, which is created and destroyed with the zone key. It exists only for overworld movement: battles use no physics. The Rapier chunk is lazy-loaded (6.3).
 
-**Collision groups.** 16-bit membership and filter masks, built with `interactionGroups(membership, filter)`:
+Collision groups:
 
-| Bit | Group | Collides with (filter) |
+| Bit | Group | Filter |
 |---|---|---|
 | 0 | TERRAIN | PLAYER, CAMERA_PROBE |
 | 1 | STATIC_PROP | PLAYER, CAMERA_PROBE |
 | 2 | PLAYER | TERRAIN, STATIC_PROP, BLOCKER, SENSOR |
-| 3 | BLOCKER (invisible walls, zone bounds, field-action gates) | PLAYER |
-| 4 | SENSOR (exits, triggers, water volume, trainer sight cones) | PLAYER |
-| 5 | CAMERA_PROBE (query only) | TERRAIN, STATIC_PROP |
+| 3 | BLOCKER | PLAYER |
+| 4 | SENSOR | PLAYER |
+| 5 | CAMERA_PROBE (query only) | TERRAIN, STATIC_PROP, cave ceiling |
 
-Creatures (follower, wild, NPCs) have **no colliders**. They are positioned kinematically from sampling functions (2.5, 2.6), so they can never block or push the player. NPCs that must block (for example a guard) get a BLOCKER cuboid.
+Creatures and NPCs have no colliders. NPCs that must block get a BLOCKER cuboid.
 
 ### 2.3 Trainer character controller
 
-- Body: `RigidBody type="kinematicPosition"` with `CapsuleCollider args={[0.45, 0.35]}` (half-height 0.45 m plus radius 0.35 m, total height 1.6 m).
-- Controller setup at mount: `controller = world.createCharacterController(0.02)`. Then:
-  - `setUp({x:0,y:1,z:0})`
+- Body: `kinematicPosition` with `CapsuleCollider [0.45, 0.35]` (1.6 m tall).
+- Controller: `createCharacterController(0.02)`, then:
+  - `setUp(+Y)`
   - `setMaxSlopeClimbAngle(45°)`
   - `setMinSlopeSlideAngle(50°)`
   - `setSlideEnabled(true)`
-  - `enableAutostep(0.35, 0.2, false)`. Steps up to 35 cm. Stairs in data must have riser ≤ 0.3 m and tread ≥ 0.25 m.
-  - `enableSnapToGround(0.3)`. Keeps the player stuck to terrain on descents.
+  - `enableAutostep(0.35, 0.2, false)`
+  - `enableSnapToGround(0.3)`
   - `setApplyImpulsesToDynamicBodies(false)`
-- Step (runs in `useBeforePhysicsStep`, fixed 1/60 s):
-  1. Read `InputFrame.move` (a vec2 of length ≤ 1). Rotate it by the camera yaw to get the desired horizontal velocity. Walk speed is 3.4 m/s and run speed is 6.2 m/s. Acceleration is 24 m/s² and deceleration 30 m/s².
-  2. Vertical velocity: `vy = grounded ? -1.0 : max(vy - 22*dt, -30)`. The small constant -1 while grounded helps snap-to-ground.
-  3. `controller.computeColliderMovement(collider, v*dt, QueryFilterFlags.EXCLUDE_SENSORS, playerFilterGroups)`.
-  4. `body.setNextKinematicTranslation(pos + controller.computedMovement())`. `grounded = controller.computedGrounded()`.
-  5. Facing: the visual root slerps toward the move direction at 14 rad/s. It does not rotate the capsule.
-- No jump in the baseline. Vertical traversal comes from terrain, stairs, ledges (one-way drop-down volumes defined in data) and field actions (Creative Director). This removes a whole class of out-of-bounds bugs.
+- Per fixed step (`useBeforePhysicsStep`, 1/60 s):
+  - Movement is the input vector rotated by camera yaw. Walk is 3.4 m/s and run 6.2 m/s, with acceleration 24 m/s² and deceleration 30 m/s².
+  - Vertical velocity is -1 while grounded; otherwise it integrates at 22 m/s² down to -30.
+  - `computeColliderMovement(collider, v·dt, EXCLUDE_SENSORS, groups)`, then `setNextKinematicTranslation`.
+  - The visual yaw slerps at 14 rad/s.
+- **No jump.** Vertical traversal is terrain, stairs, one-way drop ledges and scripted Resonance moves (Gust updraft).
 - Safety nets:
-  - If `y < zone.killY` (default terrain min minus 10 m), teleport to the last grounded position more than 1 m from any cliff edge (kept in a 2 s ring buffer). The same applies if the player stays ungrounded for more than 3 s.
-  - The zone boundary is a ring of BLOCKER cuboids generated from the zone bounds polygon.
-- Visual: the trainer model (a `creatures/trainers` builder) is a child with a locomotion blend (idle/walk/run by speed) and footstep events feeding `audio/sfx`. The surface type comes from the terrain material weights at the feet.
+  - Below `killY`, or ungrounded for more than 3 s: teleport to the last safe grounded point (2 s ring buffer, more than 1 m from edges).
+  - Zone bounds are enforced by rim walls in the height function, plus BLOCKER cuboids at exit mouths when a gate is closed.
 
 ### 2.4 Third-person camera with collision
 
-- Rig state: `yaw`, `pitch` (clamped from -15° to +60°), `distance` (default 5.5 m, range 3 to 8 m via wheel or pinch), pivot = player position + (0, 1.45, 0) smoothed.
-- Input: mouse delta in pointer lock, right-drag without it, gamepad right stick at 180°/s, or touch drag on the right screen half. The multiplier comes from `settings.cameraSensitivity` (0.25 to 2.0), and invert-Y is an option.
-- Auto-recenter (optional setting, default on for gamepad and touch): after 1.5 s without camera input while moving, yaw eases toward the movement heading at 60°/s.
-- Collision, every frame:
-  - `world.castShape(pivot, identityRot, dirToDesired * desiredDistance, new Ball(0.25), 0, 1.0, true, undefined, CAMERA_PROBE_GROUPS, playerCollider)`.
-  - If there is a hit, `allowedDistance = max(0.8, hit.time_of_impact * desiredDistance - 0.1)`.
-  - When `allowedDistance < current`, snap in immediately so the view never goes through a wall. When it grows, ease out with `current += (target-current) * (1 - exp(-6 dt))`.
-  - If the pivot itself is inside geometry (a `castRay` up from the player finds a hit within 0.3 m), use a first-person-ish distance of 0.8.
-- Smoothing: pivot follow uses `1 - exp(-12 dt)` horizontally and `1 - exp(-8 dt)` vertically, which damps stair jitter. Yaw and pitch are not smoothed, so they stay responsive.
-- Occluders: vegetation and small props are not in CAMERA_PROBE. When they come between the camera and the player, they fade with a dithered alpha (a uniform per instance batch) instead of pulling the camera in.
+- Rig: yaw, pitch (clamped from -15° to 60°), distance 5.5 m (3 to 8), pivot at player + 1.45 m.
+- Input sources: mouse (pointer lock or right-drag), gamepad right stick at 180°/s, or touch drag. Sensitivity ranges 0.25 to 2.0, with invert-Y available.
+- Optional auto-recenter.
+- Collision:
+  - `world.castShape(pivot, identity, dir × desired, Ball(0.25), 0, 1, true, …, CAMERA_PROBE groups, playerCollider)`.
+  - Allowed distance is `max(0.8, toi × desired − 0.1)`.
+  - The camera snaps in immediately and eases out with `1 − exp(−6 dt)`.
+  - If the pivot is embedded, distance becomes 0.8.
+- Zone overrides (`ZoneSpec.camera`, optional): the cave and tunnels use max distance 3.5 m and FOV 60°.
+- Pivot smoothing: `1 − exp(−12 dt)` horizontally and `1 − exp(−8 dt)` vertically. Vegetation and small props dither-fade instead of pushing the camera.
 
-### 2.5 Follower creature (lead party member)
+### 2.5 Follower creature
 
-- Trail: the player's foot position is pushed into a ring buffer (capacity 128) every 0.2 m of horizontal travel. Each entry is `{pos, groundY, t}`.
-- Target: the point at arc length `followDistance` behind the newest breadcrumb. `followDistance = 1.2 + follower.bounds.radius * 1.5` (clamped from 1.5 to 4 m).
-- Motion: move along the polyline toward the target at `min(dist*3, playerSpeed*1.15)`. Y is lerped from breadcrumb `groundY`, because the path the player walked is known to be walkable. Facing follows the tangent. The locomotion clip is picked by speed.
-- No collider, no physics query. When the player stands still, the follower idles, turns toward the player at a distance under 1.2 m, and plays occasional idle flourish clips.
-- Teleport and poof (VFX puff, no sound spam) happen if it falls more than 12 m behind, if a zone loads, if a battle ends, or if the player teleports.
-- Hidden when the lead creature is fainted: the first non-fainted party member follows instead. If none are left, there is no follower.
-- Big creatures (bounds height over 2.5 m) use the same logic with a larger `followDistance`. They go semi-transparent while inside the camera's near cone (the same dither fade as occluders).
+- Trail: player foot positions every 0.2 m, in a ring of 128.
+- Target: arc length `followDistance = clamp(1.2 + 1.5·bounds.radius, 1.5, 4)` m behind the player.
+- Motion: speed `min(3·dist, 1.15·playerSpeed)`. Height is interpolated from the trail's `groundY`. There is no collider and no physics query.
+- The follower teleports with a puff when it is more than 12 m behind, on zone load, after a battle, or after a player teleport.
+- A fainted lead is replaced by the first non-fainted member.
+- Large floaters (for example c30) follow **aloft**: 3 m above and 5 m behind. Anything within 4 m of the camera dither-fades.
 
-### 2.6 Wild creature roaming AI
+### 2.6 Wild creatures (D21: 6 per zone on every profile)
 
-- **Nav grid**, generated in the zone worker: 1 m cells over the zone bounds. A cell is walkable if all of the following hold:
-  - terrain slope ≤ 32°
-  - height above the water level ≥ 0.15 m (aquatic species use the inverse mask, water-only)
+- **Cap:** `ZoneSpec.maxWild = 6` on all profiles, for fairness; the validator enforces it. Cost is controlled by animation LOD (4.7), not by count.
+- **Nav grid:** 1 m cells, generated in the worker. A cell is walkable if all of these hold:
+  - slope ≤ 32° (`slopeAt`)
+  - at least 0.15 m above water (the inverse for aquatic species)
   - no prop footprint
-  - not within 6 m of an exit sensor or an NPC
-  - inside at least one `wildRegion` polygon from zone data
+  - outside exclusion radii: 25 m from arrival points; 12 m from trainers, healing points, waystones, exit triggers, trial doors and pending scripted events
+  - inside a `wildRegions` circle
   
-  Cliff avoidance: a cell is also excluded if any 4-neighbour has a height difference over 1.2 m.
-- **Spawning**: the sim's `encounters.roll(zone, timePhase, weather, rng)` picks species and level. The presentation picks a walkable cell ≥ 20 m from the player and outside the camera frustum, using a presentation-only RNG, not the sim RNG. Max active wild creatures come from the profile (section 6). A respawn happens 15 to 30 s after one despawns.
-- **Behaviour**, per species temperament from `creatures.md`: `wander | curious | skittish | territorial`.
-  - Wander: pick a random walkable cell 4 to 10 m away within the region, walk there (straight line checked with a grid DDA; retry up to 3 times), then idle 2 to 6 s.
-  - Curious: approach the player within 10 m at walk speed.
-  - Skittish: flee to a cell more than 12 m away when the player is within 6 m and running.
-  - Territorial: patrol a 6 m radius around its spawn.
-  - Movement Y comes from `heightAt(x, z)` (bilinear on the same heightfield array as physics).
-- **Contact trigger**: a distance test each frame in `useFrame`, not a physics event: `horizontalDist(player, wild) < 0.35 + wild.bounds.radius*0.8` and `|dy| < 1.5`. It fires only if **all** of these hold:
-  - `appStore.mode === 'exploration'`
-  - `sessionStore.encounterLock === false`
-  - `now >= sessionStore.encounterCooldownUntil`
-  - the wild's `state !== 'fleeing' | 'despawning'`
-  - the player has moved ≥ 3 m since the last battle ended (the "grace distance")
-- **Single-encounter lock**: on the first valid contact, the code synchronously sets `encounterLock = true` in the same tick, before dispatching `WILD_CONTACT{wildId}`. All wild AI freezes, and the remaining contact checks in that frame see the lock. The lock clears only when `battle -> exploration` completes. At that point `encounterCooldownUntil = now + 3 s`, and the grace distance counter resets.
-- The engaged wild creature is removed after a defeat or capture. After Run, it plays a flee clip and despawns.
-- Test: a unit test simulates two wild creatures overlapping the player in the same frame and asserts exactly one `WILD_CONTACT`.
-- Trainers use the same lock. Their sight cones (sensor cylinders) raise `TRAINER_SIGHT`, which runs an approach animation and dialogue before `battleTransition`.
+  Cells whose 4-neighbour height differs by more than 1.2 m are excluded as cliff edges.
+- **Spawning:** at zone entry, ⌈0.6 × 6⌉ = 4 creatures appear. Refill ticks every 5 s after a 12 s slot delay, at a cell ≥ 30 m from the player and outside the frustum (otherwise the farthest cell ≥ 20 m). The sim's `encounters.roll` picks species and level from the zone stream seeded with `(saveSeed, zoneId, entryCounter)`. Placement uses a presentation RNG.
+- **Despawn:** more than 80 m away for 20 s.
+- **Behaviour** comes from the creatures v2 temperament: wander 4–10 m then idle 2–6 s; curious approach within 10 m; skittish flee; territorial 6 m patrol. Chasers move at ≤ 80% of player run speed.
+- **Contact:** a per-frame distance check, `horizDist < 1.2 m` (or the species bound radius × 0.8 + 0.35 if larger) with `|dy| < 1.5`. It is valid only if all of these hold:
+  - mode is `exploration`
+  - the lock is free
+  - `now ≥ immunityUntil`
+  - the creature is not fleeing or despawning
+- **Single-encounter lock:** the lock is set synchronously before dispatching `WILD_CONTACT`, so other contacts in the same frame see it. It clears when the return to `exploration` completes. After that the player has **4 s immunity** (world rule), and creatures within 8 m startle and move away for 3 s.
+- **Test:** two creatures touching in one frame produce exactly one encounter (nearest wins; the tie is broken by seed).
 
-### 2.7 Battle staging in the current zone
+### 2.7 Battle staging
 
-- Zone data may list `battleStages: [{pos, yaw, radius}]`. If none is within 25 m of the player, the code computes a stage by searching walkable nav cells within 20 m. The first candidate wins if it passes all of these:
-  - a flat 12 m x 6 m rectangle (slope ≤ 8°, height variance ≤ 0.4 m)
-  - no props inside
-  - not water (unless both creatures are aquatic)
-- The terrain is **not** modified. Creature feet are placed with `heightAt`.
-- If no candidate is found, a hand-placed fallback stage per zone is used. It is required by data validation: every zone must have at least one `battleStages` entry.
-- Layout: the player creature at stage -X and the opponent at +X, 7 m apart plus the sum of both radii. The trainer stands behind the player creature. Vegetation instances within the stage rectangle are hidden (per-instance scale 0 via the instance matrix) for the battle's duration. Wild AI, the follower and NPCs within 30 m are hidden.
-- The battle camera director uses shot templates relative to the stage frame (4.7).
+- Zone data provides 2–4 hand-placed `battleStages` per zone. These are mandatory and checked by the validator.
+- Use the nearest stage within 25 m. Otherwise search the nav grid within 20 m for a flat rectangle of length `max(12, 7 + r₁ + r₂ + 2)` m and width `max(6, 2·max r + 1)` m, with slope ≤ 8°, height variance ≤ 0.4 m, no props, and no water (unless both creatures are aquatic).
+- The terrain is not modified. Feet go on `sampleGrid`. Floaters add `hoverGap` above the stage plane.
+- Actors, the follower and NPCs within 30 m are hidden, and vegetation instances inside the rectangle are scaled to 0.
 
-### 2.8 Zone lifecycle, resources, streaming
+### 2.8 Zone lifecycle
 
-The overworld uses discrete zones, per the anchors. There is no seamless streaming. **ResourceScope** registers every geometry, material, texture and render target created for a zone. On zone unmount it calls `dispose()` on all of them.
-
-Creature models live in a **ref-counted cache** keyed by `speciesId:lod`. Party members' models survive zone changes. The cache evicts at refcount 0 after one further zone transition (a 1-zone LRU grace period).
-
-Load pipeline for `zoneLoading` (all targets are in 6.2):
-1. Fade out.
-2. Post the `ZoneSpec` to `zoneGen.worker`. It returns transferable `Float32Array`s: heights, normals, splat weights, vegetation instance matrices per chunk, the nav grid bitset and the stage candidates.
-3. Build meshes on the main thread (buffer-attribute wrapping only).
-4. Build or fetch creature models for encounter-table species at LOD1 and LOD2.
-5. `await renderer.compileAsync(scene, camera)` to precompile shaders, avoiding first-frame hitches.
-6. Warm up one frame hidden.
-7. Checkpoint save.
-8. Fade in.
-
-A CPU-side cache keeps the generated arrays of the last 2 zones (≈ 3 MB each), so backtracking skips worker generation.
-
-Leak check: the smoke test runs 10 round trips between two zones. It asserts that `renderer.info.memory.geometries` and `.textures` return to within ±5 of the baseline after the first round trip.
+- **ResourceScope** disposes every zone geometry, material, texture and render target on unmount.
+- Creature models are cached by `species:lod:quality` with reference counts. Party models survive zone changes, and eviction happens after one further transition.
+- Load pipeline:
+  1. fade
+  2. worker: grid, scatter, nav grid, stage candidates (transferable arrays)
+  3. main thread: meshes, trimesh collider
+  4. prebuild models for the encounter species
+  5. `renderer.compileAsync(scene, camera)`
+  6. hidden warm-up frame
+  7. checkpoint save
+  8. fade in
+- The CPU arrays of the last 2 zones are cached.
+- **Leak test:** 10 round trips return `renderer.info.memory.{geometries,textures}` to baseline ±5.
 
 ---
 
-## 3. Terrain, water, vegetation, props
+## 3. Terrain, cave, water, vegetation, props, vistas
 
-### 3.1 Heightfield generation (data -> arrays)
+### 3.1 Height function and grid (implemented: `world/terrain/heightfield.ts`)
 
-`world/terrain/heightfield.ts` is pure and worker-safe. The same code runs in vitest.
+`TerrainSpec` (`world/zoneTypes.ts`):
 
-- The grid is `N = 128` subdivisions, so 129 x 129 samples over a zone of `size.x x size.z` metres (for example 160 m, giving 1.25 m spacing). It is **fixed for all quality profiles**, so collision is identical on every device. Zones up to 200 m use N = 160.
-- Height:
-  ```
-  h(x,z) = base + fbm(x,z; seed, octaves 5, lacunarity 2, gain 0.5, frequency f) * amplitude
-  ```
-  Then `features` are applied in data order. Each feature is a signed-distance shape with a smoothstep falloff:
-  - `plateau{polygon, height, falloff}`
-  - `crater{center, radius, depth, rimHeight}`
-  - `ridge{polyline, height, width}`
-  - `path{polyline, width, flattenTo: 'follow'|number, sink}`. Paths are flattened, lowered 5 cm, and painted.
-  - `flatten{polygon|circle, height}`. Used for towns, trial buildings and battle stages.
-  - `river{polyline, width, depth}`
-  - `cliff{polyline, height, sharpness}`
-- Noise is a seeded simplex, implemented in-house (about 80 lines). Hash-based, so identical in the worker and in tests.
-- Outputs:
-  - `heights: Float32Array` in **Rapier column-major order**. A unit test asserts that `heightAt(x,z)` (bilinear on the array) matches `world.castRay` down onto the collider within ±2 cm at 200 random points. This guards against row/column or axis-flip mistakes.
-  - Normals (central differences).
-  - `splat: Uint8Array` of 4 weights per vertex: grass, dirt/path, rock (slope > 35° or cliff), and a biome-specific fourth layer (sand, snow, ash, moss).
-- Render mesh: one `BufferGeometry` per 32 x 32-cell chunk (16 chunks at N = 128, 2,048 tris each, 32,768 total). Chunks get individual bounds for frustum culling. Skirts of 1 m hide cracks from fog-far chunks. There is no geometric LOD, because 33k tris per zone is inside budget on every profile.
-- Collider: created **imperatively** in `TerrainCollider` from `useRapier()`:
-  ```
-  world.createCollider(rapier.ColliderDesc.heightfield(N, N, heights, {x: size.x, y: 1, z: size.z}, rapier.HeightFieldFlags.FIX_INTERNAL_EDGES))
-  ```
-  It is centred at the zone origin and removed on unmount. `FIX_INTERNAL_EDGES = 1` is confirmed in `rapier3d-compat@0.19.2`, and it stops capsules from catching on triangle seams.
+```
+seed, size [W,D], base, amp, scale, rim, rimWidth,
+hills[], flats[], paths[], water[], ceiling?
+```
 
-  We deliberately do **not** use `<HeightfieldCollider>`. Reading `@react-three/rapier@2.2.0`'s `scaleColliderArgs` shows two problems:
-  - For heightfields it multiplies `scale.x` by the parent's x, y **and** z scale (an upstream bug) and mutates the passed scale object.
-  - Its 4-tuple args have no slot for `HeightFieldFlags`.
-  
-  Rule: no zone collider may sit under a scaled parent.
+`makeHeightFn(spec, exits)` builds the height from these layers:
+- `base + fbm(x/scale, z/scale, seed) × amp`
+- plus Gaussian `hills`
+- `paths` and `flats` blended toward a gentle base (flats may set an explicit `h`)
+- `water` basins carved to `level − depth`, with a raised shore
+- noise-modulated **rim walls** of height `rim` and width `rimWidth`, lowered smoothly at each exit radius
 
-### 3.2 Terrain material
+The noise is an in-house hash-based value noise with fbm, so it is identical in the worker, Node tests and the browser.
 
-- `MeshStandardMaterial` extended with `onBeforeCompile`:
-  - The splat weights are a vertex attribute.
-  - Per-layer albedo is a procedural tileable canvas texture: 512² on High, 256² on Balanced and Mobile, generated once per biome at boot and cached. Layers are packed in a 2 x 2 atlas with padding to avoid mip bleeding.
-  - Roughness per layer is a constant.
-  - A macro-variation noise term (world-space, low frequency) breaks tiling on High and Balanced.
-  - Rock uses triplanar sampling on High only. Balanced and Mobile use planar Y sampling plus a slope-darkening term.
-- Fallback when compile fails or a context-lost restore is still pending: plain vertex colours (splat-weighted average colours) with `MeshLambertMaterial`.
+`buildGrid(spec, exits, cell)` samples row-major `heights[iz·nx + ix]`:
 
-### 3.3 Water
+| Zone type | Cell | Grid for a 200 m zone |
+|---|---|---|
+| Default | 1 m | 201² samples, 80k triangles |
+| Mountain zones (`volcano`, `snowpeak`, `route_4`, `route_5`, `town_2` terraces) | 0.75 m | 267², 142k triangles |
 
-- One or more water planes per zone come from data (`water.level`, `water.regions` polygons, `water.tint`, `water.flowDir`). Each plane is a triangulated polygon subdivided to 2 m (High) or 4 m (others).
-- A bake per vertex stores `depth = water.level - heightAt(x,z)` as an attribute, used for shore colour and foam. There is **no depth pre-pass**.
-- Shader (`waterMaterial.ts`, `MeshStandardMaterial.onBeforeCompile`):
-  - Two scrolling normal maps sampled from one 256² tileable noise normal texture (generated at boot on a canvas from the same simplex noise), each at a different scale, speed and direction.
-  - Fresnel mixes the sky colour (the uniform from the day/night rig) with the deep and shallow tint by depth.
-  - Specular comes from the sun.
-  - Shoreline foam is `smoothstep` on depth plus animated noise.
-- Modes by quality:
-  - **High**: the above plus small Gerstner vertex waves (2 waves, amplitude ≤ 0.08 m, visual only; the physics water level stays constant) and foam.
-  - **Balanced**: two normal layers and foam, with no vertex waves.
-  - **Mobile**: one normal layer, no foam animation (static shore tint), and half-res normal texture.
-  - **Fallback** (shader compile error or `lowPower` flag): an unlit transparent colour with UV scroll.
-- No planar reflections or `Reflector` on any profile. They would double scene draw calls. This is documented as an approximation.
+Validator checks on the generated grid:
+- authored path polylines are ≥ 4 m wide
+- grade ≤ 30%
+- every spawn, exit and stage is on a walkable cell
 
-### 3.4 Instanced vegetation with wind
+Ledges, retaining walls, stairs (riser ≤ 0.3 m, tread ≥ 0.25 m) and terraces are **kit props** with cuboid colliders, not terrain.
 
-- Scatter runs in the worker. Poisson-disc sampling per vegetation layer (`{kind, density per 100 m², mask: splat layer + slope range + height range, scaleRange, colorJitter}`) uses a seeded RNG, then rejects points inside paths, flatten areas and props. The profile's density multiplier is applied by taking a deterministic prefix of the sampled list: the list is shuffled once, and each profile takes the first `k`. Lowering quality removes plants but never moves them.
-- Rendering: one `InstancedMesh` per (vegetation kind x terrain chunk), with `computeBoundingSphere()` after the matrices are set, so frustum culling works per chunk. Chunks beyond `vegetationDistance` are hidden entirely. Grass-type kinds use a shorter distance (`grassDistance`).
-- Meshes are procedural: grass tufts (crossed quads with alpha-tested canvas blades; alpha-to-coverage when MSAA is available), bushes (low-poly icospheres with vertex jitter), trees (trunk as a tapered cylinder plus 2 to 4 canopy blobs), reeds, crystals, snow pines.
-- Wind is done in the vertex shader via `onBeforeCompile`:
-  ```
-  sway = sin(uTime*uFreq + dot(instancePos.xz, vec2(0.13,0.17))) * uStrength * heightWeight
-  ```
-  `heightWeight = position.y / meshHeight` squared, and the offset is applied along `uWindDir`. The CPU uploads nothing per instance per frame. `uStrength` is driven by weather (calm 0.3, rain 0.7, storm 1.0).
-- The fade near the camera or player (dither) is a per-kind uniform: the player's world position plus radius.
+### 3.2 Render mesh and collider share one triangulation (D25)
 
-### 3.5 LOD and culling
+- The render mesh is split into 32×32-cell chunks with per-chunk bounds for frustum culling and 1 m skirts.
+- The index order uses the **10–01 anti-diagonal** to match `sampleGrid` (0.3 item 3).
+- **Collider:** `ColliderDesc.trimesh(vertices, indices)` is built from the **same** vertex and index arrays, one collider per chunk. That keeps building incremental and gives broad-phase locality.
+- Invariant test: at 200 random points, `sampleGrid(x,z)` equals a downward `castRay` hit on the collider within ±1 cm, and equals the render mesh's triangle height exactly.
+- Follower and wild-creature heights use `sampleGrid`, so actors sit exactly on the rendered and collided surface.
 
-- Frustum culling uses three's per-object culling on chunk meshes, instanced chunks, props and creatures.
-- The camera `far` plane is `drawDistance` from the profile, and fog is set to reach full density at `0.95 * drawDistance`, so the cut-off is invisible.
-- Props use `drei <Detailed distances={[0, d1, d2]}>` with 2 procedural LODs (full, simplified) and a cull. Props smaller than 0.5 m are culled at `min(40 m, drawDistance)`.
-- Creatures use the tiers in 4.6.
-- `drei <Bvh>` wraps the scene only if raycast-based UI picking is used (for example clicking NPCs). By default interaction is proximity-based, with no raycasts.
+### 3.3 Cave (D17)
 
-### 3.6 Procedural props
+- The cave is a **single-level** heightfield zone (`indoor: true`, `biome: 'cave'`, `terrain.ceiling` set).
+- High rim walls enclose it, and a **ceiling shell** closes it:
+  - The shell is a second grid mesh at `ceiling − fbm·amp_c`, clamped at least 3.5 m above the floor, with its normals facing down.
+  - It uses a trimesh collider in the CAMERA_PROBE group only. There is no jump, so the player never touches it.
+- The lower galleries are a separate area of the same zone behind the Heave gate, not a second level.
+- Lighting mode `interior` (5.2).
+- Overhangs outside the cave (the snowpeak ice tunnel, root arches, pile-built pavilions) are kit meshes with trimesh colliders.
 
-Props are pure builders in `world/props/`:
+### 3.4 Terrain material
 
-`(params, quality) -> { group, colliderDescs[] }`
+- `MeshStandardMaterial` with `onBeforeCompile`.
+- A per-vertex 4-weight splat (grass, path, rock by slope, biome layer). Layers are procedural tileable canvas textures (512² on High, 256² otherwise) in a padded 2×2 atlas.
+- A world-space macro-noise term on High and Balanced. Triplanar rock on High only; slope darkening elsewhere.
+- The shared **mute chunk** (5.6) and the cloud-cookie chunk (route_4).
+- Fallback: splat-weighted vertex colours with `MeshLambertMaterial`.
 
-Types: rock (deformed icosahedron, 3 seeds), cliff chunk, fence, lamp, signpost, bench, crate, house (box plus roof prism, window decals on a canvas atlas), healing centre, shop, trial building (unique silhouette per trial, specified by the World Designer), bridge, stairs, field-action targets (dormant gate, thornwood, boulder, ice patch, updraft vent...).
+### 3.5 Water
 
-Merging: all static props of one material in a chunk are merged into one geometry at zone load with `mergeGeometries`, keeping one draw call per material per chunk. Animated props (lamps glowing, updraft) are separate.
+- Water surfaces are generated from `water[]` basins in the terrain spec. A per-vertex baked `depth = level − sampleGrid` drives shore colour and foam, so no depth prepass is needed.
+- The shader samples a tileable noise normal map (256², generated at boot) as two scrolling layers, with fresnel between the sky colour and a depth tint, sun specular and shoreline foam.
+- By profile:
+  - High: plus 2 small Gerstner waves (≤ 0.08 m; visual only)
+  - Balanced: 2 layers and foam
+  - Mobile: 1 layer and static foam
+  - Fallback: unlit UV scroll
+- **No planar reflection on any profile.** The lake gets **mirrored low-LOD duplicates of ≤ 3 hero landmarks** (lake island pavilion, Mere Hall, Chordstone). They are flipped below the plane and faded by depth: about 3 draw calls instead of a second scene pass.
+
+### 3.6 Vegetation
+
+- Scatter comes from `ZoneSpec.scatter[] {kind, density, minDist, avoidPaths}`, run in the worker as seeded Poisson-disc sampling.
+- Each list is shuffled once, and each profile takes a **prefix** by density multiplier, so lowering quality removes plants without moving them.
+- There is one `InstancedMesh` per kind per chunk, with `computeBoundingSphere()` after matrices are set.
+- Wind is computed in the vertex shader: `sin(uTime·f + dot(instancePos.xz, k)) × strength × (y/h)²`. Strength follows weather.
+- Near the camera and player, plants use a dither fade.
+- Grass and tree distances depend on the profile (6.1).
+
+### 3.7 Props: kit builders (review WD-5)
+
+There are ≤ 12 parametric builders:
+- `house`, `hall`, `tower`, `kiosk`, `bridge`, `dock`, `wall`, `stair`, `arch`, `windmill`, `camp`, `machine`
+
+Each has params, palette and dressing. Landmarks (Chime Tower, Great Lantern Tree, Chordstones, Dampers, trial halls, league spire rings) are compositions of the kit plus a small number of bespoke parts.
+
+Resonance nodes are one builder per register (10) with `idle`, `ready` and `solved` states.
+
+Static props of one material are merged per chunk with `mergeGeometries`. Animated props (windmills, lamps, vents) stay separate.
+
+### 3.8 Vista layer (review WD-4)
+
+- `ZoneSpec.vistas?: {landmarkId, bearingDeg, distance, elevationDeg}[]`.
+- Distant landmarks render as low-poly silhouettes on a skyline ring (radius 400 m). The ring is fog-exempt, drawn after the sky without depth writes, and independent of the camera far plane.
+- It costs ≤ 3 draw calls on all profiles.
+- It covers cross-zone sightlines: the Chime Tower, the Great Lantern Tree glow, windmills, the Kiln glow at night and the northern aurora.
 
 ---
 
-## 4. Procedural creature pipeline
+## 4. Procedural creature pipeline (implemented: `src/creatures/*`)
 
-### 4.1 Builder contract (`src/creatures/contract.ts`)
+### 4.1 Contract: `SpeciesVisual` → `assemble()` → `CreatureModel`
+
+Species are **declarative part tables** (`species/cXX.ts`, `export const cXX: SpeciesVisual`), auto-registered by `registry.ts` through `import.meta.glob`.
 
 ```ts
-export type Quality = 'high' | 'balanced' | 'mobile';
-export type CreatureLod = 0 | 1 | 2;                      // 0 battle/viewer, 1 near overworld, 2 far overworld
-export type PartName = string;                            // conventions below
-export type AnchorName = 'mouth' | 'eyeL' | 'eyeR' | 'core' | 'head' | 'tailTip'
-  | 'hornTip' | 'hitCenter' | 'overhead' | 'captureTarget' | 'feet' | string;
-export type FaceState = 'open' | 'blink' | 'closed' | 'happy' | 'hurt' | 'faint' | 'determined' | 'surprised';
-
-export interface CreatureBuildOptions { lod: CreatureLod; quality: Quality; seed?: number }
-export interface CreatureModel {
-  root: THREE.Group;                         // origin at ground contact centre; +Z forward; 1 unit = 1 m
-  parts: Record<PartName, THREE.Object3D>;   // animated pivots; every clip-referenced part must exist at every LOD (may be an empty Object3D at LOD2)
-  anchors: Record<AnchorName, THREE.Object3D>; // children of parts, so they follow animation
-  face: FaceRig;                             // setState(state, blendSeconds), blink scheduling, look-at offset
-  bounds: { box: THREE.Box3; radius: number; height: number; headHeight: number; headRadius: number };
-  materials: CreatureMaterialSet;            // for hit-flash, dissolve (capture/faint), rim strength, night boost
-  stats: { triangles: number; drawCalls: number; materialCount: number };
-  dispose(): void;
-}
-export type CreatureBuilder = (spec: CreatureVisualSpec, opts: CreatureBuildOptions) => CreatureModel;
+SpeciesVisual { id, H, colors{P,S,A,D,…}, mat: Preset, rim?, rimStrength?, eye: EyeSpec, mouth?: MouthSpec,
+                parts: PartDef[], rig: RigParams, hoverGap? }
+PartDef { name, parent?, prim: Prim, at?, rot?, scale?, slot?, mat?, mirror?, anim?: string[],
+          emissive?, glowColor?, opacity?, fluffy?, chain?: ChainSpec, lod?: 0|1, flat? }
+Prim = sphere | capsule(r, len, r2?) | cone | cyl | box | torus | lathe(profile, h, rmax, axis) |
+       extrude(shape, w, h, depth) | tube(pts, r0, r1) | eye(r, bulge) | mouth(r, w, bulge) | none
+assemble(v, { lod: 0|1|2, quality: 'high'|'balanced'|'mobile' }): CreatureModel
+CreatureModel { id, root, pivot, parts: Record<name, Object3D>, rest, tags: Map<name, string[]>,
+                anchors, face: FaceRig, glowMats, glowBase, bounds{height, radius, headHeight, length},
+                stats{triangles, drawCalls, materials}, visual, dispose() }
 ```
 
-`CreatureVisualSpec` comes from `creatures.json` (Creature Art Director owns the values): `palette[2..3]`, `materialTreatment`, `bodyScale`, `eyeStyle`, `mouthStyle`, `glowParts`, `motifParams`, and `cry` parameters (for audio).
+Conventions (all implemented):
+- Dimensions are in multiples of H.
+- The origin is on the ground, +Z is forward and +X is the creature's left.
+- Rotations are in degrees, XYZ order.
+- `mirror` creates `name_L` and `name_R`, negating X, yaw and roll. Parents resolve `_L`/`_R` automatically.
+- `chain` creates `name0…name(n−1)` tapered capsules and a `nameTip` node. Each segment is tagged `chain:i:n`.
+- `lod: 0|1` drops a part's geometry above that LOD but **keeps the node**, so clips and anchors still work.
+- `fx:<id>` tags create anchors. Default anchors are `head`, `mouth`, `core` and `overhead`. The presenter derives `hitCenter` and `captureTarget` from `core`, and `feet` from `root`.
+- `bounds.height` excludes `hoverGap`: the pivot is lifted after bounds are computed.
 
-Part naming (clips depend on it): `root, body, chest, hips, neck, head, jaw, ear_L/R, horn_L/R, crest, tail_0..n, leg_FL/FR/BL/BR (thigh/shin/foot sub-parts optional), arm_L/R, wing_L/R, fin_*, shell`. Species may add parts. The unit test checks that every clip used by the species only references existing parts.
+**Role vocabulary** (follow-up 0.3-5, adopted by GATE §3.2 and CR v2):
+- Each part gets `userData.role`, derived from its name by a mapping table in `assemble.ts`: `body, head, jaw, neck, eye_l/eye_r` (from `eye_L/_R`), `brow_l/r, ear_*, horn_*, crest, tail_<n>, limb_<fl|fr|bl|br|l|r>, wing_*, fin_*, shell, segment_<n>, arm_<n>, panel_*, accessory_*`.
+- Species keep readable part names. The gate reads roles.
 
-Contract tests (node, no WebGL; three core runs in node):
-- all 30 builders exist
-- they build without throwing at all 3 LODs x 3 qualities
-- the anchors listed above exist
-- `bounds` are finite and match `bodyScale` within ±15%
-- triangle and draw-call budgets are respected (4.6)
-- `dispose()` releases everything (checked by counting `dispose` calls)
-- building is deterministic: the same spec and seed give an identical vertex hash
+Contract tests run in Node. `face.ts` falls back to a `DataTexture` with the identical UV layout when no canvas exists: that is the injectable texture path GATE §3.1 needs. The tests check:
+- every registered species builds at 3 LODs × 3 qualities
+- names resolve
+- the required anchors exist
+- bounds are finite, and `bounds.height` is within ±15% of H
+- `stats` meet the 4.6 budgets
+- `dispose()` releases geometries, cloned materials and face textures
+- the same spec gives an identical vertex hash
 
-### 4.2 Shared primitive helpers (`creatures/primitives`)
+### 4.2 Primitives (`primitives.ts`)
 
-- `capsule(r, len, radialSegs, capSegs)`, `ellipsoid(rx, ry, rz, segs)`
-- `latheProfile(points2D, segs)`, for bodies, heads and horns from profile curves
-- `taperedTube(curve, radii[], segs)`, for tails, necks and tentacles
-- `cone`, `hornSpiral(turns, taper)`
-- `extrudedShape(shape2D, depth, bevel)`, for ears, fins, wing membranes and leaves
-- `paddedDisc` (eye bulge)
-- `mirrorX(part)`, `attach(parent, child, localTransform)`
-- `vertexNoise(geometry, amp, freq, seed)`, for organic irregularity
-- `paintVertexColors(geometry, fn(pos, normal) -> color)`, for patterns: belly gradient, stripes, spots, tips
-- `mergeRigid(parts[])`, which merges geometries that share a parent pivot and material class (fewer draw calls)
-- Segment counts are driven by `lod` and `quality` through one table (`segsFor(kind, lod, quality)`), so every builder scales consistently.
+Helpers:
+- ellipsoid, capsule (tapered via a lathe with hemispherical ends), cone, cylinder, box, torus
+- `lathe` with Catmull-Rom-smoothed profiles: `L_egg, L_pear, L_dome, L_teardrop, L_spindle, L_bulb, L_bell, L_crater, L_cyl, L_horn, L_bowl`
+- extrude shapes (`X_sail`, …), tubes, `vertexNoise`, `triCount`
 
-### 4.3 Material library (`creatures/materials`)
+`segs(kind, lod, quality)` today has three tiers: High-LOD0, Balanced/LOD1, and Mobile/LOD2. **D16 revision** (follow-up 0.3-4): segment counts also scale with the part's size relative to H:
 
-Each creature uses at most 4 material classes plus eyes and mouth. Colour variation comes from **vertex colours**, not extra materials.
+| Part radius | Segments |
+|---|---|
+| r ≥ 0.2 H | full tier |
+| 0.08 H ≤ r < 0.2 H | one tier lower |
+| r < 0.08 H | the Mobile tier |
+| r < 0.03 H (spots, nubs, toe cones) | sphere 6×4, cone 6 |
 
-| Class | High | Balanced | Mobile | Notes |
+Enclosed parts (for example c01's belly inside the torso) use `P+` vertex colouring on the parent instead of separate geometry wherever the silhouette is unaffected.
+
+### 4.3 Materials (`materials.ts`)
+
+- Presets: `FUR, SCALE, SHELL, STONE, METAL, ICE, MEMBRANE, PAPER, SKIN_WET, GLOW, SKIN, CLOTH, HAIR, CRYSTAL, EYE`, each with roughness, metalness, clearcoat, sheen, opacity and side.
+- `MeshPhysicalMaterial` is used only on **High** and only for presets with clearcoat or sheen. Other profiles use `MeshStandardMaterial`, with roughness lowered slightly for glossy presets.
+- Transparent presets (`ICE`, `MEMBRANE`) have `depthWrite: false` and render after opaque objects.
+- `makeMaterial` caches by option key, so creature instances of the same species share materials. Glow parts clone their material so each creature can animate its gain.
+- **Rim light** (`injectRim`): a fresnel term with power 2.5 is added to `totalEmissiveRadiance`, scaled by `uRimColor · uRimStrength · (0.6 + uRimLocal)`.
+  - `uRimStrength` is a **global** uniform (`rimUniforms`) set by the director: 0.25 by day, 0.45 at night, 0.5 in battle.
+  - `uRimLocal` is the species `rimStrength`, so dark species (f09, c06, c30) keep extra rim.
+  - `customProgramCacheKey = 'rim'` shares one program variant.
+- Emissive: resting ≤ 1.5, and transient flares ≤ 3.0 for ≤ 250 ms around contact (CD/CR ruling). Mobile scales emissive by 0.8 because it has no bloom.
+- On Mobile, colours are chosen to read unlit.
+
+### 4.4 Faces (`face.ts`, D14)
+
+- **Eye atlas:** 8 cells in a 4×2 grid (`open, half, closed, happy, hurt, faint, determined, surprised`).
+- **Mouth atlas:** 4 cells in a 4×1 grid (`neutral, open, smile, grimace`).
+- Both are canvas-painted once per **species × quality** and cached.
+- The painter draws in this order: sclera, iris gradient, pupil class, lid shadow, lid pose per state, highlights (the key light at upper-left), outline. Cut-out (f09) states are drawn as masks.
+- **Cell size:** 256 px on High and Balanced, 128 px on Mobile (D14). Anisotropy is 4 on High and 2 otherwise, with mipmaps and sRGB.
+- **Per-instance state:** `FaceRig` clones the atlas texture for each eye and mouth material. `Texture.clone()` shares the `Source`, so the GPU uploads once per species. A state change is a UV `offset`, with no redraw.
+- The right eye is the **same atlas UV-mirrored** (`mesh.scale.x = −1` on `_R`), so its highlight mirrors. D14 accepts this stylization.
+- Blink: every 2.5–6 s, 120 ms (half, closed, half), only in `open` or `determined`.
+- `flash(state, sec, base)` handles hurt, surprised and happy reactions. The mouth follows automatically: happy → smile, hurt → grimace, surprised/determined → open.
+- **Texture memory per species** (arithmetic):
+
+| Profile | Eye atlas | Mouth atlas | Total with mips |
+|---|---|---|---|
+| High / Balanced | 1024×512 RGBA = 2 MiB (≈ 2.7 MiB with mips) | 1024×256 ≈ 1.3 MiB | ≈ **4 MiB** |
+| Mobile | 512×256 | 512×128 | ≈ **1 MiB** |
+
+  The retained canvases add about 3 MiB (High) or 0.75 MiB (Mobile) of CPU memory per species.
+- Mitigation: an **atlas LRU of 16 resident species**. That caps face textures at about 64 MiB (High/Balanced) or 16 MiB (Mobile). Eviction happens only for species with no live model.
+- Readability rules. GC-09 measures them; enforcement lives here.
+  1. Eye diameter ≥ 12% of head height (stages 1–2) and 12–15% for stage 3 (CD ruling). Species specs are fixed where needed (e.g. c30 eye r 0.045 H).
+  2. Eyes exist at **every** LOD. At LOD2 the disc drops to 10 segments. Eyes are hidden only below 6 px projected head height.
+  3. The eye material has an emissive floor of 0.35 through the atlas `emissiveMap` (0.9 for glowing-eye species), so night and shadow never black out the eyes.
+  4. Battle framing (4.8).
+  5. Eye materials disable fog in battle.
+
+### 4.5 Animation runtime (`anim.ts`)
+
+`Animator(model, stageScale)` is **time-based**, so timing is identical at any FPS or quality.
+
+Each update does the following:
+- Resets every part to its rest pose.
+- Applies **tag-driven** procedural motion:
+  - `br` breathing (scale-Y sine)
+  - `look` head aim
+  - `gait:<leg>` phase table (FL/BR vs FR/BL, plus radial phases A–F)
+  - `wave` along `chain:i:n` segments
+  - `flap`, `spin` (rotors), `sway`, `orbit` (satellites), `jaw`, `bob`, `glow` (the emissive gain on `glowMats`)
+- Locomotion blends by `speed` and `moveBlend`.
+- One **action** plays at a time: `attack | special | status | hit | capture | breakout | faint | victory | happy`.
+  - Each action has a duration and a contact fraction, and fires `onContact` and `onDone`.
+  - The action sets the face (determined, a hurt flash, surprised, faint, happy).
+  - `faint` holds its end pose.
+  - Style comes from `rig.attack` / `rig.special` (`lunge, spin, dive, slam, cast, whip, roll, rear, coil`).
+- `rig.stepped` quantizes time to N fps (12 for the f09 cut-out family).
+- Idle phase offsets are randomized per instance, so two creatures never breathe in sync.
+- `extraScale` and `yawOffset` are overlays used for capture shrink and turning.
+- **D15:** per-species durations and contact fraction (40–55%) come from `rig.durations` (follow-up 0.3-6). The current defaults (attack 1.0 × stageScale, special 1.05, hit 0.45, capture 0.8, faint 1.2 × stageScale, victory 1.4; contact 0.45/0.5/0.55) remain fallbacks.
+- **Reduced motion** (implemented): amplitudes ×0.6, plus no camera shake, no squash and stretch, and spins ≤ 180° (CD/CR union). **Durations and event times are unchanged** (D15). VFX particle counts and shake are reduced by the presenter.
+- Clips never translate the root across the stage in battle; the presenter supplies travel from the move `anim` (CR/SY division of labour).
+
+### 4.6 LOD tiers and budgets (D16)
+
+| Tier | Used for | Triangles (target) | Draw calls | Notes |
 |---|---|---|---|---|
-| `fur` | `MeshPhysicalMaterial` roughness 0.85, `sheen 0.6`, `sheenRoughness 0.5`, `sheenColor = palette light` | `MeshStandardMaterial` roughness 0.85, sheen dropped, emissive rim compensates | same as Balanced | fuzzy read comes from sheen plus rim |
-| `scale` | Standard roughness 0.45, metalness 0; vertex-colour noise (per-vertex hue/value jitter in a cellular pattern baked by `paintVertexColors`) | same | same | "normal-less": no normal maps; the pattern is in vertex colour |
-| `shell` / `plate` | Physical `clearcoat 0.8`, `clearcoatRoughness 0.2`, roughness 0.5 | Standard roughness 0.3 plus higher `envMapIntensity` | Standard roughness 0.35 | glossy highlight approximates clearcoat |
-| `skin` / `smooth` | Standard roughness 0.6 | same | same | |
-| `glow` | Standard with `emissive` intensity 1.5 to 3.0 (above the bloom threshold) | same | emissive 1.2, no bloom; the colour is pre-brightened | glowing horns, tails, cores |
-| `eye` | `MeshStandardMaterial` with `map = faceAtlas`, `emissiveMap = faceAtlas`, `emissiveIntensity 0.35`, roughness 0.2 | same | same | eyes never go dark (4.4) |
+| LOD0 | battle, encyclopedia, evolution | ≤ 12,000 (stage-3 large ≤ 16,000) | **not capped: documented deviation (D16)** | all parts |
+| LOD1 | follower; wild creatures ≤ 25 m | ≤ 5,000 | deviation | `lod: 0` accessories dropped |
+| LOD2 | wild creatures 25 m to cull | ≤ 1,500 | deviation | `lod: 0\|1` accessories dropped. **Silhouette parts** (tag `silhouette`: c15 stones, c21 rotor, c26 crossbar, c18 plumes, …) are always kept |
 
-A shared rim-light chunk is injected into all creature materials with `onBeforeCompile`:
-```
-emissive += uRimColor * pow(1.0 - saturate(dot(normal, viewDir)), 3.0) * uRimStrength
-```
-`uRimStrength` is 0.25 in daytime exploration, 0.45 at night, and 0.5 in battle. Rim is on for every profile, because it costs almost nothing. It is the main tool keeping silhouettes separated from the background.
+**D16 deviation.** There is no skinning: animated parts stay separate `Object3D`s with their own meshes. Counted today (Node, `assemble(c01)`; geometry counts only):
 
-The environment map is one small PMREM generated from the procedural sky at zone load and at day-phase changes, at most every 30 game-minutes: 256 px on High, 128 px on Balanced, none on Mobile (hemisphere light only).
+| Profile / LOD | Triangles | Draw calls | Materials |
+|---|---|---|---|
+| High LOD0 | 14,158 | 39 | 14 |
+| Balanced LOD0 | 7,714 | 39 | 14 |
+| Mobile LOD0 | 3,852 | 39 | 14 |
+| any LOD2 | 3,348 | 35 | 14 |
 
-### 4.4 Faces: atlas textures and emotion states
+Mitigation, and what the numbers assume:
+- **`mergeStatic`** (follow-up 0.3-5): untagged descendants of a tagged or animated node that share a preset are baked into that node's mesh with `mergeGeometries`, with colour moved to vertex colours on a shared preset material. Estimated for c01: about 21 draw calls.
+- The size-adaptive `segs` brings c01 on High LOD0 under 12k.
+- Draw calls per creature are **not** a gate criterion until measured on RC-L and RC-P1 (section 7). Skinning (one `SkinnedMesh` per material, rigid weights) stays the fallback plan if measurements miss the frame budget.
+- Scene budgets in 6.2 already include the expected creature draw calls.
 
-- Each species has a **face atlas** drawn on a canvas at build time, then cached per species and quality. It is laid out as 4 x 2 cells: `open, blink(half), closed, happy, hurt, faint, determined, surprised`. Each cell holds one eye (mirrored for the other eye via UV flip). Mouths use a separate 4 x 1 atlas: `neutral, open, smile, grimace`.
-- Minimum cell size is **128 px on High and Balanced, 64 px on Mobile**, never lower. Mipmaps are on. Anisotropy is 4 on High and 2 on Balanced. The atlas is drawn with a 4 px padded border so mips don't bleed between states.
-- Eye geometry: a `paddedDisc` bulged 5% outward on the head surface, with UVs mapped to one cell.
-  - State change sets `texture.offset` on a per-instance **texture clone**. `Texture.clone()` shares the underlying `Source`, so the GPU upload is shared.
-  - Blinks are scheduled at random intervals of 2.5 to 6 s, 120 ms long (open, half, closed, half, open), suppressed in `faint`.
-  - Look-at: the pupil region is offset up to ±0.08 UV toward a target (camera in battle intro, player in the overworld, opponent during attacks).
-- Emotion mapping (the presenter drives it from events): `damage` sets `hurt` for 0.6 s. `faint` sets `faint`, held. `moveUsed` sets `determined` during the attack clip. Level-up, capture-release and evolution-done set `happy`. `statusApplied(sleep)` sets `closed`.
-- Readability rules (the Creature Art Director owns the art, and this doc owns the enforcement):
-  1. Eye diameter ≥ 12% of head height, and pupil-to-sclera luminance contrast ≥ 4.5:1, checked on the atlas by the `gate:character` script.
-  2. Eyes exist at **every** LOD, including LOD2, where they are single quads. Eyes are culled only when the projected head height is under 6 px.
-  3. The eye material has an emissive floor of 0.35, so night and shadow never black out the eyes.
-  4. The battle framing rule (4.7) guarantees projected head size.
-  5. Faces are never affected by fog in battle, because `fog: false` is set on eye materials in battle.
+### 4.7 Animation LOD (D21 cost control)
 
-### 4.5 Animation system
+| Distance or visibility | Update rate |
+|---|---|
+| ≤ 25 m (Mobile: at most 6 nearest) | every frame |
+| 25–50 m | 15 Hz |
+| > 50 m | 7.5 Hz |
+| off-screen | 2 Hz (pose only) |
 
-- A clip is a pure function:
-  ```ts
-  type Clip = {
-    id: string; duration: number; loop: boolean;
-    events?: { name: 'impact'|'footL'|'footR'|'cry'|'release'; t: number }[];   // t normalized 0..1
-    sample(t: number, p: ClipParams, out: PoseWriter): void;                   // writes local deltas per part
-  }
-  ```
-  `PoseWriter` accumulates `{part, rotEuler delta, pos delta, scale multiplier}` relative to the rest pose captured at build.
-- `ClipParams` holds species tuning from data: stride length, bounce, tail sway amplitude, wing-beat frequency, attack style (`lunge | slam | spin | cast | breath`), and a speed multiplier.
-- Standard library in `creatures/anim/library/`:
-  - `idle` (breathing via chest scale 1 to 1.02, tail sway, ear flicks)
-  - `walk`, `run`, `hover`, `swim`
-  - `attackPhysical`, `attackSpecial`, `attackStatus`
-  - `hit`, `faint`, `capture` (shrink and dissolve toward `captureTarget`), `release`, `victory`
-  - `evolveGlow`, `lookAround`
-  
-  Species builders may register overrides, such as a custom signature idle.
-- Blending: `AnimationStack` with three layers:
-  - **Base**: locomotion or idle, crossfaded over 0.2 s by speed.
-  - **Action**: one-shot clips like attack, hit or victory, with a 0.12 s crossfade in and out and a weight curve.
-  - **Additive**: breathing, blink-linked head micro-motion, look-at.
-  
-  Final transform = rest × base (blended) × action (weighted) × additive. Quaternion slerp is used for rotations.
-- Timing is preserved across quality levels. Clips are evaluated on wall-clock presentation time, not frame count. Events fire when the clip's normalized time crosses `t`; if a frame skips over several events, all of them fire in order. LOD2 evaluates only parts that exist at LOD2, with identical event times, and the presenter's timeline is independent of FPS. On low FPS, frames drop but gameplay timing does not stretch.
-- Reduced motion: camera shake is off, flash VFX use reduced intensity, and idle amplitudes are ×0.6. Clip durations are unchanged, because gameplay relies on them.
+The face blink timer always runs. Contact and done callbacks fire on time regardless of update rate, because they are computed from accumulated time.
 
-### 4.6 LOD tiers for creatures
+### 4.8 Battle camera framing
 
-| Tier | Used for | Tris budget (per creature) | Draw calls | Face | Parts |
-|---|---|---|---|---|---|
-| LOD0 | battle, encyclopedia viewer, evolution | ≤ 12,000 (stage-3 large: ≤ 16,000) | ≤ 14 | full atlas, 2 eyes + mouth | all |
-| LOD1 | follower, wild within 25 m, trainers' creatures in cutscenes | ≤ 4,000 | ≤ 8 | full atlas | all animated parts; small accessories merged |
-| LOD2 | wild 25 m to cull distance | ≤ 1,200 | ≤ 4 | eyes as quads, no mouth | body, head, tail_0, legs merged into body (locomotion via root bob and sway) |
+Shot distance comes from bounds: `d = subjectHeight / (2·tan(fov/2)·fraction)`.
 
-Switching thresholds use screen-space head height with hysteresis: switch to LOD2 below 28 px and back to LOD1 above 34 px. Cull when under 6 px or beyond `creatureDrawDistance`.
+| Shot | Framing |
+|---|---|
+| `intro_wide` | stage width = 80% of viewport width |
+| `opponent_hero` | 45% |
+| `face_closeup` (send-out, hurt, level-up) | **head height = 30% of viewport height**. This is the **GC-09 measurement shot**, where eyes are about 22–32 px at 720p. |
+| `player_over_shoulder` | opponent head ≥ 8% |
+| `attack_*` | 40% |
+| `hit_*` | 35% |
 
-### 4.7 Battle camera framing rules (faces readable)
+- In the default `select` shot, eyes must be ≥ 6 px with the highlight visible.
+- Size disparity greater than 3× biases the shot to the smaller creature's head.
+- Large species: c30 uses a battle **display scale of 0.75**, and the camera also pulls back. c12 and c15 use their bounding sphere.
+- Battle lighting: rim 0.5, plus the permanent fill light (5.2). The UI occupies at most the bottom 30% on desktop or the right 38% on landscape phones, and the frame centre is offset so faces are never under the UI.
 
-Shot templates are defined in stage space. Each shot computes camera distance from the subject's `bounds`:
-```
-distance = subjectHeight / (2 * tan(fov/2) * targetScreenFraction)
-```
+### 4.9 Humans and NPCs
 
-| Shot | Subject | Target screen fraction |
-|---|---|---|
-| `intro_wide` | both | stage width fills 80% of viewport width |
-| `opponent_hero` | opponent | full creature height = 45% of viewport height |
-| `player_over_shoulder` | player creature back plus opponent | opponent **head height ≥ 8%** of viewport height |
-| `attack_*` | attacker | 40% |
-| `hit_*` | target | 35%, with a 4 px (High) or 2 px (other) camera shake unless reduced motion |
-| `capture` | device | — |
-| `faint` | subject | — |
-
-Size disparity: when one creature is more than 3× the other's height, the default select-phase shot biases to the smaller creature's head, keeping it at ≥ 8%. The large creature may crop above the head.
-
-Lighting in battle: rim strength goes to 0.5. A battle fill light (`DirectionalLight`, no shadows, intensity 0.6 × the night-boost factor) is placed behind the camera, 30° up. Exposure is clamped so the subject's face luminance never drops below the floor from 5.2.
-
-Command-menu UI occupies at most the bottom 30% of the screen on desktop and the right 38% in landscape phone layout. The camera director offsets the frame centre so faces are never under the UI.
+- One parametric humanoid builder (`characters/`) uses the same assembler and `SpeciesVisual` shape with `rig.type: 'HUMAN'`. It has kits for build, outfit, hair and accessory.
+- Unnamed NPCs use ≤ 10 archetypes (allowed by GATE GC-02). About 15 named characters are bespoke.
+- Budget: LOD0 ≤ 8k triangles; unnamed NPCs use LOD1 by default.
+- Cass's scarf is a Verlet spring chain in presentation code, not Rapier.
 
 ---
 
-## 5. Lighting, atmosphere, post
+## 5. Lighting, atmosphere, post, weather
 
-### 5.1 Base rig
+### 5.1 Base rig (fixed light count, so no runtime shader recompiles)
 
-- `DirectionalLight` (sun/moon) plus `HemisphereLight` (sky colour, ground colour), with per-zone biome palettes in zone data.
-- No other real-time lights, apart from one optional battle fill light. Glowing objects use emissive materials plus bloom.
-- The sun's shadow camera follows the player and is snapped to shadow texels to prevent shimmer.
-- `renderer.outputColorSpace = SRGBColorSpace`. Physically-correct light units are the three default.
+- Every zone has exactly: one `DirectionalLight` (sun or moon), one `HemisphereLight` and one **battle fill** `DirectionalLight`. The fill has intensity 0 outside battle and 0.6 × the night boost in battle, and casts no shadow.
+- `interior` zones (cave, trial halls, Stillhouse) have exactly **4 non-shadow `PointLight`s**, placed from zone data (crystal clusters, forges). Unused ones sit at intensity 0.
+- **Lights are never added or removed at runtime**, because the light count is part of three's program key.
+- c27's glow is emissive plus a rim tint, with no point light.
+- Glowing things use emissive plus bloom.
+- `outputColorSpace = SRGBColorSpace`.
 
-### 5.2 Day/night cycle
+### 5.2 Day/night cycle and lighting modes
 
-- The game clock (`gameStore.clockMinutes`, 0 to 1439) advances only in `exploration`. The default is 1 real second = 1 game minute, so a full day is 24 real minutes. Rate and phase boundaries are Systems/World decisions. Phases: `morning 05:00–09:59`, `day 10:00–16:59`, `evening 17:00–19:59`, `night 20:00–04:59`. `sim/world/clock.ts` exposes `phase(clockMinutes)` for encounter tables.
-- Curves are keyframed at 00:00, 05:00, 07:00, 12:00, 17:00, 19:00, 20:30 and 24:00, with smooth interpolation between keys. Each key holds: sun elevation and azimuth, sun colour, sun intensity, hemisphere sky and ground colours plus intensity, fog colour and density multiplier, exposure, sky shader params (`drei <Sky>` Rayleigh/turbidity) and star opacity.
-- Night floor for readability: at night the key light becomes the moon (cool, 0.35 intensity), hemisphere intensity ≥ 0.45, and exposure +0.3. The creature rim goes to 0.45. Rule: the face luminance of a creature's eye region, measured by the character-gate capture at night, must be ≥ 60% of its daytime value.
-- Interiors, caves and the league (`zone.lighting: 'interior'`) ignore the cycle and use a fixed rig.
-- A phase change is a smooth 10 s lerp. The PMREM env map is regenerated at phase change only, in High and Balanced.
+- Clock: `gameStore.clockMinutes`, advanced only in `exploration`, at 1 real second = 1 game minute.
+- **Encounter bands (sim):** day = 05:00–16:59, night = 17:00–04:59 (world ruling).
+- **Lighting** uses a continuous keyframed curve (00:00, 05:00, 07:00, 12:00, 17:00, 19:00, 20:30, 24:00). Each key holds sun elevation, azimuth, colour and intensity; hemisphere colours and intensity; fog colour and density; exposure; sky parameters; and star opacity.
+- Night floor: the moon key light is 0.35, hemisphere ≥ 0.45, exposure +0.3 and rim 0.45. Night eye-region luminance must be ≥ 60% of day (GC-09 capture).
+- "Rest until" jumps the curve under a fade. PMREM is regenerated during the black.
+- Modes (`ZoneSpec.lighting`):
+  - `cycle` (default)
+  - `fixed:<preset>`: route_5 is a permanent blue hour; the league is golden hour
+  - `interior`: cave and halls, ignoring the cycle, using the 4 point lights plus crystal light baked into vertex colours
 
-### 5.3 Tone mapping and colour
+### 5.3 Tone mapping
 
-- ACES Filmic. With the post stack (High, Balanced), `gl.toneMapping = NoToneMapping`, and `<ToneMapping mode={ACES_FILMIC}/>` is the last effect. The composer runs a `HalfFloatType` framebuffer, so bloom sees HDR values.
-- Without the post stack (Mobile), `gl.toneMapping = ACESFilmicToneMapping` directly.
-- `toneMappingExposure` comes from the day/night curve. The UI never goes through tone mapping, because it is DOM.
-- Colour-blind safety: creature type colours are always paired with icon and text in the UI (section 8). Nothing here relies on hue alone.
+ACES Filmic throughout:
+- With the post stack: `gl.toneMapping = NoToneMapping`, and `<ToneMapping mode=ACES_FILMIC>` runs last in a `HalfFloatType` composer.
+- Mobile: renderer ACES directly.
 
-### 5.4 Post stack (`<PostStack/>`)
+Exposure comes from the curve. UI is DOM and never tone-mapped.
 
-| Effect | High | Balanced | Mobile | Fallback / notes |
+### 5.4 Post stack
+
+| Effect | High | Balanced | Mobile | Fallback |
 |---|---|---|---|---|
-| Composer | `EffectComposer multisampling={0} frameBufferType={HalfFloatType}` | same | **not mounted** | If a composer error or context loss occurs, unmount the post stack and use renderer tone mapping. |
-| Anti-aliasing | `SMAA` | `FXAA` | context MSAA (`antialias: true`) at DPR ≤ 1.5 | |
-| Bloom | `mipmapBlur`, `luminanceThreshold 1.0`, `intensity 0.6`, `radius 0.7` | same, intensity 0.5, `resolutionScale 0.5` | off; glow materials pre-brightened | Restrained: only emissive > 1 blooms. |
-| Vignette | offset 0.3, darkness 0.35 (battle 0.45) | same | off | |
-| DOF | battle only, `target` = focused creature head anchor, `worldFocusRange` = creature radius × 2, `bokehScale 2` | off | off | Never in exploration. Off when "reduced effects" is on. |
-| AO | `N8AO halfRes quality="performance" aoRadius 1.2 distanceFalloff 1 intensity 1.5` | off | off | Terrain vertex-colour AO bake (cavity from heightfield curvature) is the fallback on all profiles. |
-| ToneMapping | ACES | ACES | renderer ACES | |
+| Composer | `multisampling 0`, HalfFloat | same | not mounted | on error or context loss: unmount; renderer ACES |
+| Anti-aliasing | SMAA | FXAA | context MSAA (`antialias: true`) | — |
+| Bloom | mipmap blur, threshold 1.0, intensity 0.6 | intensity 0.5, ½ resolution | off (emissive ×0.8, pre-brightened colours) | — |
+| Vignette | 0.3 / 0.35 (battle 0.45) | same | off | — |
+| DOF | battle only; target = focused head anchor | off | off | none |
+| AO | N8AO, half resolution, `performance` quality | off | off | baked terrain cavity AO |
+| Heat shimmer | volcano lava and vents only, screen-space distortion | off | off | none |
 
-Runtime guard: if the frame time p95 over a 5 s window stays above 1.25× the budget, `drei <PerformanceMonitor>` first turns off DOF and AO, then lowers the DPR by one step (0.25, floor 1.0), then drops one profile (at most once per zone load; `flipflops={3}` then `onFallback` locks the lower profile for the session). The user's manual override disables automatic stepping-down (6.4).
+A `PerformanceMonitor` step-down order applies when the 5 s p95 exceeds 1.25 × budget:
+1. DOF and AO
+2. DPR −0.25 (floor 1.0)
+3. one profile level (at most once per zone load, locked after 3 flip-flops)
 
-### 5.5 Fog
+A manual override disables step-down.
 
-Per zone: `fog: {color, near, far}` (linear) or `{color, density}` (exp2). The night and weather multipliers come from the day/night and weather rigs. `far` is tied to `drawDistance` (3.5). Height fog for lake mornings and snow peak: a custom chunk adds `exp(-max(worldY - fogBase, 0) * falloff)` on High and Balanced. Mobile uses standard fog only.
+### 5.5 Fog and mood techniques
 
-### 5.6 Weather particles
+- Per-zone linear or exp2 fog with `palette.fog` and `fogDensity`, multiplied by night and weather.
+- Height fog chunk on High and Balanced.
+- Forest light shafts: ≤ 12 additive cards.
+- Route_4 cloud shadows: a scrolling noise "cookie" in the terrain and prop lighting chunk (one texture sample).
+- Aurora: one scrolling ribbon mesh (1–2 draw calls).
+- Ambient **motes** (pollen, dandelion seeds, dust, embers, hail): one parameterised GPU system, one draw call per kind, counted against the particle cap.
 
-Weather state comes from the sim and zone data (Systems/World), because it affects encounters and battle. Rendering only reads it.
+### 5.6 Damper "mute" (world §8.1)
+
+A shared material chunk (the same injection point as the rim) desaturates toward luminance:
+
+```
+mute = max(uGlobalMute, Σ_i uMuteAmt_i · (1 − smoothstep(r_i·0.8, r_i, dist(worldPos, c_i))))
+```
+
+- At most 2 spheres per zone.
+- It applies to terrain, vegetation, props, water, sky and creatures.
+- Defeating a Damper animates the radius outward over 0.8 s (the "colour wave").
+- It works on Mobile, because it needs no post-processing.
+
+### 5.7 Weather
+
+The sim owns weather state (world rolls, systems battle weather). Rendering reads it.
 
 | Weather | Technique | High | Balanced | Mobile | Fallback |
 |---|---|---|---|---|---|
-| Rain | GPU-only instanced stretched quads in a 30×20×30 m box around the camera. Position is `mod(seedPos + wind*t + gravity*t, box)` in the vertex shader, so there are no CPU updates. | 6,000 drops + splash rings (200) | 3,000, no splashes | 1,200 | screen-space streak overlay (a single fullscreen quad) |
-| Snow | same technique, slow fall + sway | 5,000 | 2,500 | 1,000 | overlay |
-| Fog banks | 16 to 24 large soft billboards drifting at 1 m/s plus fog density ×1.8 | 24 | 16 | 8 | fog density only |
-| Storm | rain + a lightning flash (hemisphere intensity spike 120 ms; muted when reduced motion) | yes | yes | yes | — |
+| Rain | GPU-only stretched quads in a 30×20×30 m camera box; position by `mod()` in the shader | 6,000 + 200 splashes | 3,000 | 1,200 | fullscreen streak overlay |
+| Snow | same technique, with sway | 5,000 | 2,500 | 1,000 | overlay |
+| Fog | fog density ×1.8 + drifting soft billboards | 24 | 16 | 8 | density only |
+| Sunlight (battle only) | exposure +0.3, warmer key, motes | yes | yes | yes | — |
 
-All particle materials use `depthWrite: false` and `transparent: true`, drawn after opaque objects. Each weather type is one draw call, plus one for splashes. Battle VFX particles draw from a separate pool with a cap per profile (section 6).
+- A weather change mid-zone (band re-roll) crossfades particle density and fog over 10 s.
+- **Battle-local weather:** move weather (5 turns, including `sunlight`) overrides the stage's visuals from the `weatherStart` event, crossfading 800 ms, and reverts on `weatherEnd`.
 
 ---
 
 ## 6. Quality profiles and budgets
 
-### 6.1 Profiles
+### 6.1 Profiles (`settingsStore.QUALITY` plus the 0.3-1 edits)
 
 | Setting | High | Balanced | Mobile |
 |---|---|---|---|
-| DPR cap (`dpr=[1,cap]`) | 2.0 | 1.5 | 1.5 (1.25 if auto-downgraded) |
-| Context MSAA | off | off | on |
-| Shadow technique | CSM 2 cascades × 2048², PCF soft, 80 m | single 2048², 45 m, PCF soft | single 1024², 25 m, PCF; only trainer + creatures + large props cast |
-| Shadow fallback | — | — | blob shadow decal (projected circle) under trainer/creatures when shadows are off |
-| Draw distance (camera far, fog end) | 220 m | 160 m | 110 m |
-| Vegetation density multiplier | 1.0 | 0.6 | 0.3 |
-| Vegetation distance / grass distance | 120 / 45 m | 90 / 30 m | 60 / 18 m |
+| DPR cap | 2.0 | 1.5 | 1.25 |
+| Context MSAA | off (SMAA in the composer) | off (FXAA) | **on** |
+| Shadows | CSM 2 × 2048, 80 m | single 1024, 45 m | single 1024, 20 m, characters only; blob decal fallback |
+| Draw distance (far, fog end) | 220 m | 160 m | 110 m (vista layer beyond) |
+| Vegetation density | 1.0 | 0.65 | 0.35 |
+| Vegetation / grass distance | 120 / 45 m | 90 / 30 m | 60 / 18 m |
 | Creature draw distance | 90 m | 70 m | 50 m |
-| Max active wild creatures | 8 | 6 | 4 |
-| Terrain texture res / triplanar | 512² / yes | 256² / no | 256² / no |
-| Water mode | waves + 2 normals + foam | 2 normals + foam | 1 normal, static foam |
-| Weather particle cap | 6,000 | 3,000 | 1,200 |
-| VFX particle cap (battle) | 2,000 | 1,000 | 400 |
-| Post: SMAA / FXAA / Bloom / Vignette / DOF / N8AO | SMAA, Bloom, Vignette, DOF (battle), N8AO | FXAA, Bloom (½ res), Vignette | none (renderer ACES) |
-| Env map (PMREM) | 256 | 128 | none |
-| Creature materials | Physical (sheen, clearcoat) | Standard | Standard |
-| Face atlas cell | 128 px, aniso 4 | 128 px, aniso 2 | 64 px, aniso 1 |
+| **Wild creatures per zone** | **6** | **6** | **6** (D21) |
+| Full-rate animated creatures | all ≤ 25 m | all ≤ 25 m | 6 nearest |
+| Terrain texture / triplanar | 512² / yes | 256² / no | 256² / no |
+| Water | waves + 2 normal layers + foam | 2 layers + foam | 1 layer, static foam |
+| Particle multiplier (caps in 5.7) | 1.0 | 0.6 | 0.35 |
+| Post | SMAA, Bloom, Vignette, DOF (battle), N8AO, shimmer | FXAA, Bloom ½, Vignette | none |
+| PMREM env map | 256 | 128 | none |
+| Creature materials | Physical where clearcoat or sheen | Standard | Standard |
+| Face atlas cell | 256 px, aniso 4 | 256 px, aniso 2 | 128 px, aniso 2 |
 | Height fog | yes | yes | no |
 
-**Auto-detect** (`app/bootstrap.ts`, no network):
-1. Read `navigator.userAgentData?.mobile` or the UA mobile regex, `matchMedia('(pointer: coarse)')`, `navigator.hardwareConcurrency`, `navigator.deviceMemory` (Chromium only), `screen` size × `devicePixelRatio`.
-2. Read `gl.getParameter(UNMASKED_RENDERER_WEBGL)` via `WEBGL_debug_renderer_info` if available. It may be absent or sanitized, so treat it as a hint only.
-3. Rules:
-   - Mobile if coarse pointer and small screen (`min(screen.w,screen.h) < 820` CSS px), or the renderer matches `/Mali|Adreno|PowerVR|Apple GPU/` on a touch device.
-   - High if not mobile and `hardwareConcurrency ≥ 8` and the renderer matches a discrete-GPU pattern (`/NVIDIA|GeForce|RTX|Radeon RX|Radeon Pro|Apple M\d (Pro|Max|Ultra)/`).
-   - Balanced otherwise.
-   - Software renderers (`/SwiftShader|llvmpipe|Software/`) force Mobile and set a `softwareRenderer` flag, shown in the perf overlay and in bench output.
-4. Runtime adaptation via `PerformanceMonitor`, as in 5.4.
+**Auto-detect** (`detectQuality()`, implemented simply):
+- touch and a short side under 600 CSS px → Mobile
+- ≥ 8 cores, ≥ 8 GB `deviceMemory` and no touch → High
+- otherwise → Balanced
 
-**Manual override**: Settings → Graphics has Auto / High / Balanced / Mobile, plus individual toggles: shadows, post effects, vegetation density slider, DPR cap slider, reduced effects. Manual choice disables automatic downgrading. The override is persisted in settings.
+Planned additions:
+- the `WEBGL_debug_renderer_info` renderer string as a hint
+- software renderers (`SwiftShader|llvmpipe`) forced to Mobile, with a `softwareRenderer` flag shown in the overlay and in bench output
+- runtime `PerformanceMonitor` (5.4)
 
-### 6.2 Budgets
+Manual override: Settings → Graphics offers Auto, High, Balanced or Mobile, plus toggles for shadows, post and reduced effects, and a DPR slider.
 
-These are targets. None has been measured. Values are per rendered frame at the reference configs in section 7.
+### 6.2 Budgets (targets, not measured; per frame at the section 7 configurations)
 
 | Budget | High | Balanced | Mobile |
 |---|---|---|---|
-| Draw calls (exploration) | ≤ 350 | ≤ 250 | ≤ 150 |
-| Draw calls (battle) | ≤ 250 | ≤ 180 | ≤ 110 |
+| Draw calls, exploration (incl. ~6 wild at LOD1/2 + follower + NPCs) | ≤ 700 | ≤ 500 | ≤ 300 |
+| Draw calls, battle (2 creatures at LOD0 + trainer + stage) | ≤ 400 | ≤ 300 | ≤ 200 |
 | Visible triangles | ≤ 1.5 M | ≤ 800 k | ≤ 350 k |
-| Texture memory (estimated from created textures, tracked by ResourceScope) | ≤ 256 MB | ≤ 160 MB | ≤ 96 MB |
-| Active animated creatures (incl. follower) | 10 | 8 | 6 |
+| Texture memory (tracked by ResourceScope + atlas LRU) | ≤ 256 MiB | ≤ 192 MiB | ≤ 96 MiB |
+| Animated characters in view | ≤ 16 | ≤ 14 | ≤ 12 (6 at full rate) |
 | Particles (weather + VFX) | 8,000 | 4,000 | 1,600 |
-| JS main thread per frame (game logic + React + three CPU side, excluding GPU) | ≤ 6 ms | ≤ 6 ms | ≤ 10 ms |
-| Physics step (Rapier, 1/60) | ≤ 1.0 ms | ≤ 1.0 ms | ≤ 2.0 ms |
-| Sim `resolveTurn` | ≤ 2 ms per turn (off-frame; happens in `resolve` state) | same | same |
-| Frame time target | 16.7 ms (60 FPS) | 16.7 ms | 33.3 ms (30 FPS floor) |
-| Zone load (fade-out to fade-in) | ≤ 1.5 s | ≤ 2.0 s | ≤ 3.0 s |
-| Save write (atomic sequence) | ≤ 20 ms | ≤ 20 ms | ≤ 40 ms |
+| JS main thread per frame | ≤ 6 ms | ≤ 6 ms | ≤ 10 ms |
+| Physics step | ≤ 1 ms | ≤ 1 ms | ≤ 2 ms |
+| `resolveTurn` | ≤ 2 ms (off-frame) | same | same |
+| Frame time | 16.7 ms | 16.7 ms | 33.3 ms |
+| Zone load (fade to fade) | ≤ 1.5 s | ≤ 2.0 s | ≤ 3.0 s |
+| Save commit | ≤ 20 ms | ≤ 20 ms | ≤ 40 ms |
 
-### 6.3 Download budgets (gzipped, measured on `dist/` by `scripts/check-bundle.mjs`; fails CI when exceeded)
+The draw-call budgets are higher than v1 because of the D16 deviation. They are re-baselined after the first RC-L and RC-P1 measurements.
 
-| Chunk | Contents | Budget (gz) |
+### 6.3 Download budgets (gzipped; `scripts/check-bundle.mjs`; CI fails when exceeded)
+
+| Chunk | Contents | Budget |
 |---|---|---|
-| `entry` | React, zustand, UI shell, title screen, settings, persistence, content registry (JSON) | ≤ 300 KB |
-| `render` | three, R3F, used drei modules, postprocessing, world core | ≤ 450 KB |
-| `physics` | @react-three/rapier + rapier3d-compat (WASM inlined) | ≤ 900 KB (compat is ~836 KB alone) |
-| `audio` | tone + audio director | ≤ 150 KB |
-| `creatures-fXX` ×10 | builders per family | ≤ 25 KB each |
+| `entry` | React, zustand, UI shell, title, settings, persistence, content JSON | ≤ 300 KB |
+| `render` | three, R3F, used drei, postprocessing, world core | ≤ 450 KB |
+| `physics` | @react-three/rapier + rapier3d-compat (WASM inlined, about 836 KB alone) | ≤ 900 KB |
+| `audio` | tone + directors | ≤ 150 KB |
+| `creatures-fXX` × 10 | species part tables + family helpers | ≤ 25 KB each |
+| `characters` | humanoid kit + named specs | ≤ 60 KB |
+| `zone-<id>` | zone JSON + zone-specific props | ≤ 40 KB each |
 | **Title interactive** (entry + render) | | **≤ 750 KB** |
-| **Total** | | **≤ 2.0 MB** |
+| **Total** | | **≤ 2.6 MB** |
 
-`render` loads in parallel with `entry` via `modulepreload`, because the title has a 3D backdrop. `physics` and `audio` are prefetched right after the title is interactive and awaited on `NEW_GAME` or `CONTINUE`. The title screen needs neither.
+`physics` and `audio` are prefetched after the title and awaited on New Game or Continue. The build ships no binary assets: every texture and sound is generated at runtime.
 
-There are no binary asset downloads at all: textures are canvas-generated and audio is synthesized. Mobile first-load target: title interactive in ≤ 5 s on a 10 Mbps connection. That is a target and has not been measured.
+### 6.4 Fallbacks for every expensive effect
 
-### 6.4 Fallback for every expensive effect
+| Effect | Fallback path |
+|---|---|
+| CSM | single shadow map → character-only shadows → blob shadows |
+| N8AO | baked cavity AO |
+| DOF | none (framing keeps focus) |
+| Bloom | pre-brightened emissive |
+| SMAA / FXAA | context MSAA |
+| Composer | renderer ACES |
+| Water | fewer layers → UV scroll |
+| Triplanar | planar + slope darkening |
+| Wind | static (Mobile decline, or reduced motion) |
+| Grass | none |
+| Weather particles | overlay |
+| Height fog | standard fog |
+| PMREM | hemisphere only |
+| Physical materials | Standard + rim |
+| Heat shimmer | none |
+| Face atlas memory | LRU eviction |
 
-| Effect | Trigger for fallback | Fallback |
-|---|---|---|
-| CSM shadows | Balanced, or `PerformanceMonitor` decline | single shadow map → Mobile shadow → blob shadows |
-| N8AO | not High, or decline | baked terrain cavity AO |
-| DOF | not High, decline, or reduced effects | none (camera framing keeps focus) |
-| Bloom | Mobile or decline | pre-brightened emissive colours |
-| SMAA/FXAA | Mobile | context MSAA |
-| Post composer | Mobile, error, context loss | renderer ACES |
-| Water waves/foam | profile | fewer layers → flat UV-scroll |
-| Triplanar rock | not High | planar + slope darkening |
-| Vegetation wind | Mobile + decline, or reduced motion (off, not reduced) | static instances |
-| Grass | Mobile decline | no grass layer; ground texture only |
-| Weather particles | cap reached or decline | fullscreen overlay |
-| Height fog | Mobile | standard fog |
-| PMREM env map | Mobile | hemisphere only |
-| Physical materials | not High | Standard + rim |
-| WebGL context loss | `webglcontextlost` | pause, show "Restoring graphics…", on restore re-create the zone (ResourceScope rebuild from cached CPU arrays) |
-| WebGL2 unavailable | boot | show an unsupported message with specifics. WebGL1 is not supported, since three r163+ removed WebGL1. |
+- WebGL context loss: pause, show "Restoring graphics…", then rebuild the zone and repaint the atlases from the cached CPU data.
+- No WebGL2: a clear "unsupported" message.
 
 ---
 
-## 7. Reference configurations and benchmark procedure
+## 7. Reference configurations and benchmark (D26)
 
-### 7.1 Reference configurations
+### 7.1 Reference configurations: all **Not measured**
 
-Every performance claim must name one of these configs and link to a result file. All are currently **Not measured**.
+| ID | Spec | Browser | Viewport / DPR | Profile | Pass criteria (targets) |
+|---|---|---|---|---|---|
+| **RC-L** mid-range laptop | Intel Core i5-1235U + Iris Xe (80 EU) **or** AMD Ryzen 5 7530U + Radeon Vega 7; 16 GB; Windows 11; on AC; Balanced power mode | Chrome stable (record the version) | maximized on 1920×1080, about 1920×953 CSS px, DPR 1.0 | Auto (expected Balanced); also forced High | Balanced: avg ≥ 58 FPS, p95 ≤ 20 ms, no frame > 100 ms after warm-up, zone load ≤ 2.0 s |
+| **RC-P1** modern phone (Android) | Google Pixel 7 (Tensor G2, Mali-G710 MP7, 8 GB) | Chrome for Android | landscape 915×412 CSS px, DPR 2.625 capped to 1.25 | Auto (Mobile) | avg ≥ 30 FPS, p95 ≤ 40 ms, sustained over 10 min, zone load ≤ 3.0 s |
+| **RC-P2** modern phone (iOS) | iPhone 13 (A15, 4 GB), iOS 18+ | Safari | landscape 844×390, DPR 3 capped to 1.25 | Auto (Mobile) | same as RC-P1 |
+| CONTAINER-SW | Linux container, headless Chromium 141 (rev 1194), SwiftShader | headless | 1280×720, DPR 1 | forced Mobile | **functional only**: the harness completes and the JSON is valid. FPS is recorded as `representative: false` and never quoted. |
 
-| ID | Device class | Exact spec | Browser | Viewport / DPR | Profile | Pass criteria (targets) | Status |
-|---|---|---|---|---|---|---|---|
-| **RC-L** "mid-range laptop" | Integrated-GPU laptop, 2022–2023 | Intel Core i5-1235U with Intel Iris Xe (80 EU), **or** AMD Ryzen 5 7530U with Radeon Vega 7 iGPU; 16 GB RAM; Windows 11; on AC power, "Balanced" power mode | Chrome stable (record version) | Maximized window on a 1920×1080 display: viewport ≈ 1920×953 CSS px, DPR 1.0 | Auto (expected Balanced) and forced High | Balanced: avg ≥ 58 FPS, p95 frame time ≤ 20 ms, no frame > 100 ms after warm-up, zone load ≤ 2.0 s | **Not measured** |
-| **RC-P1** "modern phone (Android)" | 2022 upper-mid/flagship | Google Pixel 7 (Tensor G2, Mali-G710 MP7, 8 GB) | Chrome stable for Android | Landscape, viewport 915×412 CSS px (address bar hidden via fullscreen), device DPR 2.625, capped at 1.5 by the profile | Auto (expected Mobile) | avg ≥ 30 FPS, p95 ≤ 40 ms, sustained over a 10-minute run (thermal), zone load ≤ 3.0 s | **Not measured** |
-| **RC-P2** "modern phone (iOS)" | 2021 flagship | iPhone 13 (A15, 4 GB), iOS 18 or newer | Safari | Landscape, 844×390 CSS px, device DPR 3, capped at 1.5 | Auto (Mobile) | same as RC-P1 | **Not measured** |
-| CONTAINER-SW | Build container | Linux, headless Chromium 141 (Playwright rev 1194), SwiftShader/software GL | headless | 1280×720, DPR 1 | forced Mobile | **Functional only**: benchmark completes, metrics file valid, no errors. FPS numbers are recorded but flagged `representative: false` and must never be quoted. | Runnable here |
+QA's RD-L, RD-P1 and RD-P2 map to RC-L, RC-P1 and RC-P2 (QA review). Which physical devices are available is an open item for the orchestrator.
 
-The container is not representative of any real device. Its numbers prove the harness works and nothing else.
+### 7.2 Perf overlay (`?perf=1`, or `?debug=1` for QA, or F3)
 
-### 7.2 In-game perf overlay
+A DOM panel updated at 2 Hz:
+- FPS; p50, p95 and p99 over 600 frames
+- draw calls and triangles, with `renderer.info.autoReset = false` and a manual reset per frame so composer passes are summed
+- geometries and textures; the estimated texture MiB (ResourceScope + atlas LRU)
+- JS heap (Chromium only)
+- physics ms (from before- and after-step timestamps)
+- React commits per second
+- active and full-rate creatures, particles, profile, DPR, GPU string, `softwareRenderer`
 
-Toggle with `F3` or `?perf=1`. It is a DOM panel updated at 2 Hz. Fields:
-- FPS (1 s average)
-- frame time p50/p95/p99 over the last 600 frames
-- draw calls and triangles. Set `renderer.info.autoReset = false` and reset manually at frame start, so composer passes are summed.
-- `info.memory.geometries/textures`, the estimated texture MB (ResourceScope)
-- JS heap (`performance.memory.usedJSHeapSize` in Chromium; "n/a" elsewhere)
-- physics step ms (timestamp in `useBeforePhysicsStep` → `useAfterPhysicsStep`)
-- React commit count per second
-- active creatures, particles, the current profile, DPR, the GPU renderer string, and the `softwareRenderer` flag
+### 7.3 Benchmark procedure
 
-### 7.3 Benchmark procedure (URL-flag driven)
+URL: `?bench=<BM-01…BM-08|traverse|battle|full>&profile=<auto|high|balanced|mobile>&seed=<n>&save=<fixture>`.
+- `?quality=` is accepted as an alias.
+- BM ids follow QA §8.1. `traverse` runs BM-02, `battle` runs BM-06, and `full` runs all of them.
+- Flags work only in dev or in `VITE_QA=1` builds.
 
-URL: `/?bench=<traverse|battle|full>&profile=<auto|high|balanced|mobile>&seed=<n>&save=<fixture id>`
-
-1. **Setup.** Loads a fixture save from `src/bench/fixtures` (party of 6 mid-game creatures), forces `seed`, and fixes the clock at 12:00 with clear weather. `bench=full` also runs 19:30 with rain. Input comes from a bot `InputSource` that replays a spline path defined per benchmark zone (`route_2`, `forest`, `town_2`, chosen for their vegetation, water and NPC density). The bot uses the same `InputFrame` path as human input, so the real controller, camera and AI all run.
-2. **Warm-up.** 10 s in the first zone, discarded. This covers shader compile, JIT and GC settling. Then 3 zone transitions are made, and their load times are recorded separately.
-3. **Traverse sampling.** 60 s per zone. Every frame records `performance.now()` deltas from `requestAnimationFrame`, draw calls, triangles and physics ms. Heap is sampled every 1 s.
-4. **Battle.** A scripted wild battle (fixed seed): intro, 5 turns with attack/status/switch, one capture attempt, and results. The whole battle is sampled, and resolve-to-idle latency is recorded per turn.
-5. **Output.** `window.__BENCH_RESULT__` contains `{config: {ua, gpu, dpr, viewport, profile, softwareRenderer, buildHash}, zones: [{id, loadMs, fpsAvg, p50, p95, p99, over33msPct, over100msCount, drawCallsAvg/max, trisAvg/max}], battle: {...}, heapMaxMB}`. A "Download results" button saves the JSON. Playwright reads the global in the container.
-6. **Reporting.** Results are committed to `design/reviews/perf_<RC-id>_<date>.json` together with a markdown summary. A claim of "60 FPS on RC-L" is valid only with such a file from real hardware.
+Procedure:
+1. A fixture save sets a mid-game party of 6. The clock is fixed at 12:00 with clear weather; `full` adds 19:30 with rain.
+2. A bot `InputSource` replays a spline path through the real controller, camera and AI.
+3. Warm up for 10 s (shader compile reported separately), then sample 60 s per scene. Every rAF delta is recorded, and heap is sampled at 1 Hz.
+4. The battle runs 10 scripted turns of the heaviest `anim`s, with per-turn resolve-to-idle latency.
+5. Run 3 times and report the median.
+6. Output goes to `window.__qa.bench` and a download:
+   ```
+   {config:{ua, gpu, dpr, viewport, profile, softwareRenderer, buildSha},
+    scenes:[{id, loadMs, fpsAvg, p50, p95, p99, over33Pct, over100Count, drawCalls, tris}], heapMaxMiB}
+   ```
+7. Results are committed to `design/reviews/perf_<RC>_<date>.json` with a markdown summary. **Only these files support FPS claims.**
 
 ---
 
@@ -835,309 +901,269 @@ URL: `/?bench=<traverse|battle|full>&profile=<auto|high|balanced|mobile>&seed=<n
 
 ### 8.1 DOM overlay
 
-- The layout is `<div id="game">` with `position: fixed; inset: 0`, containing the `<Canvas>` (z 0) and `<UiRoot>` (z 1, `pointer-events: none` at the root). Interactive panels set `pointer-events: auto`.
-- UI never lives inside the Canvas (no drei `<Html>` for menus), because DOM text stays crisp at any DPR and is accessible. World-anchored labels (NPC "!" marker, damage popups) are DOM elements positioned from `Vector3.project` at most every frame, written directly to `style.transform`, not React state.
-- The encyclopedia 3D viewer renders into the same Canvas via drei `<View>` tracking a DOM rect (one WebGL context). While the viewer is open, the zone scene is paused and hidden (`visible = false`), so the cost is one creature at LOD0.
-- Fonts come from bundled system stacks, or one self-hosted WOFF2 if the Creative Director specifies it. No Google Fonts request at runtime.
+- `#game` is fixed and full-screen. The `<Canvas>` sits at z-index 0 and `<UiRoot>` at z-index 1, with `pointer-events: none` except on panels.
+- There are no drei `<Html>` menus. World labels are DOM elements positioned via `Vector3.project`, written straight to `style.transform`.
+- The trainer-spotted marker is CD's **chord-burst** DOM icon.
+- Display strings (Moves / Satchel / Swap / Retreat, status names per D8) come from `strings.en.json`.
+- Fonts are system stacks (CD §7.2), with no network request.
 
-### 8.2 Input system (`ui/input`)
+### 8.2 Input (`ui/input/input.ts` ✓: keyboard, pointer lock and drag, touch joystick)
 
-`InputManager` is a singleton that produces an `InputFrame` each render frame:
+- **Frame model:** each frame produces `InputFrame {move, look, zoom, run, interact, cancel, menu, confirm, nav*, fieldAction, source}`. Edges latch until consumed.
+- **Context stack:** `explore | dialogue | menu | battle | textEntry`. `textEntry` suspends game keys.
+- **Keyboard:** uses `KeyboardEvent.code` (WASD/arrows, Shift run, E/Space/Enter, Esc/Backspace, Tab/M, Q field action, 1–4 moves).
+- **Mouse:**
+  - Pointer lock is requested on canvas click in explore, with `{unadjustedMovement:true}` retried without the option if it fails.
+  - Esc releases the lock without opening the menu.
+  - Right-drag is the fallback. The wheel zooms.
+- **Gamepad:** standard mapping, radial deadzone 0.18, response curve `x^1.5`.
+- **Touch** (Pointer Events, with `Map<pointerId, Claim>` and `setPointerCapture`):
+  - The left 45% of the screen is a dynamic joystick: radius 64 CSS px, **dead-zone 8 px (0.12)**, and run past 85% (setting).
+  - The right 55% is camera drag, and a pinch zooms.
+  - DOM buttons are ≥ 48×48 CSS px: Interact, Resonate, Menu, Run.
+  - Joystick, camera drag and one button work simultaneously.
+  - `touch-action: none`.
+- **Focus and visibility:** on `blur`, `visibilitychange`, `pagehide`, `pointercancel` or `lostpointercapture`, all keys, claims and axes are cleared.
+  - Hidden: `frameloop='never'`, physics paused, clock and timeline paused, audio suspended.
+  - On return, dt is clamped to 0.1 s.
+- **Resize and orientation:** R3F measures; DPR is re-evaluated. The viewport meta uses `viewport-fit=cover`, and padding uses `env(safe-area-inset-*)`.
+  - Height is `100dvh`, with a minimum of 640×360 in landscape.
+  - Portrait phones get a "rotate" banner plus a portrait layout (battle menu at the bottom, FOV 65°).
+  - Battle framing is recomputed on resize.
 
-```ts
-{ move: Vec2; look: Vec2; zoom: number; run: boolean; interact: Edge; cancel: Edge; menu: Edge;
-  confirm: Edge; navUp/Down/Left/Right: Edge; fieldAction: Edge; source: 'kbm'|'gamepad'|'touch' }
-```
+### 8.3 Accessibility hooks
 
-`Edge` values latch until consumed.
-
-**Context stack** (`explore | dialogue | menu | battle | textEntry`): only the top context receives actions. `textEntry` (nickname input) suspends all game keys so typing works.
-
-**Keyboard**: uses `KeyboardEvent.code`, so it is layout-independent.
-- WASD or arrows: move and navigate
-- Shift: run (a toggle-run setting is available)
-- E / Space / Enter: interact and confirm
-- Esc / Backspace: cancel and back
-- Tab / M: menu
-- Q: field action
-- 1–4: move shortcuts in battle
-
-`preventDefault` is applied only for handled keys, and never in `textEntry`.
-
-**Mouse**:
-- Clicking the canvas in `explore` calls `requestPointerLock({ unadjustedMovement: true })`. If that option is unsupported, the call is retried without it.
-- `pointerlockchange` sets `locked`. Esc releases the lock (browser behaviour) and does **not** open the menu on the same keypress.
-- Without lock, or if lock is denied, right-button drag rotates the camera.
-- Wheel zooms.
-- Menus are fully clickable.
-
-**Gamepad** (optional): `navigator.getGamepads()` is polled in `useFrame`. Uses the standard mapping, a radial deadzone of 0.18 and response curve `x^1.5`.
-- A: confirm
-- B: cancel
-- Y: menu
-- X: field action
-- LB/RB: menu tabs
-- Right stick: camera
-- The `gamepadconnected` event switches UI glyphs.
-
-**Touch** (Pointer Events, multi-touch). Each `pointerId` is **claimed** by one consumer on `pointerdown` and released on `pointerup`, `pointercancel` or `lostpointercapture`. `setPointerCapture` is used on the claiming element.
-- Left 45% of the screen (outside buttons): a dynamic virtual joystick. The origin is the touch-down point, the radius is 64 CSS px, the output is normalized, and past 85% of the radius it becomes "run" (setting).
-- Right 55% (outside buttons): camera drag with delta × sensitivity. Two-finger pinch on the right side zooms.
-- Contextual buttons are DOM elements with `pointer-events: auto` that claim their pointer: Interact (appears only near an interactable), Field action, Menu, Run toggle. They are at least 48×48 CSS px, placed in the thumb zones inside safe areas.
-- The joystick, camera drag and one button can all be active simultaneously. The manager tracks a `Map<pointerId, Claim>`.
-- The container has `touch-action: none`. `user-select: none` is applied except on text entry. The context menu is blocked on the canvas.
-
-**Visibility and focus loss** (`visibilitychange`, `blur`, `pagehide`, `pointercancel`, `lostpointercapture`):
-- Clear all held keys, pointer claims and stick values. This prevents runaway movement.
-- Latch-reset all edges.
-- If the page is hidden: set the Canvas `frameloop="never"`, pause the physics world, pause the game clock and presenter timeline, and suspend audio (9.3).
-- On return, resume with the `dt` clamp of 0.1 s max per frame, so the first frame doesn't teleport.
-- If a battle timeline was mid-play, it resumes where it left off.
-
-**Resize, orientation and safe areas**:
-- R3F measures the container. `dpr` is re-evaluated on `resize`, and on `matchMedia('(resolution: …)')` change for monitor moves.
-- `<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">`. UI padding uses `env(safe-area-inset-*)`.
-- `100dvh` is used for the container height, avoiding mobile URL-bar jumps.
-- Minimum supported viewport is 640×360 CSS px in landscape.
-- On phones in portrait (coarse pointer and `height > width`), exploration and battle show a non-blocking "Rotate for best experience" banner and use a portrait-adapted layout: the battle menu goes to the bottom and the camera FOV widens to 65°. Menus work in both orientations. Whether portrait gameplay is fully supported is listed under Unresolved questions.
-- An `orientationchange` or resize during battle re-runs the framing computation for the current shot.
-
-### 8.3 Accessibility hooks this architecture provides
-
-- Settings-driven text size (3 steps) and text speed
-- Reduced motion (camera cuts, shake, flashes, wind)
-- Reduced effects (post)
-- Camera sensitivity and invert
-- Keyboard-complete menus with visible focus rings and roving tabindex
-- Type information is always icon + text, never colour alone
-- No information conveyed by audio alone: cries and SFX are paired with text or visuals
-- Flash VFX limited to at most 3 flashes/s (WCAG 2.3.1)
+- text size (100/125/150%) and text speed
+- reduced motion (4.5) and reduced effects
+- battle speed
+- camera sensitivity and invert
+- keyboard-complete menus with a visible focus ring
+- type, status, HP band and effectiveness shown as icon + text, never colour alone
+- no information by audio alone
+- flashes ≤ 3/s
 
 ---
 
 ## 9. Audio integration
 
-### 9.1 Start and graph
-
-- Tone.js is lazy-loaded (the `audio` chunk). `AudioDirector.init()` is called from the title screen's first `pointerdown` or `keydown` ("Press any key / tap to begin"). It awaits `Tone.start()`, then builds the graph. Before that, all audio calls are no-ops, and the requests are queued so the latest music request plays once started.
-- Graph: `Channel(music)`, `Channel(sfx)`, `Channel(ambience)` and `Channel(ui)`, all connected to `getDestination()`.
-  - The `master` volume is set on `getDestination().volume`.
-  - Slider 0–100 maps to dB as `v === 0 ? -Infinity (mute) : 20*log10(v/100)`.
-  - A separate mute toggle keeps slider values. It sets `getDestination().mute`.
-  - A limiter (`Tone.Limiter(-1)`) sits before the destination.
-- Context: `latencyHint: 'interactive'`, `lookAhead: 0.05`.
-
-### 9.2 Music director
-
-- One `MusicDirector.request(trackId, {transition})` API, called by a zustand subscription on `appStore.mode` plus the zone id. Components never call Tone directly.
-- **No overlapping**:
-  - Each request increments a `token`. Only the newest token's track may start.
-  - At most **2** songs exist at any time, the outgoing one and the incoming one. The outgoing song fades over 0.8 s and is then stopped and disposed.
-  - A request for the already-playing track is ignored.
-  - Rapid A→B→A requests during a fade cancel B before it starts.
-- A song is a set of `Part`/`Sequence` stems on the shared transport (`getTransport()`), with BPM from the song. Zone themes loop.
-- Battle songs have 3 **layers** (base, percussion, intensity), each on its own `Channel`.
-  - The intensity layer's gain comes from battle state (the player's active creature below 30% HP, or a trainer's last creature) with a 1.0 s ramp, via `CrossFade` or gain automation.
-  - Exploration to battle: a transition stinger (one-shot) plays, then the battle base starts at the next bar.
-  - Battle to victory: the victory jingle plays, then the zone theme returns with a 1.5 s fade-in.
-- Voice budget: music ≤ 16 simultaneous synth voices (PolySynth `maxPolyphony` set explicitly), SFX ≤ 12, cries ≤ 2 (a new cry interrupts the oldest).
-
-### 9.3 SFX and cries
-
-- SFX are synthesized with parameter presets. Frequent SFX (UI ticks, footsteps per surface, hit variants, capture shake/click) are **pre-rendered once with `Tone.Offline`** into `ToneAudioBuffer`s at audio init or zone load, then played through pooled `Player`s. This costs little CPU at runtime and gives accurate timing.
-- Creature cries are parameterized per species from data (oscillator mix, formant filters, pitch contour, duration 0.4 to 1.2 s). They are rendered offline for the party, the current zone's encounter species and battle participants. There is an LRU cache of 40 buffers.
-- Timing sync with visuals: battle SFX are triggered from animation clip events with a direct `player.start(Tone.now() + 0.01)`. Presentation drives audio, not the reverse, and no `Tone.Draw` callbacks are used.
-- Spatialization: footsteps and cries in exploration use a simple pan and distance attenuation computed by us (no HRTF panners), with a 30 m cutoff.
-
-### 9.4 Settings and lifecycle
-
-- Settings: master, music, SFX, ambience volumes; mute; "mute when unfocused" (default on). They are persisted in settings and applied live.
-- Hidden tab: on `visibilitychange` to hidden, `getTransport().pause()` and `getContext().rawContext.suspend()`. When visible again, `resume()` then `start()` the transport. If the context was `interrupted` (iOS), resume on the next user gesture.
-- Stale time is not caught up: the transport restarts at the paused position.
+- **Start and graph:**
+  - Tone is lazy-loaded. `AudioDirector.init()` runs on the first `pointerdown` or `keydown` at the title and awaits `start()`. Requests made earlier are queued, and only the latest music request survives.
+  - Graph: `Channel`s for music, SFX, ambience and UI → `Compressor(−18 dB, 3:1)` → `Limiter(−1 dB)` → destination (CD §8.1).
+  - Volume maps a 0–100 slider to dB: `v ? 20·log10(v/100) : −∞`. Mute is a separate toggle. Context options: `latencyHint 'interactive'`, `lookAhead 0.05`.
+- **Music director:** a single `request(trackId)`, driven by a subscription to `appStore.mode` and the zone.
+  - Each request takes a token; at most 2 songs are alive (outgoing and incoming).
+  - The fade is 0.8 s. A request for the current song is ignored, and A→B→A cancels B.
+- **Battle layers:** base, melody (−6 dB for wild battles), intensity (HP ≤ 25%, exits above 35%), and variants for trial leader, Stillmark, Odile phases, champion and rival.
+  - Layer changes are **quantized to the next bar with 400 ms crossfades** (CD §8.4).
+  - Odile phase B is driven by the `phaseChange` event.
+- **Voices:** total synth voices ≤ 24 (music ≤ 14, live SFX ≤ 8, cries ≤ 2). Pre-rendered `Tone.Offline` buffers played through pooled `Player`s do not count.
+- **Pre-rendering:**
+  - Frequent SFX (UI, footsteps × 6 surfaces, hits, Chime rings per D9) are pre-rendered at init.
+  - Cries (per-species params, deterministic) are rendered for the party, the zone's encounter species and battle participants, in an LRU of 40.
+  - The Great Chord ending stinger is pre-rendered at load (CD).
+- **Sync:** SFX start from clip `onContact` via `player.start(Tone.now() + 0.01)`. Presentation drives audio.
+- **Lifecycle:**
+  - Hidden: `getTransport().pause()` and `rawContext.suspend()`. Visible: resume, then restart the transport at the paused position.
+  - An iOS `interrupted` context resumes on the next gesture.
+  - "Mute when unfocused" defaults to on.
 
 ---
 
-## 10. Persistence architecture
+## 10. Persistence (implemented: `src/persistence/*`)
 
-### 10.1 Keys (localStorage)
+### 10.1 Keys (`KEYS` in `saveManager.ts`)
 
 | Key | Content |
 |---|---|
-| `crpg:save:main` | current save envelope |
-| `crpg:save:backup` | previous good save (rotated on each successful main write) |
+| `crpg:save:main` | current envelope |
+| `crpg:save:backup` | previous good envelope |
 | `crpg:save:tmp` | in-flight write (normally absent) |
-| `crpg:settings` | settings envelope (own version) |
-| `crpg:probe` | written and removed at boot to test availability |
+| `crpg:save:corrupt` | raw unreadable main, kept for export or a bug report |
+| `crpg:settings` | settings (own debounced writer) |
+| `crpg:probe` | boot availability probe |
 
-There is one campaign slot plus a backup, per the brief. Extra slots are an unresolved question.
+There is one campaign slot plus the backup.
 
-### 10.2 Save envelope and schema
+### 10.2 Envelope and payload (`saveTypes.ts`, `validate.ts`)
 
-```ts
-SaveEnvelope = {
-  format: 'crpg-save',
-  schemaVersion: number,        // integer, starts at 1
-  gameVersion: string,          // build hash/semver
-  savedAt: string,              // ISO; informational only, never used for logic
-  checksum: string,             // FNV-1a 32 hex over canonical JSON of payload (sorted keys)
-  payload: SavePayloadVn
-}
+```
+SaveEnvelope { format:'crpg-save', schemaVersion: 2, gameVersion, savedAt (ISO, informational), checksum, payload }
 ```
 
-`SavePayloadV1` is `gameStore`'s committed state, validated by a zod schema:
-- `player {name, appearance, money, playtimeSec}`
-- `clockMinutes`
-- `rngState [4 × uint32]`
-- `zone {id, entrySpawnId}`
-- `party: instanceId[] (1..6)`
-- `instances: Record<instanceId, CreatureInstance>`
-- `storage: instanceId[] (≤ 300)`
-- `inventory: Record<itemId, count>`
-- `flags: Record<flagId, boolean|number>`
-- `quests: Record<questId, {state, step}>`
-- `encyclopedia {seen: speciesId[], caught: speciesId[]}`
-- `fieldActionsUnlocked`
-- `worldState` (moved boulders, opened gates, defeated trainers)
-- `stats`
+- The checksum is FNV-1a 32-bit over **canonical JSON** (sorted keys).
+- `SavePayload` fields:
+  - `player {name, pronoun, look, money, playtimeSec, starter}`
+  - `clockMinutes`, `rngState`
+  - `zone {id, spawn}`, `lastHearth {zone, spawn}`
+  - `party[] (1..6)`, `storage[] (≤ 300)`, `instances{uid → CreatureInstance}`
+  - `inventory`, `flags`, `quests`, `seen`, `caught`
+  - `nodes` (solved resonance nodes), `waystones`, `defeatedTrainers`, `pickups`, `stats`
+- `CreatureInstance` (zod) holds `uid, species, nickname?, level 1–60, xp, potential{6 stats}, temperament, moves[1..4]{id, charges}, hp, status|null, sleepCounter?, bond?, evolveReady?, caughtIn?, metZone?`.
+- After parsing, cross-references are validated against `KnownIds` (species, moves, items, zones). Party and storage uids must exist, with no duplicates.
 
-`CreatureInstance` = `{id, speciesId, nickname?, level, xp, nature?/personality?, ivs?, moves: [{moveId, charges}], hp, status, heldItem?, originalTrainer, caughtAt: {zoneId, level}}`. The Systems Designer owns the exact stat fields, and the schema will follow systems.md.
+### 10.3 Migrations (`migrations.ts`)
 
-References are validated after parse: every `speciesId`, `moveId`, `itemId`, `zoneId` and `flagId` must exist in the content registry, and party and storage ids must exist in `instances` with no duplicates. Unknown ids from removed content are handled by migrations, never silently dropped.
+- `migrations[n]` converts vN into v(N+1). Each is pure and runs on `structuredClone`. `migrate()` walks from the envelope version up to `SAVE_SCHEMA_VERSION`.
+- Current chain: **v1 → v2** (`lastHeal` → `lastHearth`; adds `waystones` and `pickups`).
+- Each bump requires a frozen fixture `tests/fixtures/saves/v{N}.json` ✓ and a test that migrates every older fixture.
+- A save **newer** than supported is refused, never overwritten, and offered for export.
 
-Size target: ≤ 200 KB serialized (300 stored creatures at ≈ 350 B each ≈ 105 KB). No compression is needed.
+### 10.4 Atomic commit and recovery (`SaveManager`, KV adapter injectable for tests)
 
-### 10.3 Migration chain
+`commit(payload)` steps:
+1. build the envelope `S`
+2. `tmp ← S`, then verify by read-back and checksum
+3. if `main` verifies, `backup ← main` (a corrupt main is never rotated)
+4. `main ← S`, then verify
+5. remove `tmp`
 
-- `migrations: Record<number, (p: unknown) => unknown>`, where `migrations[n]` converts vN into v(N+1). Migrations are pure and never throw on valid input. The loader runs `for v = env.schemaVersion; v < CURRENT; v++`, then applies the current zod schema.
-- Every schema version bump requires:
-  1. a new migration
-  2. a frozen fixture `tests/fixtures/saves/v{N}.json` created from a real save of that version
-  3. a test that migrates every older fixture to current and validates it
-- If a save is **newer than supported** (a downgrade), the loader refuses to load it, **never overwrites** it, and offers export.
+- Quota errors are recognized by name (`QuotaExceededError`, `NS_ERROR_DOM_QUOTA_REACHED`) or legacy code 22/1014. They abort the commit with `{error:'quota'}`. `main` stays intact, `tmp` is removed, and a persistent "Export your save" banner appears. The next checkpoint retries.
+- Load order: `main` → `tmp` (an interrupted write) → `backup`, each checksum + schema + migrate + xref. The notices are player-facing. A raw unreadable main goes to `crpg:save:corrupt`.
+- A probe failure means **no-storage mode**: checkpoints go to an in-memory envelope, and export still works.
+- **Multi-tab** (QA M-71): a `storage` event on `crpg:save:main` from another tab marks this tab stale. It shows "Your save changed in another tab. Reload?" and blocks commits.
 
-### 10.4 Atomic write order
+### 10.5 Checkpoints (D19: reload mid-battle, capture or evolution returns to the pre-battle checkpoint)
 
-`saveManager.commit(reason)` runs synchronously on the main thread, which is fine because localStorage is synchronous and small:
-1. `payload = selectCommitted(gameStore)`. Serialize canonical JSON and compute the checksum to build the envelope string `S`.
-2. `setItem('crpg:save:tmp', S)`.
-3. **Verify**: `getItem('tmp') === S`, `JSON.parse` succeeds, and the checksum matches.
-4. If `main` exists and passes checksum verification, `setItem('crpg:save:backup', main)`. A corrupt `main` is **not** rotated into backup, so the good backup is kept.
-5. `setItem('crpg:save:main', S)`, then verify as in step 3.
-6. `removeItem('crpg:save:tmp')`.
+| Moment | Saved? |
+|---|---|
+| Battle start | **No**. The battle runs on a copy. |
+| Battle end (win, loss→whiteout, fled) | Yes: XP, levels, moves, HP/status, items, money, defeated trainers |
+| Capture resolved (incl. the mandatory release, D18) | Yes, in the same commit as battle end, only after placement or release resolves |
+| Evolution done or cancelled | Yes, per evolution |
+| Purchase or sale | Yes, per confirmed transaction |
+| Healing / Hearthrest / "Rest until" | Yes (sets `lastHearth`) |
+| Zone transition | Yes, at the **target zone's entry spawn** (`zone.spawn`) |
+| Quest step, story flag, Resonance node solved, pickup, gift | Yes (the same write as the flag) |
+| Scripted moves (Gust updraft, ferry) | **Blocked** while running; saved at the destination if state changed |
+| Party, storage or nickname changes, disc taught | Yes, on menu close |
+| Settings | own key, debounced 300 ms |
 
-Load and recovery order: `main` (checksum + schema + migrate + xref), then `tmp` (valid means a crash happened between steps 2 and 6, and tmp is newer), then `backup`. If a fallback was used, the player sees "Your last save could not be read; restored from backup (saved <time>)", and the corrupt raw string is kept under `crpg:save:corrupt` for export or bug reports. If all fail, the title shows "No valid save" with export-raw and new-game options.
+Reload always resumes at the saved zone's entry spawn.
 
-**Quota and unavailable storage**:
-- Every `setItem` is wrapped. `QuotaExceededError` (by `name`, or legacy `code` 22 or 1014) aborts the sequence at that step. `main` is untouched unless step 5 itself failed, and in that case step 5's failure leaves the old main intact, because `setItem` is atomic per key. The code then removes `tmp`, and shows a persistent banner: "Saving failed: storage full. Export your save." with an Export button.
-- The game continues and retries at the next checkpoint.
-- A boot probe failure (storage disabled, private-mode restrictions, `SecurityError`) enters **no-storage mode**: a banner is shown, checkpoints keep an in-memory envelope, and export/import still work.
+### 10.6 Export, import, new game (implemented)
 
-### 10.5 Checkpoints (what is committed when)
-
-| Moment | Committed | Saved? |
-|---|---|---|
-| Battle start | nothing. The battle works on a snapshot copy in `battleStore`. | **No** |
-| Battle end (win, loss→whiteout, fled) | XP, levels, learned moves, HP/status, items used, money, defeated trainer flags | Yes, after results, before returning to exploration |
-| Capture resolved | new instance placed in party or storage, device consumed, encyclopedia updated | Yes (part of battle-end commit; a single save) |
-| Evolution done or cancelled | species change, moves learned | Yes, per evolution |
-| Purchase or sale | money, inventory | Yes, per transaction confirm |
-| Healing | party HP/status, the last healing point | Yes |
-| Zone transition | `zone.id` + `entrySpawnId` of the **target** zone (never a mid-zone position) | Yes, in `zoneLoading` |
-| Quest step, story flag, field-action world change, item pickup, gift creature | the respective state | Yes (dialogue end / action end) |
-| Party reorder, storage moves, nickname, move-teaching disc | respective state | Yes, on menu close (batched) |
-| Settings | settings only | own key, debounced |
-
-Reloading always resumes at the saved zone's entry spawn. An in-progress battle is lost on reload, and the player returns to the pre-battle state at the last checkpoint. QA covers this in its interrupted-transition cases. Play time is committed at every checkpoint.
-
-### 10.6 Export, import, new game
-
-- **Export**: the current `main` envelope (or the in-memory one in no-storage mode) is downloaded as `crpg-save-<date>.json` via a `Blob` and an `<a download>`.
-- **Import**: file input → size ≤ 2 MB → parse → checksum verify (a mismatch is a warning; the user may proceed if schema validation passes) → migrate → validate → show a summary (name, playtime, badges, party) → confirm → current `main` goes to `backup` → write through the atomic sequence.
-- **New game**: if `main` exists, a confirmation dialog appears ("This will replace your save. The previous save will be kept as a backup until your next save."). On confirm, main is rotated to backup immediately, and the first checkpoint writes the new main.
+- `exportRaw()` returns the current main (or the in-memory envelope) as JSON. The UI downloads it as `crpg-save-<date>.json`.
+- Import:
+  - size ≤ 2 MB → parse → a checksum mismatch is a **warning** if the schema is valid → migrate → xref
+  - show a summary and ask for confirmation
+  - commit through the atomic sequence, which rotates main to backup
+- New game: after confirmation, `main` is rotated to `backup` and removed. The first checkpoint writes the new save.
 
 ---
 
-## 11. Build, test and CI scripts
+## 11. Build, test, deploy
 
-`package.json` scripts:
+### 11.1 Scripts
 
-| Script | Command | Purpose |
+| Script | Command | Status |
 |---|---|---|
-| `dev` | `vite` | dev server |
-| `build` | `vite build` | production build to `dist/` |
-| `preview` | `vite preview --port 4173 --strictPort` | serve the build (used by smoke) |
-| `typecheck` | `tsc --noEmit -p tsconfig.json` | strict TS (`strict`, `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`) |
-| `test` | `vitest run` | unit, data and architecture tests (node environment; no WebGL) |
-| `test:watch` | `vitest` | |
-| `validate-data` | `vitest run tests/data` | zod + cross-reference validation of all content. Also run inside `build` via a Vite plugin hook (`buildStart`) so an invalid content build fails. |
-| `smoke` | `playwright test tests/smoke` | Boots `preview`, runs in headless Chromium (software GL). Checks: title renders with no console errors; new game reaches exploration; movement input changes position; a zone transition works; a scripted wild encounter reaches `battle`, and one turn resolves; save/reload restores the zone; export/import round-trips; zone round-trip leak check; `?bench=traverse&profile=mobile` completes and produces a valid `__BENCH_RESULT__` (numbers not asserted). |
-| `silhouettes` | `playwright test tests/tools/silhouettes.spec.ts` | Loads `/?tool=silhouettes`. Renders each of the 30 species (and trainers) as flat black on white at 256 px and 20 px, front, side and 3/4 views. Writes `artifacts/silhouettes/<id>_{20,256}_{view}.png` and `contact_sheet.png`, plus `silhouettes.json` with pairwise IoU at 20 px (flags pairs with IoU > 0.85 for human review). |
-| `gate:character` | `npm run silhouettes && playwright test tests/tools/characterGate.spec.ts` | Loads `/?tool=faces`. For each species × emotion state × {day, night} × {High, Mobile} at the `opponent_hero` and `player_over_shoulder` framings, writes PNGs plus `character_gate.json`. It **fails** if: a builder is missing or throws; anchors are missing; LOD budgets are exceeded; the projected head height in `player_over_shoulder` is under 8% of the viewport; the eye atlas contrast is < 4.5:1; or the night face luminance is < 60% of day. Visual judgment stays with the Release & Character Consistency reviewer. The script produces evidence and does not issue a pass. |
-| `bench` | `playwright test tests/bench --project=chromium` | Container harness run only (functional). Real-device runs are manual with the URL flags (7.3). |
-| `check:bundle` | `node scripts/check-bundle.mjs` | gzip-size check of `dist/assets/*` against 6.3 |
-| `ci` | `npm run typecheck && npm run validate-data && npm test && npm run build && npm run check:bundle && npm run smoke` | the full gate. `gate:character` runs at phase gates. |
+| `dev` | `vite` | ✓ |
+| `build` | `tsc -p tsconfig.json && vite build` | ✓ (`base: './'`, target es2022) |
+| `preview` | `vite preview` | ✓ |
+| `typecheck` | `tsc -p tsconfig.json` (TS 7.0.2) | ✓ |
+| `test` (alias `test:unit`) | `vitest run` (Node; `tests/unit/**`, later `tests/data`, `tests/arch`) | ✓ |
+| `validate-data` (alias `test:data`) | `tsx scripts/validate-data.ts`: zod + xref + zone rules (maxWild = 6, ≥ 2 battle stages, path grade) | script to add |
+| `smoke` (alias `test:e2e`) | `playwright test tests/smoke`: title with no console errors; new game → exploration; movement; zone change; forced encounter → one turn; save/reload; export/import; leak loop; bench harness completes | to add |
+| `silhouettes` | `playwright test tests/tools/silhouettes.spec.ts` (GC-07 outputs) | to add |
+| `gate:character` | `tsx scripts/gate/character/index.ts` (GATE §3; regex scans per D24) | to add |
+| `bench` | container functional run (`representative: false`) | to add |
+| `check:bundle` | `node scripts/check-bundle.mjs` (6.3) | to add |
+| `ci` | typecheck → validate-data → test → build → check:bundle → smoke | to add |
 
-Playwright config: `use.launchOptions.executablePath` is resolved from `PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers` (a rev 1194 match with `@playwright/test@1.56.1`), `--use-gl=swiftshader` (or `--use-angle=swiftshader`), `workers: 1`, and `webServer: npm run preview`. Screenshots and JSON go to `artifacts/`, which is git-ignored except for curated evidence copied into `design/reviews/`.
+Playwright: `@playwright/test@1.56.1` with `PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers`, `--use-angle=swiftshader`, 1 worker, `webServer: npm run preview`. Artifacts go to `reports/…` (GATE layout). QA links to them.
+
+### 11.2 Dev and QA flags
+
+`?tool=viewer|sheet|silhouettes`, `?perf`, `?debug`, `?bench`, `?seed`, `?save`, `?zone`, `?profile|quality` and `?storage=unavailable|quota` are honoured **only** when `import.meta.env.DEV` or `VITE_QA=1` (D28, follow-up 0.3-8). A production build ignores them, and QA test B-30 checks that.
+
+### 11.3 Silhouette tool (D27: GATE GC-07 is the single spec)
+
+- **One** WebGL context (`/?tool=silhouettes`; `/gate.html` in QA builds). Each species renders at `idle` t = 0 into a 256×256 `WebGLRenderTarget`:
+  - no MSAA, DPR 1, tone mapping off
+  - `MeshBasicMaterial` black on white, no dithering
+  - fitted with 8% padding
+- Views: side, with camera on +X or the species' `silhouetteSideYaw` ≤ 45° for planar designs (D27); and three-quarter (35° yaw, 10° pitch).
+- Pixels are read back with `readPixels` and thresholded to 0/1 in-page. **Hashes are computed over the binary mask arrays, not the PNGs.** The 20 px mask is box-downsampled in JavaScript from the 256 px mask, then thresholded at 50%.
+- D = 1 − IoU after centroid alignment. GATE's thresholds and fill limits apply.
+- The Chromium revision (1194) is recorded in the report. A revision change requires recalibration.
+- PNG sheets are evidence only.
+- The **palette pass** renders unlit albedo (base and vertex colour; no rim, no emissive) for GC-10.
+- The **face pass** renders the `face_closeup` shot on each profile for GC-09.
+
+### 11.4 Deployment (D28)
+
+- **Target:** a Vercel **preview** deployment of the static `creature-rpg/dist`. The repository is already connected to Vercel.
+- Settings: framework "Vite"; build command `npm run build`; output directory `dist`; Node 22. `VITE_QA` is unset for production-like previews. A separate QA preview may set `VITE_QA=1`.
+- `base: './'` keeps the build path-independent. There are no server routes (a single `index.html` with query flags), so no rewrites are needed.
+- Cache headers: `/assets/*` (content-hashed) `public, max-age=31536000, immutable`; `index.html` `no-cache`.
+- The Rapier compat build inlines its WASM, so no `.wasm` MIME configuration is needed.
+- **Release gate:** deploy only after `ci` passes and `design/reviews/gate_status.json` shows the build commit as passed (GATE §3.6). Preview screenshots follow GATE GC-16.
 
 ---
 
 ## 12. Acceptance criteria
 
-The architecture phase passes when every item below is demonstrated with evidence, not asserted.
-
 1. `npm run ci` passes on a clean checkout in the container.
-2. `tests/arch/boundaries.test.ts` passes. `src/sim` has no forbidden imports or globals.
-3. Battle golden logs: at least 10 seeded fixtures reproduce identical `events[]`. The property test (1,000 seeds) confirms the displayed-state reducer equals the sim state after every turn.
-4. App and battle machines: an exhaustive transition-table test passes, and an illegal transition throws in dev.
-5. Encounter lock: the unit test shows exactly one `WILD_CONTACT` when 2 wild creatures touch the player in the same frame. The smoke test shows no second battle starts within 3 s or 3 m after returning.
-6. Heightfield: collider-versus-render height agreement within ±2 cm at 200 random points, for every zone.
-7. Character controller: a smoke scene with a 30° slope (climbable), a 50° slope (not climbable), 0.3 m stairs (auto-stepped) and a 0.5 m ledge (blocked) behaves as specified. Positions are asserted after scripted input.
-8. Camera: in a scripted run beside a wall, the camera never ends a frame with the pivot-to-camera segment intersecting TERRAIN or STATIC_PROP (asserted with `castRay` per frame).
-9. All 30 creature builders pass the contract tests (4.1), including LOD budgets and deterministic output.
-10. `gate:character` produces a complete evidence set with no hard failures.
-11. Persistence: tests cover a crash at each of the 6 write steps (simulated by throwing adapters), recovery picks the correct slot, quota errors keep `main` intact, no-storage mode works, every migration fixture loads, and export/import round-trips to an identical canonical payload.
-12. `check:bundle` is within the 6.3 budgets.
-13. Zone-leak smoke: geometries and textures return to baseline ±5 after 10 round trips.
-14. The benchmark harness completes in the container and produces a schema-valid JSON flagged `representative: false`. Real-device results for RC-L, RC-P1 and RC-P2 are **required before any FPS claim** and are currently Not measured.
-15. Hidden tab: the smoke test toggles `visibilitychange` (via CDP `Emulation.setFocusEmulationEnabled` / page visibility override), and it asserts that the frameloop stops, no input is stuck on return, and the audio context is suspended (queried via `window.__audioState`).
+2. The architecture boundary test passes: `src/sim` has no forbidden imports or globals.
+3. At least 10 golden battle logs reproduce exactly, and the displayed-state property test (1,000 seeds) passes.
+4. The app and battle machines pass exhaustive transition tests, including `scripted`, `PARTY_EVOLVE` and the D18 capture path.
+5. Encounters: exactly one `WILD_CONTACT` for simultaneous contacts; 4 s immunity is respected; ≤ 6 wild per zone on every profile (D21).
+6. Terrain: `sampleGrid` equals the trimesh ray height within ±1 cm at 200 points per zone, and equals the render triangle exactly (D25).
+7. Controller: a 30° slope is climbable, 50° is not, 0.3 m stairs auto-step and a 0.5 m ledge blocks, all asserted after scripted input.
+8. Camera: across a scripted wall run and the cave, the pivot→camera segment never ends a frame intersecting CAMERA_PROBE geometry.
+9. Creatures: every species passes the 4.1 contract tests. **LOD0 ≤ 12k triangles (≤ 16k stage-3 large).** The draw-call count is reported per species (the D16 deviation, measured later).
+10. Faces: every species has 8 eye states and 4 mouth states. GC-09 passes in `face_closeup` on all profiles.
+11. `gate:character` produces the complete GC-00…GC-16 evidence set with no hard failure. Mask hashes are identical across two runs.
+12. Persistence: crash-at-each-step tests, quota and no-storage modes, v1→v2 migration fixture, export/import round trip and multi-tab staleness (implemented tests: `tests/unit/persistence.test.ts`).
+13. `check:bundle` is within 6.3.
+14. Zone leak loop: geometries and textures return to baseline ±5.
+15. The bench harness completes in the container with valid JSON flagged `representative: false`. **Any FPS claim requires RC-L, RC-P1 or RC-P2 results; currently Not measured.**
+16. Hidden-tab smoke: frameloop stops, no stuck input on return, audio context suspended.
+17. The deployed Vercel preview loads the title with no console errors, and it ignores dev flags when `VITE_QA` is unset.
 
 ## 13. Dependencies
 
-- **creative_direction.md**: UI language and fonts; whether jumping or ledge-hops exist; field-action set and visuals (props and VFX); zone themes and battle layer structure (9.2); portrait support stance.
-- **creatures.md**: 30 `CreatureVisualSpec`s (palette, material treatment, anatomy, temperament, attack style, cry params). Face and eye proportions must meet the 4.4 readability rules, or the rules get renegotiated.
-- **systems.md**: exact battle rules feeding `sim/`, the full `BattleEvent` set (new effects may add events), weather types, capture shake count, `CreatureInstance` fields, clock rate and phase boundaries, defeat penalty.
-- **world.md**: `ZoneSpec` content (size, heightfield features, water, vegetation layers, props, exits, spawns, battle stages, wild regions, lighting mode, fog), encounter tables, benchmark zones (`route_2`, `forest`, `town_2` assumed).
-- **qa_plan.md**: adopts the benchmark procedure, reference configs, smoke list and persistence crash tests.
-- **release_character_gate.md**: consumes `silhouettes` and `gate:character` artifacts.
-- Environment: npm registry access for installs; `/opt/pw-browsers` Chromium rev 1194; real RC hardware held by the orchestrator or testers.
+- **DECISIONS.md** (binding): D1 zone, trial and attunement table (zone palettes and lighting presets); D14–D17, D21, D24–D28.
+- **creatures.md v2:**
+  - 30 `SpeciesVisual` tables using the role vocabulary
+  - `rig.durations` and contact fractions (D15)
+  - `silhouette` tags
+  - `silhouetteSideYaw` for planar species
+  - temperament and attack style
+  - cry params
+  - c30 size and eye-size fixes
+- **systems.md v2:** the full `BattleEvent` union (incl. `phaseChange`, `dizzySelfHit`); the `anim` vocabulary; battle weather; D18 capture flow.
+- **world.md v2:**
+  - `ZoneSpec` content: terrain specs, 2–4 `battleStages`, `wildRegions`, `maxWild = 6`
+  - `vistas`, `lighting` mode, camera overrides
+  - cave ceiling (D17)
+  - encounter tables with the day/night bands
+- **creative_direction.md:** UI strings, chord-burst marker, fonts, music layer structure, emotion guidance.
+- **qa_plan.md / release_character_gate.md:** consume the section 7 bench, the 11.3 silhouette, palette and face passes, and the smoke list.
+- **Environment:** Chromium rev 1194 at `/opt/pw-browsers`; the Vercel project connection; physical RC devices (orchestrator).
 
 ## 14. Risks
 
 | Risk | Impact | Mitigation |
 |---|---|---|
-| Procedural creatures look primitive or "blobby", failing the character-direction bar | High (a gate failure blocks release) | Invest in the primitive library (lathe profiles, tapered tubes, extruded fins), vertex-colour patterning, strong faces, rim light. Build the three starter lines first and pass them through `gate:character` in Phase 1 before scaling to 30. |
-| Rapier compat bundle (~836 KB gz) inflates load | Medium | Lazy chunk after title. Consider the non-compat `@dimforge/rapier3d` with a separate `.wasm` file (1.57 MB raw, streamed-compile) if `@react-three/rapier` allows it. That is an unresolved question. |
-| postprocessing peer-caps three at < 0.187 | Medium (blocks three upgrades) | Pin three 0.186.1. Upgrade only when postprocessing releases a widened range. |
-| Heightfield row/column orientation mismatch | Medium | Automated agreement test (acceptance #6). |
-| Mobile GPUs (Mali) are slow on `MeshPhysicalMaterial` and alpha-tested grass | Medium | Mobile uses Standard materials, low grass density and MSAA without post. The adaptive monitor steps down further. |
-| Integrated GPUs miss 60 FPS on Balanced with vegetation + shadows | Medium | Budgets are tunable per profile, and the adaptive DPR step is available. RC-L benchmark early (Phase 1) on real hardware. |
-| Software GL in the container gives misleading perf or visuals | Medium | All container numbers are flagged `representative: false`. Visual evidence is labelled "software render". |
-| Tone.js CPU cost on phones (many synth voices) | Medium | Voice caps; offline pre-render of SFX and cries; music stems simple (≤ 16 voices). |
-| localStorage 5 MB quota shared with nothing else, but Safari may evict after 7 days without interaction | Medium | Export reminder in settings after every trial victory (optional toggle). Unresolved: add an IndexedDB mirror? |
-| React re-render storms from per-frame state | Medium | The per-frame rule (1.6), React profiler checks in the perf overlay (commits/s). |
-| WebGL context loss on mobile when backgrounded | Medium | Context-loss handler rebuilds from cached CPU arrays (6.4). |
-| TypeScript 7 is the npm `latest`, and tooling drift may follow | Low | Pinned 5.9.3. |
-| `WEBGL_debug_renderer_info` unavailable or sanitized | Low | Profile detection treats it as a hint; adaptive monitor plus manual override. |
+| D16: separate animated parts → 20–40 draw calls per creature | Balanced/Mobile frame budget | `mergeStatic`, animation LOD, LOD2 part drops; measure on RC-L and RC-P1 early; skinning bake is the prepared fallback |
+| c01 already 14k triangles on High LOD0 | Budget miss across 30 species | size-adaptive `segs` (0.3-4) + the contract test |
+| D14 256 px atlases ≈ 4 MiB per species | Texture memory on integrated GPUs | LRU of 16; Mobile 128 px; memory shown in the overlay |
+| Rapier compat bundle about 836 KB gzipped | First load | lazy chunk after the title |
+| postprocessing peer-caps three at < 0.187 | Blocks three upgrades | pin 0.186.1 |
+| Trimesh collider build time on 142k-triangle mountain zones | Zone load | per-chunk colliders, built in the load fade; Not measured |
+| Software GL in the container misleads | False confidence | `representative: false`; no FPS quotes |
+| Multiple canvases in the tool sheet exhaust contexts | Gate evidence gaps | single-context tool (0.3-7) |
+| TS 7 has no compiler API | Tools that expect it break | regex scans (D24); tsx/esbuild unaffected |
+| Tone CPU on phones | Audio glitches | voice caps, offline pre-render |
+| localStorage eviction (Safari) | Save loss | export reminders; IndexedDB mirror is an open question |
+| WebGL context loss on mobile | Black screen | rebuild from CPU caches |
 
 ## 15. Unresolved questions
 
-1. **Jumping.** No jump is assumed (2.3). The Creative Director should confirm, or specify a hop mechanic, which would need a KCC vertical-velocity design and level-design safety.
-2. **Portrait gameplay on phones.** Landscape-first with a portrait fallback layout is assumed. Is full portrait support a requirement?
-3. **Clock rate.** Is 24 real minutes per game day acceptable to Systems/World for time-based encounters and fairness? An alternative is a real device clock, which the anchors discourage because it creates real-time waits.
-4. **Save slots.** One slot plus backup is assumed. Are multiple campaign slots wanted?
-5. **IndexedDB mirror** of the save to defend against localStorage eviction: worth the added complexity?
-6. **Rapier non-compat build** (separate `.wasm`, smaller transfer, streaming compile). It needs verification that `@react-three/rapier@2.2.0` can be configured to use it. Default is the compat build until verified.
-7. **TypeScript upgrade** to 6.x or 7.x: when tooling (Vite plugin, vitest type-check, editors) is confirmed compatible.
-8. **Battle-stage terrain edits.** Staging currently uses existing flat spots without terrain deformation. Should the World Designer mandate hand-placed stages in every zone instead of the automatic search, for art control?
-9. **Evolution cancel.** Whether cancelling an evolution is allowed (Systems/Creative) affects the evolution state and save checkpoint.
-10. **Encyclopedia viewer and zone.** Rendering via drei `<View>` in the single canvas while hiding the zone is assumed. Confirm the UI design doesn't need the world visible behind the viewer.
+1. Physical availability of RC-L, RC-P1 and RC-P2 (orchestrator). Until then, everything is Not measured.
+2. Should skinning (a one-`SkinnedMesh`-per-material bake) be adopted if the D16 deviation misses budget on RC-L or RC-P1? This is prepared, not scheduled.
+3. An IndexedDB mirror of the save, to defend against localStorage eviction.
+4. Full portrait gameplay on phones (currently landscape-first with a portrait fallback).
+5. A Rapier non-compat build (separate `.wasm`, streamed compile) to cut first-load size. It needs verification with `@react-three/rapier@2.2.0`.
+6. Should `battleStages` auto-search be removed entirely, now that world v2 hand-places 2–4 stages per zone?

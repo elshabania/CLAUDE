@@ -1,13 +1,13 @@
 # Creative Direction — *Wildchord: Songs of Cantarra*
 
-Owner: Creative Director. Status: v1 design, binding for narrative, character language, signature mechanic, UI and audio identity.
+Owner: Creative Director. Status: v2 (revised per `design/DECISIONS.md`, which wins on any conflict), binding for narrative, character language, signature mechanic, UI and audio identity.
 Designed against `design/ANCHORS.md` (fixed ids, stack, scope). Where this document needs a number owned by another document (damage math, encounter weights, map placement), it states a **target** and names the owner. Playtimes are **estimates**. Nothing here was playtested or measured.
 
 ---
 
 ## 0. One-paragraph pitch
 
-In the highland region of **Cantarra**, ancient standing stones called **Chordstones** hum in answer to the creatures that live around them. People who bond with these creatures, called **kin**, are **Tuners**. A newly licensed Tuner from a village of instrument makers sets out to earn six **Keynotes** from the region's **Cantors**. Each Keynote lets the player's kin *resonate* with a new kind of landmark. Meanwhile a quiet, well-organized faction, **the Stillmark**, is silencing the Chordstones one by one. They believe that silence would free kin from people. What it would actually do is leave kin blind to their homes. The tone is warm, earnest and lightly comic, with real stakes in the second half. Think "a folk song that turns into an anthem".
+In the highland region of **Cantarra**, ancient standing stones called **Chordstones** hum in answer to the creatures that live around them. People who bond with these creatures, called **kin**, are **Tuners**. A newly licensed Tuner from a village of instrument makers sets out to earn six **Keynotes** from the region's **Cantors**. Each Keynote lets the player's kin *resonate* with a new kind of landmark. Meanwhile a licensed survey guild of engineers, **the Stillmark**, is "servicing" the Chordstones one by one, siphoning them dry with brass coils. Their founder believes the stones' unbidden songs cause deadly stampedes, and she means to replace every stone with a **Stillbell** that sounds only when the Stillmark decides. Silenced stones leave wild kin lost and panicking, and those strays end up penned "for safekeeping". The tone is warm, earnest and lightly comic, with real stakes in the second half. Think "a folk song that turns into an anthem".
 
 ---
 
@@ -20,14 +20,14 @@ In the highland region of **Cantarra**, ancient standing stones called **Chordst
 | Game title | **Wildchord: Songs of Cantarra** (short: *Wildchord*) |
 | Region | **Cantarra**, a temperate highland: orchard valleys → quarry ridges → fen and lake basin → windy sea-cliffs → volcanic caldera → glacial peak |
 | Tone | Warm, curious, sincere. The humor comes from character, never from mocking anyone. The antagonist is principled but wrong. The world is never grimdark. Kin never die; they "faint" (story term: *go quiet*). |
-| Central metaphor | Sound and harmony. Bonds are "in tune"; the villain wants silence; the finale restores a chord. Every coined term comes from music, craft or hearth vocabulary. |
+| Central metaphor | Sound and harmony. Bonds are "in tune"; the villain wants to own the silence (control for safety); the finale restores a chord. Every coined term comes from music, craft or hearth vocabulary. |
 | Setting era | Pre-industrial craft culture with *resonant* technology: brass, glass, tuned stone, windmills, lanterns. No guns, no cars, no screens. The phone equivalent is a hand-cranked **Tuning Ledger**. |
 | Visual pillars | 1) Stylized realism with soft PBR materials. 2) Every zone is readable from one hero landmark (its Chordstone). 3) Type color appears as *accent light*, not as whole-zone tint. |
 | Player term | **Tuner** (player & NPC battlers). Party = **troupe** (max 6). Storage = **the Fosterage** (cap 300, see §3). Evolution = **Crescendo**. |
 
 ### 1.2 Zones (fixed ids + original names)
 
-Proposed story order, which the World Designer confirms or adjusts in `world.md`:
+Story order (binding per DECISIONS D1; world.md v2 adopts it):
 `town_1 → route_1 → forest → route_2 → town_2 → cave → route_3 → lake → town_3 → route_4 → volcano → route_5 → snowpeak → league`.
 
 Every non-town zone has exactly one **attuned type** (§6.4), and the ten outdoor zones cover all ten types once. Towns are **neutral**. Trial halls use their Cantor's type.
@@ -46,7 +46,7 @@ Every non-town zone has exactly one **attuned type** (§6.4), and the ten outdoo
 | `route_4` | **Highscar Rise** | gale | Switchback cliffs, updraft vents with ribbon markers, a hidden Stillmark base (**the Stillhouse**). `#9DA8A0`, `#D9CBA8`, `#4B6A77`. | Strong wind, moving cloud shadows. |
 | `volcano` | **Mount Cindral** | fire | Basalt terraces, ash drifts, lava channels, the caldera **Forge Hall** (`trial_5`). `#2B2320`, `#E4572E`, `#F2A541` glow. | Orange underlight, ember particles, heat shimmer (High only). |
 | `route_5` | **Gloamstair** | shade | Stone stairway across a twilight tundra where the sun barely sets. Aurora ribbons, frozen standing stones. `#3A3556`, `#7B6FA8`, `#B8E0D2` aurora. | Blue hour permanently, light snow. |
-| `snowpeak` | **Hoarcrown** | frost | Glacier, frozen falls, rime-crusted Chordstone ring, the **Rime Hall** (`trial_6`), and the summit where the Stillmark hangs its **Null Bell**. `#EAF4F8`, `#7FD3E6`, `#4C6A85`. | Crisp, high-contrast, blizzard bursts. |
+| `snowpeak` | **Hoarcrown** | frost | Glacier, frozen falls, rime-crusted Chordstone ring, the **Rime Hall** (`trial_6`), and the summit where the Stillmark hangs its **Great Stillbell**. `#EAF4F8`, `#7FD3E6`, `#4C6A85`. | Crisp, high-contrast, blizzard bursts. |
 | `league` | **Concord Spire** | none (neutral arena) | Tall tuned-stone spire above Hoarcrown, reached by a resonance lift. Six Keynote sockets at the door. `#F3EAD7`, `#C8963E` brass, `#2FA39A` resonance teal. | Golden hour, clear sky. |
 
 ---
@@ -57,11 +57,11 @@ Every non-town zone has exactly one **attuned type** (§6.4), and the ten outdoo
 
 | Item | Decision |
 |---|---|
-| Name | Player-entered (default **Rowan**). Two body builds × three skin tones × three hair styles; outfit palette fixed (see §5.6). Pronouns chosen at start (they/she/he); dialogue uses names more than pronouns. |
+| Name | Player-entered (default **Arden**). Two body builds × three skin tones × three hair styles; outfit palette fixed (see §5.6). Pronouns chosen at start (they/she/he); dialogue uses names more than pronouns. |
 | Age read | ~14–15 (young teen). |
-| Motivation (personal) | Rowan grew up sweeping Oriel's workshop and listening to Larkhollow's Chordstone hum every dawn. On licensing day the stone goes silent for the first time in living memory. Rowan promises Oriel to find out why. |
+| Motivation (personal) | Arden grew up sweeping Oriel's workshop and listening to Larkhollow's Chordstone hum every dawn. On licensing day the stone goes silent for the first time in living memory, and the third young kin in Oriel's fosterage bolts in panic. Arden promises Oriel to find out why the stone fell silent and to bring the little one home. |
 | Motivation (ambition) | Earn six Keynotes, climb Concord Spire and "sound the Great Chord", the traditional feat of a master Tuner. |
-| Arc | From "I want to be the best" to "I want everyone to be heard". Rowan ends by restoring the stones rather than just winning. |
+| Arc | From "I want to be the best" to "I want everyone to be heard". Arden ends by restoring the stones rather than just winning. |
 
 ### 2.2 Rival — Cass Rookwell
 
@@ -71,40 +71,41 @@ Every non-town zone has exactly one **attuned type** (§6.4), and the ten outdoo
 | Hidden layer | Cass's mother is **Rhea Rookwell**, the reigning Concordant (champion). Cass fears being "only Rhea's kid". The rival-battle arc resolves when Cass stops copying Rhea's team style and builds their own. |
 | Look | Long red-orange scarf, too-big coat with rolled sleeves, one fingerless glove. Silhouette hook: the scarf tail animates in wind. |
 | Starter logic | Cass picks second and **takes the starter whose type is strong against the player's**. Rule for code: `rival = argmax over the two remaining starters of typeMult(S.type → player.type)`. Tie-break: the lowest `typeMult(player.type → S.type)`. Final tie: fixed table below. |
-| Default table | Expected under the triad cycle (Water > Fire, Fire > Electric, Electric > Water). **This cycle must be confirmed by systems.md.** Player Voltra (electric) → Cass takes Emberhorn (fire); leftover Rippleback. Player Emberhorn (fire) → Cass takes Rippleback (water); leftover Voltra. Player Rippleback (water) → Cass takes Voltra (electric); leftover Emberhorn. |
-| Team growth | R1: starter only. R2: +f07 gale stage 1. R3: +f05 stone. R4: +f09 shade. R5: +f06 frost, starter stage 3. R6: six kin, stage-3 starter as ace. Species/levels are finalized in trainer data (`t_rival_1`..`t_rival_6`). |
+| Default table | Triad cycle Water > Fire > Electric > Water (confirmed, systems.md / DECISIONS D4). Player Fizzkit (electric) → Cass takes Wickwool (fire); leftover Rippleback. Player Wickwool (fire) → Cass takes Rippleback (water); leftover Fizzkit. Player Rippleback (water) → Cass takes Fizzkit (electric); leftover Wickwool. |
+| Team growth | R1: starter only. R2: +f07 gale stage 1. R3: +f05 stone. R4: +f09 shade. R5: +f06 frost, starter stage 3. R6: six kin, stage-3 starter as ace. Six battles (DECISIONS D4). Species/levels are finalized in trainer data (`t_rival_1`..`t_rival_6`). |
 
 ### 2.3 Antagonist faction — the Stillmark
 
 | Item | Decision |
 |---|---|
-| Name | **The Stillmark** (members: *Stillhands*; base: *the Stillhouse*; emblem: a circle with one horizontal bar, meaning "a bell held still") |
-| Public face | A tidy, soft-spoken society in slate-gray cloaks with felt-lined gloves. They hand out pamphlets: "Let the wild be quiet." |
-| Stated goal | Silence every Chordstone so kin are no longer "called" by people, which would return them to true wildness. |
-| Actual plan | Hang the **Null Bell** on Hoarcrown's summit Chordstone ring. The Bell drinks resonance from every stone at once. Stolen young kin tune it, because young kin resonate most strongly. Once rung, kin across Cantarra lose their sense of place, and wild kin would flee or panic. The founder believes that is a mercy. |
-| Founder / boss | **Magister Odile Graven.** She trained as a Chordwright beside Oriel. She once saw a resonance surge at Cindral drive a herd of kin into a lava flow, and concluded that resonance is a leash. Calm, precise, never shouts. Specialty: shade/toxin/lumen mix. Ace: a stage-3 f09 (shade). |
-| Admin 1 | **Warden Brann Coldcourt**: blunt ex-quarry foreman who joined for the wage and stays out of loyalty. Stone/frost. Appears at the cave (ch4) and the snowpeak (ch11). He switches sides after ch11. |
-| Admin 2 | **Warden Vey Lanternlow**: theatrical true believer who talks in whispers and stage directions. Toxin/shade. Appears at the fen (ch5) and the Stillhouse (ch8). |
-| Grunts | Stillhand battlers (`t_still_*`) with 1–3 kin. Their lines are polite and slightly eerie ("Pardon us. We're only turning down the volume."). |
-| Visual language | Slate `#4A4F5C`, felt gray `#8A8F99`, one muted mauve accent `#8C6A8A`. Hoods with a stitched bar across the chest. The shapes are soft and muffled: rounded hoods and mitten gloves. No skulls, no letters on their chests. |
+| Name | **The Stillmark** (members: *Stillhands*; base: *the Stillhouse*; mark: a circle crossed by one horizontal bar, meaning "a bell held still". It appears **only etched on their lantern glass**.) |
+| Public face | A licensed **survey guild** of engineers who say they are "servicing" Chordstones. They carry clipboards, work orders and coil-rigs, and they are courteous, procedural and slightly bored. **No pamphlets, no sermons, no recruiting.** Townsfolk mostly find them tedious, not sinister. |
+| Stated goal | "Routine maintenance." Stones that sing unasked are, in their paperwork, "uncontrolled acoustic hazards". |
+| Actual goal | **Control for safety.** Odile believes resonance surges cause stampedes: she saw one drive a herd into a lava flow on the Ash Flats. She wants every Chordstone replaced by her **Stillbells**: brass-and-glass bells fitted over the stones, which let a stone sound only when the Stillmark rings it. The **Great Stillbell** on Hoarcrown's summit ring is the master bell that governs all the others. Once hung, no stone in Cantarra could sing without Stillmark permission. |
+| Methods | Engineers clamp **siphon coils** to a stone, drain its resonance into a coil lantern, and later fit a Stillbell. They **never steal people's kin**. Silenced stones leave nearby kin disoriented, and many stray. Stillhands collect strays and **pen them at the Stillhouse "for safekeeping"**, meaning to release them once "the network is stable". The pens are clean and the strays are fed. That is the unsettling part: they think they are the responsible adults. |
+| Founder / boss | **Magister Odile Graven.** She trained as a Chordwright beside Oriel. Calm, precise, never shouts; she speaks like a safety inspector. Specialty: shade/toxin/lumen mix. Ace: a stage-3 f09 (Emberfold). |
+| Admin 1 | **Warden Brann Coldcourt**: blunt ex-quarry foreman who runs the coil crews. He joined for the wage and stays out of loyalty. Stone/frost. Appears at the cave (ch4) and on the snowpeak (ch11), where he stands aside. |
+| Admin 2 | **Warden Vey Lanternlow**: theatrical true believer and the guild's "acoustic inspector". Talks in whispers and stage directions. Toxin/shade. Appears at the fen (ch5) and the Stillhouse (ch8). |
+| Grunts | Stillhand survey engineers (`t_still_*`) with 1–3 kin. Their lines are procedural, polite and faintly bureaucratic (appendix A). |
+| Visual language | **Quilted slate work-coats** `#4A4F5C` with gray stitching `#8A8F99`, **brass ear-muff helmets** `#B08D57` (round ear-cups on a padded crown strap), leather tool belts, and **coil lanterns**: brass wire coils around a glass chimney that glows muted mauve `#8C6A8A` when charged. Silhouette hooks are the round ear-cups and the lantern held at the hip. **No hoods, no chest emblem, no letters, no skulls, no matching capes.** Admins add a longer coat and a brass rank-band on the helmet. |
 
 ### 2.4 Supporting cast
 
 | Name | Role (original) | Where | Notes |
 |---|---|---|---|
 | **Oriel Vantasse** | **Chordwright**: instrument maker, Chordstone surveyor and keeper of Larkhollow's kin **fosterage** (a shelter that raises orphaned kin). Replaces the "professor" function. | `town_1` workshop | Gives the starter, the Kinsong (§3) and the resonance tutorial. Fifties, silver braid, leather apron covered in tuning keys, magnifier monocle on a cord. Warm but blunt. |
-| **Hearthkeepers** | Run the **Hearthrest** healing houses. Each has a sounding bowl that rings the troupe back to health. | Each town + lake stilt-hamlet + volcano base + snowpeak lodge | Uniform: rust-orange shawl with a bell-shaped brooch. Maud (town_1, grandmotherly), Tobin (town_2, burly and gentle), Ysolde (town_3, brisk). Other Hearthkeepers are generic variants. Heal line: "Sit by the fire. There — hear that? They're in tune again." |
-| **Chandlers** | Shopkeepers at the **Chandlery** counter inside every Hearthrest | Same | Archetypes: Pip (eager apprentice), Garrow (dry old merchant), Nell (gossip). Plus **Wick**, a traveling peddler with a cart who appears on routes 2 and 4 and sells a rotating item. |
-| **Resonance Stewards** | Volunteer Tuners in teal sashes stationed at every mandatory resonance gate. They lend a kin when you lack the needed type (softlock fallback, §6.6). | Mandatory gates | One reusable NPC template with a name pool. |
-| **Rhea Rookwell** | **The Concordant**: champion of Cantarra and Cass's mother | `league` | Tall, calm, laughs easily. Balanced team with a lumen ace (f10 stage 3). |
-| **Juniper "Jun" Aske** | Kinsong researcher and optional quest-giver. Rewards Kinsong completion milestones. | `town_2` → `town_3` | Replaces the "aide" role. Keeps the player's completion checklist. |
+| **Hearthkeepers** | Run the **Hearthrest** healing houses. Each has a sounding bowl that rings the troupe back to health. | Each town + lake stilt-hamlet + volcano base + snowpeak lodge | Uniform: rust-orange shawl with a bell-shaped brooch. Maud (town_1, grandmotherly), Tobin (town_2, burly and gentle), Ysolde (town_3, brisk), Fen (lake stilt-hamlet, sleepy fisherman), Ash (volcano base, soot-smudged ex-smith), Linna (snowpeak lodge, mountaineer). Each is a distinct model, name and voice. **No identical-sibling NPC gag anywhere in the game** (each NPC gets a unique body/hair/palette combination). Heal line: "Sit by the fire. There — hear that? They're in tune again." |
+| **Chandlers** | Shopkeepers at the **Chandlery** counter inside every Hearthrest | Same | Archetypes: Pip (eager apprentice), Garrow (dry old merchant), Nell (gossip). Plus **Wick**, a single traveling peddler (the same person, who remembers you) with a cart; appears on routes 2 and 4 and sells a rotating item. |
+| **Resonance Stewards** | Volunteer Tuners in teal sashes stationed at every mandatory resonance gate. They lend a kin when you lack the needed type (softlock fallback, §6.6). | Mandatory gates | One NPC role with 4 distinct body/palette variants and a name pool (Hale, Orrin, Sefa, Bex); no two Stewards look alike. |
+| **Rhea Rookwell** | **The Concordant**: champion of Cantarra and Cass's mother | `league` | Tall, calm, laughs easily. Balanced team with a lumen ace (f10 stage 3, Coronaleen). |
+| **Marra Aske** | Kinsong researcher and optional quest-giver. Rewards Kinsong completion milestones. | `town_2` → `town_3` | Replaces the "aide" role. Keeps the player's completion checklist. |
 
 ### 2.5 Final showdown structure
 
-1. **Climax (ch11, Hoarcrown summit):** the player climbs to the Null Bell. Brann stands aside ("Go on. I've heard enough quiet."). Odile fights in **two phases**, as one trainer battle with two scripted teams:
+1. **Climax (ch11, Hoarcrown summit):** the player climbs to the Great Stillbell, which is half-fitted over the summit Chordstone ring. Brann stands aside ("Go on. I've heard enough quiet."). Odile fights in **two phases**, as one trainer battle with two scripted teams:
    - Phase A: the zone attunement is **suppressed**, and the HUD shows "Attunement: Silenced".
-   - When Odile's third kin faints, a cutscene plays: the player's lead kin resonates, the Chordstone ring flares, and the attunement **frost ×1.1 returns** for phase B against her ace.
-   - After victory the player resonates the Bell with the lead kin. It cracks and every stone in Cantarra hums again (`flag_nullbell_broken`). Odile is not arrested on screen. She walks down the mountain and leaves a letter for Oriel, which is readable in the post-game.
+   - When Odile's third kin faints, a cutscene plays: the player's lead kin resonates, the Chordstone ring flares, and the attunement **frost ×11/10 returns** for phase B against her ace (trainer `phases`, DECISIONS D22).
+   - After victory the player resonates the stone with the lead kin. The stone's own song cracks the Great Stillbell, every lesser Stillbell across Cantarra splits in sympathy, and every stone hums again (`flag_nullbell_broken`; id retained for stability). Odile is not arrested on screen. She walks down the mountain and leaves a letter for Oriel, which is readable in the post-game.
 2. **Finale (ch12, Concord Spire):** the six Keynotes open the Spire. **Cass battle 6** takes place on the lift landing. Then comes the **Concordant Rhea**. The victory scene is the "Great Chord": all six Keynotes, the player's troupe and the Chordstones sound together (the audio stinger of §8.5).
 
 ---
@@ -116,27 +117,28 @@ Every non-town zone has exactly one **attuned type** (§6.4), and the ten outdoo
 | Creatures | **kin** (sing. & plural); "wild kin" | — | `c01`..`c30` |
 | Battler (player/NPC) | **Tuner** | Title on the ID screen: "Licensed Tuner" | `t_...` |
 | Party | **troupe** | Max 6 | — |
-| PC storage | **the Fosterage** | Ledger at any Hearthrest. Cap 300. When full, a newly bonded kin stays in the troupe if there is room. If the troupe is also full, the capture is **not attempted**: the chime is greyed out with the tooltip "Your Fosterage is full". | — |
+| PC storage | **the Fosterage** | Ledger at any Hearthrest. Cap 300 (troupe 6 + Fosterage 300). Full-storage rule per systems §7.4 / DECISIONS D18: the throw is allowed after the confirmation "Your Fosterage is full. If this kin bonds, one kin must return to the wild. Ring the Chime anyway?", and a mandatory release prompt follows a success: "Someone will need to go home to the wild. Who?" | — |
 | Challenge venues ("gyms") | **Cadence Halls** (e.g. *Rootloft Hall*) | Each is an interior/landmark hall with a traversal gimmick, 2–4 hall Tuners, then the Cantor. | `trial_1`..`trial_6` |
 | Venue leaders | **Cantors** | Title "Cantor Wren" | `t_cantor_1`..`t_cantor_6` |
 | Venue reward ("badge") | **Keynote**: a tuning-fork-shaped crystal, one color per hall, that slots into the protagonist's **Tuning Ledger** | Six Keynotes = "full chord" | `i_keynote_1`..`i_keynote_6` (key items) |
 | Final four + champion | **Concord Spire** and **the Concordant** | Single champion battle after the final rival battle. No gauntlet. | `league`, `champion` |
-| Capture devices (4 tiers) | **Chimes**: hexagonal bell-lanterns. Thrown, they ring and weave a band of light around the kin. | **Reed Chime** (T1, woven reed + brass clapper), **Brass Chime** (T2), **Silver Chime** (T3, engraved), **Crown Chime** (T4, crown-shaped top, near-certain) | `i_chime_reed`, `i_chime_brass`, `i_chime_silver`, `i_chime_crown` |
+| Capture devices (4 tiers) | **Chimes**: hexagonal bell-lanterns. Presentation per DECISIONS D9: the thrown Chime hovers over the kin and **rings** up to three times (each ring = a light pulse + tone; it never shakes or wobbles). Success = a sustained chord and a bonding light band that draws the kin into the Chime. Failure = the tone cuts off with a muted clack and the kin shrugs free. | **Reed Chime** (T1, woven reed + brass clapper), **Brass Chime** (T2), **Silver Chime** (T3, engraved), **Crown Chime** (T4, crown-shaped top, near-certain) | `i_chime_reed`, `i_chime_brass`, `i_chime_silver`, `i_chime_crown` |
 | Encyclopedia ("dex") | **the Kinsong**: an illustrated songbook. Each species is a "verse". Seen = "heard", caught = "sung". | Interactive 3D viewer page per verse | — |
-| Teaching items ("TMs") | **Etudes**: engraved wax cylinders played on a pocket phonograph. Whether they are reusable is decided in systems.md. | Brass cylinder icon with the move's type glyph | `i_etude_mXXX` |
+| Teaching items ("TMs") | **Etudes**: engraved wax cylinders played on a pocket phonograph. Reusable, cannot be sold (systems §8.5). | Brass cylinder icon with the move's type glyph | `i_disc_01`..`i_disc_18` (DECISIONS D10) |
 | Healing center | **Hearthrest** | A hearth-room with a sounding bowl and a Chandlery counter | — |
 | Shop | **Chandlery** | Inside Hearthrests | — |
 | Currency | **tallies** (symbol **◇**, a notched diamond) | Shown as "◇ 1,250" | — |
 | Trainer card | **Tuning Ledger** | A leather-bound book: profile, Keynotes, playtime, Kinsong count | — |
-| Evolution | **Crescendo** | "Voltra is crescendoing!" | — |
-| Faint | **go quiet** | "Emberhorn went quiet." | — |
+| Evolution | **Crescendo** | "Fizzkit is crescendoing!" | — |
+| Faint | **go quiet** | "Wickwool went quiet." | — |
 | Fast travel points | **Waystones**: each zone's Chordstone, registered by resonating with it once | — | `ws_<zone>` |
 | Field ability system | **Resonance** (§6) | — | `rn_<zone>_<nn>` nodes |
 | Battle menu | **Moves / Satchel / Swap / Retreat** | §7.4 | — |
+| Status names | *Scorch* (burn), *Blight* (poison), *Jolt* (paralysis), *Drowse* (sleep), *Rimebite* (frostbite); volatile *Muddled* (dizzy) | Codes SCH / BLT / JLT / DRW / RMB (§7.3) | internal ids unchanged (DECISIONS D8) |
 | Effectiveness text | "**Resounding!**" (super), "**Muffled…**" (resisted), "**No echo.**" (immune) | — | — |
 | Encounter text | Variant pool, e.g. "A wild {kin} rustles out!" or "{kin} blocks the path!" | Never a single fixed formula | — |
 
-**Terminology screen.** The following were checked against well-known franchise vocabulary, from general knowledge only and not as a legal search. None of them are used anywhere in UI, dialogue or ids: Poké-/Pocket-, Ball, Gym, Badge, Trainer Card, Pokédex/Dex, TM/HM/TR, Elite Four, Team + villain-name pattern, Pokémon Center, PokéMart, PC Box, Professor + tree name, "Wild X appeared!", "It's super effective!", "fainted". Words that are generic English and appear in some other media (Tuner, Cantor, Keynote, Chime, Hearth) are acceptable as ordinary words. They are listed in §9.4 for a light conflict check.
+**Terminology screen.** The following were checked against well-known franchise vocabulary, from general knowledge only and not as a legal search. None of them are used anywhere in UI, dialogue or ids: Poké-/Pocket-, Ball, Gym, Badge, Trainer Card, Pokédex/Dex, TM/HM/TR, Elite Four, Team + villain-name pattern, Pokémon Center, PokéMart, PC Box, Professor + tree name, "Wild X appeared!", "It's super effective!", "fainted", the franchise's status abbreviations (hence SCH/BLT/JLT/DRW/RMB), a shaking capture device. Words that are generic English and appear in some other media (Tuner, Cantor, Keynote, Chime, Hearth) are acceptable as ordinary words. They are listed in §9.4 for a light conflict check.
 
 ---
 
@@ -145,6 +147,7 @@ Every non-town zone has exactly one **attuned type** (§6.4), and the ten outdoo
 Notes:
 - The flags listed are the story flags that **gate the critical path**. Quests use `q_main_chNN` plus the named side quests.
 - Levels are **narrative targets** for systems.md to finalize.
+- Every chapter's key lines, including all named NPCs, Cantors, Stillhands, Hearthkeepers and Chandlers, are collected for implementation in **Appendix A**.
 - Playtime is an **estimate** for a first-time player who does not grind and skips optional sidequests. Planned total **≈ 9 h 20 m**. Optional content adds about 1.5–3 h (estimate).
 
 ### Chapter summary table
@@ -158,7 +161,7 @@ Notes:
 | 5 | Sallowfen | route_3 | Admin Vey 1, Rival 3 | 20–23 | 40 m |
 | 6 | Mirror of Sillowmere | lake | trial_3 (water) | 23–26 | 50 m |
 | 7 | Galewick | town_3 | trial_4 (gale) | 27–30 | 45 m |
-| 8 | The Stillhouse | route_4 | Admin Vey 2, Rival 4 (tag-in), leftover starter rescue | 30–33 | 55 m |
+| 8 | The Stillhouse | route_4 | Admin Vey 2, Rival 4, leftover starter found | 30–33 | 55 m |
 | 9 | Cindral | volcano | trial_5 (fire) | 34–37 | 50 m |
 | 10 | Gloamstair | route_5 | Rival 5, Odile revealed | 38–40 | 35 m |
 | 11 | Hoarcrown | snowpeak | trial_6 (frost), Magister Odile | 41–45 | 60 m |
@@ -175,18 +178,18 @@ Notes:
   - *Starter choice:* three young kin in the fosterage pen. Oriel: "Don't pick the strongest. Pick the one that looks back at you."
   - *Cass bursts in:* "Did I miss it? I missed it. Fine — I'll take *that* one. No reason. Definitely not because it'd flatten yours."
   - *Rival 1 (after Cass's pick):* on a loss the player is healed and the story continues (§6.6 recovery rule). Cass on losing: "Okay. Okay! First one doesn't count. That's a rule. I just made it."
-  - *Tutorial:* Oriel shows the carved glyph on a bramble knot near the green. The player's starter resonates its own type on a secret-only node (Spark/Kindle/Swell). Oriel then explains the Rootcall (verdant) register, and Rowan hears that the stone is not dead, just "holding its breath".
+  - *Tutorial:* Oriel shows the carved glyph on a bramble knot near the green. The player's starter resonates its own type on a secret-only node (Spark/Kindle/Swell). Oriel then explains the Rootcall (verdant) register, and Arden hears that the stone is not dead, just "holding its breath".
   - *Capture tutorial:* Oriel gives 5 Reed Chimes. A guaranteed wild f04 stage-1 kin sits by the stile. Oriel: "Weaken, don't wound. A Chime asks. It doesn't grab."
-  - *Night hook:* a gray-cloaked figure is seen leaving the fosterage. The leftover starter is gone. (The player learns this at the start of ch2.)
+  - *The stone falls fully silent (end of ch1):* as Arden returns from route_1, the Larkhollow Chordstone gives one cracked note and goes dead. The remaining young kin in the fosterage panics, slips the pen gate and **bolts north into the dusk**. Oriel: "It's the stone. They navigate by it. Without it they're lost." No villain is present. A brass-rimmed survey stake with a work-order tag ("Service ref. 114 — Larkhollow") is found at the stone's base (`flag_leftover_bolted` set here; it is a side-effect flag and does not gate anything).
 
 ### Ch2 — Murmurwood (route_1 → forest) — est. 50 m
 
-- **Objectives:** hear the news of the stolen kin; cross route_1; open the Rootgate into Murmurwood with **Rootcall** (mandatory, verdant); first Stillmark sighting (2 grunts silencing a hollow tree); reach Rootloft; clear `trial_1`.
+- **Objectives:** search for the bolted kin along route_1 (tracks lead toward the forest, then vanish); open the Rootgate into Murmurwood with **Rootcall** (mandatory, verdant); first Stillmark sighting (two survey engineers clamping a siphon coil to the forest Chordstone); reach Rootloft; clear `trial_1`.
 - **Prereq:** `flag_capture_tutorial`.
 - **Flags set:** `flag_forest_rootgate_open`, `flag_stillmark_first_seen`, `flag_trial_1_cleared` (grants `i_keynote_1`, which unlocks the **Heave/stone** register), `flag_ws_forest`.
 - **Beats:**
-  - Oriel (via Ledger message): "They took the little one. Whoever they are, they knew which pen." This is the first **leftover-starter** hook.
-  - Stillhand: "Pardon us. We're only turning down the volume." After defeat: "You'll understand when it's quiet."
+  - Oriel (via Ledger message): "No sign of the little one in the orchards. If you see small tracks heading anywhere in a hurry — follow them." This is the first **leftover-starter** hook.
+  - Stillhand (clipboard): "Licensed survey, Tuner. Stand clear of the coil, please." After defeat: "I'll have to note this on the work order. Obstruction of service."
   - **Cantor Wren Mossgrave** (hall gimmick: vine bridges retract when a hall Tuner is defeated, and Rootcall regrows them elsewhere): "A forest isn't loud. It's *layered*. Show me you can hear the layers."
   - Keynote line: "Take this. It's tuned to stone. Every hall teaches the note *after* its own. That's how a chord gets built."
 
@@ -198,20 +201,20 @@ Notes:
 - **Beats:**
   - Cass before R2: "Mum's got six Keynotes and a spire. I've got one Keynote and a *plan*. The plan is: beat you."
   - **Cantor Dorran Flint** (gimmick: pillar maze; striking tuning plates raises or lowers pillar rows): "Stone keeps time better than any clock. Let's see if you do."
-  - Town gossip (Nell): "Gray cloaks bought every felt blanket in town. Who needs forty blankets in summer?"
+  - Town gossip (Nell): "There's surveyors in brass ear-muffs measuring the bell towers. Say the stones need *servicing*. Never knew stone needed servicing."
 
 ### Ch4 — The Undertone (cave) — est. 40 m
 
-- **Objectives:** miners report that kin have gone missing below; **Heave** (mandatory, stone) boulders open the lower galleries; restore the brass lift using an optional **Spark** node or the long way round; confront **Warden Brann** siphoning the cave Chordstone into a felt-wrapped coil; free the miners' kin.
+- **Objectives:** miners report that kin have gone missing below; **Heave** (mandatory, stone) boulders open the lower galleries; restore the brass lift using an optional **Spark** node or the long way round; confront **Warden Brann**, whose coil crew is siphoning the cave Chordstone into a bank of coil lanterns; open the crew's stray pen and return the miners' strayed kin.
 - **Prereq:** `flag_trial_2_cleared`.
 - **Flags set:** `flag_cave_heave_gate`, `flag_admin_brann_1`, `flag_cave_miners_saved`, `flag_ws_cave`.
 - **Beats:**
   - Brann: "It's a job, kid. Quiet pays better than rock." After defeat: "…Magister won't like this. Neither do I, much."
-  - Rowan discovers that the coil is tuned with **young kin fur**. The Stillmark is using young kin, which ties the theft back to Larkhollow.
+  - The crew's pen holds miners' kin that strayed when the stone went quiet. Brann: "We didn't take 'em. They wandered in lost. We fed 'em. Paperwork says 'hold for safekeeping'." A crate stencil reads **"Strays — to the Stillhouse"**. This is the first link to where the Larkhollow kin may have ended up.
 
 ### Ch5 — Sallowfen (route_3) — est. 40 m
 
-- **Objectives:** follow Stillmark tracks into the fen; the half-sunk Chordstone is being "muffled" by Vey's team; battle **Warden Vey**; restore the stone (resonate with any kin); **Rival 3** at the boardwalk end, where Cass arrives late and embarrassed.
+- **Objectives:** follow Stillmark tracks into the fen; the half-sunk Chordstone is being fitted with a trial **Stillbell** by Vey's inspection team; battle **Warden Vey**; restore the stone (resonate with any kin); **Rival 3** at the boardwalk end, where Cass arrives late and embarrassed.
 - **Prereq:** `flag_cave_miners_saved`.
 - **Flags set:** `flag_admin_vey_1`, `flag_fen_stone_restored`, `flag_rival_3_done`, `flag_ws_route_3`.
 - **Beats:**
@@ -229,20 +232,20 @@ Notes:
 
 ### Ch7 — Galewick (town_3) — est. 45 m
 
-- **Objectives:** arrive by ferry or causeway; meet **Jun Aske** (Kinsong sidequests unlock); Stillmark pamphleteers are in the market (dialogue only); clear `trial_4`; learn from Oriel's letter that Odile Graven was her old apprentice.
+- **Objectives:** arrive by ferry or causeway; meet **Marra Aske** (Kinsong sidequests unlock); a Stillmark crew holds a licensed work order to "service" the Galewick stone, and Cantor Tamsin disputes it at the market (dialogue only); clear `trial_4`; learn from Oriel's letter that Odile Graven was her old apprentice.
 - **Prereq:** `flag_trial_3_cleared`.
 - **Flags set:** `flag_trial_4_cleared` (grants `i_keynote_4`, which unlocks the **Veil/shade** register), `flag_odile_named`, `flag_ws_town_3`.
 - **Beats:**
   - **Cantor Tamsin Galloway** (gimmick: floor vents launch the player between platforms; the player pulls wind-vanes to redirect them): "In Galewick we don't fight the wind. We argue with it, politely, until it agrees."
-  - Oriel's letter: "Odile and I built our first Chime together. She always said the stones asked too much of kin. I thought she'd grow out of it."
+  - Oriel's letter: "Odile and I built our first Chime together. She always said a stone that sings whenever it likes is a stone nobody's in charge of. I thought she meant it as a joke."
 
 ### Ch8 — The Stillhouse (route_4) — est. 55 m
 
-- **Objectives:** climb Highscar using **Gust** updrafts (mandatory, gale); find the Stillhouse in a cliff notch; Cass joins, and the base is split into two wings; defeat grunts and **Warden Vey 2**; rescue the young kin, including the **leftover starter**; then **Rival 4**, which Cass demands "to see if we're even".
+- **Objectives:** climb Highscar using **Gust** updrafts (mandatory, gale); find the Stillhouse in a cliff notch; Cass joins, and the base is split into two wings; defeat Stillhands and **Warden Vey 2**; open the stray pens (dozens of lost wild kin, fed and tagged) and find the **leftover starter** among them; then **Rival 4**, which Cass demands "to see if we're even".
 - **Prereq:** `flag_trial_4_cleared`.
 - **Flags set:** `flag_route4_updraft`, `flag_stillhouse_found`, `flag_admin_vey_2`, `flag_leftover_rescued`, `flag_rival_4_done`, `flag_ws_route_4`.
 - **Beats:**
-  - Rescue scene: the leftover starter cowers behind felt baffles. It won't come to Cass, but it comes to Rowan's starter. That opens `q_foster_leftover` (§4.1).
+  - Discovery scene: the leftover starter is curled in a pen with a neat tag: "Stray, young, triad line — found route_1, day 1". It won't come to Cass, but it comes to Arden's starter. That opens `q_foster_leftover` (§4.1). The other strays are released toward their home zones as the Stillhouse coils are shut off.
   - Vey after defeat: "*Curtain.* …The Magister is already on Hoarcrown, darling. You're late to your own finale."
   - Cass: "We make a good team. I hate that. Battle me anyway."
 
@@ -262,19 +265,20 @@ Notes:
 - **Flags set:** `flag_rival_5_done`, `flag_odile_revealed`, `flag_ws_route_5`.
 - **Beats:**
   - Cass before R5: "I stopped using Mum's lineup. These are *mine*. So if I lose, it's on me. Which — is weirdly great?"
-  - Odile: "You hear them sing, and you call it friendship. I hear them *answer*, and I wonder if they ever had a choice." And: "When the Bell rings, nothing will call them. Not me. Not you. Isn't that fair?"
-  - Rowan's reply choice (flavor only, no branching): **[It isn't your choice either.]** / **[Ask them.]**
+  - Odile: "A stone that sings whenever it likes is a stone nobody is responsible for. I watched one sing a herd into a lava field." And: "With the Great Stillbell hung, the stones sound when it is *safe*. When we say. No more surges. No more stampedes. Isn't that kinder?"
+  - Arden's reply choice (flavor only, no branching): **[Who decides what's safe?]** / **[You'd silence all of them for one bad day.]**
+  - Odile: "Someone has to decide. I would rather it be someone who remembers."
 
 ### Ch11 — Hoarcrown (snowpeak) — est. 60 m
 
-- **Objectives:** ascend the glacier using **Rime** (mandatory, frost) to freeze the falls into stairs; clear `trial_6` at the Rime Hall; Brann blocks the summit path, then steps aside; **two-phase battle vs Magister Odile**; break the Null Bell.
+- **Objectives:** ascend the glacier using **Rime** (mandatory, frost) to freeze the falls into stairs; clear `trial_6` at the Rime Hall; Brann blocks the summit path, then steps aside; **two-phase battle vs Magister Odile**; break the Great Stillbell.
 - **Prereq:** `flag_odile_revealed`.
 - **Flags set:** `flag_snowpeak_ascended`, `flag_trial_6_cleared` (grants `i_keynote_6`, which unlocks the **Gleam/lumen** register), `flag_admin_brann_2`, `flag_odile_defeated`, `flag_nullbell_broken`, `flag_ws_snowpeak`.
 - **Beats:**
   - **Cantor Isaure Frostmere** (gimmick: rime panels; Rime freezes water panels into floor and Kindle thaws them, while a hall lever lets a player without fire kin thaw them too): "Cold is patience made visible. Let's see how patient you are."
   - Brann: "Go on. I've heard enough quiet."
-  - Odile phase-B trigger: "…Why is it *singing*? It shouldn't—" Rowan's starter answers the stone.
-  - After victory: "Then let it be loud. But promise me you'll listen to what it says."
+  - Odile phase-B trigger: "…Why is it *singing*? It shouldn't—" Arden's starter answers the stone.
+  - After victory: "Then no one holds the bell. …Promise me someone will at least *listen* when a stone starts to shout." (Seeds post-game: Oriel and Odile's letter proposes a volunteer stone-watch.)
 
 ### Ch12 — Concord (league) — est. 40 m
 
@@ -290,7 +294,7 @@ Notes:
 
 | Quest | Starter obtained | Availability | Steps | Reward |
 |---|---|---|---|---|
-| `q_foster_leftover` | **Leftover** starter (neither player nor Cass took it) | Opens at `flag_leftover_rescued` (ch8). Critical-path rescue; accepting the kin is optional. | 1) Return it to Oriel in Larkhollow (fast travel). 2) Oriel asks Rowan to foster it: **[Foster it]** gives it at Lv 25, stage 1. **[Not yet]** leaves it in the Larkhollow fosterage pen, where it can be claimed any time. | Species stage 1 (`c01`/`c04`/`c07` by case), `flag_leftover_obtained` |
+| `q_foster_leftover` | **Leftover** starter (neither player nor Cass took it) | Opens at `flag_leftover_rescued` (ch8). Critical-path rescue; accepting the kin is optional. | 1) Return it to Oriel in Larkhollow (fast travel). 2) Oriel asks Arden to foster it: **[Foster it]** gives it at Lv 25, stage 1. **[Not yet]** leaves it in the Larkhollow fosterage pen, where it can be claimed any time. | Species stage 1 (`c01`/`c04`/`c07` by case), `flag_leftover_obtained` |
 | `q_second_clutch` | **Rival's** starter line | Opens at `flag_trial_5_cleared` **and** `flag_leftover_obtained`. Optional; can be finished before the champion. | 1) Oriel: a wild young of Cass's line has been hanging around the fosterage but won't let anyone near. 2) Bring your own starter line **and** the leftover line in your troupe to the Larkhollow Chordstone and resonate. The "Triad Chord" cutscene plays. 3) The young kin joins. | Rival-line stage 1 at Lv 30, `flag_triad_complete`. Kinsong gets a special page flourish. |
 
 Softlock notes:
@@ -300,11 +304,11 @@ Softlock notes:
 ### 4.2 Required flags (master list)
 
 `flag_game_started, flag_starter_chosen, flag_rival_1_done, flag_resonance_tutorial, flag_capture_tutorial, flag_forest_rootgate_open, flag_stillmark_first_seen, flag_trial_1_cleared, flag_rival_2_done, flag_trial_2_cleared, flag_cave_heave_gate, flag_admin_brann_1, flag_cave_miners_saved, flag_admin_vey_1, flag_fen_stone_restored, flag_rival_3_done, flag_trial_3_cleared, flag_trial_4_cleared, flag_odile_named, flag_route4_updraft, flag_stillhouse_found, flag_admin_vey_2, flag_leftover_rescued, flag_rival_4_done, flag_trial_5_cleared, flag_rival_5_done, flag_odile_revealed, flag_snowpeak_ascended, flag_trial_6_cleared, flag_admin_brann_2, flag_odile_defeated, flag_nullbell_broken, flag_spire_open, flag_rival_6_done, flag_champion_defeated, flag_game_cleared`
-Side: `flag_leftover_obtained, flag_triad_complete`. Waystones: `flag_ws_<zone>` for each zone.
+Side: `flag_leftover_bolted` (ch1, non-gating), `flag_leftover_obtained, flag_triad_complete`. Waystones: `flag_ws_<zone>` for each zone.
 
 ### 4.3 Story-battle loss rule
 
-- **Rival 1:** losing lets the story continue (scripted), and the troupe is healed.
+- **Rival 1:** losing lets the story continue (scripted), and the troupe is healed (DECISIONS D20).
 - **All other story battles:** the standard wipe rule from systems.md applies: return to the last Hearthrest, lose a fixed share of tallies, and the event is re-armed.
 - **Constraint:** no story battle ever sets a flag on a loss that locks content.
 
@@ -321,7 +325,7 @@ Head ratio = head height / total standing height, measured on the default rest p
 | Kin stage 1 | **0.42–0.50** (about 1:1 to 1:1.4 head:body) | 24–30 % | Stubby limbs, short or absent neck | Wide, bouncy, bottom-heavy (center of mass low) |
 | Kin stage 2 | **0.30–0.38** | 16–22 % | Limbs lengthen and joints read | Mid-stance, more directional (leaning forward or up) |
 | Kin stage 3 | **0.18–0.28** | 10–15 % | Defined musculature via shape, not detail | Grounded or imposing. Silhouette owns one dominant "hero feature". |
-| Human child/teen (Rowan, Cass) | 4.5–5 heads tall (0.20–0.22) | 14–16 % | Hands and feet ×1.15 realistic size | Neutral upright, slight forward lean |
+| Human child/teen (Arden, Cass) | 4.5–5 heads tall (0.20–0.22) | 14–16 % | Hands and feet ×1.15 realistic size | Neutral upright, slight forward lean |
 | Human adult | 5.5–6 heads (0.17–0.18) | 11–13 % | Hands ×1.1 | Per-character (see §5.6) |
 | Human elder | 5.5 heads with 5–10° upper-back curve | 11–12 % | — | — |
 
@@ -364,26 +368,27 @@ Brows. Thin tapered capsule or extruded meshes, 0.6–0.9× eye width, floating 
 
 Mouth. Kin use either a jaw part (hinged) or a mouth-shape mesh set swapped per emotion. Humans use 6 mouth shapes drawn on a small face-plate texture.
 
-Emotion table (applies to kin and humans):
+Emotion table (applies to kin and humans). The **8-cell atlas is canonical** (DECISIONS D14): cell ids `open, half, closed, happy, hurt, faint, determined, surprised`.
 
-| Emotion | Eyes (texture frame) | Brows | Mouth | Used in |
+| Cell id | Eyes (texture) | Brows | Mouth | Used in |
 |---|---|---|---|---|
-| Neutral | Open 100 % | 0° | Small closed curve | Idle |
-| Happy | Lower lid up 30 % ("smiling eyes") | +8° | Open wide "D" | Victory, pet, capture success in Kinsong |
-| Determined | Upper lid down 20 % | −15° (inner down) | Closed, corners flat, or teeth visible | Attack windup, trainer send-out |
-| Surprised | Open 115 %, pupil −20 % | +20°, raised 5 % | Small "o" | Chime break-out, encounter start |
-| Hurt | Squeezed: two converging arcs | +12° inner, crumpled | Wavy line | Hit reaction (max 400 ms) |
-| Sleepy / status | Half-moon at 40 % | −5° | Slack small oval | Sleep or other lingering status idles |
-| Quiet (faint) | Closed downward arcs | Relaxed 0° | Slightly open | Faint end pose |
+| `open` | Open 100 % (neutral) | 0° | Small closed curve | Idle, dialogue default |
+| `half` | Upper lid at 40–60 % | −5° | Slack small oval | Blink mid-frame; Drowse and other lingering-status idles; bored/sleepy |
+| `closed` | Fully closed, flat lid line | Relaxed | Unchanged | Blink; contentment when petted in the Kinsong |
+| `happy` | Lower lid up 30 % ("smiling eyes", upward arcs) | +8° | Open wide "D" | Victory, pet, capture success |
+| `hurt` | Squeezed: two converging wedges | +12° inner, crumpled | Wavy line | Hit reaction (≤ 400 ms) |
+| `faint` | Closed downward arcs (never crosses or spirals) | Relaxed 0° | Slightly open | Faint end pose ("went quiet") |
+| `determined` | Upper lid down 20 %, lidAngle −15° | −15° (inner down) | Closed, corners flat, or teeth visible | Attack windup, send-out |
+| `surprised` | Open 115 %, pupil −20 % | +20°, raised 5 % | Small "o" | Encounter start, Chime ring-out (break-free) |
 
-Each species' eye texture holds these **7 frames** in one atlas row. Swaps are instant; a blink is 3 frames of closure (≈ 100 ms) every 2.5–6 s at random.
+Atlas: 4 × 2 cells per species. Cell size **256 px on High and Balanced** (battle and Kinsong), **128 px on Mobile**. The right eye is a UV-mirrored copy of the left, so the highlight mirrors too (an accepted stylization). Swaps are instant; a blink is `half` → `closed` → `half` over ≈ 100 ms, every 2.5–6 s at random.
 
 ### 5.3 Silhouettes
 
 - **20 px rule.** At 20 px tall, every stage-3 silhouette (flat black fill) must be distinguishable from all other 29 in a side-by-side test (QA owns the test). Stage 1s must be distinguishable within 3 wrong guesses.
 - **Hero feature.** Each family has one hero feature on its outline (horns, fin-sail, tail plate, ear-fans, etc.), plus a second "silhouette break" feature from stage 2.
 - **Mass classes.** Each kin belongs to one: *ball*, *pear*, *wedge*, *long-low*, *upright*, *spread-wing*. Within a mass class, no two families use the same hero feature position (top, back, tail, sides).
-- **Humans** get a silhouette hook each: Rowan's satchel and cropped jacket, Cass's scarf tail, Oriel's monocle cord and apron, Odile's high collar and long glove, Rhea's asymmetric cape, and a signature prop per Cantor (§5.6).
+- **Humans** get a silhouette hook each: Arden's satchel and cropped jacket, Cass's scarf tail, Oriel's monocle cord and apron, Odile's high collar and long glove, Rhea's asymmetric cape, and a signature prop per Cantor (§5.6).
 
 ### 5.4 Color grouping
 
@@ -409,19 +414,19 @@ Pose table (procedural clips, per-part transforms):
 | move | Gait per anatomy; bounce amplitude falls with stage | Walk / run blend |
 | attack | Anticipation → action → follow-through (timings below) | Point / fling arm (Tuner command) |
 | hit | Hitstop → knockback → recover, hurt face | Flinch |
-| capture | Shrink into the Chime's light band (scale → 0.05 over 450 ms with a spiral twist ≤ 90°) | — |
-| break-out | Pop with 12 % stretch, surprised face | — |
+| capture | The Chime hovers and rings (1–3 rings, each a light pulse + tone, 500 ms apart). On success the bonding band tightens and the kin dissolves into it (scale → 0.05 over 450 ms, no spin). The Chime never shakes or wobbles (DECISIONS D9). | — |
+| break-out | The ring tone cuts off with a clack; the kin pops free with 12 % stretch and the `surprised` face | — |
 | faint | Sag, eyes close, settle | Kneel (Tuner loss pose) |
 | victory | Hop or rear with happy face | Fist pump / scarf flourish |
 
-Timing at a 60 fps reference. Clips are time-based (ms) and run the same at any framerate.
+Timing at a 60 fps reference. Clips are time-based (ms) and run the same at any framerate. **Authority (DECISIONS D15):** per-species clip durations in `creatures.md` (attack 0.4–1.3 s) are binding. The table below is **guidance for stage-1 feel and phase proportions, not a gate**. The `contact` event sits at 40–55 % of the attack clip.
 
 | Phase | Stage 1 | Stage 2 | Stage 3 |
 |---|---|---|---|
 | Attack anticipation | 150 ms | 200 ms | 260 ms |
 | Attack action (contact/release) | 80 ms | 100 ms | 130 ms |
 | Attack follow-through / settle | 220 ms | 260 ms | 320 ms |
-| Attack total cap | ≤ 550 ms | ≤ 650 ms | ≤ 800 ms |
+| Attack total (guidance) | ≈ 450–700 ms | ≈ 600–950 ms | ≈ 800–1,300 ms |
 | Hitstop on the receiver | 50 ms | 60 ms | 70 ms |
 | Knockback + recover | 350 ms | 380 ms | 420 ms |
 | Faint | 900 ms | 1,050 ms | 1,200 ms |
@@ -431,7 +436,7 @@ Squash and stretch limits (volume-preserving: scaleY × scaleXZ² ≈ 1):
 
 | Class | Max squash/stretch |
 |---|---|
-| Stage 1 | 15 % |
+| Stage 1 | 15 % (20 % allowed on `hit` only) |
 | Stage 2 | 10 % |
 | Stage 3 | 6 % |
 | Humans | 4 % (on jumps / landing only) |
@@ -448,12 +453,13 @@ Additional principles:
 
 | Character | Build | Colors (dominant/secondary/accent) | Hook |
 |---|---|---|---|
-| Rowan | Teen, 4.75 heads | Moss `#5E7D4A` jacket / cream `#EDE3CC` shirt / brass `#C8963E` buckle | Cross-body satchel with a hanging Reed Chime |
+| Arden | Teen, 4.75 heads | Moss `#5E7D4A` jacket / cream `#EDE3CC` shirt / brass `#C8963E` buckle | Cross-body satchel with a hanging Reed Chime |
 | Cass Rookwell | Teen, 4.75 heads, lanky | Charcoal `#3B3F4A` coat / red-orange `#D9582B` scarf / white `#F2F2F2` | Scarf tail (a 4-segment physics tube) |
 | Oriel Vantasse | Adult 5.6 heads, broad | Leather `#7A4E32` / linen `#E8DCC3` / brass | Monocle on a cord, tool-key apron |
-| Odile Graven | Adult 6 heads, tall and narrow | Slate `#4A4F5C` / bone `#DAD4C8` / mauve `#8C6A8A` | High collar, single long glove, small silver bell at the belt (clapper removed) |
-| Brann Coldcourt | Adult 5.5 heads, very broad | Slate / felt gray / rust | Oversized felted mitts |
-| Vey Lanternlow | Adult 5.8 heads, thin | Slate / mauve / plum `#5C3A5E` | Hooded lantern carried with a bent arm |
+| Odile Graven | Adult 6 heads, tall and narrow | Slate `#4A4F5C` quilted long coat / bone `#DAD4C8` / brass `#B08D57` | Slim brass ear-cup headband worn around the neck, high collar, single long glove, a pocket-sized Stillbell at the belt |
+| Brann Coldcourt | Adult 5.5 heads, very broad | Slate quilted coat / brass helmet / rust | Oversized brass ear-muff helmet with a rank-band, coil-rig carried on one shoulder |
+| Vey Lanternlow | Adult 5.8 heads, thin | Slate quilted coat / mauve lantern glow / plum `#5C3A5E` | Tall coil lantern held aloft like a stage prop; brass ear-cups pushed back like a tiara |
+| Stillhand (generic) | Adult 5.5–6 heads, 4 body/palette variants | Slate quilted coat / brass ear-muff helmet / leather belt | Coil lantern at the hip, clipboard; the Stillmark mark appears only on the lantern glass |
 | Wren Mossgrave (trial_1, verdant) | Adult, wiry | Bark / leaf green / pollen | Pruning hook staff, vine sleeve |
 | Dorran Flint (trial_2, stone) | Adult, stocky | Slate / ochre / white dust | Mallet over shoulder, safety goggles pushed up |
 | Nerys Tidewell (trial_3, water) | Adult | Lake blue / driftwood / reed gold | Wide-brim rain hat, punt pole |
@@ -470,13 +476,14 @@ Imitation we **must avoid**. QA and the release gate check every item:
 
 1. **Capture devices.** Spherical, two-tone, center-button devices (any red/white or split-hemisphere look). Chimes are hexagonal bell-lanterns with a top loop.
 2. **Mascots.** Yellow rodent mascots with red cheek circles; lightning-tail rodents; anything with round cheek-dots used as an "electric sac".
-3. **Recognizable species.** A starter that reads as a famous fire lizard with a tail flame, grass quadruped with a back bulb, or blue turtle; also fox with many tails, pink round singer, sleeping giant blocker, or an evolving egg-shaped blob. Voltra, Emberhorn and Rippleback must each pass a "name-covered" review. Per the brief, Voltra is a gliding lizard. It must not have a tail flame, an orange body with a cream belly, or a dragon-wing read.
+3. **Recognizable species.** A starter that reads as a famous fire lizard with a tail flame, grass quadruped with a back bulb, or blue turtle; also fox with many tails, pink round singer, sleeping giant blocker, or an evolving egg-shaped blob. Fizzkit, Wickwool and Rippleback must each pass a "name-covered" review. The Fizzkit line becomes a glider only at stage 3 (Tempestrel). It must not have a tail flame, an orange body with a cream belly, or a dragon-wing read. Rippleback's shell stays on its tail, never on its chest.
 4. **UI layouts.** Battle HUD layouts that copy the franchise's diagonal placement plus its specific HP-bar colors and labels. Our HUD uses a different composition (§7.4) and a "resonance string" HP meter.
 5. **Phrases.** Fixed phrases: "A wild ___ appeared!", "It's super effective!", "Go! ___!", "fainted", "Trainer ___ would like to battle!". The trainer-spotted "!" bubble is replaced by a **chord-burst** icon: three short radiating arcs.
 6. **Audio.** Healing jingles, level-up fanfares or battle intros that echo known melodies (see the §8 check). No 8-bit square-wave pastiche as the primary palette.
-7. **Villains.** No letter-on-chest uniforms, no "Team ___" naming, no motto chant.
+7. **Villains.** No letter-on-chest uniforms, no "Team ___" naming, no motto chant, no hooded-cult look, no "liberate the creatures" ideology, and no stealing trainers' creatures (DECISIONS D6). The Stillmark reads as a bureaucratic engineering guild with a control-for-safety motive.
 8. **Encyclopedia.** A red handheld encyclopedia device. The Kinsong is a cloth-bound songbook.
 9. **Signature combinations.** No combination of silhouette, palette and signature feature that maps to one specific existing creature, even if each part alone is generic. Review method: two reviewers, name and color hidden, silhouette at 64 px. "Reminds me of X" from both reviewers means redesign.
+10. **Running gags.** No identical-sibling NPCs (for example, the same nurse or officer face in every town). Every recurring role uses distinct named individuals.
 
 ---
 
@@ -536,12 +543,12 @@ The World Designer must confirm these encounter placements. Starter types (elect
 | Rule | Value |
 |---|---|
 | Zone attunement | The zone's type (§1.2). Trial halls use the Cantor's type. Towns, league and interiors (other than trial halls) are neutral. |
-| Effect | Moves of the attuned type get **×1.10 power**, for **both sides** (player, wild, AI). Applied as a separate multiplier after STAB and before type effectiveness; systems.md finalizes the order. |
+| Effect | Damaging moves of the attuned type get **×11/10 power**, for **both sides** (player, wild, AI), applied **after the same-type bonus and before type effectiveness** (DECISIONS D3). The trait `tr_resonant` raises it to **×6/5**. |
 | Attuned kin | A kin whose type(s) include the attuned type gets a small "attuned" glyph on its HUD plate. No stat change (flavor and readability only). |
 | Weather bias | Attunement adds a bias to the zone weather table. Suggested: fire → heat, water → rain, frost → snow, gale → wind, others → no bias. World Designer and systems.md own the numbers. |
 | Silenced stones | Until the story restores them (route_3 in ch5, route_5 in ch11), a silenced zone shows `Attunement: Silenced` and applies no bonus. |
-| Odile phase A/B | Phase A is Silenced; phase B restores frost ×1.10 (§2.5). |
-| HUD | Top-center pill: `[glyph] Attuned: Verdant ×1.1`. Tooltip / long-press: "Verdant moves resound here." |
+| Odile phase A/B | Phase A is Silenced; phase B restores frost ×11/10 (§2.5, trainer `phases`, DECISIONS D22). |
+| HUD | Top-center pill: `[glyph] Attuned: Verdant ×1.1` (display rounding of 11/10; ×1.2 shown when `tr_resonant` applies). Tooltip / long-press: "Verdant moves resound here." |
 
 ### 6.5 Tutorial integration
 
@@ -627,7 +634,7 @@ Glyph and chip rules:
   - Restoratives: a corked vial.
   - Etudes: a cylinder with grooves.
   - Key items: a tuning fork.
-- Status icons use a letter plus a shape: "SLP" moon-in-circle, "BRN" flame-in-square, "PSN" bubbles-in-triangle, "PAR" chevrons-in-diamond, "FRZ" asterisk-in-hexagon. The shape changes per status, so status never depends on color.
+- Status icons use a code plus a shape (names and codes per DECISIONS D8): **SCH** *Scorch* flame-in-square, **BLT** *Blight* bubbles-in-triangle, **JLT** *Jolt* chevrons-in-diamond, **DRW** *Drowse* crescent-in-circle, **RMB** *Rimebite* asterisk-in-hexagon. Volatile **MDL** *Muddled* is shown as wavy lines in an open circle (volatile badges use an open outline, major statuses a filled outline). The shape changes per status, so status never depends on color.
 
 ### 7.4 Panels, layout, motion
 
@@ -670,7 +677,7 @@ Glyph and chip rules:
 | Resonance node state | Pulse or static plus prompt text; the solved node's geometry visibly changes |
 | Menu selection | Brass ring plus ▶ caret |
 
-Settings: text size, text speed, reduced motion, camera sensitivity/invert, subtitles for cries/SFX in cutscenes (e.g. "[Voltra chirrs]"), master/music/sfx volume, and mute.
+Settings: text size, text speed, reduced motion, camera sensitivity/invert, subtitles for cries/SFX in cutscenes (e.g. "[Fizzkit chirrs]"), master/music/sfx volume, and mute.
 
 ---
 
@@ -786,8 +793,8 @@ Every SFX is synthesized, and each gets an id `sfx_*`.
 | Resonance | `res_ready` (node in range, hum), `res_trigger_<type>` ×10 (each type's register chord), `res_transform_grow`, `res_transform_shift`, `res_transform_freeze`, `res_transform_gust`, `res_waystone_register` |
 | Battle | `battle_start_wild`, `battle_start_trainer` (chord-burst), `send_out`, `recall`, `hit_normal`, `hit_resounding`, `hit_muffled`, `hit_crit` (added bell), `miss_whiff`, `stat_up` (rising sweep), `stat_down` (falling sweep), `status_apply_<status>` ×5, `faint`, `xp_tick`, `level_up`, `retreat_success`, `retreat_fail` |
 | Move families | 10 type bases × 3 shapes (projectile, contact, field) = 30 procedural recipes; each move references one recipe plus pitch/duration params (systems.md `animationRef`) |
-| Capture | `chime_throw`, `chime_ring_1..3` (shakes), `chime_bond` (success), `chime_break` (break-out) |
-| Events | `heal_bowl`, `keynote_get`, `crescendo_start`, `crescendo_finish`, `nullbell_toll`, `nullbell_crack`, `stone_rehum` |
+| Capture | `chime_throw`, `chime_ring_1..3` (one light-and-tone pulse per ring, rising a 4th each time; no shake sounds), `chime_bond` (success: sustained chord), `chime_break` (tone cut off + clack) |
+| Events | `heal_bowl`, `keynote_get`, `crescendo_start`, `crescendo_finish`, `stillbell_toll`, `stillbell_crack`, `coil_siphon_hum` (Stillmark coils on a stone), `coil_shutdown`, `stone_rehum` |
 | Ambience beds | meadow (birds via FM chirps), forest (wind + hollow-tree hum), cave (drips, lode crackle), fen (frogs, bubbles), lake (lapping), cliffs (wind gusts), volcano (rumble, hiss), tundra (low wind), peak (blizzard noise) |
 
 ---
@@ -806,11 +813,12 @@ Every SFX is synthesized, and each gets an id `sfx_*`.
    - The 4 mandatory nodes pass rules R1–R7.
    - Field actions work with fainted kin.
    - Solved nodes persist across save/reload.
-7. Attunement ×1.10 applies to both sides in each attuned zone, shows in the HUD pill, and is suppressed in silenced zones and Odile phase A.
+7. Attunement ×11/10 (after same-type bonus; ×6/5 with `tr_resonant`) applies to both sides in each attuned zone, shows in the HUD pill, and is suppressed in silenced zones and Odile phase A.
 8. Character language:
    - Every kin and principal human matches the head-ratio band of its class (§5.1), measured on the rest pose.
-   - Every kin has the 7-frame eye atlas.
-   - Clip timings fall within §5.5 caps.
+   - Every kin has the 8-cell face atlas (`open, half, closed, happy, hurt, faint, determined, surprised`; 256 px High/Balanced, 128 px Mobile).
+   - Clip timings follow creatures.md per species; `contact` lands at 40–55 % of the attack clip (§5.5 is guidance).
+   - The Chime never shakes: capture shows 1–3 rings, then a chord or a cut-off tone.
    - Squash/stretch stays within its limits.
    - Reduced motion removes shake, squash and pulse.
 9. UI:
@@ -825,13 +833,15 @@ Every SFX is synthesized, and each gets an id `sfx_*`.
     - The intensity layer follows the ≤25 % / >35 % hysteresis.
     - Cries are deterministic from params.
     - No audio plays before a user gesture.
-11. The per-chapter playtime estimates are labeled "estimate" everywhere they appear, until playtesting data exists.
+11. Stillmark presentation matches §2.3: no hoods, no chest emblem, mark on lantern glass only, and no dialogue or scene in which they take kin from a person. No identical-sibling NPCs exist.
+12. Status UI uses the D8 names and codes (SCH/BLT/JLT/DRW/RMB, MDL); none of the franchise's status abbreviations appear.
+13. The per-chapter playtime estimates are labeled "estimate" everywhere they appear, until playtesting data exists.
 
 ### 9.2 Dependencies
 
 | Needs | From | What |
 |---|---|---|
-| Type matrix confirming the starter triad (Water > Fire > Electric > Water) and ×1.10 attunement placement in the damage formula | systems.md | Rival pick rule and default table; attunement math |
+| Triad matrix (confirmed) and ×11/10 attunement step after STAB (DECISIONS D3); trainer `phases` for Odile (D22) | systems.md | Rival pick rule; attunement math; two-phase climax |
 | Trainer levels / teams for `t_rival_*`, `t_cantor_*`, admins, Odile (2-phase), champion | systems.md | Narrative targets in §4 |
 | Encounter placement of f04 (route_1/forest), f05 (route_2/cave), f07 (route_1/route_4), f06 (route_5/snowpeak) before their gates; Steward placement; node coordinates; zone graph; `league` access from `snowpeak`; quest giver positions | world.md | §6.2 guarantees, §6.6 R7 |
 | Species eye classes, hero features, mass classes, cry params, family motifs | creatures.md | §5, §8.6 |
@@ -843,9 +853,9 @@ Every SFX is synthesized, and each gets an id `sfx_*`.
 
 | Risk | Impact | Mitigation |
 |---|---|---|
-| The triad cycle in systems.md differs from the assumption | Rival pairing text wrong | The rule is formula-based (§2.2); only the default table changes |
+| Players read the Stillmark as "villains who kidnap creatures" despite the redesign | Originality finding F-0-01 reopens | Every stray-pen scene states the strays wandered in lost (ch4 and ch8 lines); penned kin are released on screen; the Stillmark never battles to take a kin. |
 | The leitmotif accidentally resembles an existing melody | Originality failure | Two-reviewer listen check. Change rhythm or intervals if flagged. Keep motifs short and non-iconic. |
-| Procedural faces look stiff or "uncanny" at small sizes | Character-direction gate fail | 7-frame atlas, fixed highlight rule, brows as meshes; test at 64 px and in-game distance each phase |
+| Procedural faces look stiff or "uncanny" at small sizes | Character-direction gate fail | 8-cell atlas, fixed highlight rule, brows as meshes; test at 64 px and in-game distance each phase |
 | 12 chapters overrun the 8–10 h estimate or fall short | Scope | Chapter budgets let content be cut per chapter. Optional secrets (non-mandatory registers) absorb overflow without touching the critical path. |
 | Stewards feel like they trivialize resonance | Weakens the mechanic | Stewards only exist at the 4 mandatory nodes. Secrets require owning the type. |
 | Too many coined terms confuse new players | Onboarding | Introduce at most 2 new terms per chapter. The Tuning Ledger glossary page auto-fills as terms appear. |
@@ -856,8 +866,241 @@ Every SFX is synthesized, and each gets an id `sfx_*`.
 
 1. **Title and region conflict check.** The title "Wildchord" and region name "Cantarra" were chosen without a trademark or store search, which isn't possible here. The orchestrator should do a quick web and store check before release; alternates are *Songs of Cantarra* or *Kinsong*.
 2. **Trial_1 difficulty.** Should trial_1 (verdant) be softened for water-starter players? Proposal: the Cantor's team includes one non-verdant kin, and a guaranteed fire-type-effective option is catchable on route_1. Systems and World to confirm.
-3. **Etudes reusability.** Owned by systems.md; either choice works for this direction.
-4. **`league` placement.** Should Concord Spire be a separate zone id `league` (proposed) or an interior of `snowpeak`? The World Designer decides and documents it.
+3. ~~Etudes reusability~~: resolved (reusable, systems §8.5).
+4. **`league` placement.** Concord Spire is the separate zone `league`, reached from `snowpeak` (world.md).
 5. **Choice line in ch10.** Is the flavor-only choice worth the localization cost? Currently kept.
 6. **Post-game scope.** The Old Chord Shrine (Gleam secret) and an Odile epilogue letter are proposed, but not budgeted in the 9 h 20 m estimate.
-7. **Default protagonist name.** "Rowan" may be changed if it conflicts with prominent characters in the genre (low risk; common given name).
+7. ~~Default protagonist name~~: resolved as **Arden** (DECISIONS D7).
+8. **Stray release in ch8.** Should released strays visibly reappear in their home zones' encounter tables (flavor only), or is the on-screen release enough? The CD prefers on-screen release only (no encounter-table change).
+
+---
+
+## Appendix A — Dialogue lines for implementation
+
+Conventions:
+- **Ids.** `dlg_<ch>_<speaker>_<nn>` (chapter `00` = any chapter or repeatable). `{player}` = the protagonist's name (default Arden). `{starter}`, `{rivalStarter}` and `{leftover}` = species display names. `{kin}` = a species name.
+- **Text.** Lines are final English text, subject to light copy-edit. One line = one dialogue box (≤ 140 characters where possible).
+- **Pre/post.** Battle lines use `pre` (before battle), `win` (the player wins) and `lose` (the player loses; systems wipe rule applies, except Rival 1 per DECISIONS D20).
+- **Tone check.** Stillmark lines are procedural and courteous, never cruel. Nobody in the Stillmark ever takes a kin from a person.
+
+### A.1 Recurring characters (all chapters)
+
+| Id | Speaker | Line |
+|---|---|---|
+| dlg_00_maud_01 | Maud (Hearthkeeper, Larkhollow) | "Sit by the fire, love. There — hear that? They're in tune again." |
+| dlg_00_tobin_01 | Tobin (Hearthkeeper, Knellstone) | "Easy now. Bowl's warm, troupe's warmer. Off you go." |
+| dlg_00_ysolde_01 | Ysolde (Hearthkeeper, Galewick) | "Healed, rested, ready. Next!" |
+| dlg_00_fen_01 | Fen (Hearthkeeper, Sillowmere) | "Mm? Oh — healing. Right. …Done. They were fine, mostly. Now they're finer." |
+| dlg_00_ash_01 | Ash (Hearthkeeper, Cindral base) | "Used to forge horseshoes. Now I mend kin. Better job. Fewer burns." |
+| dlg_00_linna_01 | Linna (Hearthkeeper, Hoarcrown lodge) | "Cold up here steals strength. The bowl gives it back. Mind the ice outside." |
+| dlg_00_hearth_rest | any Hearthkeeper (menu) | "Rest your troupe? / Open the Fosterage ledger? / Just warming my hands." |
+| dlg_00_pip_01 | Pip (Chandler, Larkhollow) | "Welcome to the Chandlery! Everything's labelled! Mostly correctly!" |
+| dlg_00_garrow_01 | Garrow (Chandler, Knellstone) | "Buy something or admire the dust. Both are free until you touch." |
+| dlg_00_nell_01 | Nell (Chandler, Galewick) | "Buying? Wonderful. While you choose, did you hear about the miller's goat?" |
+| dlg_00_chandler_thanks | any Chandler | "Thank you kindly. Mind the tallies — they wander." |
+| dlg_00_chandler_short | any Chandler | "You're a few tallies short, I'm afraid." |
+| dlg_00_wick_01 | Wick (peddler, route_2) | "Wick's Wagon, wheels and wonders! One special today — just the one. Don't be greedy." |
+| dlg_00_wick_02 | Wick (peddler, route_4) | "You again! I never forget a face, or an unpaid tally. Special's changed." |
+| dlg_00_steward_01 | Resonance Steward (player lacks the type) | "That glyph wants a {type} voice. Not carrying one? I'll lend you mine — just this once." |
+| dlg_00_steward_02 | Resonance Steward (after assist) | "There. It'll stay open for good. Catch a {type} friend when you can — the wild's full of them." |
+| dlg_00_oriel_ledger | Oriel (Ledger reminder when idle > 10 min off-path) | "Stuck? Check the Registers page in your Ledger. The stones always tell you what they want." |
+| dlg_00_storage_full | system (Fosterage full) | "Your Fosterage is full. If this kin bonds, one kin must return to the wild. Ring the Chime anyway?" |
+
+### A.2 Chapter lines
+
+**Ch1 — The Quiet Stone**
+
+| Id | Speaker | Line |
+|---|---|---|
+| dlg_01_oriel_01 | Oriel | "Forty years that stone's sung me awake. Today it forgot the words." |
+| dlg_01_oriel_02 | Oriel | "Well. Licensing day waits for no stone. Come — three little ones have been watching the door all morning." |
+| dlg_01_oriel_03 | Oriel (starter choice) | "Don't pick the strongest. Pick the one that looks back at you." |
+| dlg_01_oriel_04 | Oriel (after choice) | "{starter}. Good. It's chosen you back — see the ears? Treat that like a promise." |
+| dlg_01_cass_01 | Cass | "Did I miss it? I missed it. Fine — I'll take *that* one. No reason. Definitely not because it'd flatten yours." |
+| dlg_01_cass_pre | Cass (Rival 1) | "First battle, first win. For me, I mean. Ready?" |
+| dlg_01_cass_win | Cass (player wins) | "Okay. Okay! First one doesn't count. That's a rule. I just made it." |
+| dlg_01_cass_lose | Cass (player loses, story continues) | "Ha! …Huh. That felt less amazing than I thought. Good match, {player}." |
+| dlg_01_oriel_05 | Oriel (resonance tutorial) | "See that carving? That's a glyph. Kin who share its voice can sing to it. Go on — let {starter} try." |
+| dlg_01_oriel_06 | Oriel (after the triad node) | "Hear that? The stone isn't dead. It's holding its breath. Something's pressing on it." |
+| dlg_01_oriel_07 | Oriel (capture tutorial) | "Five Reed Chimes. Weaken, don't wound. A Chime asks. It doesn't grab." |
+| dlg_01_oriel_08 | Oriel (Chime rings) | "Listen to the rings — one, two, three. If the third holds, you're friends." |
+| dlg_01_oriel_09 | Oriel (stone fails, kin bolts) | "No — no, no. Easy, little one — !" |
+| dlg_01_oriel_10 | Oriel | "It's the stone. They find their way by it. Without it they're lost." |
+| dlg_01_oriel_11 | Oriel (survey stake found) | "'Service ref. 114 — Larkhollow.' Service? Nobody services a Chordstone. You *listen* to one." |
+| dlg_01_arden_choice | {player} (choice, flavor) | "[I'll find it.] / [I'll find out who did this.]" |
+
+**Ch2 — Murmurwood**
+
+| Id | Speaker | Line |
+|---|---|---|
+| dlg_02_oriel_01 | Oriel (Ledger) | "No sign of the little one in the orchards. If you see small tracks heading anywhere in a hurry — follow them." |
+| dlg_02_steward_01 | Steward (Rootgate intro) | "Rootgate's closed since the hum faded. A verdant kin could coax it. Got one?" |
+| dlg_02_still_01 | Stillhand (pre) | "Licensed survey, Tuner. Stand clear of the coil, please." |
+| dlg_02_still_02 | Stillhand (win) | "I'll have to note this on the work order. Obstruction of service." |
+| dlg_02_still_03 | Stillhand (after) | "We're engineers, not bandits. A stone that sings on its own is a hazard. We make it safe. That's all." |
+| dlg_02_wren_pre | Cantor Wren Mossgrave | "A forest isn't loud. It's *layered*. Show me you can hear the layers." |
+| dlg_02_wren_win | Wren (player wins) | "You listened under the noise. That's rarer than winning." |
+| dlg_02_wren_lose | Wren (player loses) | "Too much at once. Come back when you can hear one leaf at a time." |
+| dlg_02_wren_keynote | Wren | "Take this Keynote. It's tuned to stone. Every hall teaches the note *after* its own. That's how a chord gets built." |
+| dlg_02_wren_after | Wren | "Engineers in my wood with coils and clipboards. I've sent a complaint. In triplicate. They seemed pleased." |
+
+**Ch3 — Knellstone**
+
+| Id | Speaker | Line |
+|---|---|---|
+| dlg_03_cass_pre | Cass (Rival 2) | "Mum's got six Keynotes and a spire. I've got one Keynote and a *plan*. The plan is: beat you." |
+| dlg_03_cass_win | Cass | "Plan B is 'lose gracefully'. I'm workshopping it." |
+| dlg_03_cass_lose | Cass | "Ha! Plan A! It worked! Write that down somewhere official." |
+| dlg_03_cass_after | Cass | "Saw some gale kin on the ridge. Mine loves updrafts. Just saying. For no reason." |
+| dlg_03_nell_01 | Nell (gossip) | "There's surveyors in brass ear-muffs measuring the bell towers. Say the stones need *servicing*. Never knew stone needed servicing." |
+| dlg_03_dorran_pre | Cantor Dorran Flint | "Stone keeps time better than any clock. Let's see if you do." |
+| dlg_03_dorran_win | Dorran | "Steady hands. Steady head. You'd have made a fair quarryman." |
+| dlg_03_dorran_lose | Dorran | "Rushed it. Stone doesn't rush. Try again when you've counted to ten." |
+| dlg_03_dorran_keynote | Dorran | "Keynote's yours. Tuned to toxin. Odd pairing, stone and rot — but rot's how stone becomes soil." |
+| dlg_03_dorran_after | Dorran | "The coil crews went down the Undertone yesterday. Miners are not pleased. Neither's the mountain." |
+
+**Ch4 — The Undertone**
+
+| Id | Speaker | Line |
+|---|---|---|
+| dlg_04_miner_01 | Foreman Kett (miner) | "Our kin've gone wandering since the hum dropped. Can't find their way up. Lower galleries are boulder-blocked." |
+| dlg_04_steward_01 | Steward (Heave gate) | "Stone glyph. Needs a stone voice to shift it. I can lend you one if you're short." |
+| dlg_04_still_01 | Stillhand (pre) | "Coil crew seven. Please keep a two-metre clearance from live equipment." |
+| dlg_04_still_02 | Stillhand (win) | "Right. I'll… log that as a delay." |
+| dlg_04_brann_pre | Warden Brann Coldcourt | "It's a job, kid. Quiet pays better than rock. Now move, or I'll move you." |
+| dlg_04_brann_win | Brann | "…Magister won't like this. Neither do I, much." |
+| dlg_04_brann_lose | Brann | "Go home. Get warm. Leave the stone to people who know what they're doing." |
+| dlg_04_brann_pen | Brann (at the stray pen) | "We didn't take 'em. They wandered in lost. We fed 'em. Paperwork says 'hold for safekeeping'." |
+| dlg_04_brann_after | Brann | "Take the miners' lot back up. The rest go to the Stillhouse. That's procedure. …I don't write procedure." |
+| dlg_04_miner_02 | Foreman Kett | "That's my Pebbles! Look at her, fat as a cushion. At least they fed her. Strange lot." |
+
+**Ch5 — Sallowfen**
+
+| Id | Speaker | Line |
+|---|---|---|
+| dlg_05_vey_pre | Warden Vey Lanternlow | "*Enter the hero, stage left, too loud as usual.* This stone is being fitted for a Stillbell, darling. Do sit down." |
+| dlg_05_vey_win | Vey | "*Exit, pursued by a Tuner.* How very dramatic of you." |
+| dlg_05_vey_lose | Vey | "*Blackout.* Go home, little critic." |
+| dlg_05_vey_after | Vey | "A Stillbell doesn't hurt a stone. It simply decides *when*. Isn't that what a conductor does?" |
+| dlg_05_cass_pre | Cass (Rival 3) | "I was going to help with the stone. I got lost. The frogs all look the same. Battle me so I feel competent." |
+| dlg_05_cass_win | Cass | "You fixed a *stone*. I was busy losing to a frog. Don't tell anyone." |
+| dlg_05_cass_lose | Cass | "Okay, that helped. I feel fully competent. Frogs, beware." |
+| dlg_05_cass_after | Cass | "…Do you ever feel like everyone's already decided who you are?" |
+
+**Ch6 — Mirror of Sillowmere**
+
+| Id | Speaker | Line |
+|---|---|---|
+| dlg_06_nerys_pre | Cantor Nerys Tidewell | "A lake shows you whatever you bring to it. Bring me something honest." |
+| dlg_06_nerys_win | Nerys | "Clear water, clear heart. You've both." |
+| dlg_06_nerys_lose | Nerys | "Muddied. Let it settle, then try me again." |
+| dlg_06_nerys_keynote | Nerys | "Gale's next. Galewick's winds will carry you, if you let them." |
+| dlg_06_nerys_after | Nerys | "The Stillmark asked to 'survey' my hall's stone. I told them the lake says no. The lake always says no." |
+| dlg_06_fen_02 | Fen (hamlet) | "Stones on the far isle rise if you give 'em water. Worth a paddle, if you've a water kin." |
+
+**Ch7 — Galewick**
+
+| Id | Speaker | Line |
+|---|---|---|
+| dlg_07_marra_01 | Marra Aske | "You're the one from Larkhollow! I'm compiling the Kinsong — every verse in Cantarra. Show me what you've heard and I'll pay in useful things." |
+| dlg_07_marra_02 | Marra (milestone) | "{n} verses sung! That's a proper songbook now. Here — you've earned this." |
+| dlg_07_still_01 | Stillhand foreman (market) | "Work order 212, Galewick Chordstone, routine service. It's all signed, Cantor." |
+| dlg_07_tamsin_01 | Tamsin (market) | "Signed by *whom*? The wind didn't sign it. Get your coils off my stone." |
+| dlg_07_tamsin_pre | Cantor Tamsin Galloway | "In Galewick we don't fight the wind. We argue with it, politely, until it agrees." |
+| dlg_07_tamsin_win | Tamsin | "Ha! You argued and won. The wind respects that." |
+| dlg_07_tamsin_lose | Tamsin | "Blown clean off your feet. Tie yourself down and come back." |
+| dlg_07_tamsin_keynote | Tamsin | "Keynote for shade. Where there's wind, there's a shadow running from it." |
+| dlg_07_oriel_letter | Oriel (letter) | "Odile and I built our first Chime together. She always said a stone that sings whenever it likes is a stone nobody's in charge of. I thought she meant it as a joke." |
+
+**Ch8 — The Stillhouse**
+
+| Id | Speaker | Line |
+|---|---|---|
+| dlg_08_steward_01 | Steward (Gust vents) | "Updrafts only lift for a gale voice. No gale kin? Hop on with mine." |
+| dlg_08_cass_01 | Cass | "Big quiet building full of engineers. You take the left wing, I'll take the right. If I scream, it's a strategy." |
+| dlg_08_still_01 | Stillhand (pre) | "Visitors must sign in. …You haven't signed in." |
+| dlg_08_still_02 | Stillhand (win) | "Right. Fine. The pens are through there. They're very clean pens, for the record." |
+| dlg_08_still_03 | Stillhand (after) | "We only pen strays. When the network's stable, they go home. That was always the plan." |
+| dlg_08_vey_pre | Vey | "*Act three. The hero storms the theatre.* You're dripping on my floors." |
+| dlg_08_vey_win | Vey | "*Curtain.* …The Magister is already on Hoarcrown, darling. You're late to your own finale." |
+| dlg_08_vey_lose | Vey | "*Encore declined.* Out you go." |
+| dlg_08_tag | pen tag (examine) | "Stray, young, triad line — found route_1, day 1. Fed twice daily. Nervous." |
+| dlg_08_arden_01 | {player} | "Hey. Hey, it's okay. We've been looking for you." |
+| dlg_08_cass_02 | Cass | "It won't come to me. It's going straight to your {starter}. …Figures. Family recognizes family." |
+| dlg_08_cass_pre | Cass (Rival 4) | "We make a good team. I hate that. Battle me anyway — I need to know if we're even." |
+| dlg_08_cass_win | Cass | "Not even. Yet. Keep the gap warm for me." |
+| dlg_08_cass_lose | Cass | "Even! We're even. Don't argue, I'm savouring it." |
+| dlg_08_oriel_01 | Oriel (Ledger, opens q_foster_leftover) | "You found it? Bring the little one home when you can. I'll put the kettle on — and, {player}, thank you." |
+
+**Ch9 — Cindral**
+
+| Id | Speaker | Line |
+|---|---|---|
+| dlg_09_hallsteward_01 | Forge Hall steward (vent sealed) | "Vent's overheated. A water kin could cool it — or wait, I'll open the side sluice for you. Give me a moment." |
+| dlg_09_bastian_pre | Cantor Bastian Coalridge | "Heat's honest. It tells you exactly how close is too close." |
+| dlg_09_bastian_win | Bastian | "Tempered. Good steel doesn't shatter, it bends back." |
+| dlg_09_bastian_lose | Bastian | "Too hot, too fast. Cool off and come back." |
+| dlg_09_bastian_keynote | Bastian | "Frost Keynote. Fire teaches you what cold is worth." |
+| dlg_09_bastian_after | Bastian | "Odile Graven? I knew her father. She was on the Ash Flats that day. Nobody who saw it came back the same." |
+| dlg_09_plaque | memorial plaque | "For the herd of the Ash Flats, who ran toward the loudest stone." |
+
+**Ch10 — Gloamstair**
+
+| Id | Speaker | Line |
+|---|---|---|
+| dlg_10_cass_pre | Cass (Rival 5) | "I stopped using Mum's lineup. These are *mine*. So if I lose, it's on me. Which — is weirdly great?" |
+| dlg_10_cass_win | Cass | "On me. Totally on me. And I'm… fine? Growth!" |
+| dlg_10_cass_lose | Cass | "Mine won! My kin! My weird little team! I'm going to cry a normal amount." |
+| dlg_10_odile_01 | Magister Odile Graven | "{player}. Oriel's student. You have her habit of arriving exactly when you're not expected." |
+| dlg_10_odile_02 | Odile | "A stone that sings whenever it likes is a stone nobody is responsible for. I watched one sing a herd into a lava field." |
+| dlg_10_odile_03 | Odile | "With the Great Stillbell hung, the stones sound when it is *safe*. When we say. No more surges. No more stampedes. Isn't that kinder?" |
+| dlg_10_arden_choice | {player} (choice, flavor) | "[Who decides what's safe?] / [You'd silence all of them for one bad day.]" |
+| dlg_10_odile_04 | Odile | "Someone has to decide. I would rather it be someone who remembers." |
+| dlg_10_odile_05 | Odile | "Climb if you must. Bring warm clothes. I'd hate for you to be *unsafe*." |
+
+**Ch11 — Hoarcrown**
+
+| Id | Speaker | Line |
+|---|---|---|
+| dlg_11_steward_01 | Steward (frozen falls) | "Falls won't hold weight unless a frost voice sings them solid. Need a hand?" |
+| dlg_11_isaure_pre | Cantor Isaure Frostmere | "Cold is patience made visible. Let's see how patient you are." |
+| dlg_11_isaure_win | Isaure | "Unhurried and unbroken. The mountain approves." |
+| dlg_11_isaure_lose | Isaure | "Impatience cracks first. Breathe, then return." |
+| dlg_11_isaure_keynote | Isaure | "The last Keynote, tuned to light. Six notes. Go and make them a chord." |
+| dlg_11_brann_01 | Brann (summit path) | "Magister's up top. Bell's half on. I'm supposed to stop you." |
+| dlg_11_brann_02 | Brann | "…Go on. I've heard enough quiet." |
+| dlg_11_odile_pre | Odile (phase A) | "The Bell is nearly seated. Once it holds, every stone in Cantarra waits for permission. Stand aside." |
+| dlg_11_odile_phaseB | Odile (third kin faints) | "…Why is it *singing*? It shouldn't— the coils are—" |
+| dlg_11_odile_win | Odile (player wins) | "Then no one holds the bell." |
+| dlg_11_odile_lose | Odile (player loses) | "You see? Unmanaged, it fails. Go down the mountain, {player}." |
+| dlg_11_odile_after | Odile | "…Promise me someone will at least *listen* when a stone starts to shout." |
+| dlg_11_arden_after | {player} (choice, flavor) | "[We will. All of us.] / [You could be the one listening.]" |
+
+**Ch12 — Concord**
+
+| Id | Speaker | Line |
+|---|---|---|
+| dlg_12_door | Spire door (examine) | "Six sockets, shaped like tuning forks. Your Keynotes hum as you approach." |
+| dlg_12_cass_pre | Cass (Rival 6) | "No jokes this time. Just — play your best, okay? I want to lose to the *real* you. Or win. Winning's also fine." |
+| dlg_12_cass_win | Cass | "That was the best I've ever played. And you were better. Go on — she's waiting." |
+| dlg_12_cass_lose | Cass | "I… beat you? At the Spire? Okay. Heal up. Try again. I want you to see her." |
+| dlg_12_rhea_pre | Concordant Rhea Rookwell | "I've watched my kid chase my shadow for two years. You're the first one who made them turn around. Now — show me what *you* sound like." |
+| dlg_12_rhea_win | Rhea | "There it is. That's a sound I've not heard in a long time. Sound the Great Chord, {player}." |
+| dlg_12_rhea_lose | Rhea | "Close. Very close. Rest, and come back — the Spire isn't going anywhere." |
+| dlg_12_oriel_end | Oriel (ending, Larkhollow stone humming) | "There it is. Same song. New verse." |
+
+### A.3 Stillhand grunt pool (random pick per trainer; ch2–ch11)
+
+| Id | Context | Line |
+|---|---|---|
+| dlg_00_still_pre_01 | pre | "Licensed survey. Please step back from the equipment." |
+| dlg_00_still_pre_02 | pre | "You're standing in a marked service area. I'm obliged to remove you. Politely." |
+| dlg_00_still_pre_03 | pre | "Is this about the coil? Everyone's always upset about the coil." |
+| dlg_00_still_pre_04 | pre | "My kin's certified. Is yours certified?" |
+| dlg_00_still_win_01 | win | "I'll have to file an incident report. It's three pages." |
+| dlg_00_still_win_02 | win | "Well, that wasn't in the risk assessment." |
+| dlg_00_still_win_03 | win | "Fine. Go on. I'm on break anyway." |
+| dlg_00_still_lose_01 | lose | "Safety first. Go home, rest up." |
+| dlg_00_still_after_01 | after | "The Magister says unregulated stones are how people get hurt. She's usually right about hazards." |
+| dlg_00_still_after_02 | after | "We don't *take* kin. We collect strays. There's a difference. There's a form for it." |
+| dlg_00_still_after_03 | after | "Honestly? I joined for the helmet. It's very warm." |

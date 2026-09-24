@@ -4,8 +4,11 @@ import * as THREE from 'three';
 export type Quality = 'high' | 'balanced' | 'mobile';
 export type Lod = 0 | 1 | 2;
 
-export function segs(kind: 'sphere' | 'capsule' | 'lathe' | 'tube' | 'cone', lod: Lod, q: Quality): [number, number] {
-  const tier = lod === 2 ? 2 : q === 'high' && lod === 0 ? 0 : q === 'mobile' ? 2 : 1;
+/** Segment counts scale with quality/LOD AND with the part's real size (metres), so tiny parts stay cheap. */
+export function segs(kind: 'sphere' | 'capsule' | 'lathe' | 'tube' | 'cone', lod: Lod, q: Quality, sizeM = 1): [number, number] {
+  let tier = lod === 2 ? 2 : q === 'high' && lod === 0 ? 0 : q === 'mobile' ? 2 : 1;
+  if (sizeM < 0.06) tier = 2;
+  else if (sizeM < 0.16) tier = Math.max(tier, 1);
   const T: Record<string, [number, number][]> = {
     sphere: [[24, 16], [16, 12], [10, 7]],
     capsule: [[12, 6], [10, 4], [7, 3]],

@@ -2,14 +2,14 @@
 Re-runnable; the JSON files are the source of truth after extraction (hand edits allowed)."""
 import json, re, pathlib
 root = pathlib.Path(__file__).resolve().parent.parent
-md = (root / 'design/systems.md').read_text()
+md = (root / 'design/systems.md').read_text().replace('**', '')
 out = root / 'src/data/content'
 TYPES = ['fire','water','electric','verdant','stone','frost','gale','toxin','shade','lumen']
 
 # ---- type matrix
 matrix = {}
 for line in md.splitlines():
-    m = re.match(r'\| \*\*(\w+)\*\* \|(.*)\|$', line)
+    m = re.match(r'\| (\w+) \|(.*)\|$', line)
     if m and m.group(1) in TYPES and len(m.group(2).split('|')) == 10 and m.group(1) not in matrix:
         cells = [c.strip().replace('*','') for c in m.group(2).split('|')]
         conv = {'½':1,'1':2,'2':4,'0':0}
@@ -84,7 +84,7 @@ json.dump(moves, open(out/'moves.json','w'), indent=1)
 # ---- learnsets & evolutions
 learn = {}
 for line in md.splitlines():
-    m = re.match(r'^\| \*\*(f\d\d) \w+\*\* \| (.*) \|$', line)
+    m = re.match(r'^\| (f\d\d) \w+ \| (\d.*) \|$', line)
     if m and ':' in m.group(2):
         entries = []
         for e in m.group(2).split(','):
@@ -99,11 +99,11 @@ for line in md.splitlines():
 assert len(learn) == 10, learn.keys()
 evo = {}
 for line in md.splitlines():
-    m = re.match(r'^\| (f\d\d) \w+ \| (.*?) \| (.*?) \| st2 (m\d{3}), st3 (m\d{3}) \|$', line)
+    m = re.match(r'^\| (f\d\d) \w+ \| (.*?) \| (.*?) \| st2 (m\d{3}), st3 (m\d{3}).*\|$', line)
     if m:
         l1 = int(re.search(r'\d+', m.group(2)).group())
         l2m = re.search(r'Lv (\d+)', m.group(3))
-        evo[m.group(1)] = {'level2': l1, 'level3': int(l2m.group(1)), 'item3': 'i_evo_prism' if 'item' in m.group(3) else None,
+        evo[m.group(1)] = {'level2': l1, 'level3': int(l2m.group(1)), 'item3': 'i_evo_prism' if 'prism' in m.group(3).lower() else None,
                            'move2': m.group(4), 'move3': m.group(5)}
 assert len(evo) == 10, evo
 cov = {}
