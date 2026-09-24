@@ -29,7 +29,7 @@ describe('species builders', async () => {
           expect(Number.isFinite(m.bounds.radius)).toBe(true);
           if (lod === 0 && q === 'high') {
             // eslint-disable-next-line no-console
-            console.log(`${id} tris=${m.stats.triangles} draws=${m.stats.drawCalls} h=${m.bounds.height.toFixed(2)}`);
+            console.log(`${id} tris=${m.stats.triangles} sculpt=${m.stats.sculptedTris} draws=${m.stats.drawCalls} meshMs=${m.stats.meshMs.toFixed(0)} h=${m.bounds.height.toFixed(2)}`);
           }
           m.dispose();
         }

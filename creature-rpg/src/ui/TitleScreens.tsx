@@ -48,9 +48,10 @@ function HumanSpin({ look, x, scale }: { look: ReturnType<typeof playerLook>; x:
     model.update(Math.min(dt, 0.1));
     if (g.current) g.current.rotation.y = Math.sin(t.current / 2.5) * 0.45;
   });
-  const s = scale / Math.max(0.5, model.bounds.height);
+  // the preview camera looks at the origin: centre the figure on it
+  const s = (scale * 1.1) / Math.max(0.5, model.bounds.height);
   return (
-    <group ref={g} position={[x, 0, 0]} scale={s}>
+    <group ref={g} position={[x, -model.bounds.height * s * 0.5, 0]} scale={s}>
       <primitive object={model.root} />
     </group>
   );

@@ -99,7 +99,8 @@ function lavaMaterial(simple: boolean) {
         diffuseColor.rgb = mix(vec3(0.6, 0.2, 0.05), crustCol, crust);
         float pulse = 0.85 + 0.15 * sin(uTime * 1.3 + heat * 9.0);
         vec3 hot = mix(vec3(1.0, 0.25, 0.03), vec3(1.0, 0.75, 0.3), smoothstep(0.3, 0.05, heat));
-        vec3 lavaGlow = hot * seam * seam * 4.0 * pulse * smoothstep(-0.05, 0.3, vDepth);`,
+        vec3 lavaGlow = hot * seam * seam * 4.0 * pulse * smoothstep(-0.05, 0.3, vDepth);
+        if (vDepth < -0.02) discard;`,
       )
       .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\n totalEmissiveRadiance = lavaGlow;')
       .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\n roughnessFactor = mix(0.35, 0.92, crust);');

@@ -94,9 +94,11 @@ export interface AtmosphereProps {
   zone: ZoneSpec;
   shadows: boolean;
   shadowSize: number;
+  /** image-based lighting (High/Balanced); Mobile keeps the hemisphere fill only */
+  ibl?: boolean;
 }
 
-export function Atmosphere({ zone, shadows, shadowSize }: AtmosphereProps) {
+export function Atmosphere({ zone, shadows, shadowSize, ibl = true }: AtmosphereProps) {
   const sun = useRef<THREE.DirectionalLight>(null);
   const hemi = useRef<THREE.HemisphereLight>(null);
   const { scene } = useThree();
@@ -293,7 +295,7 @@ export function Atmosphere({ zone, shadows, shadowSize }: AtmosphereProps) {
         shadow-radius={2.5}
       />
       {sky && <primitive object={sky} />}
-      <EnvironmentLighting zone={zone} drive={c.drive} interior={interior} />
+      {ibl && <EnvironmentLighting zone={zone} drive={c.drive} interior={interior} />}
     </>
   );
 }

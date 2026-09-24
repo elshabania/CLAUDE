@@ -60,7 +60,19 @@ const at = (g: THREE.BufferGeometry, x: number, y: number, z: number, ry = 0, rx
   return g;
 };
 const box = (w: number, h: number, d: number) => new THREE.BoxGeometry(w, h, d);
-const rbox = (w: number, h: number, d: number, r = 0.035) => new RoundedBoxGeometry(w, h, d, 1, Math.min(r, w / 2.2, h / 2.2, d / 2.2));
+// RoundedBoxGeometry is slow to build (~0.7 ms); buildings reuse a handful of sizes, so clone cached templates
+const rboxCache = new Map<string, THREE.BufferGeometry>();
+const rbox = (w: number, h: number, d: number, r = 0.035) => {
+  const k = `${w.toFixed(3)}|${h.toFixed(3)}|${d.toFixed(3)}|${r}`;
+  let g = rboxCache.get(k);
+  if (!g) {
+    // plain BufferGeometry template: RoundedBoxGeometry.clone() would re-run its own constructor first
+    g = new THREE.BufferGeometry().copy(new RoundedBoxGeometry(w, h, d, 1, Math.min(r, w / 2.2, h / 2.2, d / 2.2)));
+    if (rboxCache.size > 400) rboxCache.clear();
+    rboxCache.set(k, g);
+  }
+  return g.clone();
+};
 function prism(w: number, h: number, d: number): THREE.BufferGeometry {
   // gable wall: triangle cross-section in X/Y, extruded along Z
   const s = new THREE.Shape();
@@ -527,7 +539,8 @@ export function wallSeg(len = 6, h = 2.5, color = '#8A8578', ctx: BuildCtx = {})
   return { geo: f.geo, mats: f.mats, colliders };
 }
 
-export const BUILDERS: Record<string, (p: { color?: string; roof?: string; w?: number; d?: number; h?: number; label?: string }, ctx?: BuildCtx) => BuiltProp> = {
+type BuildParams = { color?: string; roof?: string; w?: number; d?: number; h?: number; label?: string };
+const RAW_BUILDERS: Record<string, (p: BuildParams, ctx?: BuildCtx) => BuiltProp> = {
   house: (p) => house({ wall: p.color, roof: p.roof, w: p.w, d: p.d }),
   house2: (p) => house({ wall: p.color, roof: p.roof, w: p.w ?? 8, d: p.d ?? 7, stories: 2 }),
   hearth: () => house({ w: 9, d: 7, wall: '#F3EAD7', roof: '#B5543C', sign: '#E4572E', stories: 1 }),
@@ -550,3 +563,22 @@ export const BUILDERS: Record<string, (p: { color?: string; roof?: string; w?: n
   crate: () => crate(),
   wall: (p, ctx) => wallSeg(p.w ?? 6, p.h ?? 2.5, p.color, ctx),
 };
+
+// Built props are memoised by (kind, params, context): lamps, crates, walls and identical houses repeat
+// within and across zones. Callers get a cheap clone they own (and may dispose).
+const builtCache = new Map<string, BuiltProp>();
+export const BUILDERS: Record<string, (p: BuildParams, ctx?: BuildCtx) => BuiltProp> = Object.fromEntries(
+  Object.entries(RAW_BUILDERS).map(([kind, fn]) => [
+    kind,
+    (p: BuildParams, ctx?: BuildCtx) => {
+      const key = `${kind}|${p.color ?? ''}|${p.roof ?? ''}|${p.w ?? ''}|${p.d ?? ''}|${p.h ?? ''}|${ctx?.indoor ? 1 : 0}`;
+      let b = builtCache.get(key);
+      if (!b) {
+        b = fn(p, ctx);
+        if (builtCache.size > 96) builtCache.delete(builtCache.keys().next().value!);
+        builtCache.set(key, b);
+      }
+      return { ...b, geo: b.geo.clone(), label: p.label ?? b.label };
+    },
+  ]),
+);

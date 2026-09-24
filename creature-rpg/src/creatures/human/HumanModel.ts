@@ -231,8 +231,10 @@ function acquireAssets(d: HumanData, L: ResolvedLook, lod: 0 | 1 | 2, q: HumanQu
     }
     det.geo.setAttribute('aLash', new THREE.BufferAttribute(lashA, 3));
     parts.push({ name: 'faceDetail', geo: det.geo, mat: mats.map((m) => m[1]), morph: true, oIdx: det.oIdx });
+  }
+  {
     const tmpRig = buildRig(d, shape);
-    const eyes = buildEyes(d, shape, tmpRig, L.iris, q);
+    const eyes = buildEyes(d, shape, tmpRig, L.iris, lod === 2 ? 'mobile' : q);
     parts.push({ name: 'eyes', geo: eyes.geo, mat: eyes.mat });
     disposables.push(eyes.mat);
   }

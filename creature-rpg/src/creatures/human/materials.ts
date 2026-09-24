@@ -242,7 +242,7 @@ float fineFade = 1.0 - smoothstep(0.00015, 0.0006, fw);
   else diffuseColor.rgb *= 1.0 - 0.07 * band;
   float st = (1.0 - smoothstep(0.0009, 0.0016, abs(edge - 0.02))) * step(0.45, fract((vRest.x + vRest.y + vRest.z) * 260.0)) * fineFade;
   diffuseColor.rgb = mix(diffuseColor.rgb, mix(diffuseColor.rgb, vec3(0.9, 0.85, 0.72), 0.5), st * step(kind, 3.5));
-  if (!gl_FrontFacing) diffuseColor.rgb *= 0.5;
+  if (!gl_FrontFacing) diffuseColor.rgb *= 0.68;
 }`)
       .replace('#include <roughnessmap_fragment>', `#include <roughnessmap_fragment>
 roughnessFactor = kind > 1.5 && kind < 2.5 ? 0.48 + 0.2 * vnoise(vRest * 300.0) : (kind > 3.5 && kind < 4.5 ? 0.65 : (kind > 2.5 && kind < 3.5 ? 0.95 : 0.84));`)
@@ -277,7 +277,7 @@ export function hairMaterial(color: string, q: HumanQuality): THREE.MeshStandard
       .replace('#include <common>', '#include <common>\nvarying vec2 vHairUv;')
       .replace('#include <color_fragment>', `#include <color_fragment>
   { float s = vHairUv.x; float t = vHairUv.y;
-    float strand = 0.86 + 0.14 * sin(s * 37.0 + t * 5.0) * sin(s * 91.0 + 1.3);
+    float strand = 0.93 + 0.07 * sin(s * 37.0 + t * 5.0) * sin(s * 91.0 + 1.3);
     diffuseColor.rgb *= strand * mix(1.0, 1.1, smoothstep(0.6, 1.0, t)); }`);
   };
   m.customProgramCacheKey = () => 'human-hair' + q;

@@ -185,7 +185,7 @@ void surf5(vec2 uv, out vec3 col, out float h, out float rough, out float ao){
   h = n * 0.45 + g * 0.05; rough = 0.95; ao = 1.0;
   vec4 v = voro(uv, 18, 62, 0.9);
   float pr = 0.16 + 0.14 * v.z;
-  if (v.x < pr && v.z > 0.8) { float k = 1.0 - v.x / pr; col = mix(col, mix(hex3(0.2, 0.18, 0.17), hex3(0.3, 0.2, 0.16), step(0.95, v.z)), 0.7) * (0.8 + 0.35 * k); h = 0.5 + 0.35 * k; rough = 0.85; }
+  if (v.x < pr && v.z > 0.9) { float k = 1.0 - v.x / pr; col = mix(col, mix(hex3(0.2, 0.18, 0.17), hex3(0.3, 0.2, 0.16), step(0.97, v.z)), 0.45) * (0.8 + 0.35 * k); h = 0.5 + 0.35 * k; rough = 0.85; }
   vec4 c = voro(uv, 4, 63, 0.9);
   float crack = (1.0 - smoothstep(0.0, 0.02, c.y)) * step(0.5, fbm(uv, 4, 2, 65) * 0.5 + 0.5);
   h -= crack * 0.2; col *= 1.0 - crack * 0.35; ao = 1.0 - crack * 0.4;

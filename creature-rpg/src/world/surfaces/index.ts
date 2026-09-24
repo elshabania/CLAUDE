@@ -62,8 +62,8 @@ export function terrainLayersFor(zone: ZoneSpec): TerrainLayers {
     tints: {
       groundA: tintFor(groundA, nat(p.ground), 0.7),
       groundB: tintFor(groundB, nat(g2), 0.7),
-      path: tintFor(path, nat(p.path, 0.7, 0.85), 0.6),
-      cliff: tintFor(cliff, nat(p.cliff, 0.6, 0.95), 0.8),
+      path: tintFor(path, b === 'volcano' ? nat(p.path, 0.5, 0.55) : nat(p.path, 0.7, 0.85), b === 'volcano' ? 0.85 : 0.6),
+      cliff: tintFor(cliff, nat(p.cliff, 0.6, 0.95), b === 'volcano' ? 0.95 : 0.8),
       snow: tintFor(SURF.snow, '#eef3f8', 0.5),
       plaza: tintFor(plaza, nat(p.path, 0.5, 0.9), 0.45),
       shore: tintFor(shore, shoreTint, 0.7),

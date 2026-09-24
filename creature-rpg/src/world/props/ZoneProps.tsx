@@ -74,6 +74,7 @@ export function ZoneProps({ zone, grid, density, lowPoly, shadows, hdr = false }
   const kitMats = useMemo(() => makeKitMaterials(lib, cheap), [lib, cheap]);
   useEffect(() => () => kitMats.dispose(), [kitMats]);
   const batches = useMemo(() => {
+    const t0 = performance.now();
     const byKind = new Map<string, Placed[]>();
     for (const p of placed) byKind.set(p.kind, [...(byKind.get(p.kind) ?? []), p]);
     const out: { kind: string; mesh: THREE.InstancedMesh; def: ReturnType<typeof buildKind>; items: Placed[] }[] = [];
@@ -92,11 +93,13 @@ export function ZoneProps({ zone, grid, density, lowPoly, shadows, hdr = false }
       mesh.frustumCulled = true;
       out.push({ kind, mesh, def, items });
     }
+    if (import.meta.env?.DEV) console.info(`[props] ${out.length} kinds / ${placed.length} instances in ${(performance.now() - t0).toFixed(0)} ms`);
     return out;
   }, [placed, zone.palette, lowPoly, shadows, kitMats]);
 
-  const built = useMemo(
-    () =>
+  const built = useMemo(() => {
+    const t0 = performance.now();
+    const list =
       zone.props.map((p) => {
         const b = BUILDERS[p.kind]?.({ color: p.color, roof: p.roof, w: p.w, d: p.d, h: p.h, label: p.label }, { indoor: !!zone.indoor, biome: zone.biome });
         if (!b) return null;
@@ -109,9 +112,10 @@ export function ZoneProps({ zone, grid, density, lowPoly, shadows, hdr = false }
         mesh.castShadow = shadows;
         mesh.receiveShadow = true;
         return { p, b, mesh, y };
-      }).filter(Boolean) as { p: ZoneSpec['props'][number]; b: ReturnType<(typeof BUILDERS)[string]>; mesh: THREE.Mesh; y: number }[],
-    [zone.props, zone.indoor, zone.biome, grid, shadows, kitMats],
-  );
+      }).filter(Boolean) as { p: ZoneSpec['props'][number]; b: ReturnType<(typeof BUILDERS)[string]>; mesh: THREE.Mesh; y: number }[];
+    if (import.meta.env?.DEV) console.info(`[props] ${list.length} built props in ${(performance.now() - t0).toFixed(0)} ms`);
+    return list;
+  }, [zone.props, zone.indoor, zone.biome, grid, shadows, kitMats]);
 
   // night halos for lamps / glowing props (unconditional props only; one draw call)
   const halos = useMemo(

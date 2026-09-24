@@ -322,7 +322,11 @@ function generate(): { data: Uint8Array; w: number; h: number } {
 
 /** A fresh texture per canvas (the pixel data is generated once per session and shared). */
 export function makeLeafAtlas(): THREE.DataTexture {
-  if (!cached) cached = generate();
+  if (!cached) {
+    const t0 = performance.now();
+    cached = generate();
+    if (import.meta.env?.DEV) console.info(`[foliage] atlas ${cached.w}×${cached.h} in ${(performance.now() - t0).toFixed(0)} ms`);
+  }
   const t = new THREE.DataTexture(cached.data, cached.w, cached.h, THREE.RGBAFormat, THREE.UnsignedByteType);
   t.colorSpace = THREE.SRGBColorSpace;
   t.generateMipmaps = true;

@@ -35,7 +35,7 @@ export const PROFILES: Record<string, [number, number][]> = {
 };
 
 /** Smooth a polyline profile with Catmull-Rom so lathe silhouettes read organic, not faceted. */
-function smoothProfile(pts: [number, number][], n: number): THREE.Vector2[] {
+export function smoothProfile(pts: [number, number][], n: number): THREE.Vector2[] {
   const v = pts.map((p) => new THREE.Vector3(p[0], p[1], 0));
   const curve = new THREE.CatmullRomCurve3(v, false, 'centripetal');
   return curve.getPoints(n).map((p) => new THREE.Vector2(Math.max(0, p.x), p.y));
@@ -222,7 +222,7 @@ export function extrude(shape: string | THREE.Shape, w: number, h: number, depth
 }
 
 /** Tapered tube through points (local), radius r0 -> r1. */
-export function tube(points: [number, number, number][], r0: number, r1: number, radial: number, lenSegs: number): THREE.BufferGeometry {
+export function tube(points: [number, number, number][], r0: number, r1: number, radial: number, lenSegs: number, ridge?: [number, number]): THREE.BufferGeometry {
   const curve = new THREE.CatmullRomCurve3(points.map((p) => new THREE.Vector3(...p)));
   const g = new THREE.TubeGeometry(curve, lenSegs, 1, radial, false);
   const pos = g.attributes.position as THREE.BufferAttribute;
@@ -234,7 +234,8 @@ export function tube(points: [number, number, number][], r0: number, r1: number,
     const t = seg / lenSegs;
     curve.getPointAt(Math.min(1, t), center);
     v.fromBufferAttribute(pos, i).sub(center);
-    const r = r0 + (r1 - r0) * t;
+    let r = r0 + (r1 - r0) * t;
+    if (ridge) r *= 1 + ridge[1] * Math.pow(Math.max(0, Math.sin(t * ridge[0] * Math.PI * 2)), 3);
     v.multiplyScalar(r).add(center);
     pos.setXYZ(i, v.x, v.y, v.z);
   }

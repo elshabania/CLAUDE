@@ -20,8 +20,24 @@ export interface Settings {
 
 const KEY = 'crpg:settings';
 
+/** True when WebGL runs on a CPU rasteriser (SwiftShader, llvmpipe…): those get the Mobile profile (rendering §6.1). */
+export function softwareRenderer(): boolean {
+  if (typeof document === 'undefined') return false;
+  try {
+    const gl = document.createElement('canvas').getContext('webgl2') as WebGL2RenderingContext | null;
+    if (!gl) return false;
+    const ext = gl.getExtension('WEBGL_debug_renderer_info');
+    const name = String(ext ? gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER));
+    gl.getExtension('WEBGL_lose_context')?.loseContext();
+    return /swiftshader|llvmpipe|softpipe|software/i.test(name);
+  } catch {
+    return false;
+  }
+}
+
 export function detectQuality(): QualityProfile {
   if (typeof navigator === 'undefined') return 'balanced';
+  if (softwareRenderer()) return 'mobile';
   const touch = typeof window !== 'undefined' && ('ontouchstart' in window || navigator.maxTouchPoints > 0);
   const small = typeof window !== 'undefined' && Math.min(window.innerWidth, window.innerHeight) < 600;
   if (touch && small) return 'mobile';
@@ -108,10 +124,12 @@ export interface QualityParams {
   post: 'full' | 'light' | 'none';
   /** cheap surface shaders (single projection, no anti-tiling sample) */
   cheapSurfaces: boolean;
+  /** image-based lighting from HDRIs (PMREM); off = hemisphere light only, no HDRI download */
+  ibl: boolean;
 }
 
 export const QUALITY: Record<QualityProfile, QualityParams> = {
-  high: { dpr: 2, shadows: true, shadowSize: 2048, vegetation: 1, drawDistance: 220, particles: 1, bloom: true, ao: true, dof: true, antialias: true, maxWild: 6, faceTex: 256, water: 'full', surfaceRes: 512, grass: { count: 84000, radius: 34 }, post: 'full', cheapSurfaces: false },
-  balanced: { dpr: 1.5, shadows: true, shadowSize: 1024, vegetation: 0.65, drawDistance: 160, particles: 0.6, bloom: true, ao: false, dof: false, antialias: true, maxWild: 6, faceTex: 256, water: 'full', surfaceRes: 512, grass: { count: 36000, radius: 26 }, post: 'light', cheapSurfaces: false },
-  mobile: { dpr: 1.25, shadows: false, shadowSize: 512, vegetation: 0.35, drawDistance: 110, particles: 0.35, bloom: false, ao: false, dof: false, antialias: false, maxWild: 6, faceTex: 128, water: 'simple', surfaceRes: 256, grass: { count: 9000, radius: 16 }, post: 'none', cheapSurfaces: true },
+  high: { dpr: 2, shadows: true, shadowSize: 2048, vegetation: 1, drawDistance: 220, particles: 1, bloom: true, ao: true, dof: true, antialias: true, maxWild: 6, faceTex: 256, water: 'full', surfaceRes: 512, grass: { count: 84000, radius: 34 }, post: 'full', cheapSurfaces: false, ibl: true },
+  balanced: { dpr: 1.5, shadows: true, shadowSize: 1024, vegetation: 0.65, drawDistance: 160, particles: 0.6, bloom: true, ao: false, dof: false, antialias: true, maxWild: 6, faceTex: 256, water: 'full', surfaceRes: 512, grass: { count: 36000, radius: 26 }, post: 'light', cheapSurfaces: false, ibl: true },
+  mobile: { dpr: 1.25, shadows: false, shadowSize: 512, vegetation: 0.35, drawDistance: 110, particles: 0.35, bloom: false, ao: false, dof: false, antialias: false, maxWild: 6, faceTex: 128, water: 'simple', surfaceRes: 256, grass: { count: 9000, radius: 16 }, post: 'none', cheapSurfaces: true, ibl: false },
 };

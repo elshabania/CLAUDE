@@ -109,7 +109,7 @@ export function WorldCanvas({ zone, children, onCreated }: { zone: ZoneSpec; chi
       >
         <FrameDriver />
         <SurfaceScope />
-        <Atmosphere zone={zone} shadows={q.shadows} shadowSize={q.shadowSize} />
+        <Atmosphere zone={zone} shadows={q.shadows} shadowSize={q.shadowSize} ibl={q.ibl} />
         <Suspense fallback={null}>
           <Physics timeStep={1 / 60} gravity={[0, -9.81, 0]}>
             <Terrain zone={zone} grid={grid} />

@@ -63,7 +63,7 @@ function Sheet({ silhouette }: { silhouette: boolean }) {
   const yaw = Number(params.get('yaw') ?? 35);
   return (
     <div style={{ position: 'fixed', left: 0, top: 0, width: cols * size, height: rows * size, background: silhouette ? '#fff' : '#9fb7c9' }} id="sheet">
-      <Canvas orthographic gl={{ preserveDrawingBuffer: true, antialias: !silhouette }} camera={{ position: [0, 0, 1000], zoom: 1, near: 1, far: 4000 }} style={{ width: cols * size, height: rows * size }}>
+      <Canvas orthographic frameloop="demand" gl={{ preserveDrawingBuffer: true, antialias: !silhouette }} camera={{ position: [0, 0, 1000], zoom: 1, near: 1, far: 4000 }} style={{ width: cols * size, height: rows * size }}>
         <color attach="background" args={[silhouette ? '#ffffff' : '#9fb7c9']} />
         <hemisphereLight args={['#dbe8ff', '#5a4a3a', 1]} />
         <directionalLight position={[3, 5, 8]} intensity={2} />

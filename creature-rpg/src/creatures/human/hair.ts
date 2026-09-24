@@ -54,7 +54,7 @@ export function buildHair(d: HumanData, s: BodyShape, rig: Rig, L: ResolvedLook,
     const front = Math.max(0, Math.cos(a));
     const side = Math.abs(Math.sin(a));
     const back = Math.max(0, -Math.cos(a));
-    return eyeY + 0.06 * front ** 2 + 0.028 * side * (1 - back) - 0.07 * back ** 1.5 + (style === 'bald' ? 0.0 : 0);
+    return eyeY + 0.048 * front ** 2 + 0.024 * side * (1 - back) - 0.07 * back ** 1.5 + (style === 'bald' ? 0.0 : 0);
   };
   const capRim = (a: number) => THREE.MathUtils.lerp(eyeY - 0.005, eyeY + 0.042, (Math.cos(a) + 1) / 2);
   const collide = (p: THREE.Vector3, k: number) => {
@@ -234,7 +234,7 @@ export function buildHair(d: HumanData, s: BodyShape, rig: Rig, L: ResolvedLook,
       let grav = 0.12, stiff = 0.75, w = 0.013 + R() * 0.007;
       if (isBang) {
         dir = V(sideA * 0.6 + (R() - 0.5) * 0.6, -0.8, 0.6);
-        len = 0.05 + R() * 0.035; grav = 0.35; stiff = 0.5;
+        len = 0.038 + R() * 0.028; grav = 0.35; stiff = 0.5;
       } else if (cap && r.p.y > capRim(r.a) - 0.03) {
         dir = V(sideA, 0, front).normalize().multiplyScalar(0.4).add(V(0, -1, 0));
         len = (front < -0.3 ? 0.035 : 0.045) + R() * 0.025; grav = 0.2; stiff = 0.7;
@@ -284,14 +284,19 @@ export function buildHair(d: HumanData, s: BodyShape, rig: Rig, L: ResolvedLook,
       clump(r.p, dir, { len: toTie.length() * 1.05, w: 0.016, th: 0.003, grav: 0.0, stiff: 1, noise: 0.03, k: 1.035, flat: 0.8, hug: 1, target: tie, aim: 0.5, seg: 7 });
     }
     if (style === 'bun') {
-      // coiled bun: spiral clumps around the tie point
-      const c0 = tie.clone().add(ellN(tie).multiplyScalar(0.022));
-      for (let i = 0; i < N(26); i++) {
-        const a = (i / 26) * Math.PI * 2;
-        const rr = 0.012 + (i % 3) * 0.008;
-        const p = c0.clone().add(V(Math.cos(a) * rr, Math.sin(a) * rr, 0).applyAxisAngle(V(1, 0, 0), -0.6));
-        const dir = V(-Math.sin(a), Math.cos(a), 0.2).applyAxisAngle(V(1, 0, 0), -0.6);
-        clump(p, dir, { len: 0.06, w: 0.012, th: 0.009, grav: 0, stiff: 1, curl: 2.6, noise: 0.03, k: 1.0 });
+      // wound bun: a flattened sphere wrapped by a few coiled ribbons, sitting on the tie point
+      const nrm = ellN(tie);
+      const c0 = tie.clone().addScaledVector(nrm, 0.024);
+      const bun = new THREE.SphereGeometry(0.034, 16, 12);
+      bun.scale(1, 0.85, 0.8);
+      const m = new THREE.Matrix4().lookAt(c0, c0.clone().add(nrm), V(0, 1, 0)).setPosition(c0);
+      bun.applyMatrix4(m);
+      appendRigid(hb, bun, headB, base.clone().multiplyScalar(0.85), true);
+      for (let i = 0; i < N(10); i++) {
+        const a = (i / 10) * Math.PI * 2;
+        const p = c0.clone().add(V(Math.cos(a) * 0.028, Math.sin(a) * 0.024, 0).applyMatrix4(new THREE.Matrix4().extractRotation(m)));
+        const dir = V(-Math.sin(a), Math.cos(a), 0).applyMatrix4(new THREE.Matrix4().extractRotation(m));
+        clump(p, dir, { len: 0.05, w: 0.012, th: 0.005, grav: 0, stiff: 1, noise: 0.02, k: 1.0, seg: 5 });
       }
     } else if (style === 'tail') {
       for (let i = 0; i < N(30); i++) {
@@ -336,12 +341,12 @@ export function buildHair(d: HumanData, s: BodyShape, rig: Rig, L: ResolvedLook,
   return [{ geo: g, mat: hairMaterial('#ffffff', q), name: 'hair' }];
 }
 
-function appendRigid(hb: HB, g: THREE.BufferGeometry, bone: number, c: THREE.Color) {
+function appendRigid(hb: HB, g: THREE.BufferGeometry, bone: number, c: THREE.Color, strands = false) {
   const p = g.getAttribute('position'), n = g.getAttribute('normal');
   const base = hb.pos.length / 3;
   for (let i = 0; i < p.count; i++) {
     hb.pos.push(p.getX(i), p.getY(i), p.getZ(i)); hb.nrm.push(n.getX(i), n.getY(i), n.getZ(i));
-    hb.uv.push(0, 0.5); hb.tan.push(1, 0, 0, 1); hb.col.push(c.r, c.g, c.b);
+    hb.uv.push(strands ? Math.atan2(p.getY(i), p.getX(i)) : 0, 0.5); hb.tan.push(1, 0, 0, 1); hb.col.push(c.r, c.g, c.b);
     hb.si.push(bone, 0, 0, 0); hb.sw.push(1, 0, 0, 0);
   }
   for (let i = 0; i < g.index!.count; i++) hb.idx.push(base + g.index!.getX(i));

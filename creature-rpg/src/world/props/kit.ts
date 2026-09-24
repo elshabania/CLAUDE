@@ -50,7 +50,20 @@ function assemble(fp: FloraParts, extra: Partial<Record<MatKey, THREE.BufferGeom
 const none = (): FloraParts => ({ surf: [], leaf: [], plain: [] });
 const at = (g: THREE.BufferGeometry, x: number, y: number, z: number, rx = 0, ry = 0, rz = 0) => g.applyMatrix4(new THREE.Matrix4().makeRotationFromEuler(new THREE.Euler(rx, ry, rz)).setPosition(x, y, z));
 
+// kinds are memoised per (kind, palette, lowPoly); callers get a clone they own (ZoneProps disposes it)
+const kindCache = new Map<string, KindDef>();
 export function buildKind(kind: string, palette: { accent: string; ground: string; ground2: string }, lowPoly: boolean): KindDef {
+  const key = `${kind}|${palette.accent}|${palette.ground}|${palette.ground2}|${lowPoly ? 1 : 0}`;
+  let d = kindCache.get(key);
+  if (!d) {
+    d = buildKindUncached(kind, palette, lowPoly);
+    if (kindCache.size > 120) kindCache.delete(kindCache.keys().next().value!);
+    kindCache.set(key, d);
+  }
+  return { ...d, geo: d.geo.clone() };
+}
+
+function buildKindUncached(kind: string, palette: { accent: string; ground: string; ground2: string }, lowPoly: boolean): KindDef {
   const d = lowPoly ? 2 : 3;
   const moss = naturalize(palette.ground, 0.7, 0.75).getStyle();
   switch (kind) {

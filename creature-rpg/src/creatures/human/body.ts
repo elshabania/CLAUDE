@@ -15,7 +15,7 @@ export function faceLandmarks(d: HumanData, shape: BodyShape): FaceLandmarks {
   void shape;
   const corner = lm['levator05.L'];
   const up = lm.oris05, lo = lm['oris07.L'];
-  return { mouth: [corner[0], corner[1], Math.max(0.2, up[1] - corner[1]), Math.max(0.25, corner[1] - (lo[1] + 0.3))], cornerZ: corner[2] };
+  return { mouth: [corner[0] * 0.95, corner[1], Math.max(0.17, (up[1] - corner[1]) * 0.85), Math.max(0.22, (corner[1] - (lo[1] + 0.3)) * 0.85)], cornerZ: corner[2] };
 }
 
 function setSkin(g: THREE.BufferGeometry, d: HumanData, oIdx: ArrayLike<number>) {

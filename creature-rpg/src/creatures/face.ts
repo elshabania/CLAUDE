@@ -1,6 +1,7 @@
 // Canvas-painted eye/mouth atlases with 8 emotion states (creative_direction §5.2, rendering §4.4).
 import * as THREE from 'three';
 import type { Quality } from './primitives';
+import { poseFor, type Eye3D } from './eyes';
 
 export type FaceState = 'open' | 'half' | 'closed' | 'happy' | 'hurt' | 'faint' | 'determined' | 'surprised';
 export const FACE_STATES: FaceState[] = ['open', 'half', 'closed', 'happy', 'hurt', 'faint', 'determined', 'surprised'];
@@ -328,7 +329,9 @@ export class FaceRig {
   private time = 0;
   private override: FaceState | null = null;
 
-  constructor(atlas: FaceAtlas, eyeMats: THREE.MeshStandardMaterial[], mouthMat: THREE.MeshStandardMaterial | null) {
+  private eyes3d: Eye3D[];
+  constructor(atlas: FaceAtlas, eyeMats: THREE.MeshStandardMaterial[], mouthMat: THREE.MeshStandardMaterial | null, eyes3d: Eye3D[] = []) {
+    this.eyes3d = eyes3d;
     for (const m of eyeMats) {
       const t = atlas.eye.clone();
       t.repeat.set(0.25, 0.5);
@@ -348,6 +351,11 @@ export class FaceRig {
   private apply(s: FaceState) {
     const i = FACE_STATES.indexOf(s);
     for (const t of this.eyeTexes) t.offset.set((i % 4) * 0.25, i < 4 ? 0.5 : 0);
+    for (const e of this.eyes3d) e.setTarget(poseFor(s, e.rest));
+  }
+  /** real-geometry eyes driven by this rig (lid poses per state) */
+  get eyes(): readonly Eye3D[] {
+    return this.eyes3d;
   }
   private applyMouth(s: MouthState) {
     if (!this.mouthTex) return;
@@ -373,6 +381,7 @@ export class FaceRig {
   }
   update(dt: number) {
     this.time += dt;
+    for (const e of this.eyes3d) e.update(dt);
     if (this.holdUntil && this.time >= this.holdUntil) {
       this.holdUntil = 0;
       if (this.override) {
@@ -385,7 +394,8 @@ export class FaceRig {
     if (this.blinkT >= 0) {
       this.blinkT += dt;
       const t = this.blinkT;
-      this.apply(t < 0.04 ? 'half' : t < 0.08 ? 'closed' : t < 0.12 ? 'half' : this.state);
+      if (this.eyes3d.length) this.apply(t < 0.085 ? 'closed' : this.state);
+      else this.apply(t < 0.04 ? 'half' : t < 0.08 ? 'closed' : t < 0.12 ? 'half' : this.state);
       if (t >= 0.12) {
         this.blinkT = -1;
         this.nextBlink = 2.5 + Math.random() * 3.5;
