@@ -14,16 +14,14 @@
   "team": [
    {
     "species": "RS1",
-    "level": 5
+    "level": 3
    }
   ],
   "ai": "normal",
-  "potential": 12,
-  "items": [
-   "i_salve_1"
-  ],
+  "potential": 6,
+  "items": [],
   "sight": 0,
-  "payout": 200
+  "payout": 120
  },
  {
   "id": "t_r1_01",
@@ -379,10 +377,7 @@
   ],
   "ai": "hard",
   "potential": 12,
-  "items": [
-   "i_salve_3",
-   "i_salve_3"
-  ],
+  "items": [],
   "sight": 0,
   "payout": 1200
  },
@@ -537,11 +532,11 @@
   "team": [
    {
     "species": "c20",
-    "level": 14
+    "level": 12
    },
    {
     "species": "RS2",
-    "level": 16
+    "level": 14
    }
   ],
   "ai": "normal",
@@ -550,7 +545,7 @@
    "i_salve_1"
   ],
   "sight": 0,
-  "payout": 640
+  "payout": 560
  },
  {
   "id": "t_hall2_01",
@@ -647,8 +642,7 @@
   "ai": "hard",
   "potential": 12,
   "items": [
-   "i_salve_3",
-   "i_salve_3"
+   "i_salve_1"
   ],
   "sight": 0,
   "payout": 1700
@@ -851,8 +845,7 @@
   "ai": "hard",
   "potential": 12,
   "items": [
-   "i_salve_3",
-   "i_salve_3"
+   "i_salve_2"
   ],
   "sight": 0,
   "payout": 1200
@@ -1059,8 +1052,7 @@
   "ai": "hard",
   "potential": 12,
   "items": [
-   "i_salve_3",
-   "i_salve_3"
+   "i_salve_2"
   ],
   "sight": 0,
   "payout": 1320
@@ -1094,8 +1086,8 @@
   "ai": "hard",
   "potential": 12,
   "items": [
-   "i_salve_3",
-   "i_salve_3"
+   "i_salve_2",
+   "i_salve_2"
   ],
   "sight": 0,
   "payout": 920
@@ -1329,29 +1321,28 @@
   "team": [
    {
     "species": "c23",
-    "level": 23
+    "level": 22
    },
    {
     "species": "c17",
-    "level": 23
+    "level": 22
    },
    {
     "species": "c23",
-    "level": 24
+    "level": 23
    },
    {
     "species": "c08",
-    "level": 25
+    "level": 24
    }
   ],
   "ai": "hard",
   "potential": 12,
   "items": [
-   "i_salve_3",
-   "i_salve_3"
+   "i_salve_2"
   ],
   "sight": 0,
-  "payout": 2500
+  "payout": 2400
  },
  {
   "id": "t_hall4_01",
@@ -1442,19 +1433,19 @@
   "team": [
    {
     "species": "c20",
-    "level": 27
+    "level": 25
    },
    {
     "species": "c14",
-    "level": 28
+    "level": 26
    },
    {
     "species": "c20",
-    "level": 29
+    "level": 27
    },
    {
     "species": "c21",
-    "level": 30
+    "level": 28
    }
   ],
   "ai": "hard",
@@ -1464,7 +1455,7 @@
    "i_salve_3"
   ],
   "sight": 0,
-  "payout": 3000
+  "payout": 2800
  },
  {
   "id": "t_r4_01",
@@ -2083,23 +2074,23 @@
   "team": [
    {
     "species": "c21",
-    "level": 38
+    "level": 35
    },
    {
     "species": "c15",
-    "level": 38
+    "level": 35
    },
    {
     "species": "c18",
-    "level": 38
+    "level": 35
    },
    {
     "species": "c26",
-    "level": 39
+    "level": 36
    },
    {
     "species": "RS3",
-    "level": 40
+    "level": 37
    }
   ],
   "ai": "hard",
@@ -2109,7 +2100,7 @@
    "i_salve_3"
   ],
   "sight": 0,
-  "payout": 1600
+  "payout": 1480
  },
  {
   "id": "t_sp_01",
@@ -2311,27 +2302,27 @@
   "team": [
    {
     "species": "c17",
-    "level": 41
+    "level": 37
    },
    {
     "species": "c15",
-    "level": 42
+    "level": 38
    },
    {
     "species": "c09",
-    "level": 43
+    "level": 39
    },
    {
     "species": "c18",
-    "level": 43
+    "level": 39
    },
    {
     "species": "c24",
-    "level": 44
+    "level": 40
    },
    {
     "species": "c18",
-    "level": 45
+    "level": 41
    }
   ],
   "ai": "hard",
@@ -2341,7 +2332,7 @@
    "i_salve_3"
   ],
   "sight": 0,
-  "payout": 4500
+  "payout": 4100
  },
  {
   "id": "t_still_08",
@@ -2398,15 +2389,15 @@
     "team": [
      {
       "species": "c24",
-      "level": 42
+      "level": 44
      },
      {
       "species": "c29",
-      "level": 43
+      "level": 45
      },
      {
       "species": "c26",
-      "level": 44
+      "level": 45
      }
     ]
    },
@@ -2423,15 +2414,15 @@
   "team": [
    {
     "species": "c24",
-    "level": 42
+    "level": 44
    },
    {
     "species": "c29",
-    "level": 43
+    "level": 45
    },
    {
     "species": "c26",
-    "level": 44
+    "level": 45
    },
    {
     "species": "c27",
@@ -2463,37 +2454,34 @@
   "team": [
    {
     "species": "c21",
-    "level": 45
+    "level": 43
    },
    {
     "species": "c15",
-    "level": 46
+    "level": 43
    },
    {
     "species": "c18",
-    "level": 46
+    "level": 43
    },
    {
     "species": "c27",
-    "level": 46
+    "level": 43
    },
    {
     "species": "c12",
-    "level": 47
+    "level": 43
    },
    {
     "species": "RS3",
-    "level": 48
+    "level": 44
    }
   ],
   "ai": "hard",
   "potential": 12,
-  "items": [
-   "i_salve_3",
-   "i_salve_3"
-  ],
+  "items": [],
   "sight": 0,
-  "payout": 1920
+  "payout": 1760
  },
  {
   "id": "t_champion",
@@ -2510,23 +2498,23 @@
   "team": [
    {
     "species": "c12",
-    "level": 47
+    "level": 44
    },
    {
     "species": "c24",
-    "level": 47
+    "level": 44
    },
    {
     "species": "c21",
-    "level": 48
+    "level": 45
    },
    {
     "species": "c15",
-    "level": 48
+    "level": 45
    },
    {
     "species": "c18",
-    "level": 49
+    "level": 46
    },
    {
     "species": "c30",

@@ -78,6 +78,20 @@ def stage_for(fam, level):
     return ids[0]
 def h(s): return int(hashlib.md5(s.encode()).hexdigest()[:8], 16)
 
+# D30 balance tuning pass (design/reviews/balance_sim.md "Tuning pass"): per-trainer overrides applied after the
+# generic rules below. Heal items are tiered to what the chapter's shop sells (systems §13.3): early Cantors/admins
+# hold at most one small salve. Levels live in the world.md §2.9 table (and systems §14.2), not here.
+STORY_TUNING = {
+    't_rival_1': {'potential': 6, 'items': []},          # D20 loss-tolerant but winnable (was pot 12, 1x salve_1)
+    't_cantor_1': {'items': []},                          # was 2x i_salve_3 (not sold until after trial_3)
+    't_cantor_2': {'items': ['i_salve_1']},               # was 2x i_salve_3
+    't_admin_brann_1': {'items': ['i_salve_2']},          # was 2x i_salve_3
+    't_admin_vey_1': {'items': ['i_salve_2']},            # was 2x i_salve_3
+    't_rival_3': {'items': ['i_salve_2', 'i_salve_2']},   # was 2x i_salve_3
+    't_cantor_3': {'items': ['i_salve_2']},               # was 2x i_salve_3 (i_salve_3 is sold after trial_3)
+    't_rival_6': {'items': []},                           # six kin; was 2x i_salve_3
+}
+
 trainers = []
 sec = wm[wm.index('### 2.9 Trainers'):wm.index('## 3. Gates')]
 for line in sec.splitlines():
@@ -95,7 +109,7 @@ for line in sec.splitlines():
     team = []
     if tid == 't_odile':
         t['phases'] = [
-            {'attuned': None, 'team': [{'species': 'c24', 'level': 42}, {'species': 'c29', 'level': 43}, {'species': 'c26', 'level': 44}]},
+            {'attuned': None, 'team': [{'species': 'c24', 'level': 44}, {'species': 'c29', 'level': 45}, {'species': 'c26', 'level': 45}]},  # D30: was 42/43/44
             {'attuned': 'frost', 'team': [{'species': 'c27', 'level': 46}]},
         ]
         team = t['phases'][0]['team'] + t['phases'][1]['team']
@@ -133,6 +147,7 @@ for line in sec.splitlines():
     t['potential'] = 15 if tid == 't_champion' else 13 if tid == 't_odile' else 12 if story else 6
     t['items'] = ['i_salve_3', 'i_salve_3'] if story and tid not in ('t_rival_1', 't_rival_2') else (['i_salve_1'] if story else [])
     if tid in ('t_champion', 't_odile'): t['items'] = ['i_salve_4', 'i_salve_4', 'i_cure_all']
+    t.update(STORY_TUNING.get(tid, {}))
     pool = STILL if arch == 'stillmark_engineer' else LINES
     if not story:
         t['lines'] = {k: v[h(tid + k) % len(v)] for k, v in pool.items()}
