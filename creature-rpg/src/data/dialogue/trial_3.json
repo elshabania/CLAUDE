@@ -1,0 +1,206 @@
+{
+ "trial_3_attendant": {
+  "variants": [
+   {
+    "if": "flag_trial_3_cleared",
+    "lines": [
+     {
+      "t": "Dry as a biscuit in here now. Nerys says you brought something honest."
+     },
+     {
+      "t": "High praise. She once called a sunset 'adequate'."
+     }
+    ]
+   },
+   {
+    "lines": [
+     {
+      "t": "Welcome to the Mere Hall. Mind your boots — the floor's under three levels of water."
+     },
+     {
+      "t": "Out-sing a hall Tuner and a sluice opens: down goes the water, up comes the walkway. Two Tuners, two levels."
+     },
+     {
+      "t": "Nerys waits on her float at the back. Her kin are water, like this hall. Verdant and electric voices ring loud here."
+     }
+    ]
+   }
+  ]
+ },
+ "dlg_t_hall3_01_pre": {
+  "variants": [
+   {
+    "lines": [
+     {
+      "s": "Ilse",
+      "t": "First level's mine. Beat me and I'll pull the sluice. Lose, and you wade home."
+     }
+    ]
+   }
+  ]
+ },
+ "dlg_t_hall3_01_after": {
+  "variants": [
+   {
+    "lines": [
+     {
+      "s": "Ilse",
+      "t": "Hear that gurgle? That's the first level going down. Onward — try not to slip."
+     }
+    ]
+   }
+  ]
+ },
+ "dlg_t_hall3_02_pre": {
+  "variants": [
+   {
+    "lines": [
+     {
+      "s": "Pim",
+      "t": "Second sluice, second Tuner. The lake taught me patience. Let's see what it's taught you."
+     }
+    ]
+   }
+  ]
+ },
+ "dlg_t_hall3_02_after": {
+  "variants": [
+   {
+    "lines": [
+     {
+      "s": "Pim",
+      "t": "There goes the second level. Nerys will have heard you coming — sound carries over water."
+     }
+    ]
+   }
+  ]
+ },
+ "dlg_t_cantor_3_pre": {
+  "variants": [
+   {
+    "lines": [
+     {
+      "s": "Cantor Nerys",
+      "t": "A lake shows you whatever you bring to it. Bring me something honest."
+     }
+    ]
+   }
+  ]
+ },
+ "dlg_t_cantor_3_post": {
+  "variants": [
+   {
+    "lines": [
+     {
+      "s": "Cantor Nerys",
+      "t": "Clear water, clear heart. You've both."
+     },
+     {
+      "s": "Cantor Nerys",
+      "t": "Gale's next. Galewick's winds will carry you, if you let them."
+     },
+     {
+      "s": "Cantor Nerys",
+      "t": "And an Etude — Deluge Beam. A whole lake's worth of argument in one breath. Use it kindly."
+     },
+     {
+      "s": "Cantor Nerys",
+      "t": "Listen. Hear the stones grinding up north? That's the causeway rising. The lake's letting you go."
+     }
+    ],
+    "actions": [
+     {
+      "give": "i_disc_02",
+      "n": 1
+     },
+     {
+      "money": 625
+     },
+     {
+      "questDone": "q_main_ch06"
+     },
+     {
+      "quest": "q_main_ch07",
+      "step": 1
+     }
+    ]
+   }
+  ]
+ },
+ "dlg_t_cantor_3_after": {
+  "variants": [
+   {
+    "lines": [
+     {
+      "s": "Cantor Nerys",
+      "t": "The Stillmark asked to 'survey' my hall's stone. I told them the lake says no. The lake always says no."
+     },
+     {
+      "s": "Cantor Nerys",
+      "t": "Galewick's past the causeway. Tamsin Galloway will argue with you. Let her. It's how she says hello."
+     }
+    ]
+   }
+  ]
+ },
+ "dlg_06_nerys_pre": {
+  "variants": [
+   {
+    "lines": [
+     {
+      "s": "Cantor Nerys",
+      "t": "A lake shows you whatever you bring to it. Bring me something honest."
+     }
+    ]
+   }
+  ]
+ },
+ "dlg_06_nerys_win": {
+  "variants": [
+   {
+    "lines": [
+     {
+      "s": "Cantor Nerys",
+      "t": "Clear water, clear heart. You've both."
+     }
+    ]
+   }
+  ]
+ },
+ "dlg_06_nerys_lose": {
+  "variants": [
+   {
+    "lines": [
+     {
+      "s": "Cantor Nerys",
+      "t": "Muddied. Let it settle, then try me again."
+     }
+    ]
+   }
+  ]
+ },
+ "dlg_06_nerys_keynote": {
+  "variants": [
+   {
+    "lines": [
+     {
+      "s": "Cantor Nerys",
+      "t": "Gale's next. Galewick's winds will carry you, if you let them."
+     }
+    ]
+   }
+  ]
+ },
+ "dlg_06_nerys_after": {
+  "variants": [
+   {
+    "lines": [
+     {
+      "s": "Cantor Nerys",
+      "t": "The Stillmark asked to 'survey' my hall's stone. I told them the lake says no. The lake always says no."
+     }
+    ]
+   }
+  ]
+ }
+}

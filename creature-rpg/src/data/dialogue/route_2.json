@@ -1,0 +1,93 @@
+{
+  "dlg_route_2_wick": {
+    "variants": [
+      {
+        "lines": [
+          { "s": "Wick", "t": "Wick's Wagon, wheels and wonders! One special today — just the one. Don't be greedy." },
+          { "s": "Wick", "t": "The special changes with the Keynotes on your belt. More chord, better stock. That's the Wick guarantee. Unwritten." }
+        ],
+        "actions": [{ "shop": "shop_wick" }]
+      }
+    ]
+  },
+  "dlg_00_wick_01": {
+    "variants": [{ "lines": [{ "s": "Wick", "t": "Wick's Wagon, wheels and wonders! One special today — just the one. Don't be greedy." }], "actions": [{ "shop": "shop_wick" }] }]
+  },
+  "dlg_route_2_carter": {
+    "variants": [
+      {
+        "if": "flag_trial_2_cleared",
+        "lines": [
+          { "s": "Quarry Carter", "t": "Stone Keynote AND a toxin one? Dorran must've liked you. He only smiles at granite, usually." },
+          { "s": "Quarry Carter", "t": "They've unchained the quarry lift for you. The Undertone's cold, so bring a jumper. And a troupe." }
+        ]
+      },
+      {
+        "if": "flag_rival_2_done",
+        "lines": [
+          { "s": "Quarry Carter", "t": "That was you on the ridge? Heard the whole thing from here. The Knell towers nearly rang along." },
+          { "s": "Quarry Carter", "t": "Knellstone's just through the arch. Cantor Dorran's back from his walk, so the Hall's open." }
+        ]
+      },
+      {
+        "lines": [
+          { "s": "Quarry Carter", "t": "Knellstone's through the arch. Best bells in Cantarra — when they're in tune, anyway." },
+          { "s": "Quarry Carter", "t": "There's a kid in a red scarf pacing by the ridge cairn, telling their kin about 'the plan'. Loudly. For an hour." }
+        ]
+      }
+    ]
+  },
+  "dlg_route_2_waller": {
+    "variants": [
+      {
+        "if": "node:rn_route_2_01",
+        "lines": [
+          { "s": "Drystone Waller Ebb", "t": "Shifted it clean! I've been building walls round that boulder for a week. Now I've got a wall to nowhere." },
+          { "s": "Drystone Waller Ebb", "t": "Heave works on any stone glyph with that mark. Keep an eye out underground — miners love a good boulder." }
+        ]
+      },
+      {
+        "if": "has:i_keynote_1",
+        "lines": [
+          { "s": "Drystone Waller Ebb", "t": "Is that Wren's Keynote? Then you've got Heave! See the glyph on that boulder? It wants a stone voice." },
+          { "s": "Drystone Waller Ebb", "t": "Any stone kin in your troupe will do — fresh or fainted, the glyph doesn't mind. Stand close and resonate." },
+          { "s": "Drystone Waller Ebb", "t": "No stone kin yet? Rollith roll about the heather here. Weaken, don't wound, and ask nicely with a Chime." }
+        ]
+      },
+      {
+        "lines": [
+          { "s": "Drystone Waller Ebb", "t": "Boulder's been sat on my shortcut since the stones went quiet. It's got a stone glyph on it, see?" },
+          { "s": "Drystone Waller Ebb", "t": "Takes a stone voice and a Keynote that knows stone to shift it. Rootloft's Cantor hands those out." }
+        ]
+      }
+    ]
+  },
+  "dlg_t_rival_2_pre": {
+    "variants": [
+      {
+        "lines": [
+          { "s": "Cass", "t": "{player}! You took your time. I've been rehearsing a speech. It's very good. Here it is." },
+          { "s": "Cass", "t": "Mum's got six Keynotes and a spire. I've got one Keynote and a *plan*. The plan is: beat you." },
+          { "s": "Cass", "t": "That was the whole speech. Ready?" }
+        ],
+        "actions": [{ "quest": "q_main_ch03", "step": 1 }]
+      }
+    ]
+  },
+  "dlg_t_rival_2_post": {
+    "variants": [
+      {
+        "lines": [
+          { "s": "Cass", "t": "Plan B is 'lose gracefully'. I'm workshopping it." },
+          { "s": "Cass", "t": "Saw some gale kin on the ridge. Mine loves updrafts. Just saying. For no reason." },
+          { "s": "Cass", "t": "Knellstone's over the arch. The Cantor's back from his walk — go on, I'll be… practising Plan B." }
+        ],
+        "actions": [{ "quest": "q_main_ch03", "step": 2 }]
+      }
+    ]
+  },
+  "dlg_03_cass_pre": { "variants": [{ "lines": [{ "s": "Cass", "t": "Mum's got six Keynotes and a spire. I've got one Keynote and a *plan*. The plan is: beat you." }] }] },
+  "dlg_03_cass_win": { "variants": [{ "lines": [{ "s": "Cass", "t": "Plan B is 'lose gracefully'. I'm workshopping it." }] }] },
+  "dlg_03_cass_lose": { "variants": [{ "lines": [{ "s": "Cass", "t": "Ha! Plan A! It worked! Write that down somewhere official." }] }] },
+  "dlg_03_cass_after": { "variants": [{ "lines": [{ "s": "Cass", "t": "Saw some gale kin on the ridge. Mine loves updrafts. Just saying. For no reason." }] }] }
+}

@@ -37,7 +37,7 @@
         ]
       },
       {
-        "if": "flag_q_hollow_hum && rn_forest_04 && rn_forest_05 && rn_forest_06 && rn_forest_07",
+        "if": "flag_q_hollow_hum && node:rn_forest_04 && node:rn_forest_05 && node:rn_forest_06 && node:rn_forest_07",
         "lines": [
           { "s": "Warden Isla", "t": "You woke them. All four. The whole wood just breathed out — did you feel it?" },
           { "s": "Warden Isla", "t": "Brass Chimes, from the wardens' store, and some good Salves. You've earned both twice over." }

@@ -205,6 +205,13 @@
           -80
         ],
         "r": 6
+      },
+      {
+        "at": [
+          17,
+          35
+        ],
+        "r": 3
       }
     ],
     "paths": [
@@ -497,7 +504,7 @@
       "spawn": "sp_cave_s",
       "label": "The Undertone (tunnel)",
       "gate": {
-        "flag": "rn_cave_03",
+        "register": "rn_cave_03",
         "message": "A cracked stone wall. Something rumbles behind it, but it will not budge from this side."
       }
     }
@@ -693,7 +700,7 @@
     {
       "kind": "wall",
       "at": [
-        -52,
+        -59,
         20
       ],
       "w": 10,
@@ -701,7 +708,7 @@
       "color": "#6E665C",
       "yaw": 90,
       "label": "Cracked wall",
-      "hideIf": "rn_cave_03"
+      "hideIf": "node:rn_cave_03"
     },
     {
       "kind": "stall",
@@ -747,6 +754,15 @@
         3,
         16
       ]
+    },
+    {
+      "kind": "sign",
+      "at": [
+        -16,
+        -53
+      ],
+      "yaw": 90,
+      "label": "Chalk doodle of Cass's kin flexing on the cairn: 'CASS WAS HERE (again) (first)'"
     }
   ],
   "scatter": [
@@ -816,6 +832,18 @@
       "look": "villagerA",
       "name": "Quarry Carter",
       "dialogue": "dlg_route_2_carter",
+      "role": "villager"
+    },
+    {
+      "id": "npc_route_2_waller",
+      "at": [
+        17,
+        35
+      ],
+      "yaw": 45,
+      "look": "climber",
+      "name": "Drystone Waller Ebb",
+      "dialogue": "dlg_route_2_waller",
       "role": "villager"
     }
   ],
@@ -943,7 +971,7 @@
       ],
       "item": "i_q_clapper",
       "count": 1,
-      "showIf": "flag_rival_2_done"
+      "showIf": "flag_q_bells"
     },
     {
       "id": "pk_route_2_05",
@@ -953,7 +981,7 @@
       ],
       "item": "i_q_clapper",
       "count": 1,
-      "showIf": "flag_rival_2_done"
+      "showIf": "flag_q_bells"
     },
     {
       "id": "pk_route_2_06",
@@ -963,7 +991,7 @@
       ],
       "item": "i_q_clapper",
       "count": 1,
-      "showIf": "flag_rival_2_done"
+      "showIf": "flag_q_bells"
     }
   ],
   "wildRegions": [

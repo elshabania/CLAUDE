@@ -1,321 +1,683 @@
 {
-  "town_1_oriel": {
-    "variants": [
+ "town_1_oriel": {
+  "variants": [
+   {
+    "if": "!flag_starter_chosen",
+    "lines": [
+     {
+      "t": "Forty years that stone's sung me awake. Today it forgot the words."
+     },
+     {
+      "t": "Well. Licensing day waits for no stone. Come — three little ones have been watching the door all morning."
+     },
+     {
+      "t": "Don't pick the strongest. Pick the one that looks back at you."
+     }
+    ],
+    "actions": [
+     {
+      "starter": true
+     }
+    ]
+   },
+   {
+    "if": "flag_starter_chosen && !flag_oriel_ledger_given",
+    "lines": [
+     {
+      "t": "{starter}. Good. It's chosen you back — see the ears? Treat that like a promise."
+     },
+     {
+      "t": "And this is your Tuning Ledger. Every kin you meet, every stone you hear — it all goes in here. Don't spill tea on it. I did. Twice."
+     },
+     {
+      "t": "Three Salves for scrapes. Now go on — I heard Cass stomping off toward the north lane. Loudly. As always."
+     }
+    ],
+    "actions": [
+     {
+      "give": "i_key_ledger",
+      "n": 1
+     },
+     {
+      "give": "i_salve_1",
+      "n": 3
+     },
+     {
+      "set": "flag_oriel_ledger_given"
+     },
+     {
+      "quest": "q_main_ch01",
+      "step": 1
+     }
+    ]
+   },
+   {
+    "if": "flag_starter_chosen && !flag_rival_1_done && !flag_t_rival_1_won",
+    "lines": [
+     {
+      "t": "Cass is waiting by the north lane with {rival_starter}, practically vibrating. Go and get it over with."
+     }
+    ]
+   },
+   {
+    "if": "(flag_rival_1_done || flag_t_rival_1_won) && !flag_oriel_chimes_given",
+    "lines": [
+     {
+      "t": "Meet me on the green by the Chordstone. I want to show you something before you go anywhere."
+     }
+    ]
+   },
+   {
+    "if": "flag_capture_tutorial && !flag_leftover_bolted",
+    "lines": [
+     {
+      "t": "No — no, no. Easy, little one — !"
+     },
+     {
+      "t": "It's the stone. They find their way by it. Without it they're lost."
+     },
+     {
+      "t": "The little one went north, into the dusk. And look what was left at the stone's foot — a brass survey stake."
+     },
+     {
+      "t": "'Service ref. 114 — Larkhollow.' Service? Nobody services a Chordstone. You *listen* to one."
+     }
+    ],
+    "choice": {
+     "options": [
       {
-        "if": "!flag_starter_chosen",
-        "lines": [
-          { "t": "Forty years that stone's sung me awake. Today it forgot the words." },
-          { "t": "Well. Licensing day waits for no stone. Come — three little ones have been watching the door all morning." },
-          { "t": "Don't pick the strongest. Pick the one that looks back at you." }
-        ],
-        "actions": [{ "starter": true }]
-      },
-      {
-        "if": "flag_starter_chosen && !flag_oriel_ledger_given",
-        "lines": [
-          { "t": "{starter}. Good. It's chosen you back — see the ears? Treat that like a promise." },
-          { "t": "And this is your Tuning Ledger. Every kin you meet, every stone you hear — it all goes in here. Don't spill tea on it. I did. Twice." },
-          { "t": "Three Salves for scrapes. Now go on — I heard Cass stomping off toward the north lane. Loudly. As always." }
-        ],
-        "actions": [
-          { "give": "i_key_ledger", "n": 1 },
-          { "give": "i_salve_1", "n": 3 },
-          { "set": "flag_oriel_ledger_given" },
-          { "quest": "q_main_ch01", "step": 1 }
-        ]
-      },
-      {
-        "if": "flag_starter_chosen && !flag_rival_1_done && !flag_t_rival_1_won",
-        "lines": [
-          { "t": "Cass is waiting by the north lane with {rival_starter}, practically vibrating. Go and get it over with." }
-        ]
-      },
-      {
-        "if": "(flag_rival_1_done || flag_t_rival_1_won) && !flag_oriel_chimes_given",
-        "lines": [
-          { "t": "Meet me on the green by the Chordstone. I want to show you something before you go anywhere." }
-        ]
-      },
-      {
-        "if": "flag_capture_tutorial && !flag_leftover_bolted",
-        "lines": [
-          { "t": "No — no, no. Easy, little one — !" },
-          { "t": "It's the stone. They find their way by it. Without it they're lost." },
-          { "t": "The little one went north, into the dusk. And look what was left at the stone's foot — a brass survey stake." },
-          { "t": "'Service ref. 114 — Larkhollow.' Service? Nobody services a Chordstone. You *listen* to one." }
-        ],
-        "choice": {
-          "options": [
-            { "label": "I'll find it.", "actions": [{ "set": "flag_leftover_bolted" }, { "quest": "q_main_ch02", "step": 1 }] },
-            { "label": "I'll find out who did this.", "actions": [{ "set": "flag_leftover_bolted" }, { "quest": "q_main_ch02", "step": 1 }] }
-          ]
+       "label": "I'll find it.",
+       "actions": [
+        {
+         "set": "flag_leftover_bolted"
+        },
+        {
+         "quest": "q_main_ch02",
+         "step": 1
         }
+       ]
       },
       {
-        "if": "flag_leftover_rescued && !flag_leftover_obtained",
-        "lines": [
-          { "t": "You brought it home. Look at it — fed, brushed, and furious about the whole business. Just like me." },
-          { "t": "It hasn't stopped staring at you since you walked in. Will you foster it? It'd go with you, not stay in my pen." }
-        ],
-        "choice": {
-          "options": [
-            { "label": "Foster it", "actions": [{ "fosterage": true }, { "set": "flag_leftover_obtained" }, { "questDone": "q_foster_leftover" }] },
-            { "label": "Not yet", "actions": [] }
-          ]
+       "label": "I'll find out who did this.",
+       "actions": [
+        {
+         "set": "flag_leftover_bolted"
+        },
+        {
+         "quest": "q_main_ch02",
+         "step": 1
         }
-      },
-      {
-        "if": "flag_trial_5_cleared && flag_leftover_obtained && !flag_q_second_clutch && !flag_triad_complete",
-        "lines": [
-          { "t": "Strange visitor lately. A wild young of Cass's line has been hanging round the fosterage. Won't let anyone near." },
-          { "t": "I think it's listening for a chord. Bring your {starter}'s line and the little one's line to the Larkhollow Chordstone, and let them sing together." }
-        ],
-        "actions": [{ "set": "flag_q_second_clutch" }, { "quest": "q_second_clutch", "step": 1 }]
-      },
-      {
-        "if": "flag_q_second_clutch && !flag_triad_complete",
-        "lines": [
-          { "t": "Both lines in your troupe, then the Chordstone on the green. Three voices make a triad. The stone will do the rest." }
-        ]
-      },
-      {
-        "if": "flag_game_cleared",
-        "lines": [
-          { "t": "A letter came. From Odile. Neat hand, like always — she used to label my screwdrivers." },
-          { "t": "She says she's listening now. Actually listening. …Put the kettle on, {player}. I need a minute." }
-        ]
-      },
-      {
-        "if": "flag_trial_1_cleared",
-        "lines": [
-          { "t": "A Keynote! Wren's, too — she still writes her letters in moss ink, you know. Unreadable." },
-          { "t": "Each one tunes a new register. Mind you listen to what it opens, not just what it wins." }
-        ]
-      },
-      {
-        "if": "flag_leftover_bolted",
-        "lines": [
-          { "t": "No sign of the little one in the orchards. If you see small tracks heading anywhere in a hurry — follow them." }
-        ]
-      },
-      {
-        "lines": [
-          { "t": "Thistledown Way's straight north. There's a Dozebud that naps by the stile most mornings. Ask it nicely." },
-          { "t": "Stuck? Check the Registers page in your Ledger. The stones always tell you what they want." }
-        ]
+       ]
       }
-    ]
-  },
-  "town_1_oriel_green": {
-    "variants": [
+     ]
+    }
+   },
+   {
+    "if": "flag_leftover_rescued && !flag_leftover_obtained",
+    "lines": [
+     {
+      "t": "You brought it home. Look at it — fed, brushed, and furious about the whole business. Just like me."
+     },
+     {
+      "t": "It hasn't stopped staring at you since you walked in. Will you foster it? It'd go with you, not stay in my pen."
+     }
+    ],
+    "choice": {
+     "options": [
       {
-        "if": "!flag_resonance_tutorial",
-        "lines": [
-          { "t": "Cass will sulk for an hour and then want a rematch. Good for them. Now — come look at this." },
-          { "t": "See that carving on the bramble knots? That's a glyph. Kin who share its voice can sing to it. Go on — let {starter} try." }
-        ],
-        "actions": [{ "set": "flag_resonance_tutorial" }]
-      },
-      {
-        "lines": [
-          { "t": "Hear that? The stone isn't dead. It's holding its breath. Something's pressing on it." },
-          { "t": "The oldest register of all is Rootcall — a verdant voice that coaxes roots and seed-knots. {starter} can't sing it. A verdant kin can." },
-          { "t": "Five Reed Chimes. Weaken, don't wound. A Chime asks. It doesn't grab." },
-          { "t": "Listen to the rings — one, two, three. If the third holds, you're friends. Then touch the white stone on Thistledown Way. It'll remember you." }
-        ],
-        "actions": [{ "give": "i_chime_reed", "n": 5 }, { "set": "flag_oriel_chimes_given" }, { "quest": "q_main_ch01", "step": 3 }]
-      }
-    ]
-  },
-  "town_1_cass_wait": {
-    "variants": [
-      {
-        "lines": [
-          { "s": "Cass", "t": "Oriel said wait outside. So I'm waiting outside. Loudly." },
-          { "s": "Cass", "t": "Go in, go in! No — wait. Okay, go in. I'm right behind you. Not in a weird way." }
-        ]
-      }
-    ]
-  },
-  "town_1_cass_after": {
-    "variants": [
-      {
-        "if": "flag_t_rival_1_won",
-        "lines": [
-          { "s": "Cass", "t": "Okay. Okay! First one doesn't count. That's a rule. I just made it." },
-          { "s": "Cass", "t": "I'm going north. Mum always says the road teaches faster than books. …Don't tell her I quoted her." }
-        ],
-        "actions": [{ "set": "flag_rival_1_done" }, { "quest": "q_main_ch01", "step": 2 }]
-      },
-      {
-        "lines": [
-          { "s": "Cass", "t": "Ha! …Huh. That felt less amazing than I thought. Good match, {player}." },
-          { "s": "Cass", "t": "Oriel's waving at you from the green. Go on, I'll be up the road beating hedges." }
-        ],
-        "actions": [{ "set": "flag_rival_1_done" }, { "quest": "q_main_ch01", "step": 2 }]
-      }
-    ]
-  },
-  "dlg_01_cass_01": { "variants": [{ "lines": [{ "s": "Cass", "t": "Did I miss it? I missed it. Fine — I'll take *that* one. No reason. Definitely not because it'd flatten yours." }] }] },
-  "dlg_01_cass_pre": { "variants": [{ "lines": [{ "s": "Cass", "t": "First battle, first win. For me, I mean. Ready?" }] }] },
-  "dlg_01_cass_win": { "variants": [{ "lines": [{ "s": "Cass", "t": "Okay. Okay! First one doesn't count. That's a rule. I just made it." }] }] },
-  "dlg_01_cass_lose": { "variants": [{ "lines": [{ "s": "Cass", "t": "Ha! …Huh. That felt less amazing than I thought. Good match, {player}." }] }] },
-  "town_1_maud": {
-    "variants": [
-      {
-        "if": "!flag_starter_chosen",
-        "lines": [
-          { "t": "No troupe yet, love? Then there's nothing to mend but your nerves. Oriel's expecting you — go on." }
-        ]
-      },
-      {
-        "lines": [{ "t": "Come in out of the breeze, love. Kettle's on, bowl's warm. What'll it be?" }],
-        "choice": {
-          "options": [
-            { "label": "Rest your troupe", "actions": [{ "heal": true }] },
-            { "label": "Open the Fosterage ledger", "actions": [{ "ledger": true }] },
-            { "label": "Recall a forgotten song", "actions": [{ "recall": true }] },
-            { "label": "Just warming my hands", "actions": [] }
-          ]
+       "label": "Foster it",
+       "actions": [
+        {
+         "fosterage": true
+        },
+        {
+         "set": "flag_leftover_obtained"
+        },
+        {
+         "questDone": "q_foster_leftover"
         }
+       ]
+      },
+      {
+       "label": "Not yet",
+       "actions": []
       }
+     ]
+    }
+   },
+   {
+    "if": "flag_trial_5_cleared && flag_leftover_obtained && !flag_q_second_clutch && !flag_triad_complete",
+    "lines": [
+     {
+      "t": "Strange visitor lately. A wild young of Cass's line has been hanging round the fosterage. Won't let anyone near."
+     },
+     {
+      "t": "I think it's listening for a chord. Bring your {starter}'s line and the little one's line to the Larkhollow Chordstone, and let them sing together."
+     }
+    ],
+    "actions": [
+     {
+      "set": "flag_q_second_clutch"
+     },
+     {
+      "quest": "q_second_clutch",
+      "step": 1
+     }
     ]
-  },
-  "dlg_00_maud_01": { "variants": [{ "lines": [{ "s": "Maud", "t": "Sit by the fire, love. There — hear that? They're in tune again." }] }] },
-  "town_1_pip": {
-    "variants": [
-      {
-        "lines": [{ "t": "Welcome to the Chandlery! Everything's labelled! Mostly correctly!" }],
-        "actions": [{ "shop": "shop_town_1" }]
-      }
+   },
+   {
+    "if": "flag_q_second_clutch && !flag_triad_complete",
+    "lines": [
+     {
+      "t": "Both lines in your troupe, then the Chordstone on the green. Three voices make a triad. The stone will do the rest."
+     }
     ]
-  },
-  "town_1_tobiah": {
-    "variants": [
+   },
+   {
+    "if": "flag_game_cleared",
+    "lines": [
+     {
+      "t": "A letter came. From Odile. Neat hand, like always — she used to label my screwdrivers."
+     },
+     {
+      "t": "She says she's listening now. Actually listening. …Put the kettle on, {player}. I need a minute."
+     }
+    ]
+   },
+   {
+    "if": "flag_trial_1_cleared",
+    "lines": [
+     {
+      "t": "A Keynote! Wren's, too — she still writes her letters in moss ink, you know. Unreadable."
+     },
+     {
+      "t": "Each one tunes a new register. Mind you listen to what it opens, not just what it wins."
+     }
+    ]
+   },
+   {
+    "if": "flag_leftover_bolted",
+    "lines": [
+     {
+      "t": "No sign of the little one in the orchards. If you see small tracks heading anywhere in a hurry — follow them."
+     }
+    ]
+   },
+   {
+    "lines": [
+     {
+      "t": "Thistledown Way's straight north. There's a Dozebud that naps by the stile most mornings. Ask it nicely."
+     },
+     {
+      "t": "Stuck? Check the Registers page in your Ledger. The stones always tell you what they want."
+     }
+    ]
+   }
+  ]
+ },
+ "town_1_oriel_green": {
+  "variants": [
+   {
+    "if": "!flag_resonance_tutorial",
+    "lines": [
+     {
+      "t": "Cass will sulk for an hour and then want a rematch. Good for them. Now — come look at this."
+     },
+     {
+      "t": "See that carving on the bramble knots? That's a glyph. Kin who share its voice can sing to it. Go on — let {starter} try."
+     }
+    ],
+    "actions": [
+     {
+      "set": "flag_resonance_tutorial"
+     }
+    ]
+   },
+   {
+    "lines": [
+     {
+      "t": "Hear that? The stone isn't dead. It's holding its breath. Something's pressing on it."
+     },
+     {
+      "t": "The oldest register of all is Rootcall — a verdant voice that coaxes roots and seed-knots. {starter} can't sing it. A verdant kin can."
+     },
+     {
+      "t": "Five Reed Chimes. Weaken, don't wound. A Chime asks. It doesn't grab."
+     },
+     {
+      "t": "Listen to the rings — one, two, three. If the third holds, you're friends. Then touch the white stone on Thistledown Way. It'll remember you."
+     }
+    ],
+    "actions": [
+     {
+      "give": "i_chime_reed",
+      "n": 5
+     },
+     {
+      "set": "flag_oriel_chimes_given"
+     },
+     {
+      "quest": "q_main_ch01",
+      "step": 3
+     }
+    ]
+   }
+  ]
+ },
+ "town_1_cass_wait": {
+  "variants": [
+   {
+    "lines": [
+     {
+      "s": "Cass",
+      "t": "Oriel said wait outside. So I'm waiting outside. Loudly."
+     },
+     {
+      "s": "Cass",
+      "t": "Go in, go in! No — wait. Okay, go in. I'm right behind you. Not in a weird way."
+     }
+    ]
+   }
+  ]
+ },
+ "town_1_cass_after": {
+  "variants": [
+   {
+    "if": "flag_t_rival_1_won",
+    "lines": [
+     {
+      "s": "Cass",
+      "t": "Okay. Okay! First one doesn't count. That's a rule. I just made it."
+     },
+     {
+      "s": "Cass",
+      "t": "I'm going north. Mum always says the road teaches faster than books. …Don't tell her I quoted her."
+     }
+    ],
+    "actions": [
+     {
+      "set": "flag_rival_1_done"
+     },
+     {
+      "quest": "q_main_ch01",
+      "step": 2
+     }
+    ]
+   },
+   {
+    "lines": [
+     {
+      "s": "Cass",
+      "t": "Ha! …Huh. That felt less amazing than I thought. Good match, {player}."
+     },
+     {
+      "s": "Cass",
+      "t": "Oriel's waving at you from the green. Go on, I'll be up the road beating hedges."
+     }
+    ],
+    "actions": [
+     {
+      "set": "flag_rival_1_done"
+     },
+     {
+      "quest": "q_main_ch01",
+      "step": 2
+     }
+    ]
+   }
+  ]
+ },
+ "dlg_01_cass_01": {
+  "variants": [
+   {
+    "lines": [
+     {
+      "s": "Cass",
+      "t": "Did I miss it? I missed it. Fine — I'll take *that* one. No reason. Definitely not because it'd flatten yours."
+     }
+    ]
+   }
+  ]
+ },
+ "dlg_01_cass_pre": {
+  "variants": [
+   {
+    "lines": [
+     {
+      "s": "Cass",
+      "t": "First battle, first win. For me, I mean. Ready?"
+     }
+    ]
+   }
+  ]
+ },
+ "dlg_01_cass_win": {
+  "variants": [
+   {
+    "lines": [
+     {
+      "s": "Cass",
+      "t": "Okay. Okay! First one doesn't count. That's a rule. I just made it."
+     }
+    ]
+   }
+  ]
+ },
+ "dlg_01_cass_lose": {
+  "variants": [
+   {
+    "lines": [
+     {
+      "s": "Cass",
+      "t": "Ha! …Huh. That felt less amazing than I thought. Good match, {player}."
+     }
+    ]
+   }
+  ]
+ },
+ "town_1_maud": {
+  "variants": [
+   {
+    "if": "!flag_starter_chosen",
+    "lines": [
+     {
+      "t": "No troupe yet, love? Then there's nothing to mend but your nerves. Oriel's expecting you — go on."
+     }
+    ]
+   },
+   {
+    "lines": [
+     {
+      "t": "Come in out of the breeze, love. Kettle's on, bowl's warm. What'll it be?"
+     }
+    ],
+    "choice": {
+     "options": [
       {
-        "if": "flag_q_chime_done",
-        "lines": [
-          { "t": "Hear it? Tink-a-tink. The stone may be sulking, but my eaves are singing. Thank you, {player}." }
-        ]
-      },
-      {
-        "if": "flag_q_chime_started && has:i_q_windchime",
-        "lines": [
-          { "t": "That's her! Dented, muddy, and still perfectly flat in the third tube. Exactly how I made her." },
-          { "t": "Here — for your trouble. And a few Salves. My late wife swore by them for everything, including toast." }
-        ],
-        "actions": [
-          { "questDone": "q_side_fallen_chime" },
-          { "money": 250 },
-          { "give": "i_salve_1", "n": 3 },
-          { "set": "flag_q_chime_done" }
-        ]
-      },
-      {
-        "if": "flag_q_chime_started",
-        "lines": [
-          { "t": "It'll have rolled downhill to the stream on Thistledown Way. West bank, where the water bends south. Mind your boots." }
-        ]
-      },
-      {
-        "if": "flag_starter_chosen",
-        "lines": [
-          { "t": "My wind-chime jumped off the eaves at dawn — same moment the stone went quiet. Rolled clean out of the village." },
-          { "t": "You'll be heading up Thistledown Way? If you spot a brass chime in the stream, I'd be ever so grateful." }
-        ],
-        "choice": {
-          "options": [
-            { "label": "I'll keep an eye out.", "actions": [{ "set": "flag_q_chime_started" }, { "quest": "q_side_fallen_chime", "step": 1 }] },
-            { "label": "Maybe later.", "actions": [] }
-          ]
+       "label": "Rest your troupe",
+       "actions": [
+        {
+         "heal": true
         }
+       ]
       },
       {
-        "lines": [
-          { "t": "Fifty years I've hung that chime. It's never once jumped. Something's off with the air this morning, mark me." }
-        ]
-      }
-    ]
-  },
-  "town_1_hetty": {
-    "variants": [
-      {
-        "if": "flag_leftover_bolted",
-        "lines": [
-          { "t": "The Dozebuds won't wake, not properly. They open one eye, look at the stone, and go back under. Can't blame them." }
-        ]
+       "label": "Open the Fosterage ledger",
+       "actions": [
+        {
+         "ledger": true
+        }
+       ]
       },
       {
-        "lines": [
-          { "t": "Mind the crates, there's a Dozebud asleep in the second one. And the third. The first one's just apples. Probably." },
-          { "t": "They nap in the orchard because the stone hums them to sleep. Today they're only pretending." }
-        ]
-      }
-    ]
-  },
-  "town_1_pim": {
-    "variants": [
-      {
-        "if": "flag_starter_chosen",
-        "lines": [
-          { "t": "You got a kin?! Can I pat it? Can it do a trick? Can it carry chime-strings like the Gustlings do?" },
-          { "t": "When I'm big I'm going to be a Tuner and I'm going to have ONE HUNDRED kin. Or four. Four's also good." }
-        ]
+       "label": "Recall a forgotten song",
+       "actions": [
+        {
+         "recall": true
+        }
+       ]
       },
       {
-        "lines": [
-          { "t": "A Gustling flew off with a whole string of chimes this morning! It went jingle-jingle-jingle all the way over the brook." },
-          { "t": "Mum says it'll bring them back. Mum says a lot of things." }
-        ]
+       "label": "Just warming my hands",
+       "actions": []
       }
+     ]
+    }
+   }
+  ]
+ },
+ "dlg_00_maud_01": {
+  "variants": [
+   {
+    "lines": [
+     {
+      "s": "Maud",
+      "t": "Sit by the fire, love. There — hear that? They're in tune again."
+     }
     ]
-  },
-  "town_1_barnaby": {
-    "variants": [
+   }
+  ]
+ },
+ "town_1_pip": {
+  "variants": [
+   {
+    "lines": [
+     {
+      "t": "Welcome to the Chandlery! Everything's labelled! Mostly correctly!"
+     }
+    ],
+    "actions": [
+     {
+      "shop": "shop_town_1"
+     }
+    ]
+   }
+  ]
+ },
+ "town_1_tobiah": {
+  "variants": [
+   {
+    "if": "flag_q_chime_done",
+    "lines": [
+     {
+      "t": "Hear it? Tink-a-tink. The stone may be sulking, but my eaves are singing. Thank you, {player}."
+     }
+    ]
+   },
+   {
+    "if": "flag_q_chime_started && has:i_q_windchime",
+    "lines": [
+     {
+      "t": "That's her! Dented, muddy, and still perfectly flat in the third tube. Exactly how I made her."
+     },
+     {
+      "t": "Here — for your trouble. And a few Salves. My late wife swore by them for everything, including toast."
+     }
+    ],
+    "actions": [
+     {
+      "questDone": "q_side_fallen_chime"
+     },
+     {
+      "money": 250
+     },
+     {
+      "give": "i_salve_1",
+      "n": 3
+     },
+     {
+      "set": "flag_q_chime_done"
+     }
+    ]
+   },
+   {
+    "if": "flag_q_chime_started",
+    "lines": [
+     {
+      "t": "It'll have rolled downhill to the stream on Thistledown Way. West bank, where the water bends south. Mind your boots."
+     }
+    ]
+   },
+   {
+    "if": "flag_starter_chosen",
+    "lines": [
+     {
+      "t": "My wind-chime jumped off the eaves at dawn — same moment the stone went quiet. Rolled clean out of the village."
+     },
+     {
+      "t": "You'll be heading up Thistledown Way? If you spot a brass chime in the stream, I'd be ever so grateful."
+     }
+    ],
+    "choice": {
+     "options": [
       {
-        "if": "flag_nullbell_broken",
-        "lines": [
-          { "t": "Hear that? The stone's back on pitch. I've re-strung every fiddle in the shop out of sheer joy. Customers are baffled." }
-        ]
+       "label": "I'll keep an eye out.",
+       "actions": [
+        {
+         "set": "flag_q_chime_started"
+        },
+        {
+         "quest": "q_side_fallen_chime",
+         "step": 1
+        }
+       ]
       },
       {
-        "lines": [
-          { "t": "Forty years I've tuned my fiddles to that stone at dawn. This morning I had to tune to the kettle. It's a B-flat. A sad one." },
-          { "t": "Luthier's rule: if a string won't hold its note, something's pulling on it. Same goes for stones, I'd wager." }
-        ]
+       "label": "Maybe later.",
+       "actions": []
       }
+     ]
+    }
+   },
+   {
+    "lines": [
+     {
+      "t": "Fifty years I've hung that chime. It's never once jumped. Something's off with the air this morning, mark me."
+     }
     ]
-  },
-  "town_1_dex": {
-    "variants": [
-      {
-        "if": "!flag_starter_chosen",
-        "lines": [
-          { "t": "Nope. Nuh-uh. Nobody goes up Thistledown Way without a kin. Oriel's orders. I'm the gate now. I'm very official." }
-        ]
-      },
-      {
-        "lines": [
-          { "t": "Official gate report: you have a kin. Gate is open. Please enjoy the road and don't get eaten by a hedge." }
-        ]
-      }
+   }
+  ]
+ },
+ "town_1_hetty": {
+  "variants": [
+   {
+    "if": "flag_leftover_bolted",
+    "lines": [
+     {
+      "t": "The Dozebuds won't wake, not properly. They open one eye, look at the stone, and go back under. Can't blame them."
+     }
     ]
-  },
-  "town_1_liesel": {
-    "variants": [
-      {
-        "if": "flag_leftover_bolted",
-        "lines": [
-          { "t": "That stake someone hammered in by the stone — brass, stamped with a number, fitted by someone who knew exactly what they were doing." },
-          { "t": "Surveyors, I'd say. I just can't think what they'd be surveying. Stones don't move. Well. Not usually." }
-        ]
-      },
-      {
-        "lines": [
-          { "t": "I've been writing down the stone's hum every dawn for three years. Today's entry is just a very long dash." },
-          { "t": "Oriel says it's not broken. I say it's the most interesting thing that's ever happened in Larkhollow. We're both right." }
-        ]
-      }
+   },
+   {
+    "lines": [
+     {
+      "t": "Mind the crates, there's a Dozebud asleep in the second one. And the third. The first one's just apples. Probably."
+     },
+     {
+      "t": "They nap in the orchard because the stone hums them to sleep. Today they're only pretending."
+     }
     ]
-  }
+   }
+  ]
+ },
+ "town_1_pim": {
+  "variants": [
+   {
+    "if": "flag_starter_chosen",
+    "lines": [
+     {
+      "t": "You got a kin?! Can I pat it? Can it do a trick? Can it carry chime-strings like the Gustlings do?"
+     },
+     {
+      "t": "When I'm big I'm going to be a Tuner and I'm going to have ONE HUNDRED kin. Or four. Four's also good."
+     }
+    ]
+   },
+   {
+    "lines": [
+     {
+      "t": "A Gustling flew off with a whole string of chimes this morning! It went jingle-jingle-jingle all the way over the brook."
+     },
+     {
+      "t": "Mum says it'll bring them back. Mum says a lot of things."
+     }
+    ]
+   }
+  ]
+ },
+ "town_1_barnaby": {
+  "variants": [
+   {
+    "if": "flag_nullbell_broken",
+    "lines": [
+     {
+      "t": "Hear that? The stone's back on pitch. I've re-strung every fiddle in the shop out of sheer joy. Customers are baffled."
+     }
+    ]
+   },
+   {
+    "lines": [
+     {
+      "t": "Forty years I've tuned my fiddles to that stone at dawn. This morning I had to tune to the kettle. It's a B-flat. A sad one."
+     },
+     {
+      "t": "Luthier's rule: if a string won't hold its note, something's pulling on it. Same goes for stones, I'd wager."
+     }
+    ]
+   }
+  ]
+ },
+ "town_1_dex": {
+  "variants": [
+   {
+    "if": "!flag_starter_chosen",
+    "lines": [
+     {
+      "t": "Nope. Nuh-uh. Nobody goes up Thistledown Way without a kin. Oriel's orders. I'm the gate now. I'm very official."
+     }
+    ]
+   },
+   {
+    "lines": [
+     {
+      "t": "Official gate report: you have a kin. Gate is open. Please enjoy the road and don't get eaten by a hedge."
+     }
+    ]
+   }
+  ]
+ },
+ "town_1_liesel": {
+  "variants": [
+   {
+    "if": "flag_leftover_bolted",
+    "lines": [
+     {
+      "t": "That stake someone hammered in by the stone — brass, stamped with a number, fitted by someone who knew exactly what they were doing."
+     },
+     {
+      "t": "Surveyors, I'd say. I just can't think what they'd be surveying. Stones don't move. Well. Not usually."
+     }
+    ]
+   },
+   {
+    "lines": [
+     {
+      "t": "I've been writing down the stone's hum every dawn for three years. Today's entry is just a very long dash."
+     },
+     {
+      "t": "Oriel says it's not broken. I say it's the most interesting thing that's ever happened in Larkhollow. We're both right."
+     }
+    ]
+   }
+  ]
+ },
+ "dlg_intro_wake": {
+  "variants": [
+   {
+    "lines": [
+     {
+      "s": "",
+      "t": "Dawn in Larkhollow. The Chordstone on the green hums its morning note… and stops, halfway through."
+     },
+     {
+      "s": "",
+      "t": "Somewhere down the lane, a fosterage gate bangs open and three sets of small paws scatter."
+     },
+     {
+      "s": "Oriel",
+      "t": "Forty years that stone's sung me awake. Today it forgot the words."
+     },
+     {
+      "s": "Oriel",
+      "t": "Well. Licensing day waits for no stone. Come to my workshop, {player} — three little ones have been watching the door all morning."
+     }
+    ],
+    "actions": [
+     {
+      "set": "flag_game_started"
+     }
+    ]
+   }
+  ]
+ }
 }

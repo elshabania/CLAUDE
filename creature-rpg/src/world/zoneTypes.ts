@@ -44,6 +44,8 @@ export interface PropSpec {
   w?: number;
   d?: number;
   h?: number;
+  showIf?: string;
+  hideIf?: string;
 }
 
 export interface NpcSpec {
@@ -78,9 +80,11 @@ export interface NodeSpec {
   reward?: { item?: string; count?: number; money?: number };
   opens?: string;        // exit id this node gates
   blocker?: { at: V2; w: number; d: number; yaw?: number };
+  sets?: string;         // story flag set when the node is solved
+  showIf?: string;
 }
 
-export interface PickupSpec { id: string; at: V2; item: string; count?: number; hidden?: boolean; showIf?: string }
+export interface PickupSpec { id: string; at: V2; item: string; count?: number; money?: number; hidden?: boolean; showIf?: string }
 
 export interface ZoneSpec {
   id: string;

@@ -536,5 +536,50 @@
   "sell": 0,
   "desc": "Your leather-bound Tuner's ledger: journal, map and Keynotes.",
   "params": {}
+ },
+ {
+  "id": "i_q_windchime",
+  "name": "Fallen Windchime",
+  "kind": "key",
+  "price": null,
+  "sell": 0,
+  "desc": "A dented little windchime, still humming faintly. Someone in Larkhollow is missing it.",
+  "params": {}
+ },
+ {
+  "id": "i_q_glowcap",
+  "name": "Glowcap",
+  "kind": "key",
+  "price": null,
+  "sell": 0,
+  "desc": "A mushroom cap that glows with stored song. Hollow trees drink it gladly.",
+  "params": {}
+ },
+ {
+  "id": "i_q_clapper",
+  "name": "Bell Clapper",
+  "kind": "key",
+  "price": null,
+  "sell": 0,
+  "desc": "A brass clapper shaken loose from one of Knellstone's bells.",
+  "params": {}
+ },
+ {
+  "id": "i_q_crystal_sample",
+  "name": "Crystal Sample",
+  "kind": "key",
+  "price": null,
+  "sell": 0,
+  "desc": "A chip of singing crystal from the Undertone. The survey guild wants these.",
+  "params": {}
+ },
+ {
+  "id": "i_q_survey_badge",
+  "name": "Surveyor's Pin",
+  "kind": "key",
+  "price": null,
+  "sell": 0,
+  "desc": "A small pin that marks you as a friend of the survey guild.",
+  "params": {}
  }
 ]

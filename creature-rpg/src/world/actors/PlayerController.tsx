@@ -19,7 +19,7 @@ const RUN = 6.2;
 const HALF = 0.45;
 const RADIUS = 0.35;
 
-export function PlayerController({ look, start, killY }: { look: HumanLook; start: { x: number; z: number; yaw: number }; killY: number }) {
+export function PlayerController({ look, start, killY, hidden = false }: { look: HumanLook; start: { x: number; z: number; yaw: number }; killY: number; hidden?: boolean }) {
   const { world, rapier } = useRapier();
   const quality = useSettings((s) => s.quality);
   const model = useMemo(() => assemble(humanVisual(look), { lod: 0, quality }), [look, quality]);
@@ -151,7 +151,7 @@ export function PlayerController({ look, start, killY }: { look: HumanLook; star
   const footT = useRef(0);
 
   return (
-    <group ref={visual}>
+    <group ref={visual} visible={!hidden}>
       <primitive object={model.root} />
     </group>
   );

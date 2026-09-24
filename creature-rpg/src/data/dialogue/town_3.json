@@ -1,0 +1,632 @@
+{
+ "town_3_ysolde": {
+  "variants": [
+   {
+    "if": "flag_trial_4_cleared && !flag_oriel_letter_read",
+    "lines": [
+     {
+      "t": "A letter came for you — Larkhollow postmark, smells of varnish and kettle. Sit. I'll see to your troupe."
+     },
+     {
+      "s": "Oriel's letter",
+      "t": "\"{player} — Tamsin's Keynote! I'm proud of you. Now, about the name on that work order.\""
+     },
+     {
+      "s": "Oriel's letter",
+      "t": "\"Odile and I built our first Chime together.\""
+     },
+     {
+      "s": "Oriel's letter",
+      "t": "\"She always said a stone that sings whenever it likes is a stone nobody's in charge of. I thought she meant it as a joke.\""
+     },
+     {
+      "s": "Oriel's letter",
+      "t": "\"She was my apprentice once. The best I had. Mind yourself on Highscar, and keep {starter} close. —O.\""
+     },
+     {
+      "t": "Healed, rested, ready. Next!"
+     }
+    ],
+    "actions": [
+     {
+      "heal": true
+     },
+     {
+      "set": "flag_oriel_letter_read"
+     },
+     {
+      "quest": "q_main_ch08",
+      "step": 1
+     }
+    ]
+   },
+   {
+    "lines": [
+     {
+      "t": "Welcome to the Galewick Hearthrest! Rest, ledger, recall — pick one. The queue's long. It isn't. But it might be."
+     }
+    ],
+    "choice": {
+     "options": [
+      {
+       "label": "Rest your troupe",
+       "actions": [
+        {
+         "heal": true
+        }
+       ]
+      },
+      {
+       "label": "Open the Fosterage ledger",
+       "actions": [
+        {
+         "ledger": true
+        }
+       ]
+      },
+      {
+       "label": "Recall a forgotten song",
+       "actions": [
+        {
+         "recall": true
+        }
+       ]
+      },
+      {
+       "label": "Just warming my hands",
+       "actions": []
+      }
+     ]
+    }
+   }
+  ]
+ },
+ "dlg_00_ysolde_01": {
+  "variants": [
+   {
+    "lines": [
+     {
+      "s": "Ysolde",
+      "t": "Healed, rested, ready. Next!"
+     }
+    ]
+   }
+  ]
+ },
+ "town_3_nell": {
+  "variants": [
+   {
+    "if": "!flag_trial_4_cleared",
+    "lines": [
+     {
+      "t": "Buying? Wonderful. While you choose, did you hear about the miller's goat?"
+     },
+     {
+      "t": "Also — brass ear-muff lot in the market, waving a work order at our stone. Tamsin nearly launched them into the sea."
+     }
+    ],
+    "actions": [
+     {
+      "shop": "shop_town_3"
+     }
+    ]
+   },
+   {
+    "lines": [
+     {
+      "t": "Buying? Wonderful. While you choose, did you hear about the miller's goat?"
+     },
+     {
+      "t": "The ear-muff crew packed up after Tamsin's Keynote went to you. The goat's fine, by the way. It ate a kite."
+     }
+    ],
+    "actions": [
+     {
+      "shop": "shop_town_3"
+     }
+    ]
+   }
+  ]
+ },
+ "town_3_marra": {
+  "variants": [
+   {
+    "if": "flag_kinsong_s3",
+    "lines": [
+     {
+      "t": "Thirty verses. The whole Kinsong, sung by one troupe. I may cry on my clipboard. I'm allowed."
+     }
+    ]
+   },
+   {
+    "if": "caught>=30 && flag_kinsong_s2 && !flag_kinsong_s3",
+    "lines": [
+     {
+      "t": "30 verses sung! That's the whole songbook. Here — gold edging for your Kinsong, and Crown Chimes. You've earned this."
+     }
+    ],
+    "actions": [
+     {
+      "give": "i_chime_crown",
+      "n": 2
+     },
+     {
+      "set": "flag_kinsong_s3"
+     },
+     {
+      "set": "flag_kinsong_gold"
+     },
+     {
+      "questDone": "q_side_kinsong_survey"
+     }
+    ]
+   },
+   {
+    "if": "caught>=20 && flag_kinsong_s1 && !flag_kinsong_s2",
+    "lines": [
+     {
+      "t": "20 verses sung! That's a proper songbook now. Here — you've earned this."
+     },
+     {
+      "t": "An Etude I copied from an old hymnal — Radiant Mend. Plus Silver Chimes, and your fee. Keep singing."
+     }
+    ],
+    "actions": [
+     {
+      "give": "i_disc_18",
+      "n": 1
+     },
+     {
+      "give": "i_chime_silver",
+      "n": 3
+     },
+     {
+      "money": 1500
+     },
+     {
+      "set": "flag_kinsong_s2"
+     },
+     {
+      "quest": "q_side_kinsong_survey",
+      "step": 3
+     }
+    ]
+   },
+   {
+    "if": "caught>=10 && !flag_kinsong_s1",
+    "lines": [
+     {
+      "t": "10 verses sung! That's a proper songbook now. Here — you've earned this."
+     }
+    ],
+    "actions": [
+     {
+      "give": "i_chime_brass",
+      "n": 5
+     },
+     {
+      "set": "flag_kinsong_s1"
+     },
+     {
+      "quest": "q_side_kinsong_survey",
+      "step": 2
+     }
+    ]
+   },
+   {
+    "if": "!flag_marra_met_galewick",
+    "lines": [
+     {
+      "t": "You're the one from Larkhollow! I'm compiling the Kinsong — every verse in Cantarra. Show me what you've heard and I'll pay in useful things."
+     },
+     {
+      "t": "Ten verses, twenty, all thirty — every kin you befriend adds a verse. Galewick's wind has lovely acoustics for it."
+     }
+    ],
+    "actions": [
+     {
+      "set": "flag_marra_met_galewick"
+     },
+     {
+      "quest": "q_side_kinsong_survey",
+      "step": 1
+     }
+    ]
+   },
+   {
+    "if": "flag_odile_named && !flag_marra_ashflats",
+    "lines": [
+     {
+      "t": "Odile Graven? There's a verse in the oldest Kinsong about a herd on the Ash Flats. Nobody sings it anymore."
+     },
+     {
+      "t": "It ends mid-line. Like whoever wrote it couldn't bear to finish."
+     }
+    ],
+    "actions": [
+     {
+      "set": "flag_marra_ashflats"
+     }
+    ]
+   },
+   {
+    "if": "keynotes>=4 && !node:rn_town_3_02",
+    "lines": [
+     {
+      "t": "My study has a cellar behind a curtain of dusk. It won't part for me. A shade voice singing Veil might coax it."
+     }
+    ]
+   },
+   {
+    "lines": [
+     {
+      "t": "Bring me your Kinsong as it grows. Ten verses, twenty, thirty. I pay in useful things and loud applause."
+     }
+    ]
+   }
+  ]
+ },
+ "town_3_courier": {
+  "variants": [
+   {
+    "if": "flag_q_courier_done",
+    "lines": [
+     {
+      "t": "Parcels in, parcels out. The wind does half my job. The other half is stairs."
+     }
+    ]
+   },
+   {
+    "if": "flag_q_courier_reply",
+    "lines": [
+     {
+      "t": "A reply from Cindral! 'Doing fine. Fewer burns.' Ha. That's Ash all over."
+     },
+     {
+      "t": "Here — Silver Chimes and your fee. The Courier Office pays its debts, even the windy ones."
+     }
+    ],
+    "actions": [
+     {
+      "give": "i_chime_silver",
+      "n": 5
+     },
+     {
+      "money": 1250
+     },
+     {
+      "set": "flag_q_courier_done"
+     },
+     {
+      "questDone": "q_side_market_courier"
+     }
+    ]
+   },
+   {
+    "if": "flag_q_courier_parcel",
+    "lines": [
+     {
+      "t": "The parcel's for Ash, Hearthkeeper at the foot of Mount Cindral. West over Highscar, then walk till it's hot."
+     }
+    ]
+   },
+   {
+    "lines": [
+     {
+      "t": "You look like someone who walks a lot. Fancy a courier job? Pays in Chimes."
+     },
+     {
+      "t": "One parcel for Ash at the Cindral base Hearthrest. Bring me the reply and I'll pay you properly."
+     }
+    ],
+    "actions": [
+     {
+      "set": "flag_q_courier_parcel"
+     },
+     {
+      "quest": "q_side_market_courier",
+      "step": 1
+     }
+    ]
+   }
+  ]
+ },
+ "town_3_kitewright": {
+  "variants": [
+   {
+    "if": "flag_q_kites_done",
+    "lines": [
+     {
+      "t": "Three kites home! The contest's cancelled, but spiritually? Spiritually you won it."
+     }
+    ]
+   },
+   {
+    "if": "flag_q_kites_started && node:rn_route_2_02 && node:rn_route_4_02 && node:rn_town_3_03",
+    "lines": [
+     {
+      "t": "All three! Brackenridge, Highscar and our own cliff vent. You Gusted them free!"
+     },
+     {
+      "t": "The prize Etude — Stormcoil Bolt. Wind and spark together. Loudest thing I own. Take it before I change my mind."
+     }
+    ],
+    "actions": [
+     {
+      "give": "i_disc_15",
+      "n": 1
+     },
+     {
+      "money": 750
+     },
+     {
+      "set": "flag_q_kites_done"
+     },
+     {
+      "questDone": "q_side_kite_contest"
+     }
+    ]
+   },
+   {
+    "if": "flag_q_kites_started",
+    "lines": [
+     {
+      "t": "Three kites on three updrafts: the kite ridge on Brackenridge Pass, Highscar's east vent, and our cliff vent past Vane Hall."
+     },
+     {
+      "t": "Sing Gust at each and the wind lets go. Kites find their own way home. They're smarter than they look."
+     }
+    ]
+   },
+   {
+    "if": "has:i_keynote_3",
+    "lines": [
+     {
+      "t": "A gale Keynote! Oh, perfect. The kite contest's ruined — three kites blew off and snagged on updrafts."
+     },
+     {
+      "t": "A kin singing Gust could shake them loose. Brackenridge ridge, Highscar's east vent, our cliff vent. Please?"
+     }
+    ],
+    "actions": [
+     {
+      "set": "flag_q_kites_started"
+     },
+     {
+      "quest": "q_side_kite_contest",
+      "step": 1
+     }
+    ]
+   },
+   {
+    "lines": [
+     {
+      "t": "Kite contest's on hold. Blame the wind. Actually, don't — it hears."
+     }
+    ]
+   }
+  ]
+ },
+ "town_3_dispute": {
+  "variants": [
+   {
+    "lines": [
+     {
+      "s": "Stillmark Foreman",
+      "t": "Work order 212, Galewick Chordstone, routine service. It's all signed, Cantor."
+     },
+     {
+      "s": "Tamsin",
+      "t": "Signed by *whom*? The wind didn't sign it. Get your coils off my stone."
+     },
+     {
+      "s": "Stillmark Foreman",
+      "t": "It's a licensed survey guild order. Stamped. Countersigned. There's a wax seal."
+     },
+     {
+      "s": "Tamsin",
+      "t": "Then take your wax seal and sit on it. You there — Tuner with the Keynotes. Find me at Vane Hall. We'll talk."
+     }
+    ],
+    "actions": [
+     {
+      "set": "flag_galewick_dispute_seen"
+     }
+    ]
+   }
+  ]
+ },
+ "town_3_foreman": {
+  "variants": [
+   {
+    "if": "!flag_galewick_dispute_seen",
+    "lines": [
+     {
+      "s": "Stillmark Foreman",
+      "t": "Work order 212, Galewick Chordstone, routine service. It's all signed, Cantor."
+     },
+     {
+      "s": "Tamsin",
+      "t": "Signed by *whom*? The wind didn't sign it. Get your coils off my stone."
+     },
+     {
+      "s": "Stillmark Foreman",
+      "t": "It's a licensed survey guild order. Stamped. Countersigned. There's a wax seal."
+     },
+     {
+      "s": "Tamsin",
+      "t": "Then take your wax seal and sit on it. You there — Tuner with the Keynotes. Find me at Vane Hall. We'll talk."
+     }
+    ],
+    "actions": [
+     {
+      "set": "flag_galewick_dispute_seen"
+     }
+    ]
+   },
+   {
+    "lines": [
+     {
+      "t": "Work order 212 is perfectly valid. I'll just… stand here until the Cantor calms down. Could be a while."
+     },
+     {
+      "t": "Honestly? I joined for the helmet. It's very warm."
+     }
+    ]
+   }
+  ]
+ },
+ "town_3_westgate": {
+  "variants": [
+   {
+    "if": "flag_trial_4_cleared",
+    "lines": [
+     {
+      "t": "Highscar Rise, west. Updraft vents all the way up, and they only lift for a gale voice. Gust, friend."
+     }
+    ]
+   },
+   {
+    "lines": [
+     {
+      "t": "Gate's shut to the unready. Cantor's orders — Highscar's cliffs eat anyone without Vane Hall's Keynote."
+     }
+    ]
+   }
+  ]
+ },
+ "town_3_northgate": {
+  "variants": [
+   {
+    "if": "flag_trial_5_cleared",
+    "lines": [
+     {
+      "t": "Gloamstair's open. Dress warm — the stair sits in blue hour all day, and the stones up there are silent."
+     }
+    ]
+   },
+   {
+    "lines": [
+     {
+      "t": "North gate's shut. Gloamstair's gone cold and quiet. Nobody climbs it without the Forge Keynote from Cindral."
+     }
+    ]
+   }
+  ]
+ },
+ "town_3_miller": {
+  "variants": [
+   {
+    "lines": [
+     {
+      "t": "My goat ate a kite. Then the string. Then the bit of the contest sign that said 'contest'. She's fine."
+     },
+     {
+      "t": "The mills turn whether the stones sing or not. But they turn happier when they sing. Don't ask how I know."
+     }
+    ]
+   }
+  ]
+ },
+ "town_3_wisp": {
+  "variants": [
+   {
+    "lines": [
+     {
+      "t": "Whirlseeds turn the little mills! I named them all. That one's Spin. That one's also Spin."
+     }
+    ]
+   }
+  ]
+ },
+ "town_3_rook": {
+  "variants": [
+   {
+    "if": "!node:rn_town_3_01",
+    "lines": [
+     {
+      "t": "Lighthouse lamp's been dark since its brass lode went quiet. A spark kin could jolt it awake, I reckon."
+     }
+    ]
+   },
+   {
+    "lines": [
+     {
+      "t": "Lighthouse is lit again! Ships can see us, gulls can see us. The gulls were a mistake."
+     }
+    ]
+   }
+  ]
+ },
+ "town_3_hallfan": {
+  "variants": [
+   {
+    "if": "flag_trial_4_cleared",
+    "lines": [
+     {
+      "t": "You beat Tamsin! She laughed, didn't she? She always laughs. Even when she loses. Especially then."
+     }
+    ]
+   },
+   {
+    "lines": [
+     {
+      "t": "Vane Hall's all vents and curtains of wind. Don't fight it — argue with it, Tamsin says. I'm still working that out."
+     }
+    ]
+   }
+  ]
+ },
+ "dlg_07_marra_01": {
+  "variants": [
+   {
+    "lines": [
+     {
+      "s": "Marra Aske",
+      "t": "You're the one from Larkhollow! I'm compiling the Kinsong — every verse in Cantarra. Show me what you've heard and I'll pay in useful things."
+     }
+    ]
+   }
+  ]
+ },
+ "dlg_07_still_01": {
+  "variants": [
+   {
+    "lines": [
+     {
+      "s": "Stillmark Foreman",
+      "t": "Work order 212, Galewick Chordstone, routine service. It's all signed, Cantor."
+     }
+    ]
+   }
+  ]
+ },
+ "dlg_07_tamsin_01": {
+  "variants": [
+   {
+    "lines": [
+     {
+      "s": "Tamsin",
+      "t": "Signed by *whom*? The wind didn't sign it. Get your coils off my stone."
+     }
+    ]
+   }
+  ]
+ },
+ "dlg_07_oriel_letter": {
+  "variants": [
+   {
+    "lines": [
+     {
+      "s": "Oriel's letter",
+      "t": "Odile and I built our first Chime together."
+     },
+     {
+      "s": "Oriel's letter",
+      "t": "She always said a stone that sings whenever it likes is a stone nobody's in charge of. I thought she meant it as a joke."
+     }
+    ]
+   }
+  ]
+ }
+}

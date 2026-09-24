@@ -326,7 +326,7 @@ export function ZoneActors({ zone }: { zone: ZoneSpec }) {
           let ns = { ...s, nodes: [...s.nodes, n.id] };
           if (n.reward?.item) ns = { ...ns, inventory: { ...ns.inventory, [n.reward.item]: (ns.inventory[n.reward.item] ?? 0) + (n.reward.count ?? 1) } };
           if (n.reward?.money) ns = { ...ns, player: { ...ns.player, money: ns.player.money + n.reward.money } };
-          if (n.mandatory && n.id === 'rn_forest_rootgate') ns = { ...ns, flags: { ...ns.flags, flag_forest_rootgate_open: true } };
+          if (n.sets) ns = { ...ns, flags: { ...ns.flags, [n.sets]: true } };
           return ns;
         }, 'resonance');
         g.toast(`${performer ? CONTENT.species[performer.species].name : 'Your kin'} sings ${reg}! The ${n.kind} transforms.`, 'good');
@@ -341,12 +341,12 @@ export function ZoneActors({ zone }: { zone: ZoneSpec }) {
         const g = useGame.getState();
         g.mutate((s) => {
           let ns = { ...s, pickups: [...s.pickups, p.id] };
-          if (p.item) ns = { ...ns, inventory: { ...ns.inventory, [p.item]: Math.min(99, (ns.inventory[p.item] ?? 0) + (p.count ?? 1)) } };
+          if (p.item && p.item !== 'money') ns = { ...ns, inventory: { ...ns.inventory, [p.item]: Math.min(99, (ns.inventory[p.item] ?? 0) + (p.count ?? 1)) } };
           if ((p as any).money) ns = { ...ns, player: { ...ns.player, money: ns.player.money + (p as any).money } };
           return ns;
         }, 'pickup');
         sfx('item_pickup');
-        g.toast(p.item ? `Found ${CONTENT.items[p.item]?.name ?? p.item}${(p.count ?? 1) > 1 ? ' ×' + p.count : ''}!` : `Found ◇ ${(p as any).money}!`, 'good');
+        g.toast(p.item && p.item !== 'money' ? `Found ${CONTENT.items[p.item]?.name ?? p.item}${(p.count ?? 1) > 1 ? ' ×' + p.count : ''}!` : `Found ◇ ${(p as any).money}!`, 'good');
       },
     });
   }

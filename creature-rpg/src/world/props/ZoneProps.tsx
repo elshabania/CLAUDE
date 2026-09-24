@@ -7,6 +7,9 @@ import { BUILDERS } from './buildings';
 import { distToPath, slopeAt, type HeightGrid, sampleGrid } from '../terrain/heightfield';
 import { Rng, hashString } from '../../sim/rng';
 import { safeRemoveBody } from '../physicsSafe';
+import { compassToRotY } from '../yaw';
+import { useGame } from '../../state/game';
+import { evalExpr } from '../../sim/world';
 
 export interface Placed { kind: string; x: number; z: number; y: number; yaw: number; s: number }
 
@@ -87,7 +90,7 @@ export function ZoneProps({ zone, grid, density, lowPoly, shadows }: { zone: Zon
         const mesh = new THREE.Mesh(b.geo, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.85 }));
         const y = sampleGrid(grid, p.at[0], p.at[1]) - 0.1;
         mesh.position.set(p.at[0], y, p.at[1]);
-        mesh.rotation.y = ((p.yaw ?? 0) * Math.PI) / 180;
+        mesh.rotation.y = compassToRotY(p.yaw ?? 0);
         mesh.scale.setScalar(p.s ?? 1);
         mesh.castShadow = shadows;
         mesh.receiveShadow = true;
@@ -96,8 +99,33 @@ export function ZoneProps({ zone, grid, density, lowPoly, shadows }: { zone: Zon
     [zone.props, grid, shadows],
   );
 
-  // colliders (single fixed body)
+  // story-conditional props (gates, blockers, hall pillars): showIf / hideIf flag expressions
+  const vis = useGame((st) =>
+    built.map((b) => {
+      const sv = st.save;
+      if (!sv) return '1';
+      const show = b.p.showIf ? evalExpr(b.p.showIf, sv) : true;
+      const hide = b.p.hideIf ? evalExpr(b.p.hideIf, sv) : false;
+      return show && !hide ? '1' : '0';
+    }).join(''),
+  );
+
+  // colliders (single fixed body for scatter; conditional props rebuild their own body when story flags change)
   const { world, rapier } = useRapier();
+  useEffect(() => {
+    const body = world.createRigidBody(rapier.RigidBodyDesc.fixed());
+    for (const [i, b] of built.entries()) {
+      if (vis[i] !== '1') continue;
+      const s = b.p.s ?? 1;
+      const q = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), b.mesh.rotation.y);
+      for (const c of b.b.colliders) {
+        const off = new THREE.Vector3(...c.at).multiplyScalar(s).applyQuaternion(q);
+        world.createCollider(rapier.ColliderDesc.cuboid((c.box[0] * s) / 2, (c.box[1] * s) / 2, (c.box[2] * s) / 2).setTranslation(b.mesh.position.x + off.x, b.y + off.y, b.mesh.position.z + off.z).setRotation(q), body);
+      }
+    }
+    return () => safeRemoveBody(world, body);
+  }, [built, vis, world, rapier]);
+
   useEffect(() => {
     const body = world.createRigidBody(rapier.RigidBodyDesc.fixed());
     for (const bt of batches) {
@@ -108,16 +136,8 @@ export function ZoneProps({ zone, grid, density, lowPoly, shadows }: { zone: Zon
         else world.createCollider(rapier.ColliderDesc.cuboid((c.box[0] * it.s) / 2, (c.box[1] * it.s) / 2, (c.box[2] * it.s) / 2).setTranslation(it.x, it.y + (c.box[1] * it.s) / 2, it.z).setRotation(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), it.yaw)), body);
       }
     }
-    for (const b of built) {
-      const s = b.p.s ?? 1;
-      const q = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), b.mesh.rotation.y);
-      for (const c of b.b.colliders) {
-        const off = new THREE.Vector3(...c.at).multiplyScalar(s).applyQuaternion(q);
-        world.createCollider(rapier.ColliderDesc.cuboid((c.box[0] * s) / 2, (c.box[1] * s) / 2, (c.box[2] * s) / 2).setTranslation(b.mesh.position.x + off.x, b.y + off.y, b.mesh.position.z + off.z).setRotation(q), body);
-      }
-    }
     return () => safeRemoveBody(world, body);
-  }, [batches, built, world, rapier]);
+  }, [batches, world, rapier]);
 
   useEffect(
     () => () => {
@@ -138,7 +158,7 @@ export function ZoneProps({ zone, grid, density, lowPoly, shadows }: { zone: Zon
     <group>
       {batches.map((b) => <primitive key={b.kind} object={b.mesh} />)}
       {built.map((b, i) => (
-        <group key={i}>
+        <group key={i} visible={vis[i] === '1'}>
           <primitive object={b.mesh} />
           {(b.b.glow ?? []).map((g, j) => (
             <mesh key={j} position={[b.mesh.position.x + g.pos[0] * Math.cos(b.mesh.rotation.y) + g.pos[2] * Math.sin(b.mesh.rotation.y), b.y + g.pos[1], b.mesh.position.z - g.pos[0] * Math.sin(b.mesh.rotation.y) + g.pos[2] * Math.cos(b.mesh.rotation.y)]}>

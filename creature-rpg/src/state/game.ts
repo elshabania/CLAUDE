@@ -297,11 +297,24 @@ export const useGame = create<GameState>((set, get) => ({
         });
         return;
       }
+      if ('give' in a && ((a.n as number) ?? 1) < 0) {
+        const r = G.takeItem(s, a.give as string, -(a.n as number));
+        if (r.ok) st.mutate(() => r.s, 'take');
+        return step();
+      }
       if ('give' in a) {
         const r = G.giveItem(s, a.give as string, (a.n as number) ?? 1);
         if (r.ok) {
           st.mutate(() => r.s, 'give');
           st.toast(`Received ${c.items[a.give as string]?.name ?? a.give}${(a.n as number) > 1 ? ' ×' + a.n : ''}.`, 'good');
+        }
+        return step();
+      }
+      if ('take' in a) {
+        const r = G.takeItem(s, a.take as string, (a.n as number) ?? 1);
+        if (r.ok) {
+          st.mutate(() => r.s, 'take');
+          st.toast(`Handed over ${c.items[a.take as string]?.name ?? a.take}${((a.n as number) ?? 1) > 1 ? ' ×' + a.n : ''}.`, 'info');
         }
         return step();
       }
@@ -361,7 +374,7 @@ export const useGame = create<GameState>((set, get) => ({
         st.warp(a.warp as string, a.spawn as string);
         return step();
       }
-      if ('fosterage' in a) {
+      if ('fosterage' in a || 'ledger' in a) {
         set({ mode: 'menu', menuTab: 'fosterage' });
         runtime.frozen = true;
         const unsub = useGame.subscribe((ns) => {
@@ -385,14 +398,12 @@ export const useGame = create<GameState>((set, get) => ({
       }
       if ('steward' in a) {
         const node = a.steward as string;
-        st.mutate((x) => (x.nodes.includes(node) ? x : { ...x, nodes: [...x.nodes, node] }), 'node');
+        const setsFlag = Object.values(ZONES).flatMap((z) => z.nodes).find((n) => n.id === node)?.sets;
+        st.mutate((x) => ({ ...x, nodes: x.nodes.includes(node) ? x.nodes : [...x.nodes, node], flags: setsFlag ? { ...x.flags, [setsFlag]: true } : x.flags }), 'node');
         st.toast('The Steward’s kin resonates with the stone — the way opens!', 'good');
         return step();
       }
-      if ('ledger' in a) {
-        st.mutate((x) => G.giveItem(x, 'i_key_ledger', 1).ok ? (G.giveItem(x, 'i_key_ledger', 1) as any).s : x, 'ledger');
-        return step();
-      }
+
       if ('ending' in a) {
         set({ mode: 'ending' });
         runtime.frozen = true;
@@ -447,6 +458,10 @@ export const useGame = create<GameState>((set, get) => ({
       if (r.outcome === 'win') {
         s = G.addMoney({ ...s, defeatedTrainers: [...s.defeatedTrainers, req.trainerId], flags: { ...s.flags, [`flag_${req.trainerId}_won`]: true } }, t.payout);
         msg = `You earned ◇ ${t.payout}.`;
+        const story = storyOnWin(req.trainerId);
+        s = { ...s, flags: { ...s.flags, ...Object.fromEntries(story.flags.map((f) => [f, true])) } };
+        for (const it of story.items) { const gi = G.giveItem(s, it, 1); if (gi.ok) s = gi.s; }
+        if (story.items.some((i) => i.startsWith('i_keynote'))) msg = `${CONTENT.items[story.items[0]].name} received! ` + msg;
       }
     }
     if (req.kind === 'wild' && req.wildKey && (r.outcome === 'win' || r.outcome === 'captured')) st.defeatedWild.add(req.wildKey);
@@ -454,7 +469,7 @@ export const useGame = create<GameState>((set, get) => ({
     if (r.outcome === 'loss') {
       const rival1 = req.trainerId === 't_rival_1';
       if (rival1) {
-        s = G.healParty(CONTENT, { ...s, defeatedTrainers: [...s.defeatedTrainers, 't_rival_1'], flags: { ...s.flags, flag_t_rival_1_won: true } });
+        s = G.healParty(CONTENT, { ...s, defeatedTrainers: [...s.defeatedTrainers, 't_rival_1'], flags: { ...s.flags, flag_t_rival_1_won: true, flag_rival_1_done: true } });
         msg = 'Cass whoops. "First one doesn\'t count!" Your troupe is patched up.';
       } else {
         const w = G.applyWipe(CONTENT, s);
@@ -532,4 +547,20 @@ export function wildFor(zoneId: string, s: SavePayload, table: string, key: stri
   const r = rollEncounter(CONTENT, ENCOUNTERS, table, isNight(s.clockMinutes), useGame.getState().weather, rng);
   if (!r) return null;
   return createInstance(CONTENT, rng, r.species, r.level, { potential: 'random', temperament: 'random' });
+}
+
+/** Story flags and items granted automatically when a key trainer is beaten (world.md §2.5). */
+export function storyOnWin(tid: string): { flags: string[]; items: string[] } {
+  let m = tid.match(/^t_rival_(\d)$/);
+  if (m) return { flags: [`flag_rival_${m[1]}_done`], items: [] };
+  m = tid.match(/^t_cantor_(\d)$/);
+  if (m) return { flags: [`flag_trial_${m[1]}_cleared`, ...(m[1] === '4' ? ['flag_odile_named'] : [])], items: [`i_keynote_${m[1]}`] };
+  const T: Record<string, { flags: string[]; items: string[] }> = {
+    t_admin_brann_1: { flags: ['flag_admin_brann_1', 'flag_cave_miners_saved'], items: [] },
+    t_admin_vey_1: { flags: ['flag_admin_vey_1'], items: [] },
+    t_admin_vey_2: { flags: ['flag_admin_vey_2', 'flag_leftover_rescued'], items: ['i_disc_09'] },
+    t_odile: { flags: ['flag_odile_defeated', 'flag_nullbell_broken'], items: [] },
+    t_champion: { flags: ['flag_champion_defeated', 'flag_game_cleared'], items: [] },
+  };
+  return T[tid] ?? { flags: [], items: [] };
 }

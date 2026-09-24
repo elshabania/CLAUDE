@@ -1,0 +1,502 @@
+{
+ "id": "league",
+ "name": "Concord Spire",
+ "biome": "spire",
+ "attuned": null,
+ "music": "league",
+ "indoor": true,
+ "terrain": {
+  "seed": 1700,
+  "size": [
+   84,
+   84
+  ],
+  "base": 0,
+  "amp": 0.25,
+  "scale": 24,
+  "rim": 8,
+  "rimWidth": 5,
+  "flats": [
+   {
+    "at": [
+     0,
+     30
+    ],
+    "r": 12
+   },
+   {
+    "at": [
+     0,
+     8
+    ],
+    "r": 9
+   },
+   {
+    "at": [
+     0,
+     -16
+    ],
+    "r": 12
+   }
+  ],
+  "paths": [
+   {
+    "pts": [
+     [
+      0,
+      42
+     ],
+     [
+      0,
+      -24
+     ]
+    ],
+    "w": 6
+   }
+  ]
+ },
+ "palette": {
+  "ground": "#E9DDC4",
+  "ground2": "#D8C9A8",
+  "path": "#F3EAD7",
+  "cliff": "#B8A27A",
+  "accent": "#C8963E",
+  "sky": "#F2C98A",
+  "fog": "#F4D9A8"
+ },
+ "fogDensity": 0.004,
+ "weather": {
+  "clear": 100
+ },
+ "spawns": [
+  {
+   "id": "sp_league_s",
+   "at": [
+    0,
+    32
+   ],
+   "yaw": 0
+  },
+  {
+   "id": "sp_league_hearth",
+   "at": [
+    14,
+    27
+   ],
+   "yaw": 270
+  },
+  {
+   "id": "sp_league_ws",
+   "at": [
+    -10,
+    34
+   ],
+   "yaw": 0
+  }
+ ],
+ "exits": [
+  {
+   "id": "x_league_s",
+   "at": [
+    0,
+    39
+   ],
+   "r": 3,
+   "to": "snowpeak",
+   "spawn": "sp_snowpeak_n",
+   "label": "Hoarcrown summit"
+  }
+ ],
+ "props": [
+  {
+   "kind": "spire",
+   "at": [
+    0,
+    -32
+   ],
+   "yaw": 180,
+   "s": 1.2,
+   "label": "Concord Spire"
+  },
+  {
+   "kind": "hearth",
+   "at": [
+    24,
+    27
+   ],
+   "yaw": 270,
+   "label": "Concord Landing Hearthrest"
+  },
+  {
+   "kind": "stall",
+   "at": [
+    18,
+    34
+   ],
+   "yaw": 270,
+   "color": "#C8963E"
+  },
+  {
+   "kind": "chordstone",
+   "at": [
+    -10,
+    30
+   ],
+   "color": "#F2E3A0",
+   "label": "Concord Chordstone"
+  },
+  {
+   "kind": "wall",
+   "at": [
+    0,
+    19
+   ],
+   "w": 12,
+   "h": 4,
+   "color": "#C8963E",
+   "label": "Keynote door",
+   "hideIf": "flag_spire_open"
+  },
+  {
+   "kind": "wall",
+   "at": [
+    -12,
+    19
+   ],
+   "w": 12,
+   "h": 5,
+   "color": "#E9DDC4"
+  },
+  {
+   "kind": "wall",
+   "at": [
+    12,
+    19
+   ],
+   "w": 12,
+   "h": 5,
+   "color": "#E9DDC4"
+  },
+  {
+   "kind": "wall",
+   "at": [
+    -29,
+    19
+   ],
+   "w": 22,
+   "h": 2.2,
+   "color": "#E9DDC4"
+  },
+  {
+   "kind": "wall",
+   "at": [
+    29,
+    19
+   ],
+   "w": 22,
+   "h": 2.2,
+   "color": "#E9DDC4"
+  },
+  {
+   "kind": "lamp",
+   "at": [
+    -7,
+    21
+   ]
+  },
+  {
+   "kind": "lamp",
+   "at": [
+    7,
+    21
+   ]
+  },
+  {
+   "kind": "sign",
+   "at": [
+    -4,
+    22
+   ],
+   "yaw": 0,
+   "label": "Six sockets, shaped like tuning forks. Your Keynotes hum as you approach."
+  },
+  {
+   "kind": "sign",
+   "at": [
+    0,
+    36
+   ],
+   "yaw": 0,
+   "label": "Concord Spire — where the Great Chord is sounded."
+  },
+  {
+   "kind": "lamp",
+   "at": [
+    -10,
+    -8
+   ]
+  },
+  {
+   "kind": "lamp",
+   "at": [
+    10,
+    -8
+   ]
+  },
+  {
+   "kind": "lamp",
+   "at": [
+    -10,
+    6
+   ]
+  },
+  {
+   "kind": "lamp",
+   "at": [
+    10,
+    6
+   ]
+  },
+  {
+   "kind": "crystal",
+   "at": [
+    -7.5,
+    21.2
+   ],
+   "s": 0.55,
+   "color": "#4CAF50"
+  },
+  {
+   "kind": "crystal",
+   "at": [
+    -4.5,
+    21.2
+   ],
+   "s": 0.55,
+   "color": "#9C7A54"
+  },
+  {
+   "kind": "crystal",
+   "at": [
+    -1.5,
+    21.2
+   ],
+   "s": 0.55,
+   "color": "#2E86DE"
+  },
+  {
+   "kind": "crystal",
+   "at": [
+    1.5,
+    21.2
+   ],
+   "s": 0.55,
+   "color": "#8FB9A8"
+  },
+  {
+   "kind": "crystal",
+   "at": [
+    4.5,
+    21.2
+   ],
+   "s": 0.55,
+   "color": "#E4572E"
+  },
+  {
+   "kind": "crystal",
+   "at": [
+    7.5,
+    21.2
+   ],
+   "s": 0.55,
+   "color": "#7FD3E6"
+  },
+  {
+   "kind": "crystal",
+   "at": [
+    15,
+    -18
+   ],
+   "s": 0.9
+  },
+  {
+   "kind": "crystal",
+   "at": [
+    12.1,
+    -10.4
+   ],
+   "s": 0.9
+  },
+  {
+   "kind": "crystal",
+   "at": [
+    -12.1,
+    -10.4
+   ],
+   "s": 0.9
+  },
+  {
+   "kind": "crystal",
+   "at": [
+    -15,
+    -18
+   ],
+   "s": 0.9
+  },
+  {
+   "kind": "crystal",
+   "at": [
+    -12.1,
+    -25.6
+   ],
+   "s": 0.9
+  },
+  {
+   "kind": "crystal",
+   "at": [
+    -4.6,
+    -30.4
+   ],
+   "s": 0.9
+  },
+  {
+   "kind": "crystal",
+   "at": [
+    4.6,
+    -30.4
+   ],
+   "s": 0.9
+  },
+  {
+   "kind": "crystal",
+   "at": [
+    12.1,
+    -25.6
+   ],
+   "s": 0.9
+  }
+ ],
+ "scatter": [
+  {
+   "kind": "flowers",
+   "density": 1.5,
+   "minDist": 2
+  }
+ ],
+ "npcs": [
+  {
+   "id": "npc_hk_league",
+   "at": [
+    18,
+    23
+   ],
+   "yaw": 270,
+   "look": "hearth",
+   "name": "Keeper Amsel",
+   "dialogue": "dlg_hk_league",
+   "role": "hearth"
+  },
+  {
+   "id": "npc_ch_league",
+   "at": [
+    14,
+    33.5
+   ],
+   "yaw": 270,
+   "look": "chandler2",
+   "name": "Kiosk Chandler Tamsa",
+   "dialogue": "dlg_ch_league",
+   "role": "shop",
+   "shop": "shop_league"
+  },
+  {
+   "id": "npc_league_doorwarden",
+   "at": [
+    4,
+    22.5
+   ],
+   "yaw": 180,
+   "look": "scholar",
+   "name": "Doorwarden Aurel",
+   "dialogue": "dlg_league_doorwarden",
+   "role": "villager"
+  },
+  {
+   "id": "npc_cass_landing",
+   "at": [
+    0,
+    11
+   ],
+   "yaw": 180,
+   "look": "cass",
+   "name": "Cass",
+   "dialogue": "dlg_league_cass",
+   "role": "rival",
+   "hideIf": "flag_champion_defeated"
+  },
+  {
+   "id": "npc_rhea",
+   "at": [
+    0,
+    -22
+   ],
+   "yaw": 180,
+   "look": "rhea",
+   "name": "Rhea Rookwell",
+   "dialogue": "dlg_league_rhea",
+   "role": "cantor"
+  },
+  {
+   "id": "npc_oriel_league",
+   "at": [
+    -5,
+    -12
+   ],
+   "yaw": 90,
+   "look": "oriel",
+   "name": "Oriel",
+   "dialogue": "dlg_league_oriel",
+   "role": "mentor",
+   "showIf": "flag_champion_defeated"
+  },
+  {
+   "id": "npc_cass_final",
+   "at": [
+    5,
+    -12
+   ],
+   "yaw": 270,
+   "look": "cass",
+   "name": "Cass",
+   "dialogue": "dlg_league_cass_final",
+   "role": "rival",
+   "showIf": "flag_champion_defeated"
+  }
+ ],
+ "trainers": [],
+ "nodes": [],
+ "pickups": [],
+ "wildRegions": [],
+ "maxWild": 0,
+ "battleStages": [
+  {
+   "at": [
+    0,
+    4
+   ],
+   "yaw": 90
+  },
+  {
+   "at": [
+    0,
+    -14
+   ],
+   "yaw": 90
+  }
+ ],
+ "hearthSpawn": "sp_league_hearth",
+ "waystone": [
+  -10,
+  30
+ ]
+}

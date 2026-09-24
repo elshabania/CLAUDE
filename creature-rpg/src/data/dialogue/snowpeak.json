@@ -1,0 +1,571 @@
+{
+  "dlg_hk_snowpeak": {
+    "variants": [
+      {
+        "if": "flag_nullbell_broken",
+        "lines": [
+          {
+            "t": "Hear the summit? First time in weeks the whole mountain's been humming. My bowl's ringing along with it."
+          },
+          {
+            "t": "Rest your troupe? The fire's hotter when the stones sing. Probably. I'm not a scientist."
+          }
+        ],
+        "choice": {
+          "options": [
+            {
+              "label": "Rest my troupe",
+              "actions": [
+                {
+                  "heal": true
+                }
+              ]
+            },
+            {
+              "label": "Open the Fosterage ledger",
+              "actions": [
+                {
+                  "ledger": true
+                }
+              ]
+            },
+            {
+              "label": "Help a kin recall a move",
+              "actions": [
+                {
+                  "recall": true
+                }
+              ]
+            },
+            {
+              "label": "Just warming my hands",
+              "actions": []
+            }
+          ]
+        }
+      },
+      {
+        "lines": [
+          {
+            "t": "Cold up here steals strength. The bowl gives it back. Mind the ice outside."
+          },
+          {
+            "t": "Rest your troupe? Open the Fosterage ledger? Or just thawing your fingers?"
+          }
+        ],
+        "choice": {
+          "options": [
+            {
+              "label": "Rest my troupe",
+              "actions": [
+                {
+                  "heal": true
+                }
+              ]
+            },
+            {
+              "label": "Open the Fosterage ledger",
+              "actions": [
+                {
+                  "ledger": true
+                }
+              ]
+            },
+            {
+              "label": "Help a kin recall a move",
+              "actions": [
+                {
+                  "recall": true
+                }
+              ]
+            },
+            {
+              "label": "Just warming my hands",
+              "actions": []
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "dlg_ch_snowpeak": {
+    "variants": [
+      {
+        "lines": [
+          {
+            "t": "Lodge Chandlery! Salves, Chimes, and one very good scarf that is not for sale. It's mine. I'm wearing it."
+          }
+        ],
+        "actions": [
+          {
+            "shop": "shop_snowpeak"
+          }
+        ]
+      }
+    ]
+  },
+  "dlg_steward_snowpeak": {
+    "variants": [
+      {
+        "if": "node:rn_snowpeak_01 || flag_snowpeak_ascended",
+        "lines": [
+          {
+            "t": "There. It'll stay frozen for good — stairs all the way up. Catch a frost friend when you can; the glacier's full of them."
+          }
+        ],
+        "actions": [
+          {
+            "set": "flag_snowpeak_ascended"
+          }
+        ]
+      },
+      {
+        "lines": [
+          {
+            "t": "Falls won't hold weight unless a frost voice sings them solid. Need a hand?"
+          },
+          {
+            "t": "Any frost kin in your troupe can do it — even a sleepy one. If you've none, I'll lend you my Rimelet. Just this once."
+          }
+        ],
+        "choice": {
+          "options": [
+            {
+              "label": "Please freeze the falls",
+              "actions": [
+                {
+                  "steward": "rn_snowpeak_01"
+                },
+                {
+                  "set": "flag_snowpeak_ascended"
+                }
+              ]
+            },
+            {
+              "label": "I'll sing them myself",
+              "actions": []
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "dlg_snowpeak_ansel": {
+    "variants": [
+      {
+        "if": "flag_nullbell_broken",
+        "lines": [
+          {
+            "t": "Twenty years guiding folk up Hoarcrown and I've never heard the summit this loud. It's showing off. Good for it."
+          }
+        ]
+      },
+      {
+        "if": "flag_snowpeak_ascended",
+        "lines": [
+          {
+            "t": "You froze the falls! Now everyone wants to climb. I'll need a bigger hat to look important in."
+          },
+          {
+            "t": "Rime Hall sits on the west terrace. The summit path's north — but there's a big fellow in a brass helmet parked on it."
+          }
+        ]
+      },
+      {
+        "lines": [
+          {
+            "t": "Welcome to Hoarcrown! Lodge is east, falls are north, and the summit is… up. Mostly up."
+          },
+          {
+            "t": "Folk in slate coats hauled a bell past here on a sledge. A bell! Up a mountain! Nobody hauls a bell for fun."
+          },
+          {
+            "t": "The falls only turn to stairs for a frost voice. Plenty of frosty kin on the glacier if you've none of your own."
+          }
+        ]
+      }
+    ]
+  },
+  "dlg_snowpeak_brigid": {
+    "variants": [
+      {
+        "if": "flag_nullbell_broken",
+        "lines": [
+          {
+            "t": "My ice blocks are humming. I cut them, I stack them, and now they sing at me. Business is weird today."
+          }
+        ]
+      },
+      {
+        "lines": [
+          {
+            "t": "I cut ice for the lodge. Best ice comes from the terraces — the rime here remembers every note it's heard."
+          },
+          {
+            "t": "Lately it's been remembering nothing. Very quiet ice. Makes me nervous. Ice shouldn't be mysterious."
+          }
+        ]
+      }
+    ]
+  },
+  "dlg_snowpeak_brann": {
+    "variants": [
+      {
+        "if": "flag_nullbell_broken",
+        "lines": [
+          {
+            "s": "Brann",
+            "t": "Hear that? Every stone from here to the coast, all at once. Loud. Messy."
+          },
+          {
+            "s": "Brann",
+            "t": "…Better than quiet. I'm going back to the quarry. Honest rock. Only sings when you drop it on your foot."
+          }
+        ]
+      },
+      {
+        "if": "flag_admin_brann_2",
+        "lines": [
+          {
+            "s": "Brann",
+            "t": "Magister's at the ring. Go on. I'll keep the lads off your back."
+          }
+        ]
+      },
+      {
+        "if": "flag_trial_6_cleared",
+        "lines": [
+          {
+            "s": "Warden Brann",
+            "t": "Magister's up top. Bell's half on. I'm supposed to stop you."
+          },
+          {
+            "s": "Warden Brann",
+            "t": "Six Keynotes, eh? Last time we met, you had a handful and a lot of nerve. Now you've got the whole song."
+          },
+          {
+            "s": "Warden Brann",
+            "t": "My miners' kin strayed when their stone went dead. Took you to get them home. I've not forgotten."
+          },
+          {
+            "s": "Warden Brann",
+            "t": "…Go on. I've heard enough quiet."
+          }
+        ],
+        "actions": [
+          {
+            "set": "flag_admin_brann_2"
+          }
+        ]
+      },
+      {
+        "lines": [
+          {
+            "s": "Warden Brann",
+            "t": "Magister's up top. Bell's half on. I'm supposed to stop you."
+          },
+          {
+            "s": "Warden Brann",
+            "t": "And today, I will. You're one Keynote short of anything clever. Rime Hall's on the west terrace."
+          },
+          {
+            "s": "Warden Brann",
+            "t": "Come back with the whole song. Then we'll see what I'm supposed to do."
+          }
+        ]
+      }
+    ]
+  },
+  "dlg_snowpeak_odile": {
+    "variants": [
+      {
+        "if": "flag_nullbell_broken",
+        "lines": [
+          {
+            "s": "Odile",
+            "t": "…Why was it *singing*? It shouldn't have — the coils were seated. Every figure was right."
+          },
+          {
+            "s": "The summit ring",
+            "t": "Your {starter} answered the ring. The Chordstone flared, and its own song split the Great Stillbell from rim to crown."
+          },
+          {
+            "s": "The summit ring",
+            "t": "Far below, bell after bell cracks in sympathy. Every stone in Cantarra hums again — loud, bright, a little off-key."
+          },
+          {
+            "s": "Odile",
+            "t": "Then no one holds the bell."
+          },
+          {
+            "s": "Odile",
+            "t": "…Promise me someone will at least *listen* when a stone starts to shout."
+          }
+        ],
+        "choice": {
+          "options": [
+            {
+              "label": "We will. All of us.",
+              "actions": [
+                {
+                  "set": "flag_odile_farewell"
+                }
+              ]
+            },
+            {
+              "label": "You could be the one listening.",
+              "actions": [
+                {
+                  "set": "flag_odile_farewell"
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "if": "flag_trial_6_cleared && flag_admin_brann_2",
+        "lines": [
+          {
+            "s": "Magister Odile",
+            "t": "{player}. You climbed. Of course you did. Oriel never could leave a stone alone either."
+          },
+          {
+            "s": "Magister Odile",
+            "t": "The Bell is nearly seated. Once it holds, every stone in Cantarra waits for permission. Stand aside."
+          }
+        ],
+        "actions": [
+          {
+            "battle": "t_odile"
+          }
+        ]
+      },
+      {
+        "lines": [
+          {
+            "s": "Magister Odile",
+            "t": "The Bell is nearly seated. You're early, {player}. And unfinished — I can hear it. Five notes, not six."
+          }
+        ]
+      }
+    ]
+  },
+  "dlg_snowpeak_cass": {
+    "variants": [
+      {
+        "if": "!flag_summit_celebrated",
+        "lines": [
+          {
+            "s": "Cass",
+            "t": "{player}! I ran up the whole stair! Every stone on the way down lit up like a birthday! Was that YOU?"
+          },
+          {
+            "s": "Cass",
+            "t": "Of course it was you. And your {starter}! Look at them, all smug. They've earned smug."
+          },
+          {
+            "s": "Cass",
+            "t": "Oriel sent this up with me in case you 'did something foolish and wonderful'. Her words. She was crying a bit."
+          },
+          {
+            "s": "Cass",
+            "t": "The lift behind the ring goes to Concord Spire. Mum's up there. So's our last battle. Don't be slow!"
+          }
+        ],
+        "actions": [
+          {
+            "money": 2000
+          },
+          {
+            "give": "i_chime_crown",
+            "n": 1
+          },
+          {
+            "set": "flag_summit_celebrated"
+          },
+          {
+            "questDone": "q_main_ch11"
+          },
+          {
+            "quest": "q_main_ch12",
+            "step": 1
+          }
+        ]
+      },
+      {
+        "lines": [
+          {
+            "s": "Cass",
+            "t": "Six Keynotes, a singing summit, and a lift. That's the whole recipe. Go on — I'll race you up. I will lose that race."
+          }
+        ]
+      }
+    ]
+  },
+  "dlg_t_still_08_pre": {
+    "variants": [
+      {
+        "lines": [
+          {
+            "s": "Stillhand Ula",
+            "t": "You're standing in a marked service area. I'm obliged to remove you. Politely."
+          }
+        ]
+      }
+    ]
+  },
+  "dlg_t_still_08_after": {
+    "variants": [
+      {
+        "if": "flag_nullbell_broken",
+        "lines": [
+          {
+            "s": "Stillhand Ula",
+            "t": "The bell's in pieces. I'll need a much longer form for this."
+          }
+        ]
+      },
+      {
+        "lines": [
+          {
+            "s": "Stillhand Ula",
+            "t": "Honestly? I joined for the helmet. It's very warm."
+          }
+        ]
+      }
+    ]
+  },
+  "dlg_t_sp_01_after": {
+    "variants": [
+      {
+        "lines": [
+          {
+            "s": "Nia",
+            "t": "Ski patrol tip: if you slide, slide *toward* the lodge. It has soup."
+          }
+        ]
+      }
+    ]
+  },
+  "dlg_t_sp_02_after": {
+    "variants": [
+      {
+        "lines": [
+          {
+            "s": "Yarrow",
+            "t": "The auroras went grey when the stones went quiet. I'd like my colours back, please."
+          }
+        ]
+      }
+    ]
+  },
+  "dlg_t_sp_03_after": {
+    "variants": [
+      {
+        "lines": [
+          {
+            "s": "Tove",
+            "t": "On clear nights the sky over Hoarcrown ripples like a plucked string. Stay up and see."
+          }
+        ]
+      }
+    ]
+  },
+  "dlg_11_steward_01": {
+    "variants": [
+      {
+        "lines": [
+          {
+            "s": "Steward Sefa",
+            "t": "Falls won't hold weight unless a frost voice sings them solid. Need a hand?"
+          }
+        ]
+      }
+    ]
+  },
+  "dlg_11_brann_01": {
+    "variants": [
+      {
+        "lines": [
+          {
+            "s": "Warden Brann",
+            "t": "Magister's up top. Bell's half on. I'm supposed to stop you."
+          }
+        ]
+      }
+    ]
+  },
+  "dlg_11_brann_02": {
+    "variants": [
+      {
+        "lines": [
+          {
+            "s": "Warden Brann",
+            "t": "…Go on. I've heard enough quiet."
+          }
+        ]
+      }
+    ]
+  },
+  "dlg_11_odile_pre": {
+    "variants": [
+      {
+        "lines": [
+          {
+            "s": "Magister Odile",
+            "t": "The Bell is nearly seated. Once it holds, every stone in Cantarra waits for permission. Stand aside."
+          }
+        ]
+      }
+    ]
+  },
+  "dlg_11_odile_phaseB": {
+    "variants": [
+      {
+        "lines": [
+          {
+            "s": "Magister Odile",
+            "t": "…Why is it *singing*? It shouldn't— the coils are—"
+          }
+        ]
+      }
+    ]
+  },
+  "dlg_11_odile_win": {
+    "variants": [
+      {
+        "lines": [
+          {
+            "s": "Magister Odile",
+            "t": "Then no one holds the bell."
+          }
+        ]
+      }
+    ]
+  },
+  "dlg_11_odile_lose": {
+    "variants": [
+      {
+        "lines": [
+          {
+            "s": "Magister Odile",
+            "t": "You see? Unmanaged, it fails. Go down the mountain, {player}."
+          }
+        ]
+      }
+    ]
+  },
+  "dlg_11_odile_after": {
+    "variants": [
+      {
+        "lines": [
+          {
+            "s": "Magister Odile",
+            "t": "…Promise me someone will at least *listen* when a stone starts to shout."
+          }
+        ]
+      }
+    ]
+  }
+}

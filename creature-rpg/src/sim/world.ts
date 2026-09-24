@@ -85,6 +85,16 @@ export function evalExpr(expr: string | undefined, s: SavePayload): boolean {
       const v = +kn[2];
       return kn[1] === '>=' ? n >= v : kn[1] === '<' ? n < v : n === v;
     }
+    const cn = t.match(/^caught(>=|<|==)(\d+)$/);
+    if (cn) {
+      const n = s.caught.length, v = +cn[2];
+      return cn[1] === '>=' ? n >= v : cn[1] === '<' ? n < v : n === v;
+    }
+    const cnt = t.match(/^count:(\w+)(>=|<|==)(\d+)$/);
+    if (cnt) {
+      const n = s.inventory[cnt[1]] ?? 0, v = +cnt[3];
+      return cnt[2] === '>=' ? n >= v : cnt[2] === '<' ? n < v : n === v;
+    }
     if (t.startsWith('has:')) return (s.inventory[t.slice(4)] ?? 0) > 0;
     if (t.startsWith('caught:')) return s.caught.includes(t.slice(7));
     if (t.startsWith('won:')) return s.defeatedTrainers.includes(t.slice(4));

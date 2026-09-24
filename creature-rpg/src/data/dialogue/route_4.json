@@ -1,0 +1,332 @@
+{
+  "route_4_steward": {
+    "variants": [
+      {
+        "if": "flag_route4_updraft || node:rn_route_4_01",
+        "lines": [
+          {
+            "s": "Steward Orrin",
+            "t": "There. It'll stay open for good. Catch a gale friend when you can — the wild's full of them."
+          },
+          {
+            "s": "Steward Orrin",
+            "t": "The vent lifts you to the top tier. A second vent up there drops you back down, so you're never stranded. That's the rule."
+          }
+        ],
+        "actions": [
+          {
+            "set": "flag_route4_updraft"
+          },
+          {
+            "quest": "q_main_ch08",
+            "step": 1
+          }
+        ]
+      },
+      {
+        "if": "!has:i_keynote_3",
+        "lines": [
+          {
+            "s": "Steward Orrin",
+            "t": "The updraft only answers to a Tuner who carries the Mere Hall Keynote. Nerys's note is the one that wakes Gust."
+          },
+          {
+            "s": "Steward Orrin",
+            "t": "Come back when Sillowmere's Cantor has heard you out. I'll still be here. I'm always here. It's very windy."
+          }
+        ]
+      },
+      {
+        "lines": [
+          {
+            "s": "Steward Orrin",
+            "t": "Updrafts only lift for a gale voice. No gale kin? Hop on with mine."
+          },
+          {
+            "s": "Steward Orrin",
+            "t": "That vent wants a gale voice. Not carrying one? I'll lend you mine — just this once."
+          }
+        ],
+        "choice": {
+          "options": [
+            {
+              "label": "Please lend a hand",
+              "actions": [
+                {
+                  "steward": "rn_route_4_01"
+                },
+                {
+                  "set": "flag_route4_updraft"
+                },
+                {
+                  "quest": "q_main_ch08",
+                  "step": 1
+                }
+              ]
+            },
+            {
+              "label": "I'll sing it myself",
+              "actions": []
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "route_4_wick": {
+    "variants": [
+      {
+        "lines": [
+          {
+            "s": "Wick",
+            "t": "You again! I never forget a face, or an unpaid tally. Special's changed."
+          },
+          {
+            "s": "Wick",
+            "t": "Hauled this wagon up the switchbacks myself. The wheels complained the whole way. So did I."
+          }
+        ],
+        "actions": [
+          {
+            "shop": "shop_wick"
+          }
+        ]
+      }
+    ]
+  },
+  "route_4_brisa": {
+    "variants": [
+      {
+        "if": "flag_rival_4_done",
+        "lines": [
+          {
+            "s": "Brisa",
+            "t": "Saw a kid in a long scarf leap off the top tier and ride the down-draught, whooping the whole way."
+          },
+          {
+            "s": "Brisa",
+            "t": "Landed in a bush. Got up. Bowed. Ten out of ten, honestly."
+          }
+        ]
+      },
+      {
+        "lines": [
+          {
+            "s": "Brisa",
+            "t": "Fourteen metres of sheer scarp and not one handhold that isn't a lie. I've tried them all. Twice."
+          },
+          {
+            "s": "Brisa",
+            "t": "The smart way up is the vent by the Steward. Get a gale kin to sing into it and the updraft carries you like a leaf."
+          },
+          {
+            "s": "Brisa",
+            "t": "There's a second, sulkier vent east of here, snagged full of lost kites. Galewick's kite-makers would pay to get those back."
+          }
+        ]
+      }
+    ]
+  },
+  "route_4_dunmore": {
+    "variants": [
+      {
+        "if": "flag_leftover_rescued",
+        "lines": [
+          {
+            "s": "Stillhand Dunmore",
+            "t": "Coils are off. Pens are open. I've been reassigned to 'reflection'. There isn't a form for that yet."
+          },
+          {
+            "s": "Stillhand Dunmore",
+            "t": "The strays all ran home singing. Never heard the Rise so loud. …It's not a bad sound, is it?"
+          }
+        ]
+      },
+      {
+        "if": "flag_stillhouse_found",
+        "lines": [
+          {
+            "s": "Stillhand Dunmore",
+            "t": "Honestly? I joined for the helmet. It's very warm."
+          },
+          {
+            "s": "Stillhand Dunmore",
+            "t": "Warden Vey's inside, rehearsing. The Warden rehearses everything. Even lunch."
+          }
+        ]
+      },
+      {
+        "lines": [
+          {
+            "s": "Stillhand Dunmore",
+            "t": "Tea break. Survey Depot No. 3's round the corner, but I'm not supposed to say that. So I didn't."
+          },
+          {
+            "s": "Stillhand Dunmore",
+            "t": "The Magister says unregulated stones are how people get hurt. She's usually right about hazards."
+          }
+        ]
+      }
+    ]
+  },
+  "route_4_cass_door": {
+    "variants": [
+      {
+        "lines": [
+          {
+            "s": "Cass",
+            "t": "{player}! Finally! I rode that updraft three times. Twice on purpose."
+          },
+          {
+            "s": "Cass",
+            "t": "Look at this place. Brass doors, a sign-in sheet, a *doormat*. Villains shouldn't have doormats."
+          },
+          {
+            "s": "Cass",
+            "t": "I heard kin inside. Lots of them. Not happy-noisy. Lost-noisy. Like the fosterage the morning ours bolted."
+          },
+          {
+            "s": "Cass",
+            "t": "Big quiet building full of engineers. You take the left wing, I'll take the right. If I scream, it's a strategy."
+          }
+        ],
+        "actions": [
+          {
+            "set": "flag_stillhouse_found"
+          },
+          {
+            "set": "flag_route4_updraft"
+          },
+          {
+            "quest": "q_main_ch08",
+            "step": 2
+          }
+        ]
+      }
+    ]
+  },
+  "dlg_t_rival_4_pre": {
+    "variants": [
+      {
+        "lines": [
+          {
+            "s": "Cass",
+            "t": "There you are. I've been standing here doing heroic poses for ten minutes. Nobody came by."
+          },
+          {
+            "s": "Cass",
+            "t": "We make a good team. I hate that. Battle me anyway — I need to know if we're even."
+          }
+        ]
+      }
+    ]
+  },
+  "dlg_t_rival_4_post": {
+    "variants": [
+      {
+        "lines": [
+          {
+            "s": "Cass",
+            "t": "Not even. Yet. Keep the gap warm for me."
+          },
+          {
+            "s": "Cass",
+            "t": "I took the barrier down while you were saying goodbye to the pens. It was very heavy. I was very brave."
+          },
+          {
+            "s": "Cass",
+            "t": "Cindral's west, over the top. Bastian runs the Forge Hall up there. Mum says he's the only Cantor who ever made her sweat."
+          },
+          {
+            "s": "Cass",
+            "t": "Literally. It's a volcano. See you at the caldera, {player}!"
+          }
+        ],
+        "actions": [
+          {
+            "money": 1000
+          },
+          {
+            "questDone": "q_main_ch08"
+          },
+          {
+            "quest": "q_main_ch09",
+            "step": 1
+          }
+        ]
+      }
+    ]
+  },
+  "dlg_t_rival_4_after": {
+    "variants": [
+      {
+        "lines": [
+          {
+            "s": "Cass",
+            "t": "I'm drawing our starters side by side on the rock. Yours has a bigger head. That's artistic licence, not an insult."
+          }
+        ]
+      }
+    ]
+  },
+  "dlg_08_steward_01": {
+    "variants": [
+      {
+        "lines": [
+          {
+            "s": "Steward Orrin",
+            "t": "Updrafts only lift for a gale voice. No gale kin? Hop on with mine."
+          }
+        ]
+      }
+    ]
+  },
+  "dlg_08_cass_01": {
+    "variants": [
+      {
+        "lines": [
+          {
+            "s": "Cass",
+            "t": "Big quiet building full of engineers. You take the left wing, I'll take the right. If I scream, it's a strategy."
+          }
+        ]
+      }
+    ]
+  },
+  "dlg_08_cass_pre": {
+    "variants": [
+      {
+        "lines": [
+          {
+            "s": "Cass",
+            "t": "We make a good team. I hate that. Battle me anyway — I need to know if we're even."
+          }
+        ]
+      }
+    ]
+  },
+  "dlg_08_cass_win": {
+    "variants": [
+      {
+        "lines": [
+          {
+            "s": "Cass",
+            "t": "Not even. Yet. Keep the gap warm for me."
+          }
+        ]
+      }
+    ]
+  },
+  "dlg_08_cass_lose": {
+    "variants": [
+      {
+        "lines": [
+          {
+            "s": "Cass",
+            "t": "Even! We're even. Don't argue, I'm savouring it."
+          }
+        ]
+      }
+    ]
+  }
+}

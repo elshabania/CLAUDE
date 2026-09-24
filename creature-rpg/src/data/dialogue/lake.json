@@ -1,0 +1,407 @@
+{
+ "lake_fen": {
+  "variants": [
+   {
+    "if": "!flag_lake_fen_hint",
+    "lines": [
+     {
+      "t": "Mm? Oh — a visitor. Right. You'll be wanting the bowl."
+     },
+     {
+      "t": "Stones on the far isle rise if you give 'em water. Worth a paddle, if you've a water kin."
+     }
+    ],
+    "actions": [
+     {
+      "set": "flag_lake_fen_hint"
+     }
+    ],
+    "choice": {
+     "options": [
+      {
+       "label": "Rest your troupe",
+       "actions": [
+        {
+         "heal": true
+        }
+       ]
+      },
+      {
+       "label": "Open the Fosterage ledger",
+       "actions": [
+        {
+         "ledger": true
+        }
+       ]
+      },
+      {
+       "label": "Recall a forgotten song",
+       "actions": [
+        {
+         "recall": true
+        }
+       ]
+      },
+      {
+       "label": "Just warming my hands",
+       "actions": []
+      }
+     ]
+    }
+   },
+   {
+    "lines": [
+     {
+      "t": "Mm? Oh — healing. Right. Or the ledger. Or… there was a third thing. Recall! That too."
+     }
+    ],
+    "choice": {
+     "options": [
+      {
+       "label": "Rest your troupe",
+       "actions": [
+        {
+         "heal": true
+        }
+       ]
+      },
+      {
+       "label": "Open the Fosterage ledger",
+       "actions": [
+        {
+         "ledger": true
+        }
+       ]
+      },
+      {
+       "label": "Recall a forgotten song",
+       "actions": [
+        {
+         "recall": true
+        }
+       ]
+      },
+      {
+       "label": "Just warming my hands",
+       "actions": []
+      }
+     ]
+    }
+   }
+  ]
+ },
+ "dlg_00_fen_01": {
+  "variants": [
+   {
+    "lines": [
+     {
+      "s": "Fen",
+      "t": "Mm? Oh — healing. Right. …Done. They were fine, mostly. Now they're finer."
+     }
+    ]
+   }
+  ]
+ },
+ "dlg_06_fen_02": {
+  "variants": [
+   {
+    "lines": [
+     {
+      "s": "Fen",
+      "t": "Stones on the far isle rise if you give 'em water. Worth a paddle, if you've a water kin."
+     }
+    ]
+   }
+  ]
+ },
+ "lake_dace": {
+  "variants": [
+   {
+    "lines": [
+     {
+      "t": "Stall's small, stock's damp, prices are dry. What'll it be?"
+     }
+    ],
+    "actions": [
+     {
+      "shop": "shop_lake"
+     }
+    ]
+   }
+  ]
+ },
+ "lake_boardwalker": {
+  "variants": [
+   {
+    "if": "flag_trial_3_cleared",
+    "lines": [
+     {
+      "t": "Hear that? The piles are humming. Nerys only lets them do that when someone's earned it."
+     },
+     {
+      "t": "The causeway's up, north past the hall. Galewick's windmills are waiting. So are its gulls. Guard your lunch."
+     }
+    ]
+   },
+   {
+    "lines": [
+     {
+      "t": "Mere Hall sits on four hundred piles. I've counted. Twice. Got different numbers, so I stopped."
+     },
+     {
+      "t": "Inside, the floor's flooded three levels deep. Out-sing a hall Tuner and a level drains. Beat both to reach Nerys."
+     },
+     {
+      "t": "Her kin are water. Verdant and electric voices sing loud in there — if you've got them, bring them."
+     }
+    ],
+    "actions": [
+     {
+      "quest": "q_main_ch06",
+      "step": 1
+     }
+    ]
+   }
+  ]
+ },
+ "lake_beaconkeeper": {
+  "variants": [
+   {
+    "if": "flag_q_beacons_done",
+    "lines": [
+     {
+      "t": "All three beacons burning. The night fishers finally stopped rowing into my house."
+     }
+    ]
+   },
+   {
+    "if": "flag_q_beacons_started && node:rn_lake_03 && node:rn_lake_04 && node:rn_lake_05",
+    "lines": [
+     {
+      "t": "You lit all three! West point, east shore, reed-isle. Like the lake remembered where its edges are."
+     },
+     {
+      "t": "Salves from my own shelf, and a little something for the lamp oil I'll never need again."
+     }
+    ],
+    "actions": [
+     {
+      "give": "i_salve_4",
+      "n": 3
+     },
+     {
+      "money": 750
+     },
+     {
+      "set": "flag_q_beacons_done"
+     },
+     {
+      "questDone": "q_side_gleam_beacons"
+     }
+    ]
+   },
+   {
+    "if": "flag_q_beacons_started",
+    "lines": [
+     {
+      "t": "Three beacons: the far west point, the east shore past the reed-isle, and the one by the Chordstone boardwalk."
+     },
+     {
+      "t": "A Gleam voice wakes them. Any lumen kin will do — they like an audience."
+     }
+    ]
+   },
+   {
+    "if": "has:i_keynote_6",
+    "lines": [
+     {
+      "t": "That Keynote — it's tuned to light, isn't it? Would you do an old lamp-keeper a kindness?"
+     },
+     {
+      "t": "My shore beacons went dark when the stones hushed. A lumen kin singing Gleam could wake them. All three."
+     }
+    ],
+    "actions": [
+     {
+      "set": "flag_q_beacons_started"
+     },
+     {
+      "quest": "q_side_gleam_beacons",
+      "step": 1
+     }
+    ]
+   },
+   {
+    "lines": [
+     {
+      "t": "I keep the shore beacons. Kept. They went dark when the stones went quiet, and no lamp oil wakes them now."
+     },
+     {
+      "t": "They want a lumen voice and a Keynote tuned to light. Come back if you ever carry both."
+     }
+    ]
+   }
+  ]
+ },
+ "lake_mab": {
+  "variants": [
+   {
+    "if": "flag_trial_3_cleared",
+    "lines": [
+     {
+      "t": "Reeds are perking up! Must be your doing. Or the weather. I'll credit you — it's more fun."
+     }
+    ]
+   },
+   {
+    "lines": [
+     {
+      "t": "Reeds grow faster when the lake hums. This year they've been sulking. Like me, when the kettle's slow."
+     }
+    ]
+   }
+  ]
+ },
+ "lake_tully": {
+  "variants": [
+   {
+    "if": "flag_trial_3_cleared",
+    "lines": [
+     {
+      "t": "You beat Nerys?! She skips stones eleven times. Eleven! You should challenge her to that next."
+     }
+    ]
+   },
+   {
+    "lines": [
+     {
+      "t": "Did you know the Mere Hall floats? It doesn't. But I tell everyone it does, and they get this look."
+     }
+    ]
+   }
+  ]
+ },
+ "lake_pollock": {
+  "variants": [
+   {
+    "lines": [
+     {
+      "t": "Forty years on this lake. Fish bite at dusk, kin bite at dawn. Or the other way round. I still mix it up."
+     },
+     {
+      "t": "Rain's the time for water kin. They come right up the shore to show off their splashing."
+     }
+    ]
+   }
+  ]
+ },
+ "lake_corr": {
+  "variants": [
+   {
+    "if": "flag_trial_3_cleared",
+    "lines": [
+     {
+      "t": "A scholar came through with a clipboard and three pencils, asking about kin songs. Marra, she said."
+     },
+     {
+      "t": "Off to Galewick now the causeway's up. Said the wind there has better acoustics. Whatever that means."
+     }
+    ]
+   },
+   {
+    "lines": [
+     {
+      "t": "Mending nets for the causeway crew. The causeway sleeps under the lake till the Mere Hall rings."
+     },
+     {
+      "t": "Old magic, or old plumbing. Nobody's sure. Either way, it's the Cantor's Keynote that wakes it."
+     }
+    ]
+   }
+  ]
+ },
+ "lake_surveyor": {
+  "variants": [
+   {
+    "lines": [
+     {
+      "t": "Work order 207: Mere Hall Chordstone, routine survey. The Cantor said, and I quote, 'The lake says no.'"
+     },
+     {
+      "t": "So I asked the lake. It didn't say anything. I've filed that as a 'maybe'."
+     }
+    ]
+   }
+  ]
+ },
+ "lake_brisa": {
+  "variants": [
+   {
+    "if": "flag_trial_3_cleared",
+    "lines": [
+     {
+      "t": "Up and dry! Galewick's straight north. Mind the gulls — they'll take a sandwich right out of your hand."
+     }
+    ]
+   },
+   {
+    "lines": [
+     {
+      "t": "Causeway to Galewick sleeps under the water till the Mere Hall rings. Nerys's Keynote does it."
+     },
+     {
+      "t": "Don't ask me how. I just keep the rope and shout 'mind the gap' at the fish."
+     }
+    ]
+   }
+  ]
+ },
+ "dlg_t_lk_01_after": {
+  "variants": [
+   {
+    "lines": [
+     {
+      "s": "Vance",
+      "t": "Lost the battle, caught a cold. Standard lake Tuesday."
+     }
+    ]
+   }
+  ]
+ },
+ "dlg_t_lk_02_after": {
+  "variants": [
+   {
+    "lines": [
+     {
+      "s": "Hettie",
+      "t": "The reed-isle stone's worth a visit. Touch it and it'll remember you. More than my ex ever did."
+     }
+    ]
+   }
+  ]
+ },
+ "dlg_t_lk_03_after": {
+  "variants": [
+   {
+    "lines": [
+     {
+      "s": "Nia",
+      "t": "Rain brings the water kin up the shore. Come back in a downpour. Bring a hat. Bring two."
+     }
+    ]
+   }
+  ]
+ },
+ "dlg_t_lk_04_after": {
+  "variants": [
+   {
+    "lines": [
+     {
+      "s": "Bram",
+      "t": "See the little isle? Current-stones out there. Sing 'em up with a water voice and find something shiny."
+     }
+    ]
+   }
+  ]
+ }
+}

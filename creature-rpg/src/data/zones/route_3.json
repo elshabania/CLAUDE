@@ -1315,6 +1315,15 @@
         86,
         5
       ]
+    },
+    {
+      "kind": "sign",
+      "at": [
+        86,
+        -5
+      ],
+      "yaw": 270,
+      "label": "Chalk doodle on the planks: two kin, one frog, and 'BACK IN 5 MIN — C.' (crossed out: 10) (crossed out: 20)"
     }
   ],
   "scatter": [

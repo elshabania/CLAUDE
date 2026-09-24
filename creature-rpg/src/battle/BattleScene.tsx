@@ -42,9 +42,9 @@ export function BattleScene() {
   const frame = useMemo(() => {
     if (!stage) return null;
     const yaw = ((stage.yaw ?? 90) * Math.PI) / 180;
-    const axis = new THREE.Vector3(Math.sin(yaw), 0, Math.cos(yaw)); // player -> foe
+    const axis = new THREE.Vector3(Math.sin(yaw), 0, -Math.cos(yaw)); // player -> foe (compass bearing: 0 = north/−z)
     const centre = new THREE.Vector3(stage.x, heightAt(stage.x, stage.z), stage.z);
-    return { axis, centre, side: new THREE.Vector3(axis.z, 0, -axis.x) };
+    return { axis, centre, side: new THREE.Vector3(-axis.z, 0, axis.x) }; // side = player's right
   }, [stage]);
 
   useEffect(() => {
@@ -74,7 +74,7 @@ export function BattleScene() {
     const save = useGame.getState().save!;
     const pl = assemble(humanVisual(playerLook(save.player.look.build, save.player.look.skin, save.player.look.hair)), { lod: 1, quality });
     trainers.current.player = { m: pl, a: new Animator(pl) };
-    const pp = frame.centre.clone().addScaledVector(frame.axis, -6.2).addScaledVector(frame.side, 1.6);
+    const pp = frame.centre.clone().addScaledVector(frame.axis, -5.4).addScaledVector(frame.side, -1.7);
     pl.root.position.set(pp.x, heightAt(pp.x, pp.z), pp.z);
     pl.root.rotation.y = Math.atan2(frame.axis.x, frame.axis.z);
     root.add(pl.root);
@@ -83,7 +83,7 @@ export function BattleScene() {
       const look = LOOKS[t.look] ?? LOOKS.villagerA;
       const fm = assemble(humanVisual(look), { lod: 1, quality });
       trainers.current.foe = { m: fm, a: new Animator(fm) };
-      const fp = frame.centre.clone().addScaledVector(frame.axis, 6.4).addScaledVector(frame.side, -1.6);
+      const fp = frame.centre.clone().addScaledVector(frame.axis, 5.6).addScaledVector(frame.side, 1.7);
       fm.root.position.set(fp.x, heightAt(fp.x, fp.z), fp.z);
       fm.root.rotation.y = Math.atan2(-frame.axis.x, -frame.axis.z);
       root.add(fm.root);
@@ -105,9 +105,9 @@ export function BattleScene() {
     slot.model = m;
     slot.anim = new Animator(m, CONTENT.species[species]?.stage === 3 ? 1.2 : CONTENT.species[species]?.stage === 2 ? 1.1 : 1);
     slot.species = species;
-    // large creatures are scaled for the stage (c30 ≈ 4.8 m long) so both faces stay readable
+    // stage presentation scale: large creatures (c30 ≈ 4.8 m long) shrink and tiny ones grow so both faces stay readable
     const L = Math.max(m.bounds.length, m.bounds.height);
-    const scale = L > 3 ? 3 / L : 1;
+    const scale = L > 3 ? 3 / L : L < 1.1 ? 1.1 / L : 1;
     m.root.scale.setScalar(scale);
     slot.group.add(m.root);
   };
@@ -117,7 +117,7 @@ export function BattleScene() {
     const sp = slots.current;
     const rp = (sp.player.model?.bounds.radius ?? 0.5) * (sp.player.model?.root.scale.x ?? 1);
     const rf = (sp.foe.model?.bounds.radius ?? 0.5) * (sp.foe.model?.root.scale.x ?? 1);
-    const half = 3.2 + (rp + rf) * 0.5;
+    const half = 1.5 + (rp + rf) * 0.9;
     const p = frame.centre.clone().addScaledVector(frame.axis, sd === 'player' ? -half : half);
     p.y = heightAt(p.x, p.z);
     return p;
@@ -353,18 +353,18 @@ export function BattleScene() {
     const phase = b.phase;
     if (phase === 'intro' && s.kind === 'intro') {
       const ang = 0.6 + s.t * 0.25;
-      want.copy(mid).addScaledVector(frame.side, Math.cos(ang) * 9).addScaledVector(frame.axis, Math.sin(ang) * 4).add(new THREE.Vector3(0, 3.2, 0));
+      want.copy(mid).addScaledVector(frame.side, Math.cos(ang) * 6.5).addScaledVector(frame.axis, Math.sin(ang) * 3).add(new THREE.Vector3(0, 2.4, 0));
       look.copy(mid).add(new THREE.Vector3(0, 0.8, 0));
     } else if ((s.kind === 'attack' || s.kind === 'focus') && s.t < 1.4 && s.side) {
       const subj = s.side === 'player' ? pc : fc;
       const h = s.side === 'player' ? ph : fh;
       const toward = s.side === 'player' ? frame.axis : frame.axis.clone().negate();
-      want.copy(subj).addScaledVector(toward, 2.6 + h * 1.6).addScaledVector(frame.side, (s.side === 'player' ? 1 : -1) * (2.2 + h)).add(new THREE.Vector3(0, 0.8 + h * 0.6, 0));
+      want.copy(subj).addScaledVector(toward, 1.8 + h * 1.3).addScaledVector(frame.side, (s.side === 'player' ? 1 : -1) * (1.4 + h * 0.8)).add(new THREE.Vector3(0, 0.6 + h * 0.5, 0));
       look.copy(subj).add(new THREE.Vector3(0, h * 0.55, 0));
     } else {
       // command view: over the player's shoulder, opponent face readable (≥ 8 % of viewport)
-      want.copy(pc).addScaledVector(frame.axis, -3.4 - ph * 1.2).addScaledVector(frame.side, 2.4 + ph).add(new THREE.Vector3(0, 1.4 + ph * 0.8, 0));
-      look.copy(fc).add(new THREE.Vector3(0, fh * 0.45, 0)).lerp(mid, 0.25);
+      want.copy(pc).addScaledVector(frame.axis, -2.0 - ph * 1.1).addScaledVector(frame.side, 1.3 + ph * 0.7).add(new THREE.Vector3(0, 0.9 + ph * 0.7, 0));
+      look.copy(fc).add(new THREE.Vector3(0, fh * 0.45, 0)).lerp(mid, 0.35);
     }
     // keep camera above terrain
     want.y = Math.max(want.y, heightAt(want.x, want.z) + 0.8);

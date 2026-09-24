@@ -1,0 +1,1651 @@
+{
+ "id": "lake",
+ "name": "Sillowmere",
+ "biome": "lake",
+ "attuned": "water",
+ "music": "lake",
+ "terrain": {
+  "seed": 606,
+  "size": [
+   220,
+   220
+  ],
+  "base": 2.2,
+  "amp": 2.4,
+  "scale": 30,
+  "rim": 14,
+  "rimWidth": 14,
+  "hills": [
+   {
+    "at": [
+     -90,
+     -85
+    ],
+    "r": 26,
+    "h": 9
+   },
+   {
+    "at": [
+     90,
+     -88
+    ],
+    "r": 24,
+    "h": 8
+   },
+   {
+    "at": [
+     -92,
+     80
+    ],
+    "r": 22,
+    "h": 8
+   },
+   {
+    "at": [
+     92,
+     85
+    ],
+    "r": 22,
+    "h": 9
+   },
+   {
+    "at": [
+     -95,
+     40
+    ],
+    "r": 16,
+    "h": 5
+   },
+   {
+    "at": [
+     96,
+     -30
+    ],
+    "r": 18,
+    "h": 6
+   },
+   {
+    "at": [
+     -40,
+     92
+    ],
+    "r": 14,
+    "h": 4
+   },
+   {
+    "at": [
+     45,
+     96
+    ],
+    "r": 12,
+    "h": 4
+   }
+  ],
+  "flats": [
+   {
+    "at": [
+     0,
+     -10
+    ],
+    "r": 14
+   },
+   {
+    "at": [
+     0,
+     50
+    ],
+    "r": 9
+   },
+   {
+    "at": [
+     60,
+     70
+    ],
+    "r": 12
+   },
+   {
+    "at": [
+     -60,
+     60
+    ],
+    "r": 5
+   },
+   {
+    "at": [
+     45,
+     -45
+    ],
+    "r": 4
+   },
+   {
+    "at": [
+     -75,
+     30
+    ],
+    "r": 7
+   },
+   {
+    "at": [
+     70,
+     40
+    ],
+    "r": 7
+   },
+   {
+    "at": [
+     30,
+     85
+    ],
+    "r": 7
+   },
+   {
+    "at": [
+     40,
+     80
+    ],
+    "r": 4
+   },
+   {
+    "at": [
+     -60,
+     40
+    ],
+    "r": 4
+   },
+   {
+    "at": [
+     -70,
+     -30
+    ],
+    "r": 4
+   },
+   {
+    "at": [
+     70,
+     -10
+    ],
+    "r": 4
+   },
+   {
+    "at": [
+     0,
+     92
+    ],
+    "r": 6
+   },
+   {
+    "at": [
+     -60,
+     -50
+    ],
+    "r": 4
+   },
+   {
+    "at": [
+     60,
+     -20
+    ],
+    "r": 4
+   },
+   {
+    "at": [
+     -40,
+     60
+    ],
+    "r": 3
+   },
+   {
+    "at": [
+     62,
+     -45
+    ],
+    "r": 4
+   },
+   {
+    "at": [
+     6,
+     -66
+    ],
+    "r": 4
+   }
+  ],
+  "paths": [
+   {
+    "pts": [
+     [
+      -110,
+      0
+     ],
+     [
+      -92,
+      0
+     ],
+     [
+      -78,
+      12
+     ],
+     [
+      -70,
+      30
+     ],
+     [
+      -60,
+      40
+     ],
+     [
+      -40,
+      46
+     ],
+     [
+      -18,
+      50
+     ],
+     [
+      0,
+      50
+     ]
+    ],
+    "w": 5
+   },
+   {
+    "pts": [
+     [
+      -60,
+      40
+     ],
+     [
+      -60,
+      60
+     ]
+    ],
+    "w": 3.5
+   },
+   {
+    "pts": [
+     [
+      0,
+      50
+     ],
+     [
+      0,
+      4
+     ]
+    ],
+    "w": 4
+   },
+   {
+    "pts": [
+     [
+      0,
+      50
+     ],
+     [
+      0,
+      110
+     ]
+    ],
+    "w": 5
+   },
+   {
+    "pts": [
+     [
+      0,
+      50
+     ],
+     [
+      25,
+      60
+     ],
+     [
+      45,
+      70
+     ],
+     [
+      60,
+      72
+     ]
+    ],
+    "w": 5
+   },
+   {
+    "pts": [
+     [
+      60,
+      72
+     ],
+     [
+      70,
+      40
+     ],
+     [
+      72,
+      10
+     ],
+     [
+      70,
+      -10
+     ],
+     [
+      62,
+      -45
+     ],
+     [
+      45,
+      -66
+     ],
+     [
+      0,
+      -66
+     ]
+    ],
+    "w": 4.5
+   },
+   {
+    "pts": [
+     [
+      -92,
+      0
+     ],
+     [
+      -80,
+      -20
+     ],
+     [
+      -70,
+      -30
+     ],
+     [
+      -62,
+      -50
+     ],
+     [
+      -40,
+      -64
+     ],
+     [
+      0,
+      -66
+     ]
+    ],
+    "w": 4.5
+   },
+   {
+    "pts": [
+     [
+      0,
+      -66
+     ],
+     [
+      0,
+      -110
+     ]
+    ],
+    "w": 5
+   }
+  ],
+  "water": [
+   {
+    "at": [
+     22.63,
+     12.63
+    ],
+    "r": 18,
+    "depth": 2.2,
+    "level": 1.2
+   },
+   {
+    "at": [
+     30.91,
+     -1.72
+    ],
+    "r": 18,
+    "depth": 2.2,
+    "level": 1.2
+   },
+   {
+    "at": [
+     30.91,
+     -18.28
+    ],
+    "r": 18,
+    "depth": 2.2,
+    "level": 1.2
+   },
+   {
+    "at": [
+     22.63,
+     -32.63
+    ],
+    "r": 18,
+    "depth": 2.2,
+    "level": 1.2
+   },
+   {
+    "at": [
+     8.28,
+     -40.91
+    ],
+    "r": 18,
+    "depth": 2.2,
+    "level": 1.2
+   },
+   {
+    "at": [
+     -8.28,
+     -40.91
+    ],
+    "r": 18,
+    "depth": 2.2,
+    "level": 1.2
+   },
+   {
+    "at": [
+     -22.63,
+     -32.63
+    ],
+    "r": 18,
+    "depth": 2.2,
+    "level": 1.2
+   },
+   {
+    "at": [
+     -30.91,
+     -18.28
+    ],
+    "r": 18,
+    "depth": 2.2,
+    "level": 1.2
+   },
+   {
+    "at": [
+     -30.91,
+     -1.72
+    ],
+    "r": 18,
+    "depth": 2.2,
+    "level": 1.2
+   },
+   {
+    "at": [
+     -22.63,
+     12.63
+    ],
+    "r": 18,
+    "depth": 2.2,
+    "level": 1.2
+   },
+   {
+    "at": [
+     -10,
+     26
+    ],
+    "r": 7,
+    "depth": 1.6,
+    "level": 1.2
+   },
+   {
+    "at": [
+     -10,
+     37
+    ],
+    "r": 6,
+    "depth": 1.4,
+    "level": 1.2
+   },
+   {
+    "at": [
+     10,
+     26
+    ],
+    "r": 7,
+    "depth": 1.6,
+    "level": 1.2
+   },
+   {
+    "at": [
+     10,
+     37
+    ],
+    "r": 6,
+    "depth": 1.4,
+    "level": 1.2
+   },
+   {
+    "at": [
+     -10,
+     -80
+    ],
+    "r": 8,
+    "depth": 2.0,
+    "level": 1.2
+   },
+   {
+    "at": [
+     10,
+     -80
+    ],
+    "r": 8,
+    "depth": 2.0,
+    "level": 1.2
+   },
+   {
+    "at": [
+     -21,
+     -80
+    ],
+    "r": 8,
+    "depth": 2.0,
+    "level": 1.2
+   },
+   {
+    "at": [
+     21,
+     -80
+    ],
+    "r": 8,
+    "depth": 2.0,
+    "level": 1.2
+   },
+   {
+    "at": [
+     -32,
+     -80
+    ],
+    "r": 8,
+    "depth": 2.0,
+    "level": 1.2
+   },
+   {
+    "at": [
+     32,
+     -80
+    ],
+    "r": 8,
+    "depth": 2.0,
+    "level": 1.2
+   },
+   {
+    "at": [
+     -43,
+     -80
+    ],
+    "r": 8,
+    "depth": 2.0,
+    "level": 1.2
+   },
+   {
+    "at": [
+     43,
+     -80
+    ],
+    "r": 8,
+    "depth": 2.0,
+    "level": 1.2
+   },
+   {
+    "at": [
+     -54,
+     -80
+    ],
+    "r": 8,
+    "depth": 2.0,
+    "level": 1.2
+   },
+   {
+    "at": [
+     54,
+     -80
+    ],
+    "r": 8,
+    "depth": 2.0,
+    "level": 1.2
+   },
+   {
+    "at": [
+     -65,
+     -80
+    ],
+    "r": 8,
+    "depth": 2.0,
+    "level": 1.2
+   },
+   {
+    "at": [
+     65,
+     -80
+    ],
+    "r": 8,
+    "depth": 2.0,
+    "level": 1.2
+   },
+   {
+    "at": [
+     -76,
+     -80
+    ],
+    "r": 8,
+    "depth": 2.0,
+    "level": 1.2
+   },
+   {
+    "at": [
+     76,
+     -80
+    ],
+    "r": 8,
+    "depth": 2.0,
+    "level": 1.2
+   },
+   {
+    "at": [
+     -87,
+     -80
+    ],
+    "r": 8,
+    "depth": 2.0,
+    "level": 1.2
+   },
+   {
+    "at": [
+     87,
+     -80
+    ],
+    "r": 8,
+    "depth": 2.0,
+    "level": 1.2
+   },
+   {
+    "at": [
+     -98,
+     -80
+    ],
+    "r": 8,
+    "depth": 2.0,
+    "level": 1.2
+   },
+   {
+    "at": [
+     98,
+     -80
+    ],
+    "r": 8,
+    "depth": 2.0,
+    "level": 1.2
+   },
+   {
+    "at": [
+     -55.9,
+     71.28
+    ],
+    "r": 6.5,
+    "depth": 1.4,
+    "level": 1.2
+   },
+   {
+    "at": [
+     -49.61,
+     66.0
+    ],
+    "r": 6.5,
+    "depth": 1.4,
+    "level": 1.2
+   },
+   {
+    "at": [
+     -48.18,
+     57.92
+    ],
+    "r": 6.5,
+    "depth": 1.4,
+    "level": 1.2
+   },
+   {
+    "at": [
+     -52.29,
+     50.81
+    ],
+    "r": 6.5,
+    "depth": 1.4,
+    "level": 1.2
+   },
+   {
+    "at": [
+     -67.71,
+     50.81
+    ],
+    "r": 6.5,
+    "depth": 1.4,
+    "level": 1.2
+   },
+   {
+    "at": [
+     -71.82,
+     57.92
+    ],
+    "r": 6.5,
+    "depth": 1.4,
+    "level": 1.2
+   },
+   {
+    "at": [
+     -70.39,
+     66.0
+    ],
+    "r": 6.5,
+    "depth": 1.4,
+    "level": 1.2
+   },
+   {
+    "at": [
+     -64.1,
+     71.28
+    ],
+    "r": 6.5,
+    "depth": 1.4,
+    "level": 1.2
+   },
+   {
+    "at": [
+     53.43,
+     -52.07
+    ],
+    "r": 6,
+    "depth": 1.4,
+    "level": 1.2
+   },
+   {
+    "at": [
+     46.91,
+     -55.83
+    ],
+    "r": 6,
+    "depth": 1.4,
+    "level": 1.2
+   },
+   {
+    "at": [
+     39.5,
+     -54.53
+    ],
+    "r": 6,
+    "depth": 1.4,
+    "level": 1.2
+   },
+   {
+    "at": [
+     34.66,
+     -48.76
+    ],
+    "r": 6,
+    "depth": 1.4,
+    "level": 1.2
+   },
+   {
+    "at": [
+     34.66,
+     -41.24
+    ],
+    "r": 6,
+    "depth": 1.4,
+    "level": 1.2
+   },
+   {
+    "at": [
+     39.5,
+     -35.47
+    ],
+    "r": 6,
+    "depth": 1.4,
+    "level": 1.2
+   },
+   {
+    "at": [
+     46.91,
+     -34.17
+    ],
+    "r": 6,
+    "depth": 1.4,
+    "level": 1.2
+   },
+   {
+    "at": [
+     53.43,
+     -37.93
+    ],
+    "r": 6,
+    "depth": 1.4,
+    "level": 1.2
+   }
+  ]
+ },
+ "palette": {
+  "ground": "#7FA86A",
+  "ground2": "#98B97A",
+  "path": "#C9B58E",
+  "cliff": "#7D8A86",
+  "accent": "#E8E1C9",
+  "sky": "#BFDCEB",
+  "fog": "#CFE4EE"
+ },
+ "fogDensity": 0.006,
+ "weather": {
+  "clear": 55,
+  "rain": 30,
+  "fog": 15
+ },
+ "spawns": [
+  {
+   "id": "sp_lake_w",
+   "at": [
+    -92,
+    0
+   ],
+   "yaw": 90
+  },
+  {
+   "id": "sp_lake_n",
+   "at": [
+    0,
+    -92
+   ],
+   "yaw": 180
+  },
+  {
+   "id": "sp_lake_s",
+   "at": [
+    0,
+    90
+   ],
+   "yaw": 0
+  },
+  {
+   "id": "sp_lake_hall",
+   "at": [
+    0,
+    10
+   ],
+   "yaw": 180
+  },
+  {
+   "id": "sp_lake_hearth",
+   "at": [
+    60,
+    76
+   ],
+   "yaw": 0
+  },
+  {
+   "id": "sp_lake_ws",
+   "at": [
+    -60,
+    65
+   ],
+   "yaw": 0
+  }
+ ],
+ "exits": [
+  {
+   "id": "x_lake_w",
+   "at": [
+    -106,
+    0
+   ],
+   "r": 5,
+   "to": "route_3",
+   "spawn": "sp_route_3_e",
+   "label": "Sallowfen"
+  },
+  {
+   "id": "x_lake_n",
+   "at": [
+    0,
+    -106
+   ],
+   "r": 5,
+   "to": "town_3",
+   "spawn": "sp_town_3_s",
+   "label": "Galewick",
+   "gate": {
+    "flag": "flag_trial_3_cleared",
+    "message": "The causeway is still under the water. Brisa says it only rises when the Mere Hall rings."
+   }
+  },
+  {
+   "id": "x_lake_s",
+   "at": [
+    0,
+    106
+   ],
+   "r": 5,
+   "to": "town_2",
+   "spawn": "sp_town_2_n",
+   "label": "Knellstone (old lake road)"
+  },
+  {
+   "id": "x_lake_hall",
+   "at": [
+    0,
+    4.5
+   ],
+   "r": 2.5,
+   "to": "trial_3",
+   "spawn": "sp_trial_3_door",
+   "label": "Mere Hall",
+   "gate": {
+    "flag": "flag_rival_3_done",
+    "message": "The Mere Hall door is barred. A chalked slate: 'Cantor out on the water. Back at slack tide.'"
+   }
+  }
+ ],
+ "props": [
+  {
+   "kind": "hall_mere",
+   "at": [
+    0,
+    -3.5
+   ],
+   "yaw": 180,
+   "color": "#2E86DE",
+   "label": "Mere Hall"
+  },
+  {
+   "kind": "sign",
+   "at": [
+    4,
+    8
+   ],
+   "yaw": 180,
+   "label": "Mere Hall — Cantor Nerys Tidewell. Bring something honest."
+  },
+  {
+   "kind": "hearth",
+   "at": [
+    60,
+    63
+   ],
+   "yaw": 180,
+   "label": "Sillowmere Hearthrest"
+  },
+  {
+   "kind": "stall",
+   "at": [
+    68.5,
+    70
+   ],
+   "yaw": 270,
+   "color": "#2E6F95",
+   "label": "Stilt-hamlet Stall"
+  },
+  {
+   "kind": "chordstone",
+   "at": [
+    -60,
+    60
+   ],
+   "color": "#A9D6E5",
+   "label": "Sillowmere Chordstone"
+  },
+  {
+   "kind": "bridge",
+   "at": [
+    -60,
+    48
+   ],
+   "yaw": 0,
+   "d": 8,
+   "w": 3,
+   "label": "Reed-isle boardwalk"
+  },
+  {
+   "kind": "bridge",
+   "at": [
+    0,
+    28
+   ],
+   "yaw": 0,
+   "d": 22,
+   "w": 3.6,
+   "label": "Pile boardwalk"
+  },
+  {
+   "kind": "bridge",
+   "at": [
+    0,
+    11
+   ],
+   "yaw": 0,
+   "d": 8,
+   "w": 3.6
+  },
+  {
+   "kind": "wall",
+   "at": [
+    0,
+    -80
+   ],
+   "w": 7.5,
+   "h": 1.0,
+   "color": "#4F8FB0",
+   "hideIf": "flag_trial_3_cleared",
+   "label": "Sunken causeway — lake water laps over the stones"
+  },
+  {
+   "kind": "bridge",
+   "at": [
+    0,
+    -80
+   ],
+   "yaw": 0,
+   "d": 18,
+   "w": 4,
+   "showIf": "flag_trial_3_cleared",
+   "label": "Galewick causeway (raised)"
+  },
+  {
+   "kind": "sign",
+   "at": [
+    5,
+    -68
+   ],
+   "yaw": 180,
+   "label": "Galewick causeway — rises when the Mere Hall's Keynote is won"
+  },
+  {
+   "kind": "sign",
+   "at": [
+    -96,
+    6
+   ],
+   "yaw": 90,
+   "label": "Sillowmere — stilt-hamlet east, Mere Hall on the water"
+  },
+  {
+   "kind": "sign",
+   "at": [
+    5,
+    84
+   ],
+   "yaw": 180,
+   "label": "Old lake road to Knellstone — closed by rockfall"
+  },
+  {
+   "kind": "sign",
+   "at": [
+    50,
+    -41
+   ],
+   "yaw": 90,
+   "label": "A soggy note on a stake: 'Silver for the swimmer. —F.'"
+  },
+  {
+   "kind": "stilthouse",
+   "at": [
+    -14,
+    47
+   ]
+  },
+  {
+   "kind": "stilthouse",
+   "at": [
+    14,
+    46
+   ],
+   "yaw": 90
+  },
+  {
+   "kind": "stilthouse",
+   "at": [
+    -22,
+    60
+   ],
+   "yaw": 180
+  },
+  {
+   "kind": "stilthouse",
+   "at": [
+    18,
+    63
+   ],
+   "yaw": 270
+  },
+  {
+   "kind": "stilthouse",
+   "at": [
+    46,
+    57
+   ]
+  },
+  {
+   "kind": "stilthouse",
+   "at": [
+    75,
+    57
+   ],
+   "yaw": 90
+  },
+  {
+   "kind": "stilthouse",
+   "at": [
+    77,
+    77
+   ],
+   "yaw": 180
+  },
+  {
+   "kind": "stilthouse",
+   "at": [
+    58,
+    86
+   ],
+   "yaw": 270
+  },
+  {
+   "kind": "lamp",
+   "at": [
+    2.6,
+    20
+   ]
+  },
+  {
+   "kind": "lamp",
+   "at": [
+    -2.6,
+    34
+   ]
+  },
+  {
+   "kind": "lamp",
+   "at": [
+    2.6,
+    6
+   ]
+  },
+  {
+   "kind": "lamp",
+   "at": [
+    -4,
+    54
+   ]
+  },
+  {
+   "kind": "lamp",
+   "at": [
+    55,
+    75
+   ]
+  },
+  {
+   "kind": "lamp",
+   "at": [
+    -57,
+    56
+   ]
+  },
+  {
+   "kind": "lamp",
+   "at": [
+    -4,
+    -70
+   ]
+  },
+  {
+   "kind": "lamp",
+   "at": [
+    -4,
+    -91
+   ]
+  },
+  {
+   "kind": "crate",
+   "at": [
+    7,
+    54
+   ]
+  },
+  {
+   "kind": "crate",
+   "at": [
+    8,
+    55.2
+   ],
+   "s": 0.7
+  },
+  {
+   "kind": "crate",
+   "at": [
+    66,
+    74
+   ]
+  },
+  {
+   "kind": "well",
+   "at": [
+    -6,
+    44
+   ]
+  },
+  {
+   "kind": "windmill",
+   "at": [
+    -40,
+    -98
+   ]
+  },
+  {
+   "kind": "windmill",
+   "at": [
+    48,
+    -99
+   ]
+  },
+  {
+   "kind": "boulder",
+   "at": [
+    -9,
+    99
+   ],
+   "s": 1.4
+  },
+  {
+   "kind": "boulder",
+   "at": [
+    9,
+    99
+   ],
+   "s": 1.4
+  },
+  {
+   "kind": "willow",
+   "at": [
+    -78,
+    50
+   ]
+  },
+  {
+   "kind": "willow",
+   "at": [
+    78,
+    22
+   ]
+  },
+  {
+   "kind": "willow",
+   "at": [
+    -30,
+    -76
+   ]
+  }
+ ],
+ "scatter": [
+  {
+   "kind": "willow",
+   "density": 0.35,
+   "minDist": 7
+  },
+  {
+   "kind": "tree",
+   "density": 0.35,
+   "minDist": 6
+  },
+  {
+   "kind": "bush",
+   "density": 0.9,
+   "minDist": 3
+  },
+  {
+   "kind": "grass",
+   "density": 11,
+   "minDist": 0.9
+  },
+  {
+   "kind": "flowers",
+   "density": 3,
+   "minDist": 1.2
+  },
+  {
+   "kind": "reeds",
+   "density": 9,
+   "minDist": 0.8,
+   "avoidPaths": true
+  },
+  {
+   "kind": "rock",
+   "density": 0.3,
+   "minDist": 5
+  }
+ ],
+ "npcs": [
+  {
+   "id": "npc_hk_lake",
+   "at": [
+    56,
+    70
+   ],
+   "yaw": 180,
+   "look": "hearth3",
+   "name": "Fen",
+   "dialogue": "lake_fen",
+   "role": "hearth"
+  },
+  {
+   "id": "npc_ch_lake",
+   "at": [
+    65,
+    70
+   ],
+   "yaw": 180,
+   "look": "chandler",
+   "name": "Dace",
+   "dialogue": "lake_dace",
+   "role": "shop",
+   "shop": "shop_lake"
+  },
+  {
+   "id": "npc_boardwalker",
+   "at": [
+    4,
+    44
+   ],
+   "yaw": 270,
+   "look": "hiker",
+   "name": "Boardwalker Osk",
+   "dialogue": "lake_boardwalker",
+   "role": "villager"
+  },
+  {
+   "id": "npc_beaconkeeper",
+   "at": [
+    51,
+    72
+   ],
+   "yaw": 90,
+   "look": "scholar",
+   "name": "Beaconkeeper Liss",
+   "dialogue": "lake_beaconkeeper",
+   "role": "quest"
+  },
+  {
+   "id": "npc_hamlet_1",
+   "at": [
+    62,
+    79
+   ],
+   "yaw": 0,
+   "look": "villagerA",
+   "name": "Reedcutter Mab",
+   "dialogue": "lake_mab",
+   "role": "villager"
+  },
+  {
+   "id": "npc_hamlet_2",
+   "at": [
+    44,
+    66
+   ],
+   "yaw": 90,
+   "look": "villagerC",
+   "name": "Tully",
+   "dialogue": "lake_tully",
+   "role": "villager"
+  },
+  {
+   "id": "npc_hamlet_3",
+   "at": [
+    70,
+    66
+   ],
+   "yaw": 270,
+   "look": "angler",
+   "name": "Old Pollock",
+   "dialogue": "lake_pollock",
+   "role": "villager"
+  },
+  {
+   "id": "npc_hamlet_4",
+   "at": [
+    -6,
+    54
+   ],
+   "yaw": 90,
+   "look": "villagerB",
+   "name": "Net-mender Corr",
+   "dialogue": "lake_corr",
+   "role": "villager"
+  },
+  {
+   "id": "npc_lake_surveyor",
+   "at": [
+    -2.4,
+    16
+   ],
+   "yaw": 90,
+   "look": "stillhand",
+   "name": "Survey Engineer",
+   "dialogue": "lake_surveyor",
+   "role": "villager",
+   "hideIf": "flag_trial_3_cleared"
+  },
+  {
+   "id": "npc_lake_ferry",
+   "at": [
+    6,
+    -66
+   ],
+   "yaw": 180,
+   "look": "angler",
+   "name": "Causeway-keeper Brisa",
+   "dialogue": "lake_brisa",
+   "role": "villager"
+  }
+ ],
+ "trainers": [
+  {
+   "id": "t_lk_01",
+   "at": [
+    40,
+    80
+   ],
+   "yaw": 270,
+   "sight": 8
+  },
+  {
+   "id": "t_lk_02",
+   "at": [
+    -60,
+    40
+   ],
+   "yaw": 90,
+   "sight": 8
+  },
+  {
+   "id": "t_lk_03",
+   "at": [
+    -70,
+    -30
+   ],
+   "yaw": 90,
+   "sight": 8
+  },
+  {
+   "id": "t_lk_04",
+   "at": [
+    70,
+    -10
+   ],
+   "yaw": 270,
+   "sight": 8
+  }
+ ],
+ "nodes": [
+  {
+   "id": "rn_lake_01",
+   "type": "water",
+   "at": [
+    62,
+    -45
+   ],
+   "yaw": 270,
+   "kind": "current",
+   "reward": {
+    "item": "i_chime_silver",
+    "count": 2
+   },
+   "blocker": {
+    "at": [
+     54,
+     -45
+    ],
+    "w": 1.6,
+    "d": 9
+   }
+  },
+  {
+   "id": "rn_lake_02",
+   "type": "stone",
+   "at": [
+    0,
+    95
+   ],
+   "yaw": 180,
+   "kind": "boulder",
+   "opens": "x_lake_s",
+   "blocker": {
+    "at": [
+     0,
+     99
+    ],
+    "w": 26,
+    "d": 2.5
+   }
+  },
+  {
+   "id": "rn_lake_03",
+   "type": "lumen",
+   "at": [
+    -60,
+    -50
+   ],
+   "yaw": 0,
+   "kind": "beacon"
+  },
+  {
+   "id": "rn_lake_04",
+   "type": "lumen",
+   "at": [
+    60,
+    -20
+   ],
+   "yaw": 0,
+   "kind": "beacon"
+  },
+  {
+   "id": "rn_lake_05",
+   "type": "lumen",
+   "at": [
+    -40,
+    60
+   ],
+   "yaw": 0,
+   "kind": "beacon"
+  }
+ ],
+ "pickups": [
+  {
+   "id": "pk_lake_01",
+   "at": [
+    -50,
+    40
+   ],
+   "item": "i_salve_3",
+   "count": 1
+  },
+  {
+   "id": "pk_lake_02",
+   "at": [
+    70,
+    30
+   ],
+   "item": "i_revive_1",
+   "count": 1
+  },
+  {
+   "id": "pk_lake_03",
+   "at": [
+    -80,
+    -60
+   ],
+   "item": "i_chime_silver",
+   "count": 2
+  },
+  {
+   "id": "pk_lake_04",
+   "at": [
+    30,
+    90
+   ],
+   "item": "money",
+   "money": 800,
+   "hidden": true
+  }
+ ],
+ "wildRegions": [
+  {
+   "at": [
+    -80,
+    -20
+   ],
+   "r": 18
+  },
+  {
+   "at": [
+    75,
+    10
+   ],
+   "r": 16
+  },
+  {
+   "at": [
+    -30,
+    80
+   ],
+   "r": 15
+  },
+  {
+   "at": [
+    30,
+    -96
+   ],
+   "r": 8
+  }
+ ],
+ "maxWild": 6,
+ "encounters": "lake",
+ "battleStages": [
+  {
+   "at": [
+    -75,
+    30
+   ],
+   "yaw": 90
+  },
+  {
+   "at": [
+    70,
+    40
+   ],
+   "yaw": 90
+  },
+  {
+   "at": [
+    30,
+    85
+   ],
+   "yaw": 90
+  }
+ ],
+ "hearthSpawn": "sp_lake_hearth",
+ "waystone": [
+  -60,
+  60
+ ]
+}

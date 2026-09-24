@@ -388,7 +388,7 @@
       "spawn": "sp_lake_s",
       "label": "Sillowmere (old lake road)",
       "gate": {
-        "flag": "rn_lake_02",
+        "register": "rn_lake_02",
         "message": "A rockfall buries the old lake road. It sounds hollow — as if it could be shifted from the other side."
       }
     },
@@ -627,7 +627,7 @@
     {
       "kind": "wall",
       "at": [
-        -73,
+        -84,
         0
       ],
       "w": 10,
@@ -670,13 +670,13 @@
       "kind": "wall",
       "at": [
         40,
-        -75
+        -84
       ],
       "w": 12,
       "h": 6,
       "color": "#8E8676",
       "label": "Rockfall",
-      "hideIf": "rn_lake_02"
+      "hideIf": "node:rn_lake_02"
     },
     {
       "kind": "lamp",
@@ -952,8 +952,8 @@
     {
       "id": "npc_town_2_surveyor",
       "at": [
-        -10,
-        -29
+        -4,
+        -28
       ],
       "yaw": 0,
       "look": "stillhand",
@@ -990,6 +990,36 @@
         "item": "i_chime_silver",
         "count": 1
       }
+    },
+    {
+      "id": "rn_town_2_02",
+      "type": "electric",
+      "at": [
+        -10,
+        -31.5
+      ],
+      "yaw": 180,
+      "kind": "lode"
+    },
+    {
+      "id": "rn_town_2_03",
+      "type": "electric",
+      "at": [
+        30,
+        -21.5
+      ],
+      "yaw": 180,
+      "kind": "lode"
+    },
+    {
+      "id": "rn_town_2_04",
+      "type": "electric",
+      "at": [
+        -45,
+        -36.5
+      ],
+      "yaw": 180,
+      "kind": "lode"
     }
   ],
   "pickups": [

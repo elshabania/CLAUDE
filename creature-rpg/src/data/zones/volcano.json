@@ -372,7 +372,7 @@
       ],
       "r": 5,
       "to": "route_4",
-      "spawn": "sp_route_4_w",
+      "spawn": "from_volcano",
       "label": "Highscar Rise"
     },
     {

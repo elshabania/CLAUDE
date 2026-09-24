@@ -13,7 +13,7 @@
           },
           {
             "s": "Oriel's letter",
-            "t": "\"Bring your {starter} and the {leftover} home to the green stone, {player}. I have a feeling the three of them want to be in the same chord.\""
+            "t": "\"Bring your {starter} and the {leftover} home to the green stone, {player}. I think the three of them want to be in the same chord.\""
           }
         ],
         "actions": [
@@ -117,10 +117,15 @@
         ]
       },
       {
-        "if": "flag_volcano_vent_cooled",
+        "if": "flag_volcano_vent_cooled || node:rn_volcano_01",
         "lines": [
           {
             "t": "Vent's cool, door's open. Bastian's inside. He'll tell you heat is honest. He always does."
+          }
+        ],
+        "actions": [
+          {
+            "set": "flag_volcano_vent_cooled"
           }
         ]
       },
@@ -148,7 +153,15 @@
               "actions": []
             }
           ]
-        }
+        },
+        "if": "flag_rival_4_done"
+      },
+      {
+        "lines": [
+          {
+            "t": "Hall's shut till the vent's sorted, and the vent's shut till I've a reason. Bastian's orders: 'Nobody sweats in my hall uninvited.'"
+          }
+        ]
       }
     ]
   },
@@ -193,6 +206,30 @@
           },
           {
             "t": "Don't lean on them after noon, though. Or sit on them. Or lick them. You'd be amazed."
+          }
+        ]
+      }
+    ]
+  },
+  "dlg_09_plaque": {
+    "variants": [
+      {
+        "lines": [
+          {
+            "s": "Memorial plaque",
+            "t": "For the herd of the Ash Flats, who ran toward the loudest stone."
+          }
+        ]
+      }
+    ]
+  },
+  "dlg_09_hallsteward_01": {
+    "variants": [
+      {
+        "lines": [
+          {
+            "s": "Hall steward Corran",
+            "t": "Vent's overheated. A water kin could cool it — or wait, I'll open the side sluice for you. Give me a moment."
           }
         ]
       }

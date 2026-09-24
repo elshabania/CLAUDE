@@ -1,0 +1,1409 @@
+{
+  "id": "route_4",
+  "name": "Highscar Rise",
+  "biome": "cliff",
+  "attuned": "gale",
+  "music": "route_4",
+  "terrain": {
+    "seed": 404,
+    "size": [
+      220,
+      120
+    ],
+    "base": 3,
+    "amp": 4,
+    "scale": 28,
+    "rim": 16,
+    "rimWidth": 12,
+    "hills": [
+      {
+        "at": [
+          62,
+          -36
+        ],
+        "r": 14,
+        "h": 6
+      },
+      {
+        "at": [
+          92,
+          42
+        ],
+        "r": 12,
+        "h": 6
+      },
+      {
+        "at": [
+          34,
+          42
+        ],
+        "r": 10,
+        "h": 4
+      },
+      {
+        "at": [
+          90,
+          -32
+        ],
+        "r": 10,
+        "h": 5
+      },
+      {
+        "at": [
+          30,
+          -30
+        ],
+        "r": 9,
+        "h": 3
+      }
+    ],
+    "flats": [
+      {
+        "at": [
+          -55,
+          -46
+        ],
+        "r": 17,
+        "h": 40
+      },
+      {
+        "at": [
+          -78,
+          -54
+        ],
+        "r": 14,
+        "h": 40
+      },
+      {
+        "at": [
+          -32,
+          -53
+        ],
+        "r": 12,
+        "h": 38
+      },
+      {
+        "at": [
+          -100,
+          -52
+        ],
+        "r": 11,
+        "h": 38
+      },
+      {
+        "at": [
+          -6,
+          -44
+        ],
+        "r": 16,
+        "h": 28
+      },
+      {
+        "at": [
+          -6,
+          -28
+        ],
+        "r": 16,
+        "h": 28
+      },
+      {
+        "at": [
+          -6,
+          -12
+        ],
+        "r": 16,
+        "h": 28
+      },
+      {
+        "at": [
+          -6,
+          4
+        ],
+        "r": 16,
+        "h": 28
+      },
+      {
+        "at": [
+          -6,
+          20
+        ],
+        "r": 16,
+        "h": 28
+      },
+      {
+        "at": [
+          -6,
+          36
+        ],
+        "r": 16,
+        "h": 28
+      },
+      {
+        "at": [
+          -6,
+          52
+        ],
+        "r": 16,
+        "h": 28
+      },
+      {
+        "at": [
+          -22,
+          0
+        ],
+        "r": 20,
+        "h": 28
+      },
+      {
+        "at": [
+          -34,
+          -26
+        ],
+        "r": 20,
+        "h": 28
+      },
+      {
+        "at": [
+          -34,
+          26
+        ],
+        "r": 20,
+        "h": 28
+      },
+      {
+        "at": [
+          -38,
+          50
+        ],
+        "r": 16,
+        "h": 28
+      },
+      {
+        "at": [
+          -52,
+          0
+        ],
+        "r": 20,
+        "h": 28
+      },
+      {
+        "at": [
+          -64,
+          -30
+        ],
+        "r": 18,
+        "h": 28
+      },
+      {
+        "at": [
+          -66,
+          28
+        ],
+        "r": 20,
+        "h": 28
+      },
+      {
+        "at": [
+          -70,
+          52
+        ],
+        "r": 14,
+        "h": 28
+      },
+      {
+        "at": [
+          -84,
+          0
+        ],
+        "r": 20,
+        "h": 28
+      },
+      {
+        "at": [
+          -92,
+          -30
+        ],
+        "r": 16,
+        "h": 28
+      },
+      {
+        "at": [
+          -92,
+          30
+        ],
+        "r": 16,
+        "h": 28
+      },
+      {
+        "at": [
+          -100,
+          -45
+        ],
+        "r": 12,
+        "h": 28
+      },
+      {
+        "at": [
+          -100,
+          50
+        ],
+        "r": 12,
+        "h": 28
+      },
+      {
+        "at": [
+          -104,
+          0
+        ],
+        "r": 12,
+        "h": 28
+      },
+      {
+        "at": [
+          60,
+          30
+        ],
+        "r": 6
+      },
+      {
+        "at": [
+          80,
+          14
+        ],
+        "r": 6
+      },
+      {
+        "at": [
+          60,
+          0
+        ],
+        "r": 7
+      },
+      {
+        "at": [
+          70,
+          -5
+        ],
+        "r": 4
+      },
+      {
+        "at": [
+          40,
+          20
+        ],
+        "r": 4
+      },
+      {
+        "at": [
+          26,
+          8
+        ],
+        "r": 5
+      },
+      {
+        "at": [
+          20,
+          5
+        ],
+        "r": 5
+      },
+      {
+        "at": [
+          70,
+          -35
+        ],
+        "r": 5
+      },
+      {
+        "at": [
+          50,
+          -8
+        ],
+        "r": 4
+      }
+    ],
+    "paths": [
+      {
+        "pts": [
+          [
+            110,
+            0
+          ],
+          [
+            94,
+            0
+          ],
+          [
+            78,
+            8
+          ],
+          [
+            62,
+            4
+          ],
+          [
+            48,
+            8
+          ],
+          [
+            34,
+            6
+          ],
+          [
+            22,
+            5
+          ]
+        ],
+        "w": 5
+      },
+      {
+        "pts": [
+          [
+            64,
+            5
+          ],
+          [
+            60,
+            24
+          ]
+        ],
+        "w": 3.5
+      },
+      {
+        "pts": [
+          [
+            78,
+            8
+          ],
+          [
+            80,
+            11
+          ]
+        ],
+        "w": 3.5
+      },
+      {
+        "pts": [
+          [
+            34,
+            6
+          ],
+          [
+            28,
+            -2
+          ],
+          [
+            26,
+            -4
+          ]
+        ],
+        "w": 3.5
+      },
+      {
+        "pts": [
+          [
+            62,
+            4
+          ],
+          [
+            68,
+            -18
+          ],
+          [
+            70,
+            -31
+          ]
+        ],
+        "w": 3
+      }
+    ]
+  },
+  "palette": {
+    "ground": "#8E9A6B",
+    "ground2": "#A3A57C",
+    "path": "#C2AE8A",
+    "cliff": "#8C7F72",
+    "accent": "#E7EEF2",
+    "sky": "#B7D3EA",
+    "fog": "#CADCEB"
+  },
+  "fogDensity": 0.006,
+  "weather": {
+    "clear": 80,
+    "rain": 20
+  },
+  "spawns": [
+    {
+      "id": "from_town_3",
+      "at": [
+        96,
+        0
+      ],
+      "yaw": 270
+    },
+    {
+      "id": "from_volcano",
+      "at": [
+        -94,
+        0
+      ],
+      "yaw": 90
+    },
+    {
+      "id": "from_stillhouse",
+      "at": [
+        -55,
+        -19
+      ],
+      "yaw": 180
+    },
+    {
+      "id": "from_stillhouse_back",
+      "at": [
+        -75,
+        -31
+      ],
+      "yaw": 180
+    },
+    {
+      "id": "sp_route_4_ws",
+      "at": [
+        60,
+        36
+      ],
+      "yaw": 0
+    },
+    {
+      "id": "sp_route_4_ascent",
+      "at": [
+        0,
+        8
+      ],
+      "yaw": 270
+    },
+    {
+      "id": "sp_route_4_descent",
+      "at": [
+        27,
+        -5
+      ],
+      "yaw": 90
+    }
+  ],
+  "exits": [
+    {
+      "id": "to_town_3",
+      "at": [
+        106,
+        0
+      ],
+      "r": 5,
+      "to": "town_3",
+      "spawn": "from_route_4",
+      "label": "Galewick"
+    },
+    {
+      "id": "to_volcano",
+      "at": [
+        -106,
+        0
+      ],
+      "r": 5,
+      "to": "volcano",
+      "spawn": "sp_volcano_e",
+      "label": "Mount Cindral",
+      "gate": {
+        "flag": "flag_rival_4_done",
+        "message": "A survey barrier is chained across the west trail: 'CLOSED FOR SERVICE — by order of the Stillmark.' Cass would climb it. You should check the Stillhouse first."
+      }
+    },
+    {
+      "id": "to_stillhouse",
+      "at": [
+        -55,
+        -26
+      ],
+      "r": 2.5,
+      "to": "stillhouse",
+      "spawn": "from_route_4",
+      "label": "The Stillhouse",
+      "gate": {
+        "flag": "flag_stillhouse_found",
+        "message": "The door is latched. Beside it, someone in a long red scarf is waving at you very hard."
+      }
+    },
+    {
+      "id": "to_stillhouse_back",
+      "at": [
+        -75,
+        -37.5
+      ],
+      "r": 2,
+      "to": "stillhouse",
+      "spawn": "from_route_4_back",
+      "label": "Stillhouse back door",
+      "gate": {
+        "register": "rn_stillhouse_01",
+        "message": "A narrow iron door, bolted from the inside. There's a grate on the other side, by the sound of it."
+      }
+    },
+    {
+      "id": "x_route_4_updraft",
+      "at": [
+        16,
+        5
+      ],
+      "r": 2,
+      "to": "route_4",
+      "spawn": "sp_route_4_ascent",
+      "label": "Ride the updraft"
+    },
+    {
+      "id": "x_route_4_downdraft",
+      "at": [
+        4,
+        -10
+      ],
+      "r": 2,
+      "to": "route_4",
+      "spawn": "sp_route_4_descent",
+      "label": "Drop down the down-draught"
+    }
+  ],
+  "props": [
+    {
+      "kind": "chordstone",
+      "at": [
+        60,
+        30
+      ],
+      "color": "#CFE6E0",
+      "label": "Ribbon-marker Chordstone"
+    },
+    {
+      "kind": "sign",
+      "at": [
+        100,
+        6
+      ],
+      "yaw": 270,
+      "label": "Highscar Rise — the only way up the scarp is the updraft vent. West, over the top: Mount Cindral."
+    },
+    {
+      "kind": "sign",
+      "at": [
+        24,
+        0
+      ],
+      "yaw": 270,
+      "label": "Highscar Updraft. Gale voices only. Hold on to your hat. Then hold on to your other hat."
+    },
+    {
+      "kind": "sign",
+      "at": [
+        7,
+        -6
+      ],
+      "yaw": 90,
+      "label": "Down-draught vent — step in to drop to the lower slope. It's gentler than it looks. Mostly."
+    },
+    {
+      "kind": "sign",
+      "at": [
+        56,
+        33
+      ],
+      "yaw": 180,
+      "label": "Ribbons tied here by climbers who made it to the top. Some by climbers who didn't, but tried very nicely."
+    },
+    {
+      "kind": "stall",
+      "at": [
+        80,
+        11
+      ],
+      "yaw": 180,
+      "color": "#D08C3A",
+      "label": "Wick's Wagon"
+    },
+    {
+      "kind": "crate",
+      "at": [
+        84,
+        12
+      ]
+    },
+    {
+      "kind": "crate",
+      "at": [
+        84.8,
+        13.2
+      ],
+      "s": 0.7
+    },
+    {
+      "kind": "tent",
+      "at": [
+        88,
+        -18
+      ],
+      "yaw": 250,
+      "color": "#C4553A"
+    },
+    {
+      "kind": "tent",
+      "at": [
+        94,
+        -24
+      ],
+      "yaw": 290,
+      "color": "#3D7E8C"
+    },
+    {
+      "kind": "crate",
+      "at": [
+        91,
+        -14
+      ]
+    },
+    {
+      "kind": "lamp",
+      "at": [
+        92,
+        5
+      ]
+    },
+    {
+      "kind": "lamp",
+      "at": [
+        66,
+        9
+      ]
+    },
+    {
+      "kind": "lamp",
+      "at": [
+        40,
+        11
+      ]
+    },
+    {
+      "kind": "lamp",
+      "at": [
+        24,
+        11
+      ]
+    },
+    {
+      "kind": "rock",
+      "at": [
+        18,
+        0
+      ],
+      "s": 1.2
+    },
+    {
+      "kind": "rock",
+      "at": [
+        18,
+        10
+      ],
+      "s": 1.1
+    },
+    {
+      "kind": "boulder",
+      "at": [
+        44,
+        -16
+      ],
+      "s": 1.1
+    },
+    {
+      "kind": "boulder",
+      "at": [
+        100,
+        34
+      ],
+      "s": 1.3
+    },
+    {
+      "kind": "fence",
+      "at": [
+        9,
+        -2
+      ]
+    },
+    {
+      "kind": "fence",
+      "at": [
+        9,
+        18
+      ]
+    },
+    {
+      "kind": "fence",
+      "at": [
+        9,
+        26
+      ]
+    },
+    {
+      "kind": "lamp",
+      "at": [
+        4,
+        14
+      ]
+    },
+    {
+      "kind": "wall",
+      "at": [
+        -55,
+        -28.4
+      ],
+      "w": 16,
+      "h": 9,
+      "color": "#4A4F5C",
+      "label": "The Stillhouse"
+    },
+    {
+      "kind": "wall",
+      "at": [
+        -55,
+        -27.9
+      ],
+      "w": 3.2,
+      "h": 3.6,
+      "color": "#2B2E36",
+      "label": "Stillhouse door"
+    },
+    {
+      "kind": "lamp",
+      "at": [
+        -50,
+        -26
+      ]
+    },
+    {
+      "kind": "lamp",
+      "at": [
+        -60,
+        -26
+      ]
+    },
+    {
+      "kind": "sign",
+      "at": [
+        -63,
+        -24
+      ],
+      "yaw": 180,
+      "label": "SURVEY GUILD DEPOT No. 3. Stone under service. Visitors must sign in. Strays received 06:00–18:00."
+    },
+    {
+      "kind": "sign",
+      "at": [
+        -47,
+        -24
+      ],
+      "yaw": 180,
+      "label": "Chalk doodle of Cass's starter, grinning at the door. Underneath, in big letters: 'FOURTH! (probably)'"
+    },
+    {
+      "kind": "crate",
+      "at": [
+        -64,
+        -27
+      ]
+    },
+    {
+      "kind": "crate",
+      "at": [
+        -65,
+        -26
+      ],
+      "s": 0.7
+    },
+    {
+      "kind": "crate",
+      "at": [
+        -45,
+        -27
+      ]
+    },
+    {
+      "kind": "wall",
+      "at": [
+        -75,
+        -39.6
+      ],
+      "w": 5,
+      "h": 4,
+      "color": "#3A3E48",
+      "label": "Stillhouse back door"
+    },
+    {
+      "kind": "sign",
+      "at": [
+        -98,
+        6
+      ],
+      "yaw": 90,
+      "label": "West: Mount Cindral. The Forge Hall is up at the caldera. Bring water. Bring more water."
+    },
+    {
+      "kind": "wall",
+      "at": [
+        -99,
+        -8
+      ],
+      "yaw": 90,
+      "w": 6,
+      "h": 1.2,
+      "color": "#B08D57",
+      "label": "Stillmark survey barrier"
+    },
+    {
+      "kind": "boulder",
+      "at": [
+        -20,
+        38
+      ],
+      "s": 1.2
+    },
+    {
+      "kind": "boulder",
+      "at": [
+        -80,
+        40
+      ],
+      "s": 1.4
+    },
+    {
+      "kind": "rock",
+      "at": [
+        -40,
+        10
+      ]
+    },
+    {
+      "kind": "rock",
+      "at": [
+        -70,
+        -12
+      ]
+    },
+    {
+      "kind": "crystal",
+      "at": [
+        -24,
+        -38
+      ],
+      "s": 0.9
+    },
+    {
+      "kind": "pine",
+      "at": [
+        -44,
+        42
+      ]
+    },
+    {
+      "kind": "pine",
+      "at": [
+        -88,
+        22
+      ]
+    },
+    {
+      "kind": "pine",
+      "at": [
+        -28,
+        44
+      ],
+      "s": 1.1
+    },
+    {
+      "kind": "pine",
+      "at": [
+        -48,
+        46
+      ],
+      "s": 1.0
+    },
+    {
+      "kind": "pine",
+      "at": [
+        -60,
+        50
+      ],
+      "s": 1.2
+    },
+    {
+      "kind": "pine",
+      "at": [
+        -86,
+        46
+      ],
+      "s": 1.0
+    },
+    {
+      "kind": "pine",
+      "at": [
+        -100,
+        34
+      ],
+      "s": 1.1
+    },
+    {
+      "kind": "pine",
+      "at": [
+        -74,
+        18
+      ],
+      "s": 0.9
+    },
+    {
+      "kind": "pine",
+      "at": [
+        -18,
+        50
+      ],
+      "s": 1.0
+    },
+    {
+      "kind": "pine",
+      "at": [
+        -92,
+        -36
+      ],
+      "s": 1.1
+    },
+    {
+      "kind": "pine",
+      "at": [
+        -100,
+        -24
+      ],
+      "s": 1.0
+    },
+    {
+      "kind": "pine",
+      "at": [
+        -30,
+        -40
+      ],
+      "s": 0.9
+    },
+    {
+      "kind": "pine",
+      "at": [
+        -12,
+        -46
+      ],
+      "s": 1.0
+    },
+    {
+      "kind": "pine",
+      "at": [
+        -58,
+        32
+      ],
+      "s": 1.0
+    },
+    {
+      "kind": "bush",
+      "at": [
+        -36,
+        32
+      ],
+      "s": 1
+    },
+    {
+      "kind": "bush",
+      "at": [
+        -66,
+        40
+      ],
+      "s": 1
+    },
+    {
+      "kind": "bush",
+      "at": [
+        -22,
+        -14
+      ],
+      "s": 1
+    },
+    {
+      "kind": "bush",
+      "at": [
+        -82,
+        -20
+      ],
+      "s": 1
+    },
+    {
+      "kind": "bush",
+      "at": [
+        -46,
+        18
+      ],
+      "s": 1
+    },
+    {
+      "kind": "bush",
+      "at": [
+        -96,
+        14
+      ],
+      "s": 1
+    },
+    {
+      "kind": "rock",
+      "at": [
+        -16,
+        30
+      ],
+      "s": 1.2
+    },
+    {
+      "kind": "rock",
+      "at": [
+        -60,
+        10
+      ],
+      "s": 1.0
+    },
+    {
+      "kind": "rock",
+      "at": [
+        -88,
+        -14
+      ],
+      "s": 1.1
+    },
+    {
+      "kind": "rock",
+      "at": [
+        -34,
+        -8
+      ],
+      "s": 0.9
+    },
+    {
+      "kind": "rock",
+      "at": [
+        -4,
+        -32
+      ],
+      "s": 1.0
+    },
+    {
+      "kind": "boulder",
+      "at": [
+        -52,
+        26
+      ],
+      "s": 1.2
+    },
+    {
+      "kind": "boulder",
+      "at": [
+        -100,
+        -6
+      ],
+      "s": 1.0
+    },
+    {
+      "kind": "boulder",
+      "at": [
+        -8,
+        40
+      ],
+      "s": 1.1
+    },
+    {
+      "kind": "crystal",
+      "at": [
+        -86,
+        -44
+      ],
+      "s": 0.8
+    },
+    {
+      "kind": "boulder",
+      "at": [
+        -42,
+        -40
+      ],
+      "s": 1.3
+    }
+  ],
+  "scatter": [
+    {
+      "kind": "pine",
+      "density": 0.45,
+      "minDist": 6
+    },
+    {
+      "kind": "bush",
+      "density": 1.0,
+      "minDist": 3
+    },
+    {
+      "kind": "grass",
+      "density": 10,
+      "minDist": 0.9
+    },
+    {
+      "kind": "flowers",
+      "density": 2.5,
+      "minDist": 1.2
+    },
+    {
+      "kind": "rock",
+      "density": 0.8,
+      "minDist": 4
+    },
+    {
+      "kind": "boulder",
+      "density": 0.18,
+      "minDist": 9
+    }
+  ],
+  "npcs": [
+    {
+      "id": "npc_steward_3",
+      "at": [
+        27,
+        11
+      ],
+      "yaw": 270,
+      "look": "steward",
+      "name": "Orrin",
+      "dialogue": "route_4_steward",
+      "role": "steward"
+    },
+    {
+      "id": "npc_wick_route_4",
+      "at": [
+        80,
+        15
+      ],
+      "yaw": 180,
+      "look": "villagerB",
+      "name": "Wick",
+      "dialogue": "route_4_wick",
+      "role": "shop",
+      "shop": "shop_wick"
+    },
+    {
+      "id": "npc_route_4_brisa",
+      "at": [
+        50,
+        -8
+      ],
+      "yaw": 270,
+      "look": "climber",
+      "name": "Brisa",
+      "dialogue": "route_4_brisa",
+      "role": "villager"
+    },
+    {
+      "id": "npc_route_4_cass_door",
+      "at": [
+        -49,
+        -22
+      ],
+      "yaw": 225,
+      "look": "cass",
+      "name": "Cass",
+      "dialogue": "route_4_cass_door",
+      "role": "rival",
+      "hideIf": "flag_stillhouse_found"
+    },
+    {
+      "id": "npc_route_4_smoker",
+      "at": [
+        -38,
+        -22
+      ],
+      "yaw": 250,
+      "look": "stillhand",
+      "name": "Stillhand Dunmore",
+      "dialogue": "route_4_dunmore",
+      "role": "villager"
+    }
+  ],
+  "trainers": [
+    {
+      "id": "t_r4_01",
+      "at": [
+        70,
+        -5
+      ],
+      "yaw": 270,
+      "sight": 8
+    },
+    {
+      "id": "t_r4_02",
+      "at": [
+        40,
+        20
+      ],
+      "yaw": 90,
+      "sight": 8
+    },
+    {
+      "id": "t_r4_03",
+      "at": [
+        -10,
+        -25
+      ],
+      "yaw": 90,
+      "sight": 8
+    },
+    {
+      "id": "t_rival_4",
+      "at": [
+        -85,
+        -5
+      ],
+      "yaw": 90,
+      "sight": 12,
+      "showIf": "flag_leftover_rescued",
+      "hideIf": "flag_trial_5_cleared"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "rn_route_4_01",
+      "type": "gale",
+      "at": [
+        20.5,
+        5
+      ],
+      "yaw": 270,
+      "kind": "vent",
+      "label": "Highscar Updraft",
+      "mandatory": true,
+      "opens": "x_route_4_updraft",
+      "sets": "flag_route4_updraft",
+      "blocker": {
+        "at": [
+          16,
+          5
+        ],
+        "w": 5,
+        "d": 5,
+        "yaw": 0
+      }
+    },
+    {
+      "id": "rn_route_4_02",
+      "type": "gale",
+      "at": [
+        70,
+        -35
+      ],
+      "yaw": 0,
+      "kind": "vent",
+      "label": "Kite-snag vent",
+      "reward": {
+        "item": "i_charge_2",
+        "count": 1
+      }
+    }
+  ],
+  "pickups": [
+    {
+      "id": "pk_route_4_01",
+      "at": [
+        70,
+        26
+      ],
+      "item": "i_salve_3",
+      "count": 1
+    },
+    {
+      "id": "pk_route_4_02",
+      "at": [
+        -2,
+        22
+      ],
+      "item": "i_chime_silver",
+      "count": 2
+    },
+    {
+      "id": "pk_route_4_03",
+      "at": [
+        -40,
+        -10
+      ],
+      "item": "i_charge_1",
+      "count": 1
+    },
+    {
+      "id": "pk_route_4_04",
+      "at": [
+        22,
+        -40
+      ],
+      "item": "i_revive_1",
+      "count": 1,
+      "hidden": true
+    }
+  ],
+  "wildRegions": [
+    {
+      "at": [
+        72,
+        -22
+      ],
+      "r": 16
+    },
+    {
+      "at": [
+        45,
+        -30
+      ],
+      "r": 13
+    },
+    {
+      "at": [
+        -30,
+        26
+      ],
+      "r": 16
+    }
+  ],
+  "maxWild": 6,
+  "encounters": "route_4",
+  "battleStages": [
+    {
+      "at": [
+        60,
+        0
+      ],
+      "yaw": 90
+    },
+    {
+      "at": [
+        -10,
+        15
+      ],
+      "yaw": 90
+    },
+    {
+      "at": [
+        -85,
+        -5
+      ],
+      "yaw": 90
+    }
+  ],
+  "waystone": [
+    60,
+    30
+  ]
+}

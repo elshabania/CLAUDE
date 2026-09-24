@@ -1,0 +1,116 @@
+{
+  "route_5_ilse": {
+    "variants": [
+      {
+        "if": "flag_nullbell_broken",
+        "lines": [
+          { "s": "Cartographer Ilse", "t": "The stones are singing again! I've had to redraw every contour. Sound changes the shape of a place, you know." },
+          { "s": "Cartographer Ilse", "t": "Also my ink froze. But mostly the singing." }
+        ]
+      },
+      {
+        "lines": [
+          { "s": "Cartographer Ilse", "t": "Mapping the Gloamstair. Nine hundred steps, give or take. I keep losing count when the light doesn't move." },
+          { "s": "Cartographer Ilse", "t": "It's always blue hour up here. Lovely for sketching. Terrible for knowing when lunch is." },
+          { "s": "Cartographer Ilse", "t": "Two things I can't map: a cave on the west side choked with boulders, and a curtain of dusk by the east shrine. Kin might manage." }
+        ]
+      }
+    ]
+  },
+  "route_5_harrow": {
+    "variants": [
+      {
+        "if": "flag_nullbell_broken",
+        "lines": [
+          { "s": "Old Harrow", "t": "Heard it crack from here. The lid on our stone split clean in two, and the old girl hummed like she'd never stopped." },
+          { "s": "Old Harrow", "t": "Sixty years I've kept watch on this stone. First time I've cried at it. Don't tell anyone." }
+        ]
+      },
+      {
+        "lines": [
+          { "s": "Old Harrow", "t": "They came up in the autumn with a cart and a brass bell and very polite paperwork. Fitted it over our stone like a lid." },
+          { "s": "Old Harrow", "t": "It still works for your Waystone travel, mind. But it doesn't *sing*. And the shade kin round here have gone flat." },
+          { "s": "Old Harrow", "t": "Whatever they're doing, the rest of it's up top. On Hoarcrown. You can feel the quiet coming down the stair like cold air." }
+        ]
+      }
+    ]
+  },
+  "route_5_odile": {
+    "variants": [
+      {
+        "if": "!flag_rival_5_done",
+        "lines": [
+          { "s": "Magister Odile Graven", "t": "Your friend in the scarf is waiting for you on the stair, I think. Go on." },
+          { "s": "Magister Odile Graven", "t": "I'll be here. I'm very good at waiting." }
+        ]
+      },
+      {
+        "if": "flag_odile_answered",
+        "lines": [
+          { "s": "Magister Odile Graven", "t": "Someone has to decide. I would rather it be someone who remembers." },
+          { "s": "Magister Odile Graven", "t": "The gate is open. Climb if you must. Bring warm clothes. I'd hate for you to be *unsafe*." },
+          { "s": "", "t": "Odile turns, lantern swinging, and walks up into the snow without hurrying. The Stillbell lock on the gate clicks open." }
+        ],
+        "actions": [
+          { "set": "flag_odile_revealed" },
+          { "money": 750 },
+          { "questDone": "q_main_ch10" },
+          { "quest": "q_main_ch11", "step": 1 }
+        ]
+      },
+      {
+        "lines": [
+          { "s": "Magister Odile Graven", "t": "{player}. Oriel's student. You have her habit of arriving exactly when you're not expected." },
+          { "s": "Magister Odile Graven", "t": "You've met Vey. She sends her regards, in stage directions. And Brann sends nothing, which from Brann is a great deal." },
+          { "s": "Magister Odile Graven", "t": "A stone that sings whenever it likes is a stone nobody is responsible for. I watched one sing a herd into a lava field." },
+          { "s": "Magister Odile Graven", "t": "With the Great Stillbell hung, the stones sound when it is *safe*. When we say. No more surges. No more stampedes. Isn't that kinder?" }
+        ],
+        "choice": {
+          "options": [
+            { "label": "Who decides what's safe?", "actions": [{ "set": "flag_odile_answered" }] },
+            { "label": "You'd silence all of them for one bad day.", "actions": [{ "set": "flag_odile_answered" }] }
+          ]
+        }
+      }
+    ]
+  },
+  "dlg_t_rival_5_pre": {
+    "variants": [
+      {
+        "lines": [
+          { "s": "Cass", "t": "{player}! Wait. Before you say anything — look at my troupe. Really look." },
+          { "s": "Cass", "t": "I stopped using Mum's lineup. These are *mine*. So if I lose, it's on me. Which — is weirdly great?" }
+        ]
+      }
+    ]
+  },
+  "dlg_t_rival_5_post": {
+    "variants": [
+      {
+        "lines": [
+          { "s": "Cass", "t": "On me. Totally on me. And I'm… fine? Growth!" },
+          { "s": "Cass", "t": "Hey. Don't look now, but there's someone at the top of the stair. Long coat. Lantern. Watched our whole battle without blinking." },
+          { "s": "Cass", "t": "I'm going to stand somewhere else. Far away. Behind you, specifically. Go on — I've got your back. Loosely." }
+        ],
+        "actions": [{ "quest": "q_main_ch10", "step": 2 }]
+      }
+    ]
+  },
+  "dlg_t_rival_5_after": {
+    "variants": [
+      {
+        "lines": [
+          { "s": "Cass", "t": "She's still up there, isn't she. Just… standing. Being calm at us. It's so much worse than shouting." }
+        ]
+      }
+    ]
+  },
+  "dlg_10_cass_pre": { "variants": [{ "lines": [{ "s": "Cass", "t": "I stopped using Mum's lineup. These are *mine*. So if I lose, it's on me. Which — is weirdly great?" }] }] },
+  "dlg_10_cass_win": { "variants": [{ "lines": [{ "s": "Cass", "t": "On me. Totally on me. And I'm… fine? Growth!" }] }] },
+  "dlg_10_cass_lose": { "variants": [{ "lines": [{ "s": "Cass", "t": "Mine won! My kin! My weird little team! I'm going to cry a normal amount." }] }] },
+  "dlg_10_odile_01": { "variants": [{ "lines": [{ "s": "Magister Odile Graven", "t": "{player}. Oriel's student. You have her habit of arriving exactly when you're not expected." }] }] },
+  "dlg_10_odile_02": { "variants": [{ "lines": [{ "s": "Magister Odile Graven", "t": "A stone that sings whenever it likes is a stone nobody is responsible for. I watched one sing a herd into a lava field." }] }] },
+  "dlg_10_odile_03": { "variants": [{ "lines": [{ "s": "Magister Odile Graven", "t": "With the Great Stillbell hung, the stones sound when it is *safe*. When we say. No more surges. No more stampedes. Isn't that kinder?" }] }] },
+  "dlg_10_odile_04": { "variants": [{ "lines": [{ "s": "Magister Odile Graven", "t": "Someone has to decide. I would rather it be someone who remembers." }] }] },
+  "dlg_10_odile_05": { "variants": [{ "lines": [{ "s": "Magister Odile Graven", "t": "Climb if you must. Bring warm clothes. I'd hate for you to be *unsafe*." }] }] }
+}

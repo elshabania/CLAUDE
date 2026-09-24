@@ -1,0 +1,1260 @@
+{
+ "id": "town_3",
+ "name": "Galewick",
+ "biome": "town",
+ "attuned": null,
+ "music": "town_3",
+ "terrain": {
+  "seed": 707,
+  "size": [
+   180,
+   180
+  ],
+  "base": 5,
+  "amp": 1.6,
+  "scale": 30,
+  "rim": 16,
+  "rimWidth": 12,
+  "hills": [
+   {
+    "at": [
+     -40,
+     -40
+    ],
+    "r": 22,
+    "h": 4
+   },
+   {
+    "at": [
+     45,
+     55
+    ],
+    "r": 20,
+    "h": 5
+   },
+   {
+    "at": [
+     -55,
+     55
+    ],
+    "r": 18,
+    "h": 4
+   },
+   {
+    "at": [
+     70,
+     -30
+    ],
+    "r": 16,
+    "h": 3
+   },
+   {
+    "at": [
+     60,
+     -62
+    ],
+    "r": 10,
+    "h": 4
+   }
+  ],
+  "flats": [
+   {
+    "at": [
+     0,
+     10
+    ],
+    "r": 16
+   },
+   {
+    "at": [
+     25,
+     22
+    ],
+    "r": 10
+   },
+   {
+    "at": [
+     -20,
+     -52
+    ],
+    "r": 10
+   },
+   {
+    "at": [
+     -40,
+     -20
+    ],
+    "r": 8
+   },
+   {
+    "at": [
+     32,
+     0
+    ],
+    "r": 5
+   },
+   {
+    "at": [
+     -50,
+     40
+    ],
+    "r": 5
+   },
+   {
+    "at": [
+     -10,
+     30
+    ],
+    "r": 7
+   },
+   {
+    "at": [
+     40,
+     -30
+    ],
+    "r": 7
+   },
+   {
+    "at": [
+     60,
+     -60
+    ],
+    "r": 6
+   },
+   {
+    "at": [
+     -60,
+     -60
+    ],
+    "r": 4
+   },
+   {
+    "at": [
+     -72,
+     4
+    ],
+    "r": 5
+   },
+   {
+    "at": [
+     4,
+     -70
+    ],
+    "r": 5
+   },
+   {
+    "at": [
+     54,
+     12
+    ],
+    "r": 3
+   },
+   {
+    "at": [
+     20,
+     -20
+    ],
+    "r": 3
+   }
+  ],
+  "paths": [
+   {
+    "pts": [
+     [
+      0,
+      90
+     ],
+     [
+      0,
+      72
+     ],
+     [
+      0,
+      24
+     ],
+     [
+      0,
+      -4
+     ],
+     [
+      0,
+      -40
+     ],
+     [
+      0,
+      -72
+     ],
+     [
+      0,
+      -90
+     ]
+    ],
+    "w": 6
+   },
+   {
+    "pts": [
+     [
+      -90,
+      0
+     ],
+     [
+      -72,
+      0
+     ],
+     [
+      -30,
+      0
+     ],
+     [
+      0,
+      0
+     ],
+     [
+      32,
+      0
+     ]
+    ],
+    "w": 5
+   },
+   {
+    "pts": [
+     [
+      0,
+      -30
+     ],
+     [
+      -14,
+      -40
+     ],
+     [
+      -20,
+      -49
+     ]
+    ],
+    "w": 4.5
+   },
+   {
+    "pts": [
+     [
+      0,
+      26
+     ],
+     [
+      14,
+      30
+     ],
+     [
+      25,
+      30
+     ]
+    ],
+    "w": 4
+   },
+   {
+    "pts": [
+     [
+      0,
+      -20
+     ],
+     [
+      20,
+      -20
+     ],
+     [
+      40,
+      -30
+     ],
+     [
+      58,
+      -55
+     ]
+    ],
+    "w": 4
+   },
+   {
+    "pts": [
+     [
+      -30,
+      0
+     ],
+     [
+      -37,
+      -12
+     ],
+     [
+      -38,
+      -20
+     ],
+     [
+      -35,
+      -26
+     ]
+    ],
+    "w": 3.5
+   },
+   {
+    "pts": [
+     [
+      -40,
+      -26
+     ],
+     [
+      -58,
+      -56
+     ]
+    ],
+    "w": 3.5
+   },
+   {
+    "pts": [
+     [
+      0,
+      30
+     ],
+     [
+      -10,
+      30
+     ],
+     [
+      -30,
+      38
+     ],
+     [
+      -50,
+      40
+     ]
+    ],
+    "w": 4
+   },
+   {
+    "pts": [
+     [
+      32,
+      0
+     ],
+     [
+      54,
+      12
+     ]
+    ],
+    "w": 3.5
+   }
+  ],
+  "water": [
+   {
+    "at": [
+     -100,
+     -100
+    ],
+    "r": 50,
+    "depth": 3,
+    "level": 1.5
+   },
+   {
+    "at": [
+     100,
+     -100
+    ],
+    "r": 30,
+    "depth": 3,
+    "level": 1.5
+   }
+  ]
+ },
+ "palette": {
+  "ground": "#9DBB7E",
+  "ground2": "#B7CC92",
+  "path": "#D9CCB0",
+  "cliff": "#A89F8C",
+  "accent": "#C4553A",
+  "sky": "#BFE0EE",
+  "fog": "#D6EAF2"
+ },
+ "fogDensity": 0.004,
+ "weather": {
+  "clear": 100
+ },
+ "spawns": [
+  {
+   "id": "sp_town_3_s",
+   "at": [
+    0,
+    72
+   ],
+   "yaw": 0
+  },
+  {
+   "id": "from_route_4",
+   "at": [
+    -72,
+    0
+   ],
+   "yaw": 90
+  },
+  {
+   "id": "sp_town_3_w",
+   "at": [
+    -72,
+    0
+   ],
+   "yaw": 90
+  },
+  {
+   "id": "from_route_5",
+   "at": [
+    0,
+    -72
+   ],
+   "yaw": 180
+  },
+  {
+   "id": "sp_town_3_n",
+   "at": [
+    0,
+    -72
+   ],
+   "yaw": 180
+  },
+  {
+   "id": "sp_town_3_hall",
+   "at": [
+    -20,
+    -49
+   ],
+   "yaw": 180
+  },
+  {
+   "id": "sp_town_3_hearth",
+   "at": [
+    25,
+    31
+   ],
+   "yaw": 0
+  },
+  {
+   "id": "sp_town_3_ws",
+   "at": [
+    0,
+    14
+   ],
+   "yaw": 0
+  }
+ ],
+ "exits": [
+  {
+   "id": "x_town_3_s",
+   "at": [
+    0,
+    86
+   ],
+   "r": 5,
+   "to": "lake",
+   "spawn": "sp_lake_n",
+   "label": "Sillowmere (causeway)"
+  },
+  {
+   "id": "x_town_3_w",
+   "at": [
+    -86,
+    0
+   ],
+   "r": 5,
+   "to": "route_4",
+   "spawn": "from_town_3",
+   "label": "Highscar Rise",
+   "gate": {
+    "flag": "flag_trial_4_cleared",
+    "message": "Gate-warden Hobb shakes his head: 'Highscar's updrafts eat the unready. Vane Hall's Keynote first.'"
+   }
+  },
+  {
+   "id": "x_town_3_n",
+   "at": [
+    0,
+    -86
+   ],
+   "r": 5,
+   "to": "route_5",
+   "spawn": "from_town_3",
+   "label": "Gloamstair",
+   "gate": {
+    "flag": "flag_trial_5_cleared",
+    "message": "The north gate is barred. 'Gloamstair's gone quiet and cold,' says Ada. 'Bring the Forge Keynote from Cindral.'"
+   }
+  },
+  {
+   "id": "x_town_3_hall",
+   "at": [
+    -20,
+    -55.5
+   ],
+   "r": 2.5,
+   "to": "trial_4",
+   "spawn": "sp_trial_4_door",
+   "label": "Vane Hall",
+   "gate": {
+    "flag": "flag_trial_3_cleared",
+    "message": "The Vane Hall doors are lashed shut against the wind."
+   }
+  }
+ ],
+ "props": [
+  {
+   "kind": "hall_vane",
+   "at": [
+    -20,
+    -62.5
+   ],
+   "yaw": 180,
+   "color": "#C4553A",
+   "label": "Vane Hall"
+  },
+  {
+   "kind": "sign",
+   "at": [
+    -15,
+    -50
+   ],
+   "yaw": 180,
+   "label": "Vane Hall — Cantor Tamsin Galloway"
+  },
+  {
+   "kind": "chordstone",
+   "at": [
+    0,
+    10
+   ],
+   "color": "#E7EEF2",
+   "label": "Sail-market Chordstone"
+  },
+  {
+   "kind": "hearth",
+   "at": [
+    25,
+    18
+   ],
+   "yaw": 180,
+   "label": "Galewick Hearthrest"
+  },
+  {
+   "kind": "stall",
+   "at": [
+    32.5,
+    25
+   ],
+   "yaw": 270,
+   "color": "#3D7E8C",
+   "label": "Galewick Chandlery"
+  },
+  {
+   "kind": "stall",
+   "at": [
+    -12,
+    5
+   ],
+   "yaw": 90,
+   "color": "#C4553A",
+   "label": "Sail-market stall"
+  },
+  {
+   "kind": "stall",
+   "at": [
+    12,
+    5
+   ],
+   "yaw": 270,
+   "color": "#E7EEF2",
+   "label": "Sail-market stall"
+  },
+  {
+   "kind": "stall",
+   "at": [
+    -12,
+    16
+   ],
+   "yaw": 90,
+   "color": "#3D7E8C",
+   "label": "Sail-market stall"
+  },
+  {
+   "kind": "stall",
+   "at": [
+    12,
+    16
+   ],
+   "yaw": 270,
+   "color": "#C4553A",
+   "label": "Sail-market stall"
+  },
+  {
+   "kind": "tent",
+   "at": [
+    -18,
+    -4
+   ],
+   "color": "#C4553A",
+   "label": "Sail awning"
+  },
+  {
+   "kind": "tent",
+   "at": [
+    18,
+    -4
+   ],
+   "color": "#E7EEF2",
+   "label": "Sail awning"
+  },
+  {
+   "kind": "house",
+   "at": [
+    39,
+    0
+   ],
+   "yaw": 270,
+   "color": "#E7EEF2",
+   "roof": "#3D7E8C",
+   "w": 8,
+   "d": 6,
+   "label": "Courier Office"
+  },
+  {
+   "kind": "house",
+   "at": [
+    -46,
+    -20
+   ],
+   "yaw": 90,
+   "color": "#E7EEF2",
+   "roof": "#C4553A",
+   "w": 8,
+   "d": 6,
+   "label": "Marra's Kinsong study (sail-loft above, cellar below)"
+  },
+  {
+   "kind": "hall_vane",
+   "at": [
+    65,
+    -65
+   ],
+   "yaw": 225,
+   "s": 0.45,
+   "color": "#F2C230",
+   "label": "Galewick Lighthouse"
+  },
+  {
+   "kind": "windmill",
+   "at": [
+    -52,
+    -42
+   ]
+  },
+  {
+   "kind": "windmill",
+   "at": [
+    56,
+    -26
+   ]
+  },
+  {
+   "kind": "windmill",
+   "at": [
+    58,
+    18
+   ]
+  },
+  {
+   "kind": "windmill",
+   "at": [
+    -58,
+    26
+   ]
+  },
+  {
+   "kind": "windmill",
+   "at": [
+    24,
+    58
+   ]
+  },
+  {
+   "kind": "windmill",
+   "at": [
+    -30,
+    62
+   ]
+  },
+  {
+   "kind": "windmill",
+   "at": [
+    72,
+    50
+   ]
+  },
+  {
+   "kind": "house2",
+   "at": [
+    44,
+    44
+   ],
+   "yaw": 270,
+   "color": "#E7EEF2",
+   "roof": "#C4553A"
+  },
+  {
+   "kind": "house2",
+   "at": [
+    -40,
+    52
+   ],
+   "yaw": 90,
+   "color": "#EDE3CC",
+   "roof": "#3D7E8C"
+  },
+  {
+   "kind": "house",
+   "at": [
+    -30,
+    30
+   ],
+   "yaw": 90,
+   "color": "#E7EEF2",
+   "roof": "#3D7E8C"
+  },
+  {
+   "kind": "house",
+   "at": [
+    30,
+    -44
+   ],
+   "yaw": 270,
+   "color": "#EDE3CC",
+   "roof": "#C4553A"
+  },
+  {
+   "kind": "house",
+   "at": [
+    -44,
+    8
+   ],
+   "yaw": 90,
+   "color": "#E7EEF2",
+   "roof": "#C4553A"
+  },
+  {
+   "kind": "house2",
+   "at": [
+    20,
+    72
+   ],
+   "yaw": 180,
+   "color": "#EDE3CC",
+   "roof": "#3D7E8C"
+  },
+  {
+   "kind": "house",
+   "at": [
+    -20,
+    72
+   ],
+   "yaw": 180,
+   "color": "#E7EEF2",
+   "roof": "#C4553A"
+  },
+  {
+   "kind": "house",
+   "at": [
+    -30,
+    -36
+   ],
+   "yaw": 90,
+   "color": "#E7EEF2",
+   "roof": "#3D7E8C"
+  },
+  {
+   "kind": "wall",
+   "at": [
+    -50,
+    -64
+   ],
+   "yaw": 45,
+   "w": 18,
+   "h": 1.1,
+   "color": "#B9B2A2",
+   "label": "Cliff railing — the sea booms below"
+  },
+  {
+   "kind": "wall",
+   "at": [
+    -72,
+    -40
+   ],
+   "yaw": 60,
+   "w": 14,
+   "h": 1.1,
+   "color": "#B9B2A2"
+  },
+  {
+   "kind": "wall",
+   "at": [
+    -32,
+    -76
+   ],
+   "yaw": 20,
+   "w": 12,
+   "h": 1.1,
+   "color": "#B9B2A2"
+  },
+  {
+   "kind": "bridge",
+   "at": [
+    0,
+    -58
+   ],
+   "yaw": 0,
+   "d": 14,
+   "w": 4,
+   "label": "Rope bridge to the north gate"
+  },
+  {
+   "kind": "bridge",
+   "at": [
+    44,
+    -8
+   ],
+   "yaw": 90,
+   "d": 10,
+   "w": 3,
+   "label": "Rope bridge"
+  },
+  {
+   "kind": "wall",
+   "at": [
+    -80,
+    -8
+   ],
+   "yaw": 90,
+   "w": 6,
+   "h": 3.2,
+   "color": "#8C7A64",
+   "label": "Highscar gate"
+  },
+  {
+   "kind": "wall",
+   "at": [
+    -80,
+    8
+   ],
+   "yaw": 90,
+   "w": 6,
+   "h": 3.2,
+   "color": "#8C7A64"
+  },
+  {
+   "kind": "wall",
+   "at": [
+    -8,
+    -80
+   ],
+   "w": 6,
+   "h": 3.2,
+   "color": "#8C7A64",
+   "label": "Gloamstair north gate"
+  },
+  {
+   "kind": "wall",
+   "at": [
+    8,
+    -80
+   ],
+   "w": 6,
+   "h": 3.2,
+   "color": "#8C7A64"
+  },
+  {
+   "kind": "sign",
+   "at": [
+    -74,
+    6
+   ],
+   "yaw": 90,
+   "label": "West: Highscar Rise — updrafts and cliffs"
+  },
+  {
+   "kind": "sign",
+   "at": [
+    5,
+    -74
+   ],
+   "yaw": 180,
+   "label": "North: Gloamstair — the twilight stair"
+  },
+  {
+   "kind": "sign",
+   "at": [
+    5,
+    78
+   ],
+   "yaw": 0,
+   "label": "South: the causeway to Sillowmere"
+  },
+  {
+   "kind": "sign",
+   "at": [
+    -52,
+    36
+   ],
+   "yaw": 90,
+   "label": "Galewick Kite Contest — sign up with the Kitewright!"
+  },
+  {
+   "kind": "lamp",
+   "at": [
+    -4,
+    22
+   ]
+  },
+  {
+   "kind": "lamp",
+   "at": [
+    4,
+    -2
+   ]
+  },
+  {
+   "kind": "lamp",
+   "at": [
+    -4,
+    -30
+   ]
+  },
+  {
+   "kind": "lamp",
+   "at": [
+    4,
+    50
+   ]
+  },
+  {
+   "kind": "lamp",
+   "at": [
+    -40,
+    -4
+   ]
+  },
+  {
+   "kind": "lamp",
+   "at": [
+    30,
+    32
+   ]
+  },
+  {
+   "kind": "lamp",
+   "at": [
+    -24,
+    -50
+   ]
+  },
+  {
+   "kind": "lamp",
+   "at": [
+    40,
+    -34
+   ]
+  },
+  {
+   "kind": "crate",
+   "at": [
+    34,
+    5
+   ]
+  },
+  {
+   "kind": "crate",
+   "at": [
+    35,
+    6.2
+   ],
+   "s": 0.7
+  },
+  {
+   "kind": "crate",
+   "at": [
+    -15,
+    22
+   ]
+  },
+  {
+   "kind": "well",
+   "at": [
+    -6,
+    40
+   ]
+  }
+ ],
+ "scatter": [
+  {
+   "kind": "grass",
+   "density": 9,
+   "minDist": 1
+  },
+  {
+   "kind": "flowers",
+   "density": 4,
+   "minDist": 1.2
+  },
+  {
+   "kind": "bush",
+   "density": 0.6,
+   "minDist": 3
+  },
+  {
+   "kind": "tree",
+   "density": 0.15,
+   "minDist": 8
+  },
+  {
+   "kind": "rock",
+   "density": 0.3,
+   "minDist": 5
+  }
+ ],
+ "npcs": [
+  {
+   "id": "npc_hk_ysolde",
+   "at": [
+    21,
+    25
+   ],
+   "yaw": 180,
+   "look": "hearth",
+   "name": "Ysolde",
+   "dialogue": "town_3_ysolde",
+   "role": "hearth"
+  },
+  {
+   "id": "npc_ch_nell",
+   "at": [
+    29,
+    25
+   ],
+   "yaw": 180,
+   "look": "chandler2",
+   "name": "Nell",
+   "dialogue": "town_3_nell",
+   "role": "shop",
+   "shop": "shop_town_3"
+  },
+  {
+   "id": "npc_marra",
+   "at": [
+    -38,
+    -20
+   ],
+   "yaw": 90,
+   "look": "marra",
+   "name": "Marra Aske",
+   "dialogue": "town_3_marra",
+   "role": "quest",
+   "showIf": "flag_trial_3_cleared"
+  },
+  {
+   "id": "npc_courier",
+   "at": [
+    32,
+    0
+   ],
+   "yaw": 270,
+   "look": "youth",
+   "name": "Courier Tib",
+   "dialogue": "town_3_courier",
+   "role": "quest"
+  },
+  {
+   "id": "npc_kitewright",
+   "at": [
+    -50,
+    40
+   ],
+   "yaw": 90,
+   "look": "climber",
+   "name": "Kitewright Aubin",
+   "dialogue": "town_3_kitewright",
+   "role": "quest"
+  },
+  {
+   "id": "npc_town_3_tamsin",
+   "at": [
+    5,
+    7
+   ],
+   "yaw": 270,
+   "look": "tamsin",
+   "name": "Tamsin",
+   "dialogue": "town_3_dispute",
+   "role": "cantor",
+   "hideIf": "flag_galewick_dispute_seen || flag_trial_4_cleared"
+  },
+  {
+   "id": "npc_town_3_foreman",
+   "at": [
+    -5,
+    7
+   ],
+   "yaw": 90,
+   "look": "stillhand",
+   "name": "Stillmark Foreman",
+   "dialogue": "town_3_foreman",
+   "role": "villager",
+   "hideIf": "flag_trial_4_cleared"
+  },
+  {
+   "id": "npc_town_3_westgate",
+   "at": [
+    -72,
+    7
+   ],
+   "yaw": 90,
+   "look": "veteran",
+   "name": "Gate-warden Hobb",
+   "dialogue": "town_3_westgate",
+   "role": "villager"
+  },
+  {
+   "id": "npc_town_3_northgate",
+   "at": [
+    7,
+    -70
+   ],
+   "yaw": 180,
+   "look": "hiker",
+   "name": "Stairwarden Ada",
+   "dialogue": "town_3_northgate",
+   "role": "villager"
+  },
+  {
+   "id": "npc_town_3_miller",
+   "at": [
+    54,
+    12
+   ],
+   "yaw": 270,
+   "look": "villagerD",
+   "name": "Miller Garth",
+   "dialogue": "town_3_miller",
+   "role": "villager"
+  },
+  {
+   "id": "npc_town_3_child",
+   "at": [
+    -8,
+    34
+   ],
+   "yaw": 180,
+   "look": "villagerC",
+   "name": "Wisp",
+   "dialogue": "town_3_wisp",
+   "role": "villager"
+  },
+  {
+   "id": "npc_town_3_sailhand",
+   "at": [
+    20,
+    -20
+   ],
+   "yaw": 270,
+   "look": "angler",
+   "name": "Sail-hand Rook",
+   "dialogue": "town_3_rook",
+   "role": "villager"
+  },
+  {
+   "id": "npc_town_3_hallfan",
+   "at": [
+    -12,
+    -46
+   ],
+   "yaw": 270,
+   "look": "youth",
+   "name": "Vane Hopeful",
+   "dialogue": "town_3_hallfan",
+   "role": "villager"
+  }
+ ],
+ "trainers": [],
+ "nodes": [
+  {
+   "id": "rn_town_3_01",
+   "type": "electric",
+   "at": [
+    58,
+    -57
+   ],
+   "yaw": 225,
+   "kind": "lode",
+   "reward": {
+    "item": "i_charge_2",
+    "count": 1
+   }
+  },
+  {
+   "id": "rn_town_3_02",
+   "type": "shade",
+   "at": [
+    -35,
+    -28
+   ],
+   "yaw": 90,
+   "kind": "veil",
+   "reward": {
+    "item": "i_disc_17",
+    "count": 1
+   }
+  },
+  {
+   "id": "rn_town_3_03",
+   "type": "gale",
+   "at": [
+    -58,
+    -58
+   ],
+   "yaw": 315,
+   "kind": "vent"
+  }
+ ],
+ "pickups": [
+  {
+   "id": "pk_town_3_01",
+   "at": [
+    50,
+    -50
+   ],
+   "item": "i_revive_1",
+   "count": 1,
+   "hidden": true
+  }
+ ],
+ "wildRegions": [],
+ "maxWild": 0,
+ "battleStages": [
+  {
+   "at": [
+    -10,
+    30
+   ],
+   "yaw": 90
+  },
+  {
+   "at": [
+    40,
+    -30
+   ],
+   "yaw": 90
+  }
+ ],
+ "hearthSpawn": "sp_town_3_hearth",
+ "waystone": [
+  0,
+  10
+ ]
+}

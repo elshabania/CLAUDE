@@ -1,0 +1,64 @@
+{
+  "trial_5_guide": {
+    "variants": [
+      {
+        "if": "flag_trial_5_cleared",
+        "lines": [
+          { "s": "Forge-warden Hesk", "t": "Bastian's humming. He only hums when a challenger's properly tempered. Last time was… four years? Five?" },
+          { "s": "Forge-warden Hesk", "t": "Galewick's north gate will open for you now. Gloamstair's up past it. Cold up there. You'll miss this place." }
+        ]
+      },
+      {
+        "lines": [
+          { "s": "Forge-warden Hesk", "t": "Welcome to the Forge Hall. The magma channels are shut by brass sluices. Out-battle a hall Tuner, and their sluice swings open." },
+          { "s": "Forge-warden Hesk", "t": "Two Tuners, two sluices. Then Cantor Bastian at the anvil. His kin are fire, and so is the hall. Water and stone fare well." },
+          { "s": "Forge-warden Hesk", "t": "The lava's railed. Please don't test the rails. People keep testing the rails." }
+        ]
+      }
+    ]
+  },
+  "trial_5_bastian": {
+    "variants": [
+      {
+        "lines": [
+          { "s": "Cantor Bastian", "t": "Odile Graven? I knew her father. She was on the Ash Flats that day. Nobody who saw it came back the same." },
+          { "s": "Cantor Bastian", "t": "She's not cruel, that one. She's frightened, and she's clever, and that's a worse mix than cruel." },
+          { "s": "Cantor Bastian", "t": "North gate at Galewick's open for you. Go up the Gloamstair. And take a coat — heat doesn't travel." }
+        ]
+      }
+    ]
+  },
+  "dlg_t_cantor_5_pre": {
+    "variants": [
+      {
+        "lines": [
+          { "s": "Cantor Bastian", "t": "Made it past the sluices. Good. Sit a moment, you're steaming." },
+          { "s": "Cantor Bastian", "t": "Heat's honest. It tells you exactly how close is too close." }
+        ]
+      }
+    ]
+  },
+  "dlg_t_cantor_5_post": {
+    "variants": [
+      {
+        "lines": [
+          { "s": "Cantor Bastian", "t": "Tempered. Good steel doesn't shatter, it bends back." },
+          { "s": "Cantor Bastian", "t": "Frost Keynote. Fire teaches you what cold is worth." },
+          { "s": "Cantor Bastian", "t": "And this Etude, straight off the anvil. Hammer it into a kin who doesn't flinch." },
+          { "s": "Cantor Bastian", "t": "Galewick's north gate opens for Tuners who carry my note. The Gloamstair's past it. Mind the quiet up there." }
+        ],
+        "actions": [
+          { "give": "i_disc_16", "n": 1 },
+          { "money": 1125 },
+          { "questDone": "q_main_ch09" },
+          { "quest": "q_main_ch10", "step": 1 }
+        ]
+      }
+    ]
+  },
+  "dlg_09_bastian_pre": { "variants": [{ "lines": [{ "s": "Cantor Bastian", "t": "Heat's honest. It tells you exactly how close is too close." }] }] },
+  "dlg_09_bastian_win": { "variants": [{ "lines": [{ "s": "Cantor Bastian", "t": "Tempered. Good steel doesn't shatter, it bends back." }] }] },
+  "dlg_09_bastian_lose": { "variants": [{ "lines": [{ "s": "Cantor Bastian", "t": "Too hot, too fast. Cool off and come back." }] }] },
+  "dlg_09_bastian_keynote": { "variants": [{ "lines": [{ "s": "Cantor Bastian", "t": "Frost Keynote. Fire teaches you what cold is worth." }] }] },
+  "dlg_09_bastian_after": { "variants": [{ "lines": [{ "s": "Cantor Bastian", "t": "Odile Graven? I knew her father. She was on the Ash Flats that day. Nobody who saw it came back the same." }] }] }
+}
