@@ -601,7 +601,7 @@ Other trainers follow the systems §14.1 legality rules and the §14.4 route-tra
 
 | Id | Zone | Pos (x,z) | Archetype | Size | Lv | Families | M/O |
 |---|---|---|---|---|---|---|---|
-| t_rival_1 | town_1 | (5,−35) | Cass | 1 | 5 | rival starter | M (loss continues) |
+| t_rival_1 | town_1 | (5,−35) | Cass | 1 | 3 | rival starter | M (loss continues) |
 | t_r1_01 | route_1 | (−10,40) | kite_flyer | 1 | 4 | f07 | O |
 | t_r1_02 | route_1 | (15,0) | villager_child | 2 | 5–6 | f04, f05 | O |
 | t_r1_03 | route_1 | (−20,−40) | scout | 2 | 6–7 | f10, f08 | O |
@@ -617,7 +617,7 @@ Other trainers follow the systems §14.1 legality rules and the §14.4 route-tra
 | t_r2_02 | route_2 | (−25,40) | bell_ringer | 2 | 13–14 | f05, f08 | O |
 | t_r2_03 | route_2 | (20,0) | kite_flyer | 3 | 13–14 | f07, f07, f10 | O |
 | t_r2_04 | route_2 | (−10,−35) | scout | 2 | 14–15 | f09, f04 | O |
-| t_rival_2 | route_2 | (0,−70) | Cass | 2 | 14, 16 | c20, RS2 ace | M |
+| t_rival_2 | route_2 | (0,−70) | Cass | 2 | 12, 14 | c20, RS2 ace | M |
 | t_hall2_01 | trial_2 | (−8,10) | hall_tuner | 2 | 13–14 | f05 | M |
 | t_hall2_02 | trial_2 | (8,0) | hall_tuner | 2 | 14–15 | f05, f07 | M |
 | t_cantor_2 | trial_2 | (0,−20) | Dorran Shale | 3 | 15, 16, 17 | c13, c22, c14 ace | M |
@@ -640,10 +640,10 @@ Other trainers follow the systems §14.1 legality rules and the §14.4 route-tra
 | t_lk_04 | lake | (70,−10) | sail_hand | 3 | 24–25 | f07, f10, f05 | O |
 | t_hall3_01 | trial_3 | (−8,10) | hall_tuner | 2 | 22–23 | f08 (c23) | M |
 | t_hall3_02 | trial_3 | (8,0) | hall_tuner | 3 | 23–24 | f08, f03 | M |
-| t_cantor_3 | trial_3 | (0,−20) | Nerys | 4 | 23, 23, 24, 25 | c23, c17, c23, c08 ace | M |
+| t_cantor_3 | trial_3 | (0,−20) | Nerys | 4 | 22, 22, 23, 24 | c23, c17, c23, c08 ace | M |
 | t_hall4_01 | trial_4 | (−8,10) | hall_tuner | 3 | 26–27 | f07 | M |
 | t_hall4_02 | trial_4 | (8,0) | hall_tuner | 3 | 27–28 | f07, f10 | M |
-| t_cantor_4 | trial_4 | (0,−20) | Tamsin | 4 | 27, 28, 29, 30 | c20, c14, c20, c21 ace | M |
+| t_cantor_4 | trial_4 | (0,−20) | Tamsin | 4 | 25, 26, 27, 28 | c20, c14, c20, c21 ace | M |
 | t_r4_01 | route_4 | (70,−5) | cliff_runner | 3 | 29–30 | f07, f05 | O |
 | t_r4_02 | route_4 | (40,20) | kite_flyer | 3 | 30–31 | f07, f10 | O |
 | t_r4_03 | route_4 | (−10,−25) | cliff_runner | 3 | 31–32 | f05, f09 | O |
@@ -660,17 +660,17 @@ Other trainers follow the systems §14.1 legality rules and the §14.4 route-tra
 | t_r5_01 | route_5 | (15,70) | pilgrim | 3 | 37–38 | f10, f06 | O |
 | t_r5_02 | route_5 | (−20,30) | ski_patrol | 3 | 38–39 | f06, f07 | O |
 | t_r5_03 | route_5 | (20,−20) | pilgrim | 3 | 39–40 | f09, f10, f05 | O |
-| t_rival_5 | route_5 | (0,−70) | Cass | 5 | 38, 38, 38, 39, 40 | c21, c15, c18, c26, RS3 ace | M |
+| t_rival_5 | route_5 | (0,−70) | Cass | 5 | 35, 35, 35, 36, 37 | c21, c15, c18, c26, RS3 ace | M |
 | t_sp_01 | snowpeak | (−30,75) | ski_patrol | 3 | 40–41 | f06, f07 | O |
 | t_sp_02 | snowpeak | (−40,10) | aurora_chaser | 3 | 41–42 | f10, f06 | O |
 | t_sp_03 | snowpeak | (60,0) | aurora_chaser | 3 | 42–43 | f06, f09, f10 | O |
 | t_hall6_01 | trial_6 | (−8,10) | hall_tuner | 3 | 40–41 | f06 | M |
 | t_hall6_02 | trial_6 | (8,0) | hall_tuner | 3 | 41–42 | f06, f10 | M |
-| t_cantor_6 | trial_6 | (0,−20) | Isaure | 6 | 41, 42, 43, 43, 44, 45 | c17, c15, c09, c18, c24, c18 ace | M |
+| t_cantor_6 | trial_6 | (0,−20) | Isaure | 6 | 37, 38, 39, 39, 40, 41 | c17, c15, c09, c18, c24, c18 ace | M |
 | t_still_08 | snowpeak | (−10,−50) | stillmark_engineer | 3 | 42–43 | f08, f09, f06 | M |
-| t_odile | snowpeak | (0,−84) | Odile | 4 (phase A 3 + phase B 1; systems §14.3) | A: 42, 43, 44. B: 46 | A: c24, c29, c26; B: ace c27 Emberfold | M |
-| t_rival_6 | league | (0,10) | Cass | 6 | 45, 46, 46, 46, 47, 48 | c21, c15, c18, c27, c12, RS3 ace | M |
-| t_champion | league | (0,−20) | Rhea | 6 | 47, 47, 48, 48, 49, 50 | c12, c24, c21, c15, c18, ace c30 Coronaleen | M |
+| t_odile | snowpeak | (0,−84) | Odile | 4 (phase A 3 + phase B 1; systems §14.3) | A: 44, 45, 45. B: 46 | A: c24, c29, c26; B: ace c27 Emberfold | M |
+| t_rival_6 | league | (0,10) | Cass | 6 | 43, 43, 43, 43, 43, 44 | c21, c15, c18, c27, c12, RS3 ace | M |
+| t_champion | league | (0,−20) | Rhea | 6 | 44, 44, 45, 45, 46, 50 | c12, c24, c21, c15, c18, ace c30 Coronaleen | M |
 | t_rival_post | town_1 | (5,−35) | Cass | 6 | 55 | mixed | O (post-game) |
 
 **Totals:**
@@ -1142,7 +1142,7 @@ Coin pouches are money pickups; systems §12.4 counts them unchanged, which need
 4. **Encounter tables.** Each time band sums to 100 per zone. Recomputed probabilities match §4.3 within ±0.001. No stage-2/3 appears below its evolution level (D23). maxWild = 6 in every zone.
 5. **Obtainability.** D-25 passes for each starter choice. Leftover and rival-line mapping follows §2.6.
 6. **Items.** Every referenced item id exists in `items.json` (plus the listed quest-item additions). `i_disc_01..18` each have exactly one source. `i_evo_prism` has a guaranteed pickup.
-7. **Trainers.** Trainer ids, counts and levels match §2.9. The 17 story battles match systems v2 §14.2 exactly: Cantor aces 12/17/25/30/37/45, Odile 46, champion 50, 6 rival battles.
+7. **Trainers.** Trainer ids, counts and levels match §2.9. The 17 story battles match systems v2 §14.2 exactly: Cantor aces 12/17/24/28/37/41, Odile 46, champion 50, 6 rival battles (levels after the D30 balance pass).
 8. **Quests.** Every quest prerequisite references an existing flag. No real-time wait or multiplayer dependency exists (QA D-36). The Swell 60 s reset and Wick's rotation are clock-free for completion.
 9. **Playtime.** Playtime is labeled "estimate" until playtested.
 
