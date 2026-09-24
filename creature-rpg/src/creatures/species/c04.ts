@@ -27,8 +27,8 @@ function horn(side: 'L' | 'R'): PartDef[] {
     { name: `hornBase_${side}`, parent: `horn_${side}`, prim: { t: 'tube', pts: base, r0: 0.04, r1: 0.03 }, slot: '#D8B892', mat: 'SHELL' },
     { name: `hornTip_${side}`, parent: `horn_${side}`, prim: { t: 'tube', pts: tip, r0: 0.03, r1: 0.024 }, slot: 'A', emissive: 1.2, mat: 'SHELL' },
     // wick flame: a small glowing teardrop licking up from the horn tip
-    { name: `wick_${side}`, parent: `horn_${side}`, prim: { t: 'sphere', r: [0.032, 0.042, 0.032] }, at: [end[0], end[1] + 0.02, end[2]], slot: 'A+', emissive: 1.6, mat: 'GLOW', anim: side === 'L' ? ['fx:horns'] : [] },
-    { name: `wickTip_${side}`, parent: `wick_${side}`, prim: { t: 'cone', r: 0.024, h: 0.075 }, at: [0, 0.025, 0], slot: 'A', emissive: 1.6, mat: 'GLOW' },
+    { name: `wick_${side}`, parent: `horn_${side}`, prim: { t: 'sphere', r: [0.032, 0.042, 0.032] }, at: [end[0], end[1] + 0.02, end[2]], slot: 'A+', emissive: 1.5, mat: 'GLOW', anim: side === 'L' ? ['fx:horns'] : [] },
+    { name: `wickTip_${side}`, parent: `wick_${side}`, prim: { t: 'cone', r: 0.024, h: 0.075 }, at: [0, 0.025, 0], slot: 'A', emissive: 1.5, mat: 'GLOW' },
   ];
 }
 

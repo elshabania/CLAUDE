@@ -53,7 +53,7 @@ for (let i = 0; i < N; i++) {
   // emissive star flecks on the outer face (tiny boxes: cheap)
   if (i % 2 === 1 || i === 4 || i === 10) {
     const o = ringPos(t + 4, RING_R + r * 0.92);
-    ring.push({ name: `star${i}`, parent: 'ringP', prim: { t: 'box', w: 0.018, h: 0.018, d: 0.018 }, at: [((i * 37) % 5) * 0.012 - 0.024, o[1], o[2]], rot: [45, 45, 0], slot: 'S', mat: 'GLOW', emissive: 1.8, lod: 0 });
+    ring.push({ name: `star${i}`, parent: 'ringP', prim: { t: 'box', w: 0.018, h: 0.018, d: 0.018 }, at: [((i * 37) % 5) * 0.012 - 0.024, o[1], o[2]], rot: [45, 45, 0], slot: 'S', mat: 'GLOW', emissive: 1.5, lod: 0 });
   }
 }
 // tail tip: a small tapering cone continuing along the ring
@@ -88,7 +88,7 @@ export const c18: SpeciesVisual = {
   mat: 'SCALE',
   rim: '#9FFFD9',
   rimStrength: 0.5,
-  eye: { shape: 'almond', sclera: '#0E3A3A', iris: '#47E6A8', irisRatio: 0.9, pupil: 'slit', pupilRatio: 0.5, highlights: 2, lid: 0.1, glow: '#47E6A8' },
+  eye: { shape: 'almond', sclera: '#0E3A3A', iris: '#47E6A8', irisRatio: 0.9, pupil: 'v-oval', pupilRatio: 0.5, highlights: 2, lid: 0.1, glow: '#47E6A8', outline: '#7FF2C4' },
   mouth: { style: 'line', color: '#9FFFD9' },
   hoverGap: 0.3,
   rig: { type: 'FLOAT', breath: 0.02, breathHz: 0.35, attack: 'spin', special: 'cast', faint: 'sink', spinHz: 0.06, lean: 0 },
@@ -97,10 +97,10 @@ export const c18: SpeciesVisual = {
     // continuous spine arc under the segment spheres (fills the joints so the ring reads as one body)
     { name: 'spine', parent: 'ringP', prim: { t: 'torus', R: RING_R, r: 0.056, arc: (N - 1) * STEP }, rot: [0, 90, th(N - 1) + 90], slot: 'P' },
     ...ring,
-    { name: 'headP', parent: 'ringP', prim: { t: 'none' }, at: NECK, rot: faceDir([0, -0.18, 1]), anim: ['look', 'fx:head'] },
+    { name: 'headP', parent: 'ringP', prim: { t: 'none' }, at: NECK, rot: faceDir([0, -0.18, 1]), scale: [1.35, 1.35, 1.35], anim: ['look', 'fx:head'] },
     { name: 'head', parent: 'headP', prim: { t: 'lathe', profile: 'L_teardrop', h: 0.34, rmax: 0.115, axis: 'z' }, at: [0, 0, -0.06], scale: [1, 0.88, 1], slot: 'P' },
     { name: 'chin', parent: 'headP', prim: { t: 'sphere', r: [0.06, 0.03, 0.1] }, at: [0, -0.055, 0.1], slot: 'P+' },
-    { name: 'eye', parent: 'headP', mirror: true, prim: { t: 'eye', r: 0.042 }, at: [0.072, 0.032, 0.085], rot: [-6, 52, 0], scale: [1.35, 1, 1] },
+    { name: 'eye', parent: 'headP', mirror: true, prim: { t: 'eye', r: 0.05 }, at: [0.072, 0.034, 0.085], rot: [-6, 50, 0], scale: [1.35, 1.05, 1] },
     { name: 'mouth', parent: 'headP', prim: { t: 'mouth', r: 0.035, w: 2 }, at: [0, -0.04, 0.21], rot: [45, 0, 0], anim: ['fx:mouth'] },
     { name: 'crest', parent: 'headP', mirror: true, prim: { t: 'extrude', shape: 'X_fin_crescent', w: 0.24, h: 0.2, depth: 0.018 }, at: [0.045, 0.07, 0.07], rot: [-24, 90, 16], slot: 'S', mat: 'ICE', opacity: 0.85, emissive: 0.4 },
     // small clawed forelimbs just behind the head, reaching down to hold the ring rim
@@ -110,8 +110,8 @@ export const c18: SpeciesVisual = {
     { name: 'clawC', parent: 'arm', mirror: true, prim: { t: 'cone', r: 0.009, h: 0.035 }, at: [-0.012, 0.11, -0.004], rot: [20, 0, 25], slot: 'S' },
     ...plumes,
     // glowing six-armed flake core, two flakes crossed at 90° plus a bright sphere
-    { name: 'core', parent: 'ringP', prim: { t: 'sphere', r: 0.07 }, slot: 'S', mat: 'GLOW', emissive: 2.0, anim: ['spin', 'fx:core'] },
-    { name: 'flakeA', parent: 'core', prim: { t: 'extrude', shape: 'X_flake6', w: 0.36, h: 0.36, depth: 0.05 }, slot: 'S', mat: 'GLOW', emissive: 2.0 },
-    { name: 'flakeB', parent: 'core', prim: { t: 'extrude', shape: 'X_flake6', w: 0.36, h: 0.36, depth: 0.05 }, rot: [0, 90, 0], slot: 'S', mat: 'GLOW', emissive: 2.0 },
+    { name: 'core', parent: 'ringP', prim: { t: 'sphere', r: 0.07 }, slot: 'S', mat: 'GLOW', emissive: 1.5, anim: ['spin', 'fx:core'] },
+    { name: 'flakeA', parent: 'core', prim: { t: 'extrude', shape: 'X_flake6', w: 0.36, h: 0.36, depth: 0.05 }, slot: 'S', mat: 'GLOW', emissive: 1.5 },
+    { name: 'flakeB', parent: 'core', prim: { t: 'extrude', shape: 'X_flake6', w: 0.36, h: 0.36, depth: 0.05 }, rot: [0, 90, 0], slot: 'S', mat: 'GLOW', emissive: 1.5 },
   ],
 };

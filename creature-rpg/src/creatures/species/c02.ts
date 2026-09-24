@@ -73,6 +73,6 @@ export const c02: SpeciesVisual = {
     // --- long counterbalance tail with wide fork + spark arc ---
     { name: 'tail', parent: 'pelvis', prim: { t: 'none' }, chain: { n: 7, r0: 0.07, r1: 0.022, len: 0.78, bend: [-4, 0, 0] }, at: [0, 0.02, -0.12], rot: [-98, 0, 0], anim: ['wave'] },
     { name: 'prong', parent: 'tailTip', mirror: true, prim: { t: 'cone', r: 0.028, h: 0.17 }, at: [0.03, -0.01, 0], rot: [0, 0, -42], slot: 'A', emissive: 0.8, anim: ['fx:fork'] },
-    { name: 'arcSpark', parent: 'tailTip', prim: { t: 'tube', pts: [[0.075, 0.13, 0], [0.03, 0.17, 0.015], [-0.02, 0.13, -0.01], [-0.075, 0.13, 0]], r0: 0.006, r1: 0.006 }, slot: 'A+', emissive: 1.6, mat: 'GLOW', lod: 0 },
+    { name: 'arcSpark', parent: 'tailTip', prim: { t: 'tube', pts: [[0.075, 0.13, 0], [0.03, 0.17, 0.015], [-0.02, 0.13, -0.01], [-0.075, 0.13, 0]], r0: 0.006, r1: 0.006 }, slot: 'A+', emissive: 1.5, mat: 'GLOW', lod: 0 },
   ],
 };

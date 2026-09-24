@@ -10,6 +10,7 @@ import { safeRemoveBody } from '../physicsSafe';
 import { compassToRotY } from '../yaw';
 import { useGame } from '../../state/game';
 import { evalExpr } from '../../sim/world';
+import { GlowHalos } from '../atmosphere/GlowHalos';
 
 export interface Placed { kind: string; x: number; z: number; y: number; yaw: number; s: number }
 
@@ -57,7 +58,7 @@ export function scatterZone(zone: ZoneSpec, grid: HeightGrid, density: number): 
   return out;
 }
 
-export function ZoneProps({ zone, grid, density, lowPoly, shadows }: { zone: ZoneSpec; grid: HeightGrid; density: number; lowPoly: boolean; shadows: boolean }) {
+export function ZoneProps({ zone, grid, density, lowPoly, shadows, hdr = false }: { zone: ZoneSpec; grid: HeightGrid; density: number; lowPoly: boolean; shadows: boolean; hdr?: boolean }) {
   const placed = useMemo(() => {
     // hand-placed scatter kinds (individual trees, rocks, fences…) join the instanced batches
     const hand: Placed[] = zone.props
@@ -103,6 +104,20 @@ export function ZoneProps({ zone, grid, density, lowPoly, shadows }: { zone: Zon
         return { p, b, mesh, y };
       }).filter(Boolean) as { p: ZoneSpec['props'][number]; b: ReturnType<(typeof BUILDERS)[string]>; mesh: THREE.Mesh; y: number }[],
     [zone.props, grid, shadows],
+  );
+
+  // night halos for lamps / glowing props (unconditional props only; one draw call)
+  const halos = useMemo(
+    () =>
+      built.flatMap((b) => {
+        if (b.p.showIf || b.p.hideIf) return [];
+        const ry = b.mesh.rotation.y, s = b.p.s ?? 1;
+        return (b.b.glow ?? []).map((g) => ({
+          pos: [b.mesh.position.x + (g.pos[0] * Math.cos(ry) + g.pos[2] * Math.sin(ry)) * s, b.y + g.pos[1] * s, b.mesh.position.z + (-g.pos[0] * Math.sin(ry) + g.pos[2] * Math.cos(ry)) * s] as [number, number, number],
+          color: g.color,
+        }));
+      }),
+    [built],
   );
 
   // story-conditional props (gates, blockers, hall pillars): showIf / hideIf flag expressions
@@ -174,6 +189,7 @@ export function ZoneProps({ zone, grid, density, lowPoly, shadows }: { zone: Zon
           ))}
         </group>
       ))}
+      <GlowHalos points={halos} hdr={hdr} />
     </group>
   );
 }

@@ -28,7 +28,8 @@ export function createCore(raw: AudioContext): Core {
     /* read-only on some builds */
   }
   const limiter = new Tone.Limiter(-1).toDestination();
-  const comp = new Tone.Compressor(-18, 3).connect(limiter);
+  const makeup = new Tone.Volume(6).connect(limiter);
+  const comp = new Tone.Compressor(-18, 3).connect(makeup);
   const master = new Tone.Volume(0).connect(comp);
   const musicBus = new Tone.Volume(0).connect(master);
   const musicIn = new Tone.Volume(0).connect(musicBus);
@@ -88,9 +89,24 @@ export function createCore(raw: AudioContext): Core {
       document.removeEventListener('visibilitychange', onVis);
       window.removeEventListener('pointerdown', onGesture);
       window.removeEventListener('keydown', onGesture);
-      for (const n of [limiter, comp, master, musicBus, musicIn, sfxBus, musicVerb, sfxVerb]) n.dispose();
+      for (const n of [limiter, makeup, comp, master, musicBus, musicIn, sfxBus, musicVerb, sfxVerb]) n.dispose();
     },
   };
+}
+
+/**
+ * Worklet-free pluck (Tone's PluckSynth needs an AudioWorklet, which is not reliable everywhere):
+ * a sawtooth through a fast-closing lowpass envelope.
+ */
+export function pluckSynth(opts: { decay?: number; bright?: number; base?: number; volume?: number } = {}) {
+  const decay = opts.decay ?? 0.6;
+  return new Tone.MonoSynth({
+    oscillator: { type: 'sawtooth' },
+    filter: { type: 'lowpass', Q: 1.5, rolloff: -24 },
+    filterEnvelope: { baseFrequency: opts.base ?? 520, octaves: opts.bright ?? 2.8, attack: 0.001, decay: decay * 0.35, sustain: 0.04, release: 0.2 },
+    envelope: { attack: 0.002, decay, sustain: 0, release: decay * 0.4 },
+    volume: opts.volume ?? -10,
+  });
 }
 
 /** Keeps trigger times strictly increasing per instrument (Tone sources reject equal start times). */

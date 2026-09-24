@@ -1,14 +1,14 @@
 // Synthesized sound effects from a small pool of persistent voices (keeps CPU and voice count low).
 import * as Tone from 'tone';
 import type { Core } from './core';
-import { monotonic } from './core';
+import { monotonic, pluckSynth } from './core';
 
 type Opts = Record<string, unknown> | undefined;
 
 interface Pool {
   blip: Tone.Synth;
   fm: Tone.FMSynth[];
-  pluck: Tone.PluckSynth;
+  pluck: Tone.MonoSynth;
   noise: { s: Tone.NoiseSynth; f: Tone.Filter }[];
   memb: Tone.MembraneSynth;
   poly: Tone.PolySynth;
@@ -24,7 +24,7 @@ const TYPE_CHORD: Record<string, number[]> = {
 const mtof = (m: number) => 440 * Math.pow(2, (m - 69) / 12);
 
 export function createSfx(core: Core) {
-  const out = core.sfxBus;
+  const out = new Tone.Volume(4).connect(core.sfxBus);
   const verb = new Tone.Gain(0.3).connect(core.sfxVerb);
   const wire = <T extends Tone.ToneAudioNode>(n: T, wet = false) => {
     n.connect(out);
@@ -34,7 +34,7 @@ export function createSfx(core: Core) {
   const pool: Pool = {
     blip: wire(new Tone.Synth({ oscillator: { type: 'triangle' }, envelope: { attack: 0.002, decay: 0.08, sustain: 0.1, release: 0.06 }, volume: -10 })),
     fm: [0, 1].map(() => wire(new Tone.FMSynth({ harmonicity: 3.01, modulationIndex: 8, envelope: { attack: 0.003, decay: 0.4, sustain: 0.1, release: 0.4 }, modulationEnvelope: { attack: 0.003, decay: 0.3, sustain: 0.1, release: 0.3 }, volume: -12 }), true)),
-    pluck: wire(new Tone.PluckSynth({ attackNoise: 1, dampening: 3000, resonance: 0.85, volume: -6 }), true),
+    pluck: wire(pluckSynth({ decay: 0.5, volume: -10 }), true),
     noise: [0, 1].map(() => {
       const f = wire(new Tone.Filter({ type: 'bandpass', frequency: 1500, Q: 1 }));
       const s = new Tone.NoiseSynth({ noise: { type: 'white' }, envelope: { attack: 0.003, decay: 0.2, sustain: 0, release: 0.05 }, volume: -10 }).connect(f);
@@ -45,11 +45,11 @@ export function createSfx(core: Core) {
     swell: wire(new Tone.PolySynth(Tone.AMSynth, { oscillator: { type: 'triangle' }, envelope: { attack: 0.35, decay: 0.2, sustain: 0.7, release: 0.5 } }), true),
     bowl: wire(new Tone.PolySynth(Tone.Synth, { oscillator: { type: 'sine' }, envelope: { attack: 0.003, decay: 2.2, sustain: 0, release: 1.6 } }), true),
   };
-  pool.poly.maxPolyphony = 6;
+  pool.poly.maxPolyphony = 10;
   pool.poly.volume.value = -16;
   pool.swell.maxPolyphony = 4;
   pool.swell.volume.value = -18;
-  pool.bowl.maxPolyphony = 12;
+  pool.bowl.maxPolyphony = 16;
   pool.bowl.volume.value = -16;
 
   const monoBlip = monotonic();

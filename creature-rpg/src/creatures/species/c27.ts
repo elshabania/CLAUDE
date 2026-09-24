@@ -79,7 +79,7 @@ export const c27: SpeciesVisual = {
   rig: { type: 'FLAT', stepped: 12, gaitHz: 1, stride: 10, bounce: 0.02, breath: 0.012, breathHz: 0.4, flapAmp: 30, flapHz: 0.35, attack: 'lunge', special: 'cast', faint: 'collapse', lean: 4 },
   parts: [
     // ---- ember core behind the centre panel ----
-    { name: 'core', prim: { t: 'sphere', r: 0.1 }, at: [0, 0.5, -0.045], slot: 'A', mat: 'GLOW', emissive: 2.5, anim: ['br', 'fx:core'] },
+    { name: 'core', prim: { t: 'sphere', r: 0.1 }, at: [0, 0.5, -0.045], slot: 'A', mat: 'GLOW', emissive: 1.5, anim: ['br', 'fx:core'] },
     // ---- centre panel: face cut-outs, bronze frame, warm-lit back layer ----
     { name: 'centre', prim: { t: 'extrude', shape: 'S27_centre', w: CW, h: CH, depth: 0.03 }, at: [0, 0.57, 0.08], anim: ['look'] },
     frame('centreFrame', 'centre', 'S27_centreRim', CW + 0.04, CH + 0.04, [0, 0, -0.024]),

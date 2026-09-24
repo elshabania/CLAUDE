@@ -1,7 +1,6 @@
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { Physics, useRapier } from '@react-three/rapier';
-import { Sky } from '@react-three/drei';
-import { Suspense, useEffect, useMemo, useRef, type ReactNode } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useRef, type ReactNode } from 'react';
 import * as THREE from 'three';
 import type { ZoneSpec } from './zoneTypes';
 import { buildGrid, type HeightGrid } from './terrain/heightfield';
@@ -10,10 +9,18 @@ import { Water } from './water/Water';
 import { ZoneProps } from './props/ZoneProps';
 import { windUniforms } from './props/kit';
 import { runtime } from '../state/runtime';
+import { useGame } from '../state/game';
 import { QUALITY, useSettings } from '../state/settingsStore';
 import { input } from '../ui/input/input';
 import { rimUniforms } from '../creatures/materials';
 import { safeRemoveBody } from './physicsSafe';
+import { Atmosphere } from './atmosphere/Atmosphere';
+import { Precipitation } from './atmosphere/Precipitation';
+import { AmbientMotes } from './atmosphere/AmbientMotes';
+import { PostBoundary } from './atmosphere/PostBoundary';
+
+// post stack is High-only and lazy: other profiles never download postprocessing
+const PostFX = lazy(() => import('./atmosphere/PostFX'));
 
 export function useZoneGrid(zone: ZoneSpec): HeightGrid {
   return useMemo(() => {
@@ -47,48 +54,6 @@ function WaterBlockers({ zone }: { zone: ZoneSpec }) {
   return null;
 }
 
-function Lighting({ zone, shadows, shadowSize }: { zone: ZoneSpec; shadows: boolean; shadowSize: number }) {
-  const sun = useRef<THREE.DirectionalLight>(null);
-  const { scene } = useThree();
-  useEffect(() => {
-    scene.fog = new THREE.FogExp2(zone.palette.fog, zone.fogDensity);
-    scene.background = new THREE.Color(zone.palette.sky);
-    return () => {
-      scene.fog = null;
-    };
-  }, [zone, scene]);
-  useFrame(() => {
-    const s = sun.current;
-    if (!s) return;
-    // shadow camera follows the player
-    s.position.set(runtime.playerPos.x + 30, runtime.playerPos.y + 50, runtime.playerPos.z + 18);
-    s.target.position.copy(runtime.playerPos);
-    s.target.updateMatrixWorld();
-  });
-  const cave = zone.biome === 'cave';
-  return (
-    <>
-      <hemisphereLight args={[cave ? '#6E86B0' : '#DDE9FF', cave ? '#2A2230' : '#6B5A40', cave ? 0.9 : 1.1]} />
-      <directionalLight
-        ref={sun}
-        intensity={cave ? 0.6 : 2.4}
-        color={zone.biome === 'volcano' ? '#FFD2A8' : '#FFF4E0'}
-        castShadow={shadows}
-        shadow-mapSize-width={shadowSize}
-        shadow-mapSize-height={shadowSize}
-        shadow-camera-left={-40}
-        shadow-camera-right={40}
-        shadow-camera-top={40}
-        shadow-camera-bottom={-40}
-        shadow-camera-near={1}
-        shadow-camera-far={140}
-        shadow-bias={-0.0005}
-        shadow-normalBias={0.04}
-      />
-    </>
-  );
-}
-
 function FrameDriver() {
   const { gl } = useThree();
   const samples = useRef<number[]>([]);
@@ -115,6 +80,9 @@ function FrameDriver() {
 export function WorldCanvas({ zone, children, onCreated }: { zone: ZoneSpec; children?: ReactNode; onCreated?: () => void }) {
   const quality = useSettings((s) => s.quality);
   const q = QUALITY[quality];
+  const post = quality === 'high' && q.bloom;
+  const weather = useGame((s) => s.weather);
+  const precip = useMemo(() => ({ rain: (zone.weather.rain ?? 0) > 0 || weather === 'rain', snow: (zone.weather.snow ?? 0) > 0 || weather === 'snow' }), [zone, weather]);
   const grid = useZoneGrid(zone);
   runtime.grid = grid;
   const ref = useRef<HTMLDivElement>(null);
@@ -129,7 +97,7 @@ export function WorldCanvas({ zone, children, onCreated }: { zone: ZoneSpec; chi
       <Canvas
         shadows={q.shadows ? 'soft' : false}
         dpr={[1, Math.min(q.dpr, typeof window !== 'undefined' ? window.devicePixelRatio : 1)]}
-        gl={{ antialias: q.antialias, powerPreference: 'high-performance', preserveDrawingBuffer: new URLSearchParams(location.search).has('shots') }}
+        gl={{ antialias: q.antialias && !post, powerPreference: 'high-performance', preserveDrawingBuffer: new URLSearchParams(location.search).has('shots') }}
         camera={{ fov: 55, near: 0.1, far: q.drawDistance + 60 }}
         onCreated={({ gl }) => {
           gl.toneMapping = THREE.ACESFilmicToneMapping;
@@ -138,17 +106,25 @@ export function WorldCanvas({ zone, children, onCreated }: { zone: ZoneSpec; chi
         }}
       >
         <FrameDriver />
-        <Lighting zone={zone} shadows={q.shadows} shadowSize={q.shadowSize} />
-        {zone.biome !== 'cave' && <Sky distance={4000} sunPosition={[60, 40, 20]} turbidity={6} rayleigh={1.2} mieCoefficient={0.004} mieDirectionalG={0.8} />}
+        <Atmosphere zone={zone} shadows={q.shadows} shadowSize={q.shadowSize} />
         <Suspense fallback={null}>
           <Physics timeStep={1 / 60} gravity={[0, -9.81, 0]}>
             <Terrain zone={zone} grid={grid} />
             <WaterBlockers zone={zone} />
-            <ZoneProps zone={zone} grid={grid} density={q.vegetation} lowPoly={quality === 'mobile'} shadows={q.shadows} />
+            <ZoneProps zone={zone} grid={grid} density={q.vegetation} lowPoly={quality === 'mobile'} shadows={q.shadows} hdr={post} />
             {children}
           </Physics>
           <Water zone={zone} grid={grid} simple={q.water === 'simple'} />
+          {(precip.rain || precip.snow) && <Precipitation quality={quality} particles={q.particles} kinds={precip} />}
+          <AmbientMotes zone={zone} particles={q.particles} />
         </Suspense>
+        {post && (
+          <PostBoundary>
+            <Suspense fallback={null}>
+              <PostFX />
+            </Suspense>
+          </PostBoundary>
+        )}
       </Canvas>
     </div>
   );

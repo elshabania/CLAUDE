@@ -546,7 +546,7 @@ export function buildBattleSetup(req: BattleRequest, s: SavePayload): BattleSetu
     const sp = resolveRivalSpecies(m.species, s.player.starter);
     return createInstance(CONTENT, rng, sp, m.level, { potential: t.potential, temperament: 'tm_steady' });
   });
-  return { kind: 'trainer', playerParty: party, foeParty: team, ai: t.ai, aiItems: t.items, ambientWeather: req.weather, attunedType: t.phases ? (t.phases[0].attuned as TypeId | null) : req.attuned, trainerId: t.id, payout: t.payout };
+  return { kind: 'trainer', playerParty: party, foeParty: team, ai: t.ai, aiItems: t.items, ambientWeather: req.weather, attunedType: t.phases ? (t.phases[0].attuned as TypeId | null) : req.attuned, trainerId: t.id, mandatory: t.mandatory, payout: t.payout };
 }
 
 export function wildFor(zoneId: string, s: SavePayload, table: string, key: string): CreatureInstance | null {

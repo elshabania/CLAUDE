@@ -21,6 +21,7 @@ import { StarterScreen } from '../ui/TitleScreens';
 import { ShopScreen, EvolutionScreen, EndingScreen } from '../ui/Screens';
 import { TouchControls } from '../ui/TouchControls';
 import { PerfOverlay } from '../ui/PerfOverlay';
+import { ZoneTitleCard } from '../ui/ZoneTitleCard';
 import { input } from '../ui/input/input';
 import { setZoneMusic, setBattleMusic, endBattleMusic } from '../audio/engine';
 import { TRAINERS } from '../data/registry';
@@ -111,6 +112,7 @@ export function Game() {
         <Clock />
       </WorldCanvas>
       <Hud />
+      <ZoneTitleCard key={`title:${zoneId}:${epoch}`} name={zone.name} ready={!inBattle && (mode === 'explore' || mode === 'dialogue')} hidden={inBattle} />
       {mode === 'dialogue' && <DialogueBox />}
       {bReq && <BattleUI />}
       {mode === 'menu' && <GameMenu />}

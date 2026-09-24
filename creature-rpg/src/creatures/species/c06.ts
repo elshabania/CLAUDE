@@ -40,7 +40,7 @@ function plates(): PartDef[] {
     const along = (d: number): V3 => [p[0] + (n[0] / nl) * d, p[1] + (n[1] / nl) * d, p[2] + (n[2] / nl) * d];
     const rot = faceZ(n, (i * 37) % 60);
     return [
-      { name: `magma${i}`, parent: 'hump', prim: { t: 'extrude', shape: 'X_hexplate', w: r * 2.6, h: r * 2.6, depth: 0.02 }, at: along(0.004), rot, slot: '#8A1E08', glowColor: 'A', emissive: 1.6, flat: true },
+      { name: `magma${i}`, parent: 'hump', prim: { t: 'extrude', shape: 'X_hexplate', w: r * 2.6, h: r * 2.6, depth: 0.02 }, at: along(0.004), rot, slot: '#8A1E08', glowColor: 'A', emissive: 1.5, flat: true },
       { name: `plate${i}`, parent: 'hump', prim: { t: 'extrude', shape: 'X_hexplate', w: r * 2.3, h: r * 2.3, depth: 0.04 }, at: along(0.024), rot, slot: 'P', mat: 'STONE', flat: true },
     ];
   });
@@ -63,7 +63,7 @@ function horn(side: 'L' | 'R'): PartDef[] {
     { name: `horn_${side}`, parent: 'head', prim: { t: 'none' }, at: [0.11 * sx, 0.07, -0.08], rot: [0, 0, -8 * sx], anim: side === 'L' ? ['fx:horns'] : [] },
     { name: `hornRing_${side}`, parent: `horn_${side}`, prim: { t: 'tube', pts: pts(1), r0: 0.06, r1: 0.024 }, slot: '#3A302C', mat: 'SHELL' },
     // emissive inner face: a glowing strip riding the inside of the coil
-    { name: `hornGlow_${side}`, parent: `horn_${side}`, prim: { t: 'tube', pts: pts(0.72), r0: 0.03, r1: 0.013 }, slot: 'A', emissive: 1.6, mat: 'GLOW' },
+    { name: `hornGlow_${side}`, parent: `horn_${side}`, prim: { t: 'tube', pts: pts(0.72), r0: 0.03, r1: 0.013 }, slot: 'A', emissive: 1.5, mat: 'GLOW' },
   ];
 }
 
@@ -74,7 +74,7 @@ export const c06: SpeciesVisual = {
   mat: 'FUR',
   rim: '#FF7A40',
   rimStrength: 0.3,
-  eye: { shape: 'almond', sclera: '#1A1414', iris: '#FFB347', irisRatio: 0.85, pupil: 'h-bar', pupilRatio: 0.4, highlights: 1, lid: 0.2, lidAngle: -6, glow: '#FFB347' },
+  eye: { shape: 'almond', sclera: '#1A1414', iris: '#FFB347', irisRatio: 0.85, pupil: 'h-bar', pupilRatio: 0.4, highlights: 1, lid: 0.12, lidAngle: -6, glow: '#FFB347', outline: '#FF8A3D' },
   mouth: { style: 'line' },
   rig: { type: 'QUAD', gaitHz: 0.8, stride: 18, bounce: 0.015, breath: 0.012, breathHz: 0.35, attack: 'slam', special: 'cast', faint: 'forward', lean: 2 },
   parts: [
@@ -89,10 +89,10 @@ export const c06: SpeciesVisual = {
     ...plates(),
     // --- neck + head, carried low in front ---
     { name: 'neck', parent: 'fore', prim: { t: 'capsule', r: 0.17, len: 0.1 }, at: [0, 0.04, 0.2], rot: [108, 0, 0], slot: 'S', anim: ['look'] },
-    { name: 'head', parent: 'neck', prim: { t: 'sphere', r: [0.16, 0.165, 0.185] }, at: [0, 0.26, 0.02], rot: [-108, 0, 0], slot: 'S', anim: ['look'] },
+    { name: 'head', parent: 'neck', prim: { t: 'sphere', r: [0.16, 0.165, 0.185] }, at: [0, 0.28, 0.04], rot: [-108, 0, 0], scale: [1.22, 1.22, 1.22], slot: 'S', anim: ['look'] },
     { name: 'forelock', parent: 'head', prim: { t: 'sphere', r: [0.12, 0.07, 0.1] }, at: [0, 0.12, 0.02], slot: 'S-', fluffy: 0.008 },
     { name: 'brow', parent: 'head', mirror: true, prim: { t: 'box', w: 0.1, h: 0.035, d: 0.07 }, at: [0.065, 0.085, 0.13], rot: [15, 15, -14], slot: 'P', mat: 'STONE', flat: true },
-    { name: 'eye', parent: 'head', mirror: true, prim: { t: 'eye', r: 0.044 }, at: [0.075, 0.035, 0.152], rot: [0, 28, 0], scale: [1.2, 1, 1] },
+    { name: 'eye', parent: 'head', mirror: true, prim: { t: 'eye', r: 0.052 }, at: [0.078, 0.032, 0.15], rot: [0, 30, 0], scale: [1.25, 1.05, 1] },
     { name: 'muzzle', parent: 'head', prim: { t: 'sphere', r: [0.105, 0.09, 0.1] }, at: [0, -0.07, 0.14], slot: 'W' },
     { name: 'nostril', parent: 'muzzle', mirror: true, prim: { t: 'sphere', r: [0.016, 0.012, 0.01] }, at: [0.035, 0.02, 0.092], slot: 'D', lod: 0, anim: ['fx:nostrils'] },
     { name: 'mouth', parent: 'muzzle', prim: { t: 'mouth', r: 0.04, w: 1.4 }, at: [0, -0.04, 0.085], rot: [25, 0, 0] },

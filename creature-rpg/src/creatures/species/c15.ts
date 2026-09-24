@@ -125,7 +125,7 @@ export const c15: SpeciesVisual = {
   mat: 'STONE',
   rim: '#9FF7FF',
   rimStrength: 0.35,
-  eye: { shape: 'round', sclera: '#10222A', iris: '#6FE3FF', irisRatio: 0.86, pupil: 'slit', pupilRatio: 0.34, highlights: 1, lid: 0.15, lidAngle: -6, glow: '#6FE3FF' },
+  eye: { shape: 'round', sclera: '#10222A', iris: '#6FE3FF', irisRatio: 0.86, pupil: 'v-oval', pupilRatio: 0.34, highlights: 1, lid: 0.15, lidAngle: -6, glow: '#6FE3FF', outline: '#8FEAFF' },
   mouth: { style: 'line' },
   rig: { type: 'QUAD', gaitHz: 0.7, stride: 14, bounce: 0.015, breath: 0.015, breathHz: 0.3, attack: 'slam', special: 'cast', faint: 'collapse', lean: 1 },
   parts: [
@@ -136,12 +136,12 @@ export const c15: SpeciesVisual = {
     // under-body
     { name: 'body', prim: { t: 'sphere', r: [0.44, 0.2, 0.56] }, at: [0, 0.3, 0], slot: 'P-' },
     // heavy box head
-    { name: 'head', parent: 'body', prim: { t: 'box', w: 0.32, h: 0.22, d: 0.3 }, at: [0, 0.05, 0.72], slot: 'P', anim: ['look', 'fx:head'] },
+    { name: 'head', parent: 'body', prim: { t: 'box', w: 0.32, h: 0.22, d: 0.3 }, at: [0, 0.07, 0.78], scale: [1.2, 1.2, 1.2], slot: 'P', anim: ['look', 'fx:head'] },
     { name: 'brow', parent: 'head', prim: { t: 'box', w: 0.34, h: 0.06, d: 0.11 }, at: [0, 0.11, 0.1], rot: [-8, 0, 0], slot: 'P-' },
     { name: 'snoutPlate', parent: 'head', prim: { t: 'box', w: 0.2, h: 0.09, d: 0.06 }, at: [0, 0.0, 0.16], slot: 'P+' },
     { name: 'jaw', parent: 'head', prim: { t: 'box', w: 0.28, h: 0.07, d: 0.26 }, at: [0, -0.13, 0.02], slot: 'P', anim: ['jaw'] },
     { name: 'mouth', parent: 'head', prim: { t: 'mouth', r: 0.05, w: 1.8 }, at: [0, -0.08, 0.152], anim: ['fx:mouth'] },
-    { name: 'eye', parent: 'head', mirror: true, prim: { t: 'eye', r: 0.056 }, at: [0.095, 0.035, 0.153], rot: [0, 14, 0] },
+    { name: 'eye', parent: 'head', mirror: true, prim: { t: 'eye', r: 0.064 }, at: [0.092, 0.035, 0.153], rot: [0, 14, 0] },
     { name: 'horn', parent: 'head', mirror: true, prim: { t: 'extrude', shape: 'X_tri', w: 0.11, h: 0.17, depth: 0.06 }, at: [0.12, 0.12, 0.06], rot: [38, 14, -14], slot: 'P+' },
     { name: 'hornTip', parent: 'horn', mirror: true, prim: { t: 'cone', r: 0.025, h: 0.07 }, at: [0, 0.15, 0], slot: 'A', mat: 'ICE', emissive: 1.0, opacity: 0.9, flat: true, anim: ['fx:horn'] },
     // pillar legs
@@ -156,8 +156,8 @@ export const c15: SpeciesVisual = {
     { name: 'boulderB', parent: 'boulderP', prim: { t: 'box', w: 0.24, h: 0.26, d: 0.22 }, at: [0.03, 0.02, -0.02], rot: [-25, 70, 40], slot: 'D+', mat: 'METAL', flat: true },
     { name: 'boulderC', parent: 'boulderP', prim: { t: 'box', w: 0.2, h: 0.18, d: 0.24 }, at: [-0.04, -0.03, 0.03], rot: [40, -20, -30], slot: 'D', mat: 'METAL', flat: true },
     { name: 'boulderGem', parent: 'boulderP', prim: { t: 'cone', r: 0.03, h: 0.08 }, at: [0.02, 0.13, 0.02], rot: [0, 0, -12], slot: 'A', mat: 'ICE', emissive: 1.0, opacity: 0.9, flat: true, lod: 0 },
-    { name: 'arc1', prim: { t: 'tube', pts: [[0, 0.62, -0.62], [0.05, 0.6, -0.72], [-0.03, 0.56, -0.8], [0.04, 0.53, -0.9]], r0: 0.008, r1: 0.006 }, slot: 'A', mat: 'GLOW', emissive: 1.6, lod: 0 },
-    { name: 'arc2', prim: { t: 'tube', pts: [[0.2, 0.55, -0.48], [0.16, 0.58, -0.66], [0.12, 0.5, -0.78], [0.07, 0.52, -0.94]], r0: 0.007, r1: 0.005 }, slot: 'A', mat: 'GLOW', emissive: 1.6, lod: 0 },
+    { name: 'arc1', prim: { t: 'tube', pts: [[0, 0.62, -0.62], [0.05, 0.6, -0.72], [-0.03, 0.56, -0.8], [0.04, 0.53, -0.9]], r0: 0.008, r1: 0.006 }, slot: 'A', mat: 'GLOW', emissive: 1.5, lod: 0 },
+    { name: 'arc2', prim: { t: 'tube', pts: [[0.2, 0.55, -0.48], [0.16, 0.58, -0.66], [0.12, 0.5, -0.78], [0.07, 0.52, -0.94]], r0: 0.007, r1: 0.005 }, slot: 'A', mat: 'GLOW', emissive: 1.5, lod: 0 },
     // orbit pivot (0.1 rev/s via the shared `orbit` tag)
     { name: 'orbit', prim: { t: 'none' }, anim: ['orbit', 'fx:orbit'] },
     ...parts.filter((p) => p.parent === 'orbit' || p.parent?.startsWith('stone')),

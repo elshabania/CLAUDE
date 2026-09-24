@@ -4,6 +4,8 @@ import * as E from './engine';
 import { sfx, cry } from './sfxBus';
 import { SONGS } from './songs';
 import { CONTENT } from '../data/index';
+import { pluckSynth } from './core';
+import { genMelody } from './songs';
 
 export async function probe(which: string) {
   await E.startAudio();
@@ -24,15 +26,30 @@ export async function probe(which: string) {
   if (which === 'zones') {
     for (const z of [...Object.keys(SONGS), 'forest@night', 'mystery_zone']) {
       E.setZoneMusic(z);
-      out['zone:' + z] = await sample(2200);
+      await new Promise((r) => setTimeout(r, 2200));
+      out['zone:' + z] = await sample(2500);
     }
+  }
+  if (which === 'pluck') {
+    E.setZoneMusic(null);
+    await sample(1800);
+    const p = pluckSynth({ decay: 0.7, volume: -9 }).toDestination();
+    for (const f of [220, 440, 660, 880]) { p.triggerAttackRelease(f, 0.3, Tone.now() + 0.05); out['pl' + f] = await sample(600); }
+    (out as any).mel = JSON.stringify(genMelody(SONGS.hearth).slice(0, 4)) as any;
+  }
+  if (which.startsWith('long:')) {
+    const [, z, lead] = which.split(':');
+    if (lead) (SONGS as any)[z].lead = lead;
+    E.setZoneMusic(z);
+    for (let i = 0; i < 8; i++) out['w' + i] = await sample(3000);
   }
   if (which === 'battle') {
     E.setZoneMusic('route_1');
     await sample(500);
     for (const k of ['wild', 'trainer', 'rival', 'cantor', 'admin', 'stillmark', 'odile', 'odile_b', 'champion']) {
       E.setBattleMusic(k, 'fire');
-      out['battle:' + k] = await sample(1500);
+      await new Promise((r) => setTimeout(r, 900));
+      out['battle:' + k] = await sample(2000);
     }
     E.setBattleIntensity(true);
     out['battle:intense'] = await sample(2500);

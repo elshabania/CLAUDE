@@ -65,7 +65,7 @@ export const c12: SpeciesVisual = {
     { name: 'shoulders', parent: 'torso', prim: { t: 'sphere', r: [0.25, 0.21, 0.21] }, at: [0, 0.07, 0.24], slot: 'S' },
     ...mossBack,
     // low forward head with broad mask
-    { name: 'head', parent: 'shoulders', prim: { t: 'sphere', r: [0.15, 0.13, 0.14] }, at: [0, -0.04, 0.2], slot: 'S', anim: ['look'] },
+    { name: 'head', parent: 'shoulders', prim: { t: 'sphere', r: [0.15, 0.13, 0.14] }, at: [0, -0.02, 0.23], scale: [1.3, 1.3, 1.3], slot: 'S', anim: ['look'] },
     { name: 'face', parent: 'head', prim: { t: 'sphere', r: [0.13, 0.11, 0.06] }, at: [0, -0.005, 0.105], slot: 'S+' },
     { name: 'mask', parent: 'face', mirror: true, prim: { t: 'sphere', r: [0.05, 0.022, 0.02] }, at: [0.066, -0.012, 0.04], rot: [0, 28, -24], slot: '#4A3A2C' },
     { name: 'eye', parent: 'face', mirror: true, prim: { t: 'eye', r: 0.048 }, at: [0.05, 0.02, 0.05], rot: [0, 20, 0] },

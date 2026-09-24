@@ -89,7 +89,7 @@ export const c17: SpeciesVisual = {
   mat: 'SCALE',
   rim: '#FFFFFF',
   rimStrength: 0.5,
-  eye: { shape: 'long-almond', iris: '#A8E6FF', irisRatio: 0.72, pupil: 'slit', pupilRatio: 0.55, highlights: 1, lid: 0.12, lidAngle: -5 },
+  eye: { shape: 'long-almond', iris: '#A8E6FF', irisRatio: 0.72, pupil: 'v-oval', pupilRatio: 0.55, highlights: 1, lid: 0.12, lidAngle: -5 },
   mouth: { style: 'line' },
   rig: { type: 'CHAIN', gaitHz: 1, stride: 0, bounce: 0.01, breath: 0.02, breathHz: 0.5, waveAmp: 9, waveHz: 0.45, waveAxis: 'roll', attack: 'lunge', special: 'cast', faint: 'collapse', lean: 0 },
   parts: [
@@ -108,7 +108,7 @@ export const c17: SpeciesVisual = {
     { name: 'head', parent: 'headP', prim: { t: 'lathe', profile: 'L_teardrop', h: 0.5, rmax: 0.165, axis: 'z' }, at: [0, 0, -0.1], scale: [1, 0.82, 1], slot: 'P' },
     { name: 'jaw', parent: 'headP', prim: { t: 'lathe', profile: 'L_teardrop', h: 0.34, rmax: 0.11, axis: 'z' }, at: [0, -0.06, 0.02], scale: [1, 0.55, 1], slot: '#D6F0FF', anim: ['jaw'] },
     { name: 'mouth', parent: 'headP', prim: { t: 'mouth', r: 0.05, w: 2.2 }, at: [0, -0.045, 0.33], rot: [55, 0, 0], anim: ['fx:mouth'] },
-    { name: 'eye', parent: 'headP', mirror: true, prim: { t: 'eye', r: 0.06 }, at: [0.105, 0.04, 0.12], rot: [-8, 58, 0], scale: [1.3, 1, 1] },
+    { name: 'eye', parent: 'headP', mirror: true, prim: { t: 'eye', r: 0.074 }, at: [0.106, 0.045, 0.12], rot: [-8, 56, 0], scale: [1.3, 1.05, 1] },
     { name: 'brow', parent: 'headP', mirror: true, prim: { t: 'extrude', shape: 'X_fin_crescent', w: 0.2, h: 0.14, depth: 0.02 }, at: [0.07, 0.1, 0.18], rot: [-30, 90, 12], slot: 'S', mat: 'ICE', opacity: 0.85, emissive: 0.25, glowColor: '#CFEFFF' },
   ],
 };

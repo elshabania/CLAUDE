@@ -29,6 +29,7 @@ export function createBattle(c: Content, setup: BattleSetup, seed: number): Batt
   const firstAlive = (team: CreatureInstance[]) => Math.max(0, team.findIndex((m) => m.hp > 0));
   const st: BattleState = {
     kind: setup.kind,
+    mandatory: setup.kind === 'trainer' && setup.mandatory === true,
     player: { team: setup.playerParty.map((i) => makeCombatant(c, i)), active: firstAlive(setup.playerParty) },
     foe: { team: setup.foeParty.map((i) => makeCombatant(c, i)), active: firstAlive(setup.foeParty) },
     ai: setup.ai,
@@ -756,8 +757,10 @@ function awardXp(ctx: Ctx, fainted: Combatant) {
   const sp = c.species[fainted.inst.species];
   const Lf = fainted.inst.level;
   const Y = sp.xpYield;
-  const tn = s.kind === 'trainer' ? 3 : 1;
-  const td = s.kind === 'trainer' ? 2 : 1;
+  // systems §8.1: T = 3/2 only for trainers whose record has mandatory: true (optional trainers and wild: 1)
+  const tMult = s.kind === 'trainer' && s.mandatory === true;
+  const tn = tMult ? 3 : 1;
+  const td = tMult ? 2 : 1;
   const parts = s.participants[fainted.inst.uid] ?? [];
   for (const cb of s.player.team) {
     if (cb.inst.hp <= 0) continue;

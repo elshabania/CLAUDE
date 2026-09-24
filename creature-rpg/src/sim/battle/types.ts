@@ -36,6 +36,8 @@ export interface BattleSetup {
   ambientWeather: WeatherId;
   attunedType: TypeId | null;      // zone Resonance (null = neutral / silenced)
   trainerId?: string;
+  /** systems §8.1: T = 3/2 XP only against trainers whose record has mandatory: true */
+  mandatory?: boolean;
   payout?: number;                 // trainer money on win
   storageFull?: boolean;           // party 6 and storage full -> capture needs confirmation (UI)
 }
@@ -55,6 +57,8 @@ export interface PendingEvolution { uid: string; to: string }
 
 export interface BattleState {
   kind: 'wild' | 'trainer';
+  /** mandatory (story / path-blocking) trainer: ×3/2 XP (systems §8.1) */
+  mandatory?: boolean;
   player: BattleSide;
   foe: BattleSide;
   ai: AiLevel;

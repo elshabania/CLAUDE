@@ -50,21 +50,21 @@ export const c03: SpeciesVisual = {
   rim: '#9FF3FF',
   rimStrength: 0.5,
   hoverGap: 0.35,
-  eye: { shape: 'long-almond', iris: '#5FD4E8', irisRatio: 0.58, pupil: 'round', pupilRatio: 0.3, highlights: 2, lid: 0.25, lidAngle: -4 },
+  eye: { shape: 'long-almond', iris: '#5FD4E8', irisRatio: 0.58, pupil: 'round', pupilRatio: 0.3, highlights: 2, lid: 0.18, lidAngle: -4 },
   mouth: { style: 'smile' },
   rig: { type: 'WING', flapAmp: 7, flapHz: 0.67, waveAmp: 9, waveHz: 0.45, breath: 0.015, breathHz: 0.4, attack: 'dive', special: 'cast', faint: 'sink' },
   parts: [
     // --- body ---
     { name: 'body', prim: { t: 'none' }, at: [0, 0.55, 0], anim: ['br'] },
-    { name: 'bodyMesh', parent: 'body', prim: { t: 'lathe', profile: 'L_spindle', h: 1.2, rmax: 0.13, axis: 'z' }, at: [0, 0, -0.6], anim: ['fx:body'] },
-    { name: 'keel', parent: 'body', prim: { t: 'sphere', r: [0.1, 0.07, 0.24] }, at: [0, -0.06, 0.12], slot: 'W' },
+    { name: 'bodyMesh', parent: 'body', prim: { t: 'lathe', profile: 'L_spindle', h: 1.2, rmax: 0.165, axis: 'z' }, at: [0, 0, -0.6], anim: ['fx:body'] },
+    { name: 'keel', parent: 'body', prim: { t: 'sphere', r: [0.13, 0.09, 0.28] }, at: [0, -0.07, 0.12], slot: 'W' },
     { name: 'dorsal', parent: 'body', prim: { t: 'capsule', r: 0.018, len: 0.7 }, at: [0, 0.1, -0.4], rot: [90, 0, 0], slot: 'A', emissive: 0.5, lod: 0 },
     // --- neck + head ---
-    { name: 'neck', parent: 'body', prim: { t: 'capsule', r: 0.065, len: 0.16, r2: 0.055 }, at: [0, 0.03, 0.5], rot: [72, 0, 0], anim: ['look'] },
-    { name: 'head', parent: 'neck', prim: { t: 'lathe', profile: 'L_teardrop', h: 0.4, rmax: 0.13, axis: 'z' }, at: [0, 0.22, -0.02], rot: [-72, 0, 0], anim: ['look'] },
+    { name: 'neck', parent: 'body', prim: { t: 'capsule', r: 0.085, len: 0.16, r2: 0.07 }, at: [0, 0.03, 0.5], rot: [72, 0, 0], anim: ['look'] },
+    { name: 'head', parent: 'neck', prim: { t: 'lathe', profile: 'L_teardrop', h: 0.4, rmax: 0.13, axis: 'z' }, at: [0, 0.22, -0.02], rot: [-72, 0, 0], scale: [1.18, 1.18, 1.1], anim: ['look'] },
     { name: 'jaw', parent: 'head', prim: { t: 'lathe', profile: 'L_teardrop', h: 0.28, rmax: 0.075, axis: 'z' }, at: [0, -0.055, 0.08], rot: [4, 0, 0], slot: 'P+', anim: ['jaw'] },
     { name: 'mouth', parent: 'head', prim: { t: 'mouth', r: 0.035, w: 1.8 }, at: [0, -0.03, 0.33], rot: [30, 0, 0] },
-    { name: 'eye', parent: 'head', mirror: true, prim: { t: 'eye', r: 0.07 }, at: [0.081, 0.042, 0.18], rot: [-8, 32, 0], scale: [1.4, 1, 1] },
+    { name: 'eye', parent: 'head', mirror: true, prim: { t: 'eye', r: 0.08 }, at: [0.082, 0.045, 0.18], rot: [-8, 34, 0], scale: [1.35, 1.1, 1] },
     { name: 'brow', parent: 'head', mirror: true, prim: { t: 'capsule', r: 0.024, len: 0.07 }, at: [0.025, 0.08, 0.225], rot: [0, 50, -100], slot: '#2F5F8F' },
     { name: 'cheek', parent: 'head', mirror: true, prim: { t: 'sphere', r: 0.02 }, at: [0.088, -0.05, 0.05], slot: 'A', emissive: 0.6 },
     // crescent crest blade sweeping up-back from the crown, cyan with a yellow edge

@@ -1,7 +1,7 @@
 // Generative music: per-song step sequencer on Tone.Transport, crossfades, battle layers, stingers.
 import * as Tone from 'tone';
 import type { Core } from './core';
-import { monotonic } from './core';
+import { monotonic, pluckSynth } from './core';
 import { BASS, battleSong, chordIdx, genMelody, mtof, mulberry, resolveSong, scaleMidi, type LeadKind, type MelNote, type PadKind, type SongDef } from './songs';
 
 type Node = { dispose(): unknown };
@@ -61,7 +61,7 @@ function makeLead(kind: LeadKind, dest: Tone.InputNode, send: Tone.InputNode, ec
       const s = new Tone.MonoSynth({
         oscillator: { type: 'sawtooth' }, filter: { type: 'lowpass', Q: 2, rolloff: -24 },
         filterEnvelope: { baseFrequency: 900, octaves: 1, attack: 0.04, decay: 0.3, sustain: 0.7, release: 0.3 },
-        envelope: { attack: 0.04, decay: 0.2, sustain: 0.7, release: 0.25 }, portamento: 0.02, volume: -20 + db,
+        envelope: { attack: 0.04, decay: 0.2, sustain: 0.7, release: 0.25 }, portamento: 0.02, volume: -16 + db,
       });
       s.connect(vib);
       route(vib, 0.2);
@@ -71,7 +71,7 @@ function makeLead(kind: LeadKind, dest: Tone.InputNode, send: Tone.InputNode, ec
       const s = new Tone.MonoSynth({
         oscillator: { type: 'sawtooth' }, filter: { type: 'lowpass', Q: 4, rolloff: -24 },
         filterEnvelope: { baseFrequency: 260, octaves: 3.5, attack: 0.03, decay: 0.25, sustain: 0.3, release: 0.3 },
-        envelope: { attack: 0.01, decay: 0.2, sustain: 0.6, release: 0.2 }, volume: -20 + db,
+        envelope: { attack: 0.01, decay: 0.2, sustain: 0.6, release: 0.2 }, volume: -17 + db,
       });
       route(s, 0.15);
       return inst([s, ...extra], (m, d, t, v) => s.triggerAttackRelease(mtof(one(m)), d, t, v));
@@ -86,7 +86,7 @@ function makeLead(kind: LeadKind, dest: Tone.InputNode, send: Tone.InputNode, ec
     }
     case 'pluck':
     case 'mute': {
-      const s = new Tone.PluckSynth(kind === 'pluck' ? { attackNoise: 1, dampening: 3500, resonance: 0.9, volume: -6 + db } : { attackNoise: 0.5, dampening: 1400, resonance: 0.72, volume: -3 + db });
+      const s = kind === 'pluck' ? pluckSynth({ decay: 0.7, volume: -9 + db }) : pluckSynth({ decay: 0.2, bright: 1.8, base: 380, volume: -4 + db });
       route(s, kind === 'pluck' ? 0.25 : 0);
       return inst([s, ...extra], (m, d, t) => s.triggerAttackRelease(mtof(one(m)), d, t));
     }
@@ -119,10 +119,10 @@ function makePad(kind: PadKind, dest: Tone.InputNode, send: Tone.InputNode, batt
   }
   const poly = new Tone.PolySynth(Tone.AMSynth, {
     harmonicity: kind === 'organ' ? 2 : 1.5, oscillator: { type: kind === 'organ' ? 'sine' : 'triangle' }, modulation: { type: 'sine' },
-    envelope: { attack: kind === 'organ' ? 0.2 : 0.8, decay: 0.5, sustain: 0.8, release: 2 },
+    envelope: { attack: kind === 'organ' ? 0.2 : 0.8, decay: 0.5, sustain: 0.8, release: battle ? 0.9 : 2 },
     modulationEnvelope: { attack: 0.5, decay: 0.3, sustain: 1, release: 1.5 },
   });
-  poly.maxPolyphony = 6;
+  poly.maxPolyphony = 12;
   poly.volume.value = kind === 'full' ? -19 : -22;
   const nodes: Node[] = [poly];
   let head: Tone.ToneAudioNode = poly;
@@ -132,7 +132,7 @@ function makePad(kind: PadKind, dest: Tone.InputNode, send: Tone.InputNode, batt
     head = ch;
     nodes.push(ch);
   }
-  const filter = new Tone.Filter({ type: kind === 'airy' ? 'highpass' : 'lowpass', frequency: battle ? 1200 : PAD_FILTER[kind], Q: 0.5 });
+  const filter = new Tone.Filter({ type: kind === 'airy' ? 'highpass' : 'lowpass', frequency: battle ? 1200 : kind === 'airy' ? 150 : PAD_FILTER[kind], Q: 0.5 });
   head.connect(filter);
   filter.connect(dest);
   nodes.push(filter);
@@ -229,6 +229,7 @@ class Song {
   private intensity = false;
   private wantIntensity = false;
   private disposed = false;
+  private warned = false;
   private bars: number;
 
   constructor(key: string, def: SongDef, core: Core) {
@@ -280,7 +281,7 @@ class Song {
   }
 
   fadeIn(sec: number) {
-    this.out.volume.rampTo(0, Math.max(0.05, sec));
+    this.out.volume.rampTo(this.def.battle ? -1 : 3, Math.max(0.05, sec));
     this.sendBus.gain.rampTo(1, Math.max(0.05, sec));
   }
 
@@ -305,8 +306,10 @@ class Song {
     if (this.disposed) return;
     try {
       this.tickInner(time);
-    } catch {
-      /* never break the transport */
+    } catch (e) {
+      // never break the transport; report once in dev builds
+      if (!this.warned && import.meta.env?.DEV) console.warn('[audio] song tick failed', this.key, e);
+      this.warned = true;
     }
     this.step++;
   }
@@ -323,8 +326,8 @@ class Song {
       if (this.wantIntensity !== this.intensity && d.battle) {
         this.intensity = this.wantIntensity;
         const f = this.intensity ? 4000 : 1200;
-        this.pad?.filter?.frequency.rampTo(f, 0.4);
-        this.bassFilter?.frequency.rampTo(this.intensity ? 4000 : 1000, 0.4);
+        this.pad?.filter?.frequency.rampTo(f, 0.4, time);
+        this.bassFilter?.frequency.rampTo(this.intensity ? 4000 : 1000, 0.4, time);
       }
       if (this.pad) {
         const notes = ci.map((x) => {
@@ -424,7 +427,7 @@ interface StingerKit {
   poly: Tone.PolySynth;
   pad: Tone.PolySynth;
   padFilter: Tone.Filter;
-  pluck: Tone.PluckSynth;
+  pluck: Tone.MonoSynth;
   bowl: Tone.PolySynth;
 }
 
@@ -456,7 +459,8 @@ export class Music {
     this.alive = this.alive.filter((s) => s === prev || s === revive);
     if (prev) prev.fadeOut(fade, () => (this.alive = this.alive.filter((s) => s !== prev)));
     const tr = Tone.getTransport();
-    tr.bpm.rampTo(def.bpm, Math.max(0.1, fade * 0.8));
+    // bpm is set instantly: ramping a TickParam across overlapping crossfades can corrupt Tone's tick math
+    tr.bpm.value = def.bpm;
     tr.swing = def.swing ?? 0;
     tr.swingSubdivision = '16n';
     if (revive) {
@@ -528,13 +532,13 @@ export class Music {
     poly.maxPolyphony = 8;
     poly.volume.value = -18;
     const pad = new Tone.PolySynth(Tone.AMSynth, { harmonicity: 1.5, oscillator: { type: 'triangle' }, envelope: { attack: 0.8, decay: 0.5, sustain: 0.8, release: 2 } });
-    pad.maxPolyphony = 6;
+    pad.maxPolyphony = 12;
     pad.volume.value = -18;
     const padFilter = new Tone.Filter({ type: 'lowpass', frequency: 4000 });
     pad.connect(padFilter);
-    const pluck = new Tone.PluckSynth({ attackNoise: 1, dampening: 4000, resonance: 0.92, volume: -4 });
+    const pluck = pluckSynth({ decay: 0.8, volume: -10 });
     const bowl = new Tone.PolySynth(Tone.Synth, { oscillator: { type: 'sine' }, envelope: { attack: 0.004, decay: 2.8, sustain: 0, release: 2 } });
-    bowl.maxPolyphony = 16;
+    bowl.maxPolyphony = 24;
     bowl.volume.value = -16;
     const sendG = new Tone.Gain(0.35).connect(verb);
     for (const n of [glass, poly, padFilter, pluck, bowl]) {

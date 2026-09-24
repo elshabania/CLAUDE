@@ -118,13 +118,13 @@ for (const gx of [0.07, 0.2]) {
 // dark jawline crease from the snout back to the mouth corner
 parts.push({ name: 'jawline', parent: 'seg0', mirror: true, prim: { t: 'tube', pts: [[0.27, -0.19, -0.1], [0.4, -0.2, -0.3], [0.45, -0.16, -0.52], [0.44, -0.1, -0.66]], r0: 0.012, r1: 0.016 }, slot: 'D' });
 // small kind eyes set low near the mouth corner
-parts.push({ name: 'eye', parent: 'seg0', mirror: true, prim: { t: 'eye', r: 0.058 }, at: [0.435, -0.02, -0.66], rot: [0, 80, 0] });
+parts.push({ name: 'eye', parent: 'seg0', mirror: true, prim: { t: 'eye', r: 0.088 }, at: [0.428, 0.0, -0.64], rot: [0, 78, 0] });
 // eclipse crown: dark disc ringed by a slowly rotating 12-ray corona, standing up from the forehead
-parts.push({ name: 'crown', parent: 'seg0', prim: { t: 'none' }, at: [0, 0.3, -0.42], rot: [50, 0, 0] });
-parts.push({ name: 'eclipse', parent: 'crown', prim: { t: 'cyl', r: 0.18, h: 0.03 }, at: [0, 0.01, 0], slot: 'D', mat: 'SHELL' });
-parts.push({ name: 'eclipseRing', parent: 'crown', prim: { t: 'torus', R: 0.185, r: 0.012 }, at: [0, 0.03, 0], rot: [-90, 0, 0], slot: 'A', emissive: 2.2, mat: 'GLOW' });
+parts.push({ name: 'crown', parent: 'seg0', prim: { t: 'none' }, at: [0, 0.34, -0.42], rot: [50, 0, 0] });
+parts.push({ name: 'eclipse', parent: 'crown', prim: { t: 'cyl', r: 0.21, h: 0.03 }, at: [0, 0.01, 0], slot: 'D', mat: 'SHELL' });
+parts.push({ name: 'eclipseRing', parent: 'crown', prim: { t: 'torus', R: 0.215, r: 0.014 }, at: [0, 0.03, 0], rot: [-90, 0, 0], slot: 'A', emissive: 1.5, mat: 'GLOW' });
 parts.push({ name: 'coronaSpin', parent: 'crown', prim: { t: 'none' }, anim: ['spin', 'fx:corona'] });
-parts.push({ name: 'corona', parent: 'coronaSpin', prim: { t: 'extrude', shape: 'X_corona', w: 0.7, h: 0.7, depth: 0.02 }, at: [0, 0.0, 0], rot: [-90, 0, 0], slot: 'A', emissive: 1.3, mat: 'GLOW' });
+parts.push({ name: 'corona', parent: 'coronaSpin', prim: { t: 'extrude', shape: 'X_corona', w: 0.9, h: 0.9, depth: 0.02 }, at: [0, 0.0, 0], rot: [-90, 0, 0], slot: 'A', emissive: 1.5, mat: 'GLOW' });
 // long knobbly pectoral flippers with glowing edges (explicit L/R so the knobbed leading edge faces forward on both)
 {
   const at: V3 = [0.36, -0.2, -0.2];
@@ -147,7 +147,7 @@ parts.push({ name: 'corona', parent: 'coronaSpin', prim: { t: 'extrude', shape: 
   const { seg, z } = station(s);
   const r = rOf(s) * RMAX * (seg === 0 ? 0.9 : 1);
   const ar = (a * Math.PI) / 180;
-  parts.push({ name: 'fleck' + k, parent: 'seg' + seg, prim: { t: 'cone', r: 0.013, h: 0.006 }, at: [Math.sin(ar) * r * 0.99, Math.cos(ar) * r * 0.99, z], rot: [0, 0, -a], slot: 'A', emissive: 1.6, mat: 'GLOW', lod: 0 });
+  parts.push({ name: 'fleck' + k, parent: 'seg' + seg, prim: { t: 'cone', r: 0.013, h: 0.006 }, at: [Math.sin(ar) * r * 0.99, Math.cos(ar) * r * 0.99, z], rot: [0, 0, -a], slot: 'A', emissive: 1.5, mat: 'GLOW', lod: 0 });
 });
 // tiny crescent dorsal fin and broad horizontal flukes
 {
@@ -160,12 +160,12 @@ parts.push({ name: 'flukes', parent: 'flukeRoot', prim: { t: 'extrude', shape: '
 export const c30: SpeciesVisual = {
   id: 'c30',
   H: 1.75,
-  colors: { P: '#231F3A', S: '#C9C3E6', A: '#FFE8A3', D: '#0B0A12' },
+  colors: { P: '#2A2552', S: '#C9C3E6', A: '#FFE8A3', D: '#0B0A12' },
   mat: 'SCALE',
-  rim: '#FFE8A3',
-  rimStrength: 0.2,
+  rim: '#D9D0FF',
+  rimStrength: 0.3,
   hoverGap: 0.25,
-  eye: { shape: 'round', iris: '#FFE8A3', irisRatio: 0.7, pupil: 'round', pupilRatio: 0.4, highlights: 1, lid: 0.35, lidAngle: 6 },
+  eye: { shape: 'round', iris: '#FFE8A3', irisRatio: 0.7, pupil: 'ring', pupilRatio: 0.4, highlights: 2, lid: 0.22, lidAngle: 6, outline: '#FFE8A3' },
   mouth: { style: 'none' },
   rig: { type: 'FLOAT', waveAxis: 'pitch', waveAmp: 4, waveHz: 0.25, flapAmp: 12, flapHz: 0.3, breath: 0.012, breathHz: 0.25, spinHz: 0.028, attack: 'slam', special: 'cast', faint: 'sink', lean: 0 },
   parts,

@@ -140,8 +140,8 @@ export function createCries(core: Core) {
     if (plan.voice === 'fm' || plan.voice === 'am') {
       const envOpts = { attack: plan.attack, decay: plan.decay, sustain: plan.sustain, release: plan.release };
       synth = plan.voice === 'fm'
-        ? new Tone.FMSynth({ harmonicity: plan.harmonicity, modulationIndex: plan.modIndex, envelope: envOpts, modulationEnvelope: { attack: plan.attack, decay: dur * 0.6, sustain: 0.4, release: plan.release }, volume: -6 })
-        : new Tone.AMSynth({ harmonicity: plan.harmonicity, envelope: envOpts, modulationEnvelope: { attack: plan.attack, decay: dur * 0.5, sustain: 0.6, release: plan.release }, volume: -4 });
+        ? new Tone.FMSynth({ harmonicity: plan.harmonicity, modulationIndex: plan.modIndex, envelope: envOpts, modulationEnvelope: { attack: plan.attack, decay: dur * 0.6, sustain: 0.4, release: plan.release }, volume: 0 })
+        : new Tone.AMSynth({ harmonicity: plan.harmonicity, envelope: envOpts, modulationEnvelope: { attack: plan.attack, decay: dur * 0.5, sustain: 0.6, release: plan.release }, volume: 2 });
       synth.connect(fxIn);
       nodes.push(synth);
       freqs.push({ p: synth.frequency, mult: 1 });

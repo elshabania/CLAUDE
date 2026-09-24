@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "prebuild": "npm ci --prefix creature-rpg --no-audit --no-fund && npm run build --prefix creature-rpg -- --outDir ../public/play --emptyOutDir"
   },
   "dependencies": {
     "dxf-parser": "^1.1.2",
