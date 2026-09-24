@@ -58,7 +58,7 @@ const vert = /* glsl */ `
     vec4 mv = viewMatrix * vec4(wp, 1.0);
     gl_Position = projectionMatrix * mv;
     float dist = max(-mv.z, 0.3);
-    gl_PointSize = clamp(uSize * 4.0 * uPx / dist, 1.5, 40.0);
+    gl_PointSize = clamp(uSize * 4.0 * uPx / dist, 1.5, 22.0);
     vA = edgeFade * bright * smoothstep(0.3, 1.5, dist);
   }
 `;

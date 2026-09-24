@@ -3,7 +3,7 @@
 import { CONTENT } from '../../src/data/index';
 import { TRAINERS, ENCOUNTERS, type TrainerDef } from '../../src/data/registry';
 import { ZONES } from '../../src/data/zones';
-import { createBattle, openingEvents, resolveTurn, applyReplace, act, aiReplacement, playerPartyAfter, matchup } from '../../src/sim/battle/engine';
+import { createBattle, openingEvents, resolveTurn, applyReplace, act, aiReplacement, playerPartyAfter, effectiveness, typesOf } from '../../src/sim/battle/engine';
 import { chooseAiAction } from '../../src/sim/battle/ai';
 import type { Action, BattleSetup, BattleState } from '../../src/sim/battle/types';
 import { addXp, createInstance, evolve, evolutionTarget, healFull, learnMove, knows } from '../../src/sim/progression';
@@ -11,6 +11,7 @@ import { computeStats, xpForLevel } from '../../src/sim/stats';
 import { Rng, seedRng, hashString } from '../../src/sim/rng';
 import { resolveRivalSpecies, rollEncounter } from '../../src/sim/world';
 import type { Content } from '../../src/sim/content';
+import { canLearnDisc } from '../../src/sim/game';
 import type { CreatureInstance, TypeId } from '../../src/sim/types';
 
 export const c: Content = CONTENT;
@@ -51,7 +52,8 @@ type Step =
   | { kind: 'wild'; table: string; zone: string; n: number; catchOne: boolean }
   | { kind: 'trainer'; id: string }
   | { kind: 'zoneTrainers'; zone: string } // all optional trainers of a zone
-  | { kind: 'silence'; zone: string; on: boolean };
+  | { kind: 'silence'; zone: string; on: boolean }
+  | { kind: 'disc'; ids: string[] }; // Etudes the player obtains here (trial rewards, systems §12.5 purchases)
 
 export const PATH: Step[] = [
   { kind: 'trainer', id: 't_rival_1' },
@@ -64,12 +66,15 @@ export const PATH: Step[] = [
   { kind: 'trainer', id: 't_still_01' }, { kind: 'trainer', id: 't_still_02' },
   { kind: 'trainer', id: 't_hall1_01' }, { kind: 'trainer', id: 't_hall1_02' },
   { kind: 'trainer', id: 't_cantor_1' },
-  // ch3
+  { kind: 'disc', ids: ['i_disc_04'] }, // trial_1 reward
+  // ch3 (town_2 shop: systems §12.5 buys i_disc_03)
+  { kind: 'disc', ids: ['i_disc_03'] },
   { kind: 'wild', table: 'route_2', zone: 'route_2', n: 4, catchOne: true },
   { kind: 'zoneTrainers', zone: 'route_2' },
   { kind: 'trainer', id: 't_rival_2' },
   { kind: 'trainer', id: 't_hall2_01' }, { kind: 'trainer', id: 't_hall2_02' },
   { kind: 'trainer', id: 't_cantor_2' },
+  { kind: 'disc', ids: ['i_disc_05'] }, // trial_2 reward
   // ch4
   { kind: 'wild', table: 'cave_upper', zone: 'cave', n: 2, catchOne: true },
   { kind: 'wild', table: 'cave_lower', zone: 'cave', n: 2, catchOne: false },
@@ -84,25 +89,31 @@ export const PATH: Step[] = [
   { kind: 'silence', zone: 'route_3', on: false },
   { kind: 'zoneTrainers', zone: 'route_3' },
   { kind: 'trainer', id: 't_rival_3' },
-  // ch6
+  // ch6 (systems §12.5 buys i_disc_06)
+  { kind: 'disc', ids: ['i_disc_06'] },
   { kind: 'wild', table: 'lake', zone: 'lake', n: 2, catchOne: false },
   { kind: 'zoneTrainers', zone: 'lake' },
   { kind: 'trainer', id: 't_hall3_01' }, { kind: 'trainer', id: 't_hall3_02' },
   { kind: 'trainer', id: 't_cantor_3' },
+  { kind: 'disc', ids: ['i_disc_02'] }, // trial_3 reward
   // ch7
   { kind: 'trainer', id: 't_hall4_01' }, { kind: 'trainer', id: 't_hall4_02' },
   { kind: 'trainer', id: 't_cantor_4' },
+  { kind: 'disc', ids: ['i_disc_07'] }, // trial_4 reward
   // ch8
   { kind: 'wild', table: 'route_4', zone: 'route_4', n: 2, catchOne: false },
   { kind: 'zoneTrainers', zone: 'route_4' },
   { kind: 'trainer', id: 't_still_06' }, { kind: 'trainer', id: 't_still_07' },
   { kind: 'trainer', id: 't_admin_vey_2' },
+  { kind: 'disc', ids: ['i_disc_09'] }, // Vey 2 drop
   { kind: 'trainer', id: 't_rival_4' },
-  // ch9
+  // ch9 (systems §12.5 buys i_disc_08)
+  { kind: 'disc', ids: ['i_disc_08'] },
   { kind: 'wild', table: 'volcano', zone: 'volcano', n: 2, catchOne: false },
   { kind: 'zoneTrainers', zone: 'volcano' },
   { kind: 'trainer', id: 't_hall5_01' }, { kind: 'trainer', id: 't_hall5_02' },
   { kind: 'trainer', id: 't_cantor_5' },
+  { kind: 'disc', ids: ['i_disc_16'] }, // trial_5 reward
   // ch10 (route_5 silenced until the Nullbell breaks at Odile)
   { kind: 'silence', zone: 'route_5', on: true },
   { kind: 'wild', table: 'route_5', zone: 'route_5', n: 2, catchOne: false },
@@ -113,6 +124,7 @@ export const PATH: Step[] = [
   { kind: 'zoneTrainers', zone: 'snowpeak' },
   { kind: 'trainer', id: 't_hall6_01' }, { kind: 'trainer', id: 't_hall6_02' },
   { kind: 'trainer', id: 't_cantor_6' },
+  { kind: 'disc', ids: ['i_disc_14'] }, // trial_6 reward
   { kind: 'trainer', id: 't_still_08' },
   { kind: 'trainer', id: 't_odile' },
   // ch12
@@ -151,7 +163,7 @@ function mirror(s: BattleState, pSwitches: number, pSwitchedLast: boolean, foeRe
   return { ...s, player: s.foe, foe: s.player, ai: 'hard', aiItems: [], aiSwitches: pSwitches, aiSwitchedLastTurn: pSwitchedLast, aiItemUsed: true, revealedPlayerMoves: foeRevealed, rngAI };
 }
 
-export function runBattle(setup: BattleSetup, seed: number, opts: { salves?: string[]; trainer?: TrainerDef; starter?: string; log?: (events: unknown[]) => void } = {}): RunResult {
+export function runBattle(setup: BattleSetup, seed: number, opts: { salves?: string[]; trainer?: TrainerDef; starter?: string; log?: (events: unknown[]) => void; retreat?: boolean } = {}): RunResult {
   let s = createBattle(c, setup, seed);
   s = openingEvents(c, s).state;
   let pRng = seedRng((seed * 2654435761) >>> 0);
@@ -181,18 +193,24 @@ export function runBattle(setup: BattleSetup, seed: number, opts: { salves?: str
       salvesUsed++;
     }
     // Human-style retreat (the AI's own voluntary switch needs best score < 25, so it almost never fires): when the
-    // foe out-types the active kin (matchup < 0) and a healthy bench kin is at least one effectiveness step
-    // better and not itself out-typed, switch (same ≤ 2 voluntary switches, not twice in a row).
-    if (!process.env.NO_HUMAN_SWITCH && pa.kind === 'move' && pSwitches < 2 && !pSwitchedLast && me.inst.hp * 4 > me.stats.hp && act(s, 'foe').inst.hp * 4 > act(s, 'foe').stats.hp) {
-      const ms = mirror(s, pSwitches, pSwitchedLast, foeRevealed, pRng);
-      const cur = matchup(c, ms, me);
-      if (cur < 0) {
+    // foe threatens the active kin super-effectively (revealed moves, else its types) and a healthy bench kin
+    // resists that threat (or is neutral to it and hits back super-effectively), switch. Same limits as the AI:
+    // ≤ 2 voluntary switches per battle, never twice in a row.
+    if ((opts.retreat ?? !!process.env.HUMAN_SWITCH) && pa.kind === 'move' && pSwitches < 2 && !pSwitchedLast && me.inst.hp * 4 > me.stats.hp) {
+      const foe = act(s, 'foe');
+      const revealed = foeRevealed.map((id) => c.moves[id]).filter((m) => m.category !== 'status').map((m) => m.type);
+      const threatTypes = revealed.length ? revealed : typesOf(c, foe);
+      const threat = (cb: typeof me) => Math.max(...threatTypes.map((t) => effectiveness(c, t, typesOf(c, cb))));
+      const offense = (cb: typeof me) => Math.max(0, ...cb.inst.moves.filter((m) => c.moves[m.id].category !== 'status').map((m) => effectiveness(c, c.moves[m.id].type, typesOf(c, foe))));
+      if (threat(me) >= 8) {
         let best = -1;
-        let bestM = Math.max(0, cur + 4) - 1;
+        let bestM = -Infinity;
         s.player.team.forEach((m, i) => {
-          if (i === idx || m.inst.hp * 2 < m.stats.hp) return;
-          const mm = matchup(c, ms, m);
-          if (mm > bestM) { bestM = mm; best = i; }
+          if (i === idx || m.inst.hp * 5 < m.stats.hp * 3) return;
+          const th = threat(m);
+          const of = offense(m);
+          if (!(th <= 2 || (th <= 4 && of >= 8))) return;
+          if (of - th > bestM) { bestM = of - th; best = i; }
         });
         if (best >= 0) pa = { kind: 'switch', to: best };
       }
@@ -257,6 +275,16 @@ export function offerMove(inst: CreatureInstance, move: string): CreatureInstanc
   return inst;
 }
 
+/** Etudes are reusable (systems §8.5): offer every owned disc to every compatible kin; offerMove decides. */
+export function teachDiscs(party: CreatureInstance[], discs: string[]): CreatureInstance[] {
+  if (process.env.NO_DISCS) return party;
+  return party.map((m) => {
+    let inst = m;
+    for (const d of discs) if (canLearnDisc(c, inst, d)) inst = offerMove(inst, (c.items[d].params as { move: string }).move);
+    return inst;
+  });
+}
+
 /** Post-battle: apply pending learn prompts, evolve anyone ready (player accepts), full heal (Hearthrest). */
 export function afterBattle(s: BattleState): CreatureInstance[] {
   let party = playerPartyAfter(s);
@@ -291,18 +319,19 @@ export function chooseCatch(table: string, party: CreatureInstance[], starter: s
   const rows = ENCOUNTERS.tables[table];
   const fams = new Set(party.map((m) => c.species[m.species].family));
   const partyTypes = new Set(party.flatMap((m) => c.species[m.species].types));
-  const foes = nextStory.flatMap((id) => trainerTeam(TRAINERS[id], starter).concat(TRAINERS[id].phases ? trainerTeam(TRAINERS[id], starter, 1) : []));
+  // the very next story battle counts double (a player catches for the upcoming Cantor first)
+  const foes = nextStory.flatMap((id, k) => trainerTeam(TRAINERS[id], starter).concat(TRAINERS[id].phases ? trainerTeam(TRAINERS[id], starter, 1) : []).map((f) => ({ f, w: k === 0 ? 2 : 1 })));
   let best: { species: string; level: number; score: number } | null = null;
   for (const r of rows) {
     if (Math.max(r.day, r.night) < 15) continue;
     const sp = c.species[r.species];
     if (fams.has(sp.family)) continue;
     let score = 0;
-    for (const f of foes) {
+    for (const { f, w } of foes) {
       const ft = c.species[f.species].types;
       const eff = (t: TypeId, def: TypeId[]) => def.reduce((a, d) => a * c.typeMatrix[t][d], 1) / Math.pow(2, def.length);
-      if (sp.types.some((t) => eff(t, ft) > 1)) score += 1;
-      if (ft.some((t) => eff(t, sp.types) > 1)) score -= 0.5;
+      if (sp.types.some((t) => eff(t, ft) > 1)) score += w;
+      if (ft.some((t) => eff(t, sp.types) > 1)) score -= w; // and avoids kin the coming teams hit super-effectively
     }
     for (const t of sp.types) if (!partyTypes.has(t)) score += 1;
     score += Object.values(sp.base).reduce((a, b) => a + b, 0) / 1000;
@@ -335,13 +364,13 @@ export function trainerSetup(t: TrainerDef, party: CreatureInstance[], starter: 
 export interface WinStats { winPct: number; avgTurns: number; avgSalves: number; timeouts: number; errors: string[]; firstWin: RunResult | null; last: RunResult | null }
 
 /** SIM-01 core: the same party against a story trainer over `seeds` seeds. `patch` lets what-if runs edit the trainer. */
-export function storyWinRate(t0: TrainerDef, party: CreatureInstance[], starter: string, attuned: TypeId | null, seeds: number, patch?: (t: TrainerDef) => TrainerDef): WinStats {
+export function storyWinRate(t0: TrainerDef, party: CreatureInstance[], starter: string, attuned: TypeId | null, seeds: number, patch?: (t: TrainerDef) => TrainerDef, salt = ''): WinStats {
   const t = patch ? patch(structuredClone(t0)) : t0;
   const out: WinStats = { winPct: 0, avgTurns: 0, avgSalves: 0, timeouts: 0, errors: [], firstWin: null, last: null };
   let wins = 0;
   for (let k = 0; k < seeds; k++) {
     try {
-      const r = runBattle(trainerSetup(t, party, starter, attuned), hashString(`${starter}:${t.id}:${k}`), { salves: salveBudget(t.id), trainer: t, starter });
+      const r = runBattle(trainerSetup(t, party, starter, attuned), hashString(`${starter}${salt}:${t.id}:${k}`), { salves: salveBudget(t.id), trainer: t, starter });
       out.last = r;
       if (r.outcome === 'win') { wins++; out.firstWin ??= r; }
       if (r.outcome === 'timeout') out.timeouts++;
@@ -386,6 +415,8 @@ export interface StoryRow {
   timeouts: number;
   winPctNoAttune?: number;
   winPctPlus3?: number;
+  /** per-path win % (simulateCampaignPaths) */
+  pathWin?: number[];
   party: string;
 }
 
@@ -397,9 +428,10 @@ export interface CampaignHooks {
   onStory?: (id: string, party: CreatureInstance[], attuned: TypeId | null) => void;
 }
 
-export function simulateCampaign(starter: string, seeds: number, hooks: CampaignHooks = {}): CampaignResult {
+export function simulateCampaign(starter: string, seeds: number, hooks: CampaignHooks = {}, path = 0): CampaignResult {
+  const salt = path ? `#${path}` : ''; // path 0 keeps the original seeding
   const trace = hooks.trace;
-  const rng = new Rng(seedRng(hashString('balance:' + starter)));
+  const rng = new Rng(seedRng(hashString('balance:' + starter + salt)));
   let party: CreatureInstance[] = [createInstance(c, rng, starter, 5, { potential: 10, temperament: 'tm_steady', bond: true })];
   const silenced = new Set<string>();
   const rows: StoryRow[] = [];
@@ -410,6 +442,7 @@ export function simulateCampaign(starter: string, seeds: number, hooks: Campaign
   const storyIdx = (i: number) => PATH.slice(i + 1).filter((st) => st.kind === 'trainer' && STORY_BY_ID[st.id]).map((st) => (st as { id: string }).id).slice(0, 3);
 
   let step = 0;
+  const discs: string[] = [];
   // Route / hall trainers: the player spends one salve of the current shop tier per battle (systems §12.5 buys ≈3 per chapter).
   const routeSalves = () => (process.env.NO_ROUTE_SALVE ? [] : salveBudget(storyIdx(step - 1)[0] ?? 't_champion').slice(0, 1));
   const fightTrainer = (id: string) => {
@@ -421,7 +454,7 @@ export function simulateCampaign(starter: string, seeds: number, hooks: Campaign
     if (info) {
       // SIM-01: many seeds at the current (simulated) party
       hooks.onStory?.(id, party, attuned);
-      const main = storyWinRate(t, party, starter, attuned, seeds);
+      const main = storyWinRate(t, party, starter, attuned, seeds, undefined, salt);
       errors.push(...main.errors);
       const row: StoryRow = {
         info,
@@ -437,18 +470,18 @@ export function simulateCampaign(starter: string, seeds: number, hooks: Campaign
         party: party.map((m) => `${m.species}@${m.level}`).join(' '),
       };
       // D3 evidence: Cantor win rate without the attunement bonus
-      if (info.cantor) row.winPctNoAttune = storyWinRate(t, party, starter, null, seeds).winPct;
+      if (info.cantor) row.winPctNoAttune = storyWinRate(t, party, starter, null, seeds, undefined, salt).winPct;
       // balance signal (qa_plan §7.2 item 8): below target → win rate with the whole party +3 levels
-      if (row.winPct < info.minWin) row.winPctPlus3 = storyWinRate(t, levelShift(party, 3), starter, attuned, seeds).winPct;
+      if (row.winPct < info.minWin) row.winPctPlus3 = storyWinRate(t, levelShift(party, 3), starter, attuned, seeds, undefined, salt).winPct;
       rows.push(row);
       const used = main.firstWin ?? main.last;
       if (!main.firstWin) progressionLosses.push(id);
-      if (used) party = afterBattle(used.state);
+      if (used) party = teachDiscs(afterBattle(used.state), discs);
       return;
     }
     // non-story trainer: a player retries until they win (≤ 10 attempts); XP from the winning run
     for (let k = 0; k < 10; k++) {
-      const r = runBattle(trainerSetup(t, party, starter, attuned), hashString(`${starter}:${id}:p${k}`), { salves: routeSalves(), trainer: t, starter });
+      const r = runBattle(trainerSetup(t, party, starter, attuned), hashString(`${starter}${salt}:${id}:p${k}`), { salves: routeSalves(), trainer: t, starter, retreat: !process.env.NO_RETREAT });
       if (r.outcome === 'win' || k === 9) {
         if (r.outcome !== 'win') progressionLosses.push(id);
         party = afterBattle(r.state);
@@ -460,6 +493,7 @@ export function simulateCampaign(starter: string, seeds: number, hooks: Campaign
 
   PATH.forEach((st, i) => {
     step = i;
+    if (st.kind === 'disc') { discs.push(...st.ids); party = teachDiscs(party, discs); return; }
     if (st.kind === 'silence') { if (st.on) silenced.add(st.zone); else silenced.delete(st.zone); return; }
     if (st.kind === 'trainer') return fightTrainer(st.id);
     if (st.kind === 'zoneTrainers') {
@@ -467,30 +501,70 @@ export function simulateCampaign(starter: string, seeds: number, hooks: Campaign
       return;
     }
     // wild battles: day, clear weather; defeat the foe (easy AI); optionally catch one kin
-    const wrng = new Rng(seedRng(hashString(`${starter}:wild:${st.table}`)));
+    const wrng = new Rng(seedRng(hashString(`${starter}${salt}:wild:${st.table}`)));
     for (let k = 0; k < st.n; k++) {
       const enc = rollEncounter(c, ENCOUNTERS, st.table, false, 'clear', wrng)!;
       const foe = createInstance(c, wrng, enc.species, enc.level, { potential: 'random', temperament: 'random' });
       const setup: BattleSetup = { kind: 'wild', playerParty: party, foeParty: [foe], ai: 'easy', ambientWeather: 'clear', attunedType: attunedFor(st.zone, silenced) };
-      const r = runBattle(setup, wrng.nextU32());
+      const r = runBattle(setup, wrng.nextU32(), { retreat: !process.env.NO_RETREAT });
       wildBattles++;
       party = afterBattle(r.state);
       trace?.(`wild ${st.table} ${foe.species}@${foe.level} -> ${r.outcome} in ${r.turns}; party ${party.map((m) => `${m.species}@${m.level}/${m.xp}`).join(' ')}`);
     }
     if (st.catchOne && party.length < 6) {
-      const pick = chooseCatch(st.table, party, starter, storyIdx(i));
+      let pick = chooseCatch(st.table, party, starter, storyIdx(i));
+      const ov = (process.env.CATCH_OV ?? '').split(',').find((x) => x.startsWith(st.table + '='));
+      if (ov) { const r = ENCOUNTERS.tables[st.table].find((x) => x.species === ov.split('=')[1])!; pick = { species: r.species, level: Math.floor((r.lo + r.hi) / 2) }; }
       if (pick) party.push(createInstance(c, wrng, pick.species, pick.level, { potential: 'random', temperament: 'random' }));
     }
   });
   return { starter, rows, errors, progressionLosses, wildBattles, trainerBattles };
 }
 
+/**
+ * Several independent progressions per starter (different catches' potentials, wild rolls and story seeds), each
+ * with `seeds` seeds per story battle; rows are averaged. One path alone is one player's run and swings a lot
+ * (a single catch changes the next three battles); the mean over paths is the balance signal.
+ */
+export function simulateCampaignPaths(starter: string, seeds: number, paths: number, hooks: CampaignHooks = {}): CampaignResult {
+  const runs = Array.from({ length: paths }, (_, p) => simulateCampaign(starter, seeds, hooks, p));
+  const mean = (xs: (number | undefined)[]) => {
+    const v = xs.filter((x): x is number => x != null);
+    return v.length ? v.reduce((a, b) => a + b, 0) / v.length : undefined;
+  };
+  const rows: StoryRow[] = runs[0].rows.map((r0, i) => {
+    const rs = runs.map((r) => r.rows[i]).filter((r) => r && r.info.id === r0.info.id);
+    return {
+      ...r0,
+      starterLv: mean(rs.map((r) => r.starterLv))!,
+      leadLv: Math.min(...rs.map((r) => r.leadLv)), // SIM-03 uses the weakest path
+      partyAvg: mean(rs.map((r) => r.partyAvg))!,
+      winPct: mean(rs.map((r) => r.winPct))!,
+      avgTurns: mean(rs.map((r) => r.avgTurns))!,
+      avgSalves: mean(rs.map((r) => r.avgSalves))!,
+      timeouts: rs.reduce((a, r) => a + r.timeouts, 0),
+      winPctNoAttune: mean(rs.map((r) => r.winPctNoAttune)),
+      winPctPlus3: mean(rs.map((r) => r.winPctPlus3)),
+      pathWin: rs.map((r) => r.winPct),
+      party: rs.map((r) => r.party).join(' | '),
+    };
+  });
+  return {
+    starter,
+    rows,
+    errors: runs.flatMap((r) => r.errors),
+    progressionLosses: runs.flatMap((r, p) => r.progressionLosses.map((x) => `${x}#${p}`)),
+    wildBattles: runs[0].wildBattles,
+    trainerBattles: runs[0].trainerBattles,
+  };
+}
+
 export function formatTable(r: CampaignResult): string {
-  const head = '| # | Battle | Party avg Lv | Model avg | Top / starter Lv | Foe ace Lv | Win % | Target | Win % no attune | Win % at +3 Lv | Avg turns | Salves used |';
-  const sep = '|---|---|---|---|---|---|---|---|---|---|---|---|';
+  const head = '| # | Battle | Party avg Lv | Model avg | Top (min over paths) / starter Lv | Foe ace Lv | Win % | Per-path win % | Target | Win % no attune | Win % at +3 Lv | Avg turns | Salves used |';
+  const sep = '|---|---|---|---|---|---|---|---|---|---|---|---|---|';
   const f = (v?: number) => (v == null ? '—' : v.toFixed(0));
   const lines = r.rows.map((x) =>
-    `| ${x.info.n} | ${x.info.label} | ${x.partyAvg.toFixed(1)} | ${x.info.modelAvg} | ${x.leadLv} / ${x.starterLv} | ${x.aceLv} | ${f(x.winPct)}${x.winPct < x.info.minWin ? ' ✗' : ''} | ≥${x.info.minWin}${x.info.blocking ? '' : '*'} | ${f(x.winPctNoAttune)} | ${f(x.winPctPlus3)} | ${x.avgTurns.toFixed(1)} | ${x.avgSalves.toFixed(1)} |`,
+    `| ${x.info.n} | ${x.info.label} | ${x.partyAvg.toFixed(1)} | ${x.info.modelAvg} | ${x.leadLv} / ${x.starterLv.toFixed(0)} | ${x.aceLv} | ${f(x.winPct)}${x.winPct < x.info.minWin ? ' ✗' : ''} | ${(x.pathWin ?? [x.winPct]).map(f).join(' / ')} | ≥${x.info.minWin}${x.info.blocking ? '' : '*'} | ${f(x.winPctNoAttune)} | ${f(x.winPctPlus3)} | ${x.avgTurns.toFixed(1)} | ${x.avgSalves.toFixed(1)} |`,
   );
   return [head, sep, ...lines].join('\n');
 }

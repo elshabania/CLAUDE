@@ -14,8 +14,8 @@ interface Key {
 }
 
 const KEYS: Key[] = [
-  { t: 0, sun: '#A9BEF2', sunI: 0.45, hemiSky: '#7288C8', hemiGround: '#2E2D46', hemiI: 0.95, tint: '#FFFFFF', night: 1 },
-  { t: 270, sun: '#A9BEF2', sunI: 0.45, hemiSky: '#7288C8', hemiGround: '#2E2D46', hemiI: 0.95, tint: '#FFFFFF', night: 1 },
+  { t: 0, sun: '#A9BEF2', sunI: 0.45, hemiSky: '#7288C8', hemiGround: '#3C3C5C', hemiI: 1.05, tint: '#FFFFFF', night: 1 },
+  { t: 270, sun: '#A9BEF2', sunI: 0.45, hemiSky: '#7288C8', hemiGround: '#3C3C5C', hemiI: 1.05, tint: '#FFFFFF', night: 1 },
   { t: 330, sun: '#E9A8B8', sunI: 0.5, hemiSky: '#9C9CCB', hemiGround: '#4A3A48', hemiI: 0.85, tint: '#F2B7B0', night: 0.55 },
   { t: 390, sun: '#FFC58E', sunI: 1.5, hemiSky: '#E7D5E6', hemiGround: '#6B5048', hemiI: 0.95, tint: '#FFD6BC', night: 0.05 },
   { t: 480, sun: '#FFEBD0', sunI: 2.2, hemiSky: '#DCE8FF', hemiGround: '#6B5A40', hemiI: 1.05, tint: '#FFF4E8', night: 0 },
@@ -23,8 +23,8 @@ const KEYS: Key[] = [
   { t: 1020, sun: '#FFE6C4', sunI: 2.25, hemiSky: '#E3E6F6', hemiGround: '#6E5A40', hemiI: 1.05, tint: '#FFF3E2', night: 0 },
   { t: 1110, sun: '#FFB070', sunI: 1.5, hemiSky: '#F0CFC8', hemiGround: '#6E4A3C', hemiI: 0.95, tint: '#FFC49A', night: 0.08 },
   { t: 1170, sun: '#E27E7A', sunI: 0.6, hemiSky: '#A88CB8', hemiGround: '#4A3448', hemiI: 0.85, tint: '#E4A0A8', night: 0.45 },
-  { t: 1230, sun: '#A9BEF2', sunI: 0.45, hemiSky: '#7288C8', hemiGround: '#2E2D46', hemiI: 0.95, tint: '#FFFFFF', night: 1 },
-  { t: 1440, sun: '#A9BEF2', sunI: 0.45, hemiSky: '#7288C8', hemiGround: '#2E2D46', hemiI: 0.95, tint: '#FFFFFF', night: 1 },
+  { t: 1230, sun: '#A9BEF2', sunI: 0.45, hemiSky: '#7288C8', hemiGround: '#3C3C5C', hemiI: 1.05, tint: '#FFFFFF', night: 1 },
+  { t: 1440, sun: '#A9BEF2', sunI: 0.45, hemiSky: '#7288C8', hemiGround: '#3C3C5C', hemiI: 1.05, tint: '#FFFFFF', night: 1 },
 ];
 
 type ParsedKey = Omit<Key, 'sun' | 'hemiSky' | 'hemiGround' | 'tint'> & { sun: THREE.Color; hemiSky: THREE.Color; hemiGround: THREE.Color; tint: THREE.Color };

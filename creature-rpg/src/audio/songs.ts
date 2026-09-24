@@ -117,9 +117,9 @@ export const SONGS: Record<string, SongDef> = {
   // Concord Spire: full Chord motif on brass-like FM, processional drums.
   league: { key: K.D, mode: MODES.major, bpm: 110, prog: [0, 4, 5, 3, 0, 3, 4, 0], lead: 'brass', leadOct: 5, arp: 'pluck', pad: 'full', bass: 'root5', perc: { k: 'x...x...x...x...', s: '..........o.xoxo', bellEvery: 8 }, motif: 'chord', density: 0.5, seed: 114 },
   // The Stillhouse: muted Odile motif, filtered noise bed, clock ticks, no bass.
-  stillhouse: { key: K.D, mode: MODES.aeolian, bpm: 70, prog: [0, 0, 5, 5, 3, 3, 4, 4], lead: 'mute', leadOct: 5, pad: 'noise', bass: 'none', perc: { c: 'x...x...x...x...' }, motif: 'odile', density: 0.25, seed: 115 },
+  stillhouse: { key: K.D, mode: MODES.aeolian, bpm: 70, prog: [0, 0, 5, 5, 3, 3, 4, 4], lead: 'mute', leadOct: 5, pad: 'noise', bass: 'none', perc: { c: 'x...x...x...x...' }, motif: 'odile', density: 0.25, leadDb: 5, seed: 115 },
   // Hearthrest: pluck lullaby.
-  hearth: { key: K.G, mode: MODES.major, bpm: 72, prog: [0, 3, 0, 4, 0, 3, 4, 0], lead: 'pluck', leadOct: 5, pad: 'warm', bass: 'none', perc: NONE, motif: 'none', density: 0.4, seed: 116 },
+  hearth: { key: K.G, mode: MODES.major, bpm: 72, prog: [0, 3, 0, 4, 0, 3, 4, 0], lead: 'pluck', leadOct: 5, pad: 'warm', bass: 'none', perc: NONE, motif: 'none', density: 0.4, leadDb: 5, seed: 116 },
   // Rootloft & other Trial halls: stately bells and pluck, hall bell accents.
   hall: { key: K.G, mode: MODES.mixolydian, bpm: 100, prog: [0, 3, 6, 0, 5, 3, 4, 0], lead: 'bell', lead2: 'reed', lead2Role: 'answer', leadOct: 5, pad: 'organ', bass: 'root5', perc: { k: 'x.......x.......', s: '............o.o.', bellEvery: 8 }, motif: 'chord', density: 0.4, seed: 117 },
   // Knell Hall trial: processional toms, glass lead in A Dorian.

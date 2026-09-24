@@ -11,10 +11,11 @@ it('dbg', () => {
     if (p.items) t.items = p.items;
     if (p.potential != null) t.potential = p.potential;
     if (p.levels) t.team.forEach((m: any, i: number) => (m.level = p.levels[i]));
+    if (p.phaseA) t.phases[0].team.forEach((m: any, i: number) => (m.level = p.phaseA[i]));
   }
   for (const [f, list] of Object.entries<any>(patch.learn ?? {})) c.families.learnsets[f] = list;
   let done = false;
-  simulateCampaign(st, 1, { onStory: (id, party, att) => {
+  simulateCampaign(st, 14, { onStory: (id, party, att) => {
     if (id !== target || done) return; done = true;
     for (const m of party) process.stdout.write(`P ${m.species}@${m.level} ${JSON.stringify(computeStats(c, m))} ${m.moves.map((x) => x.id + ':' + c.moves[x.id].name).join(',')}\n`);
     const t = TRAINERS[id];
@@ -30,5 +31,5 @@ it('dbg', () => {
       } });
       process.stdout.write(`BATTLE ${k} ${r.outcome} ${r.turns}\n` + out.join('\n') + '\n');
     }
-  } });
+  } }, Number(process.env.PATH_N ?? 0));
 }, 600_000);

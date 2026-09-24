@@ -33,8 +33,8 @@ export function createSfx(core: Core) {
   };
   const pool: Pool = {
     blip: wire(new Tone.Synth({ oscillator: { type: 'triangle' }, envelope: { attack: 0.002, decay: 0.08, sustain: 0.1, release: 0.06 }, volume: -10 })),
-    fm: [0, 1].map(() => wire(new Tone.FMSynth({ harmonicity: 3.01, modulationIndex: 8, envelope: { attack: 0.003, decay: 0.4, sustain: 0.1, release: 0.4 }, modulationEnvelope: { attack: 0.003, decay: 0.3, sustain: 0.1, release: 0.3 }, volume: -12 }), true)),
-    pluck: wire(pluckSynth({ decay: 0.5, volume: -10 }), true),
+    fm: [0, 1].map(() => wire(new Tone.FMSynth({ harmonicity: 3.01, modulationIndex: 8, envelope: { attack: 0.003, decay: 0.4, sustain: 0.1, release: 0.4 }, modulationEnvelope: { attack: 0.003, decay: 0.3, sustain: 0.1, release: 0.3 }, volume: -3 }), true)),
+    pluck: wire(pluckSynth({ decay: 0.5, volume: -16 }), true),
     noise: [0, 1].map(() => {
       const f = wire(new Tone.Filter({ type: 'bandpass', frequency: 1500, Q: 1 }));
       const s = new Tone.NoiseSynth({ noise: { type: 'white' }, envelope: { attack: 0.003, decay: 0.2, sustain: 0.001, release: 0.05 }, volume: -10 }).connect(f);
@@ -48,7 +48,7 @@ export function createSfx(core: Core) {
   pool.poly.maxPolyphony = 10;
   pool.poly.volume.value = -16;
   pool.swell.maxPolyphony = 4;
-  pool.swell.volume.value = -18;
+  pool.swell.volume.value = -8;
   pool.bowl.maxPolyphony = 16;
   pool.bowl.volume.value = -16;
 
@@ -118,7 +118,7 @@ export function createSfx(core: Core) {
       const tt = t + r * 0.14;
       switch (type) {
         case 'fire':
-          noise('lowpass', 400, 3800, dur, tt, 0.5, 1.2, 'pink');
+          noise('lowpass', 400, 3800, dur, tt, 0.85, 1.2, 'pink');
           if (shape !== 'projectile') thud(70, tt + dur * 0.6, 0.5);
           break;
         case 'water':
@@ -143,7 +143,8 @@ export function createSfx(core: Core) {
           noise('highpass', 7000, 9000, dur, tt, 0.25);
           break;
         case 'gale':
-          noise('bandpass', 300, 2600, dur, tt, 0.45, 3, 'pink');
+          noise('bandpass', 300, 2600, dur, tt, 0.9, 1.1, 'pink');
+          noise('highpass', 2000, 5000, dur * 0.7, tt + dur * 0.2, 0.3);
           break;
         case 'toxin':
           for (let i = 0; i < 4; i++) blip(rnd(200, 420), 0.07, tt + i * dur * 0.2, 0.25, rnd(500, 700), 'sine');
@@ -216,7 +217,7 @@ export function createSfx(core: Core) {
     jump: (t) => blip(300, 0.1, t, 0.18, 520),
     land: (t) => thud(90, t, 0.3, 0.08),
     door_open: (t) => { thud(140, t, 0.35, 0.1); noise('bandpass', 900, 400, 0.25, t + 0.05, 0.25, 1.5, 'pink'); },
-    zone_transition_whoosh: (t) => noise('bandpass', 300, 3000, 0.6, t, 0.3, 1.2, 'pink'),
+    zone_transition_whoosh: (t) => noise('bandpass', 300, 3000, 0.6, t, 0.7, 0.9, 'pink'),
     ledger_open: (t) => { noise('bandpass', 2000, 5000, 0.12, t, 0.2, 1.2); pluck(392, t + 0.08, 0.3); },
     item_pickup: (t) => [1047, 1319, 1568].forEach((f, i) => fm(f, 0.1, t + i * 0.07, 0.3, undefined, 4)),
     chest_open: (t) => { thud(160, t, 0.4, 0.1); [1047, 1319, 1568, 2093].forEach((f, i) => fm(f, 0.1, t + 0.1 + i * 0.07, 0.28, undefined, 4)); },
@@ -256,7 +257,7 @@ export function createSfx(core: Core) {
     retreat_fail: (t) => { thud(100, t, 0.5, 0.1); thud(95, t + 0.13, 0.5, 0.1); blip(300, 0.2, t + 0.1, 0.15, 200); },
     move: (t, o) => move(String(o?.type ?? 'none'), String(o?.anim ?? 'melee_lunge'), t),
     // capture (rings rise a 4th each; no shake sounds)
-    chime_throw: (t) => { noise('bandpass', 600, 2400, 0.4, t, 0.22, 1.5, 'pink'); fm(1047, 0.12, t, 0.2, undefined, 4); },
+    chime_throw: (t) => { noise('bandpass', 600, 2400, 0.4, t, 0.45, 1.2, 'pink'); fm(1047, 0.12, t, 0.2, undefined, 4); },
     chime_ring: (t, o) => {
       const n = Math.max(1, Number(o?.n ?? 1));
       const f = 880 * Math.pow(4 / 3, n - 1);

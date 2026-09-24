@@ -20,6 +20,9 @@ const NIGHT_SKY_HORIZON = new THREE.Color('#3A4A7C');
 const OVERCAST = new THREE.Color('#9AA4B0');
 const FOG_GREY = new THREE.Color('#B4BCC4');
 const SUN_WARM = new THREE.Color('#FFD9A0');
+// interior presets (cave: warm lantern key under a cool crystal fill; halls: warm all round)
+const CAVE = { key: new THREE.Color('#FFD3A2'), sky: new THREE.Color('#9AAAD2'), ground: new THREE.Color('#403430'), keyI: 1.15, hemiI: 1.05 };
+const HALL = { key: new THREE.Color('#FFE2B8'), sky: new THREE.Color('#FFF0DC'), ground: new THREE.Color('#5E4A3A'), keyI: 1.6, hemiI: 1.0 };
 
 /** Sky shader is one material shared by every drei <Sky/>: patch it once (night blend, stars, horizon fog). */
 const skyUniforms = {
@@ -152,19 +155,12 @@ export function Atmosphere({ zone, shadows, shadowSize }: AtmosphereProps) {
     let sunI: number, hemiI: number, night: number;
     if (interior) {
       night = 0;
-      if (cave) {
-        s.color.set('#FFD3A2');
-        hm.color.set('#9AAAD2');
-        hm.groundColor.set('#403430');
-        sunI = 1.15;
-        hemiI = 1.05;
-      } else {
-        s.color.set('#FFE2B8');
-        hm.color.set('#FFF0DC');
-        hm.groundColor.set('#5E4A3A');
-        sunI = 1.9;
-        hemiI = 1.15;
-      }
+      const pre = cave ? CAVE : HALL;
+      s.color.copy(pre.key);
+      hm.color.copy(pre.sky);
+      hm.groundColor.copy(pre.ground);
+      sunI = pre.keyI;
+      hemiI = pre.hemiI;
       smp.sunDir.set(0.35, 0.85, 0.4).normalize();
       c.fog.copy(c.palFog);
       c.bg.copy(c.palSky);
