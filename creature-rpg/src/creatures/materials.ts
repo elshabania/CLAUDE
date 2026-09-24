@@ -219,6 +219,9 @@ export function applyCreatureShader(mat: THREE.MeshStandardMaterial, o: ShaderOp
       {
         vec3 sp = vBindPos * uDetail;
         float s = crHash(floor(sp)) * 0.75 + crHash(floor(sp * 1.73 + 0.5)) * 0.25;
+        #ifdef CR_ATTRS
+        if (vFur < 0.55) discard;
+        #endif
         if (s < uShellH * 0.92 + 0.08) discard;
         diffuseColor.rgb *= mix(0.78, 1.1, uShellH);
       }
