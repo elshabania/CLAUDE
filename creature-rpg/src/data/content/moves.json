@@ -1,0 +1,1876 @@
+[
+ {
+  "id": "m000",
+  "name": "Scramble",
+  "type": "none",
+  "category": "physical",
+  "power": 50,
+  "accuracy": null,
+  "charges": null,
+  "priority": 0,
+  "target": "foe",
+  "effects": [
+   {
+    "kind": "recoilMaxHp",
+    "num": 1,
+    "den": 4
+   }
+  ],
+  "anim": "melee_lunge"
+ },
+ {
+  "id": "m001",
+  "name": "Cinder Flick",
+  "type": "fire",
+  "category": "special",
+  "power": 40,
+  "accuracy": 100,
+  "charges": 25,
+  "priority": 0,
+  "target": "foe",
+  "effects": [
+   {
+    "kind": "status",
+    "status": "burn",
+    "chance": 10
+   }
+  ],
+  "anim": "projectile_bolt"
+ },
+ {
+  "id": "m002",
+  "name": "Kindle Butt",
+  "type": "fire",
+  "category": "physical",
+  "power": 40,
+  "accuracy": 100,
+  "charges": 30,
+  "priority": 0,
+  "target": "foe",
+  "effects": [
+   {
+    "kind": "status",
+    "status": "burn",
+    "chance": 10
+   }
+  ],
+  "anim": "melee_lunge"
+ },
+ {
+  "id": "m003",
+  "name": "Stoke",
+  "type": "fire",
+  "category": "status",
+  "power": null,
+  "accuracy": null,
+  "charges": 20,
+  "priority": 0,
+  "target": "self",
+  "effects": [
+   {
+    "kind": "stat",
+    "target": "self",
+    "stat": "atk",
+    "delta": 1,
+    "chance": 100
+   },
+   {
+    "kind": "stat",
+    "target": "self",
+    "stat": "spa",
+    "delta": 1,
+    "chance": 100
+   }
+  ],
+  "anim": "aura_self"
+ },
+ {
+  "id": "m004",
+  "name": "Flare Ram",
+  "type": "fire",
+  "category": "physical",
+  "power": 70,
+  "accuracy": 100,
+  "charges": 20,
+  "priority": 0,
+  "target": "foe",
+  "effects": [
+   {
+    "kind": "status",
+    "status": "burn",
+    "chance": 10
+   }
+  ],
+  "anim": "melee_lunge"
+ },
+ {
+  "id": "m005",
+  "name": "Heat Ribbon",
+  "type": "fire",
+  "category": "special",
+  "power": 65,
+  "accuracy": 100,
+  "charges": 20,
+  "priority": 0,
+  "target": "foe",
+  "effects": [
+   {
+    "kind": "status",
+    "status": "burn",
+    "chance": 10
+   }
+  ],
+  "anim": "beam"
+ },
+ {
+  "id": "m006",
+  "name": "Scorch Ring",
+  "type": "fire",
+  "category": "status",
+  "power": null,
+  "accuracy": 85,
+  "charges": 15,
+  "priority": 0,
+  "target": "foe",
+  "effects": [
+   {
+    "kind": "status",
+    "status": "burn",
+    "chance": 100
+   }
+  ],
+  "anim": "debuff_cloud"
+ },
+ {
+  "id": "m007",
+  "name": "Kiln Blast",
+  "type": "fire",
+  "category": "special",
+  "power": 90,
+  "accuracy": 100,
+  "charges": 15,
+  "priority": 0,
+  "target": "foe",
+  "effects": [
+   {
+    "kind": "status",
+    "status": "burn",
+    "chance": 10
+   }
+  ],
+  "anim": "burst_area"
+ },
+ {
+  "id": "m008",
+  "name": "Pyre Charge",
+  "type": "fire",
+  "category": "physical",
+  "power": 110,
+  "accuracy": 100,
+  "charges": 10,
+  "priority": 0,
+  "target": "foe",
+  "effects": [
+   {
+    "kind": "recoil",
+    "num": 1,
+    "den": 3
+   },
+   {
+    "kind": "status",
+    "status": "burn",
+    "chance": 10
+   }
+  ],
+  "anim": "charge_rush"
+ },
+ {
+  "id": "m009",
+  "name": "Sunflare Call",
+  "type": "fire",
+  "category": "status",
+  "power": null,
+  "accuracy": null,
+  "charges": 5,
+  "priority": 0,
+  "target": "field",
+  "effects": [
+   {
+    "kind": "weather",
+    "weather": "sunlight"
+   }
+  ],
+  "anim": "weather_call"
+ },
+ {
+  "id": "m010",
+  "name": "Magma Surge",
+  "type": "fire",
+  "category": "special",
+  "power": 110,
+  "accuracy": 85,
+  "charges": 5,
+  "priority": 0,
+  "target": "foe",
+  "effects": [
+   {
+    "kind": "status",
+    "status": "burn",
+    "chance": 30
+   }
+  ],
+  "anim": "burst_area"
+ },
+ {
+  "id": "m011",
+  "name": "Spritz Shot",
+  "type": "water",
+  "category": "special",
+  "power": 40,
+  "accuracy": 100,
+  "charges": 25,
+  "priority": 0,
+  "target": "foe",
+  "effects": [],
+  "anim": "projectile_bolt"
+ },
+ {
+  "id": "m012",
+  "name": "Shell Slap",
+  "type": "water",
+  "category": "physical",
+  "power": 40,
+  "accuracy": 100,
+  "charges": 30,
+  "priority": 0,
+  "target": "foe",
+  "effects": [],
+  "anim": "melee_sweep"
+ },
+ {
+  "id": "m013",
+  "name": "Rushing Current",
+  "type": "water",
+  "category": "physical",
+  "power": 40,
+  "accuracy": 100,
+  "charges": 20,
+  "priority": 1,
+  "target": "foe",
+  "effects": [],
+  "anim": "dash_through"
+ },
+ {
+  "id": "m014",
+  "name": "Mending Tide",
+  "type": "water",
+  "category": "status",
+  "power": null,
+  "accuracy": null,
+  "charges": 10,
+  "priority": 0,
+  "target": "self",
+  "effects": [
+   {
+    "kind": "heal",
+    "num": 1,
+    "den": 2,
+    "weather": {
+     "rain": [
+      2,
+      3
+     ]
+    }
+   }
+  ],
+  "anim": "heal_glow"
+ },
+ {
+  "id": "m015",
+  "name": "Bubble Lance",
+  "type": "water",
+  "category": "special",
+  "power": 65,
+  "accuracy": 100,
+  "charges": 20,
+  "priority": 0,
+  "target": "foe",
+  "effects": [
+   {
+    "kind": "stat",
+    "target": "foe",
+    "stat": "spe",
+    "delta": -1,
+    "chance": 20
+   }
+  ],
+  "anim": "projectile_bolt"
+ },
+ {
+  "id": "m016",
+  "name": "Riptide Bite",
+  "type": "water",
+  "category": "physical",
+  "power": 70,
+  "accuracy": 100,
+  "charges": 20,
+  "priority": 0,
+  "target": "foe",
+  "effects": [
+   {
+    "kind": "flinch",
+    "chance": 20
+   }
+  ],
+  "anim": "melee_lunge"
+ },
+ {
+  "id": "m017",
+  "name": "Rainsong",
+  "type": "water",
+  "category": "status",
+  "power": null,
+  "accuracy": null,
+  "charges": 5,
+  "priority": 0,
+  "target": "field",
+  "effects": [
+   {
+    "kind": "weather",
+    "weather": "rain"
+   }
+  ],
+  "anim": "weather_call"
+ },
+ {
+  "id": "m018",
+  "name": "Cascade Crash",
+  "type": "water",
+  "category": "physical",
+  "power": 85,
+  "accuracy": 100,
+  "charges": 15,
+  "priority": 0,
+  "target": "foe",
+  "effects": [
+   {
+    "kind": "flinch",
+    "chance": 20
+   }
+  ],
+  "anim": "charge_rush"
+ },
+ {
+  "id": "m019",
+  "name": "Deluge Beam",
+  "type": "water",
+  "category": "special",
+  "power": 90,
+  "accuracy": 100,
+  "charges": 15,
+  "priority": 0,
+  "target": "foe",
+  "effects": [],
+  "anim": "beam"
+ },
+ {
+  "id": "m020",
+  "name": "Maelstrom",
+  "type": "water",
+  "category": "special",
+  "power": 110,
+  "accuracy": 80,
+  "charges": 5,
+  "priority": 0,
+  "target": "foe",
+  "effects": [],
+  "anim": "burst_area"
+ },
+ {
+  "id": "m021",
+  "name": "Static Nip",
+  "type": "electric",
+  "category": "physical",
+  "power": 40,
+  "accuracy": 100,
+  "charges": 30,
+  "priority": 0,
+  "target": "foe",
+  "effects": [
+   {
+    "kind": "status",
+    "status": "paralysis",
+    "chance": 10
+   }
+  ],
+  "anim": "melee_lunge"
+ },
+ {
+  "id": "m022",
+  "name": "Spark Dart",
+  "type": "electric",
+  "category": "special",
+  "power": 40,
+  "accuracy": 100,
+  "charges": 25,
+  "priority": 0,
+  "target": "foe",
+  "effects": [
+   {
+    "kind": "status",
+    "status": "paralysis",
+    "chance": 10
+   }
+  ],
+  "anim": "projectile_bolt"
+ },
+ {
+  "id": "m023",
+  "name": "Jolt Step",
+  "type": "electric",
+  "category": "physical",
+  "power": 40,
+  "accuracy": 100,
+  "charges": 20,
+  "priority": 1,
+  "target": "foe",
+  "effects": [],
+  "anim": "dash_through"
+ },
+ {
+  "id": "m024",
+  "name": "Buzz Field",
+  "type": "electric",
+  "category": "status",
+  "power": null,
+  "accuracy": 90,
+  "charges": 20,
+  "priority": 0,
+  "target": "foe",
+  "effects": [
+   {
+    "kind": "status",
+    "status": "paralysis",
+    "chance": 100
+   }
+  ],
+  "anim": "debuff_cloud"
+ },
+ {
+  "id": "m025",
+  "name": "Arc Lash",
+  "type": "electric",
+  "category": "special",
+  "power": 65,
+  "accuracy": 100,
+  "charges": 20,
+  "priority": 0,
+  "target": "foe",
+  "effects": [
+   {
+    "kind": "status",
+    "status": "paralysis",
+    "chance": 10
+   }
+  ],
+  "anim": "beam"
+ },
+ {
+  "id": "m026",
+  "name": "Overclock",
+  "type": "electric",
+  "category": "status",
+  "power": null,
+  "accuracy": null,
+  "charges": 20,
+  "priority": 0,
+  "target": "self",
+  "effects": [
+   {
+    "kind": "stat",
+    "target": "self",
+    "stat": "spa",
+    "delta": 1,
+    "chance": 100
+   },
+   {
+    "kind": "stat",
+    "target": "self",
+    "stat": "spe",
+    "delta": 1,
+    "chance": 100
+   }
+  ],
+  "anim": "aura_self"
+ },
+ {
+  "id": "m027",
+  "name": "Volt Fang",
+  "type": "electric",
+  "category": "physical",
+  "power": 70,
+  "accuracy": 95,
+  "charges": 15,
+  "priority": 0,
+  "target": "foe",
+  "effects": [
+   {
+    "kind": "status",
+    "status": "paralysis",
+    "chance": 10
+   },
+   {
+    "kind": "flinch",
+    "chance": 10
+   }
+  ],
+  "anim": "melee_lunge"
+ },
+ {
+  "id": "m028",
+  "name": "Stormcoil Bolt",
+  "type": "electric",
+  "category": "special",
+  "power": 90,
+  "accuracy": 100,
+  "charges": 15,
+  "priority": 0,
+  "target": "foe",
+  "effects": [
+   {
+    "kind": "status",
+    "status": "paralysis",
+    "chance": 10
+   }
+  ],
+  "anim": "beam"
+ },
+ {
+  "id": "m029",
+  "name": "Skyfall Strike",
+  "type": "electric",
+  "category": "special",
+  "power": 110,
+  "accuracy": 70,
+  "charges": 10,
+  "priority": 0,
+  "target": "foe",
+  "effects": [
+   {
+    "kind": "status",
+    "status": "paralysis",
+    "chance": 30
+   },
+   {
+    "kind": "neverMissIn",
+    "weather": "rain"
+   },
+   {
+    "kind": "accIn",
+    "weather": "sunlight",
+    "accuracy": 50
+   }
+  ],
+  "anim": "rain_down"
+ },
+ {
+  "id": "m030",
+  "name": "Surge Tackle",
+  "type": "electric",
+  "category": "physical",
+  "power": 110,
+  "accuracy": 100,
+  "charges": 10,
+  "priority": 0,
+  "target": "foe",
+  "effects": [
+   {
+    "kind": "recoil",
+    "num": 1,
+    "den": 3
+   },
+   {
+    "kind": "status",
+    "status": "paralysis",
+    "chance": 10
+   }
+  ],
+  "anim": "charge_rush"
+ },
+ {
+  "id": "m031",
+  "name": "Leaf Snip",
+  "type": "verdant",
+  "category": "physical",
+  "power": 40,
+  "accuracy": 100,
+  "charges": 30,
+  "priority": 0,
+  "target": "foe",
+  "effects": [],
+  "anim": "melee_sweep"
+ },
+ {
+  "id": "m032",
+  "name": "Seed Pellet",
+  "type": "verdant",
+  "category": "special",
+  "power": 40,
+  "accuracy": 100,
+  "charges": 25,
+  "priority": 0,
+  "target": "foe",
+  "effects": [],
+  "anim": "projectile_bolt"
+ },
+ {
+  "id": "m033",
+  "name": "Sapping Tendril",
+  "type": "verdant",
+  "category": "status",
+  "power": null,
+  "accuracy": 90,
+  "charges": 10,
+  "priority": 0,
+  "target": "foe",
+  "effects": [
+   {
+    "kind": "sap"
+   }
+  ],
+  "anim": "debuff_cloud"
+ },
+ {
+  "id": "m034",
+  "name": "Drowse Pollen",
+  "type": "verdant",
+  "category": "status",
+  "power": null,
+  "accuracy": 75,
+  "charges": 15,
+  "priority": 0,
+  "target": "foe",
+  "effects": [
+   {
+    "kind": "status",
+    "status": "sleep",
+    "chance": 100
+   }
+  ],
+  "anim": "debuff_cloud"
+ },
+ {
+  "id": "m035",
+  "name": "Thorn Volley",
+  "type": "verdant",
+  "category": "physical",
+  "power": 35,
+  "accuracy": 100,
+  "charges": 20,
+  "priority": 0,
+  "target": "foe",
+  "effects": [
+   {
+    "kind": "hits",
+    "count": 2
+   }
+  ],
+  "anim": "multi_hit_flurry"
+ },
+ {
+  "id": "m036",
+  "name": "Draining Bloom",
+  "type": "verdant",
+  "category": "special",
+  "power": 70,
+  "accuracy": 100,
+  "charges": 15,
+  "priority": 0,
+  "target": "foe",
+  "effects": [
+   {
+    "kind": "drain",
+    "num": 1,
+    "den": 2
+   }
+  ],
+  "anim": "beam"
+ },
+ {
+  "id": "m037",
+  "name": "Sunsoak Rest",
+  "type": "verdant",
+  "category": "status",
+  "power": null,
+  "accuracy": null,
+  "charges": 10,
+  "priority": 0,
+  "target": "self",
+  "effects": [
+   {
+    "kind": "heal",
+    "num": 1,
+    "den": 2,
+    "weather": {
+     "sunlight": [
+      2,
+      3
+     ],
+     "rain": [
+      1,
+      4
+     ],
+     "snow": [
+      1,
+      4
+     ],
+     "fog": [
+      1,
+      4
+     ]
+    }
+   }
+  ],
+  "anim": "heal_glow"
+ },
+ {
+  "id": "m038",
+  "name": "Bramble Whip",
+  "type": "verdant",
+  "category": "physical",
+  "power": 80,
+  "accuracy": 100,
+  "charges": 15,
+  "priority": 0,
+  "target": "foe",
+  "effects": [
+   {
+    "kind": "critStage",
+    "delta": 1
+   }
+  ],
+  "anim": "melee_sweep"
+ },
+ {
+  "id": "m039",
+  "name": "Canopy Burst",
+  "type": "verdant",
+  "category": "special",
+  "power": 90,
+  "accuracy": 100,
+  "charges": 10,
+  "priority": 0,
+  "target": "foe",
+  "effects": [
+   {
+    "kind": "stat",
+    "target": "foe",
+    "stat": "spd",
+    "delta": -1,
+    "chance": 10
+   }
+  ],
+  "anim": "burst_area"
+ },
+ {
+  "id": "m040",
+  "name": "Heartwood Crash",
+  "type": "verdant",
+  "category": "physical",
+  "power": 110,
+  "accuracy": 100,
+  "charges": 10,
+  "priority": 0,
+  "target": "foe",
+  "effects": [
+   {
+    "kind": "recoil",
+    "num": 1,
+    "den": 3
+   }
+  ],
+  "anim": "charge_rush"
+ },
+ {
+  "id": "m041",
+  "name": "Pebble Toss",
+  "type": "stone",
+  "category": "physical",
+  "power": 40,
+  "accuracy": 100,
+  "charges": 30,
+  "priority": 0,
+  "target": "foe",
+  "effects": [],
+  "anim": "projectile_arc"
+ },
+ {
+  "id": "m042",
+  "name": "Gravel Burst",
+  "type": "stone",
+  "category": "special",
+  "power": 40,
+  "accuracy": 100,
+  "charges": 25,
+  "priority": 0,
+  "target": "foe",
+  "effects": [],
+  "anim": "burst_area"
+ },
+ {
+  "id": "m043",
+  "name": "Bedrock Brace",
+  "type": "stone",
+  "category": "status",
+  "power": null,
+  "accuracy": null,
+  "charges": 20,
+  "priority": 0,
+  "target": "self",
+  "effects": [
+   {
+    "kind": "stat",
+    "target": "self",
+    "stat": "def",
+    "delta": 2,
+    "chance": 100
+   }
+  ],
+  "anim": "aura_self"
+ },
+ {
+  "id": "m044",
+  "name": "Rock Tumble",
+  "type": "stone",
+  "category": "physical",
+  "power": 60,
+  "accuracy": 95,
+  "charges": 15,
+  "priority": 0,
+  "target": "foe",
+  "effects": [
+   {
+    "kind": "stat",
+    "target": "foe",
+    "stat": "spe",
+    "delta": -1,
+    "chance": 100
+   }
+  ],
+  "anim": "rain_down"
+ },
+ {
+  "id": "m045",
+  "name": "Bulwark",
+  "type": "stone",
+  "category": "status",
+  "power": null,
+  "accuracy": null,
+  "charges": 10,
+  "priority": 3,
+  "target": "self",
+  "effects": [
+   {
+    "kind": "shield"
+   }
+  ],
+  "anim": "shield"
+ },
+ {
+  "id": "m046",
+  "name": "Crag Shard",
+  "type": "stone",
+  "category": "special",
+  "power": 65,
+  "accuracy": 100,
+  "charges": 20,
+  "priority": 0,
+  "target": "foe",
+  "effects": [],
+  "anim": "projectile_bolt"
+ },
+ {
+  "id": "m047",
+  "name": "Rockfall",
+  "type": "stone",
+  "category": "physical",
+  "power": 75,
+  "accuracy": 90,
+  "charges": 10,
+  "priority": 0,
+  "target": "foe",
+  "effects": [
+   {
+    "kind": "flinch",
+    "chance": 30
+   }
+  ],
+  "anim": "rain_down"
+ },
+ {
+  "id": "m048",
+  "name": "Quake Stomp",
+  "type": "stone",
+  "category": "physical",
+  "power": 90,
+  "accuracy": 100,
+  "charges": 10,
+  "priority": 0,
+  "target": "foe",
+  "effects": [],
+  "anim": "ground_wave"
+ },
+ {
+  "id": "m049",
+  "name": "Monolith Drop",
+  "type": "stone",
+  "category": "physical",
+  "power": 110,
+  "accuracy": 80,
+  "charges": 5,
+  "priority": 0,
+  "target": "foe",
+  "effects": [
+   {
+    "kind": "critStage",
+    "delta": 1
+   }
+  ],
+  "anim": "rain_down"
+ },
+ {
+  "id": "m050",
+  "name": "Geode Pulse",
+  "type": "stone",
+  "category": "special",
+  "power": 90,
+  "accuracy": 100,
+  "charges": 10,
+  "priority": 0,
+  "target": "foe",
+  "effects": [
+   {
+    "kind": "stat",
+    "target": "self",
+    "stat": "spd",
+    "delta": 1,
+    "chance": 10
+   }
+  ],
+  "anim": "beam"
+ },
+ {
+  "id": "m051",
+  "name": "Rime Nip",
+  "type": "frost",
+  "category": "physical",
+  "power": 40,
+  "accuracy": 100,
+  "charges": 30,
+  "priority": 0,
+  "target": "foe",
+  "effects": [
+   {
+    "kind": "status",
+    "status": "frostbite",
+    "chance": 10
+   }
+  ],
+  "anim": "melee_lunge"
+ },
+ {
+  "id": "m052",
+  "name": "Hoarbreath",
+  "type": "frost",
+  "category": "special",
+  "power": 40,
+  "accuracy": 100,
+  "charges": 25,
+  "priority": 0,
+  "target": "foe",
+  "effects": [
+   {
+    "kind": "status",
+    "status": "frostbite",
+    "chance": 10
+   }
+  ],
+  "anim": "beam"
+ },
+ {
+  "id": "m053",
+  "name": "Icicle Jab",
+  "type": "frost",
+  "category": "physical",
+  "power": 40,
+  "accuracy": 100,
+  "charges": 20,
+  "priority": 1,
+  "target": "foe",
+  "effects": [],
+  "anim": "projectile_bolt"
+ },
+ {
+  "id": "m054",
+  "name": "Rime Touch",
+  "type": "frost",
+  "category": "status",
+  "power": null,
+  "accuracy": 85,
+  "charges": 15,
+  "priority": 0,
+  "target": "foe",
+  "effects": [
+   {
+    "kind": "status",
+    "status": "frostbite",
+    "chance": 100
+   }
+  ],
+  "anim": "debuff_cloud"
+ },
+ {
+  "id": "m055",
+  "name": "Sleet Spray",
+  "type": "frost",
+  "category": "special",
+  "power": 65,
+  "accuracy": 100,
+  "charges": 20,
+  "priority": 0,
+  "target": "foe",
+  "effects": [
+   {
+    "kind": "status",
+    "status": "frostbite",
+    "chance": 10
+   }
+  ],
+  "anim": "burst_area"
+ },
+ {
+  "id": "m056",
+  "name": "Glacier Fang",
+  "type": "frost",
+  "category": "physical",
+  "power": 70,
+  "accuracy": 95,
+  "charges": 15,
+  "priority": 0,
+  "target": "foe",
+  "effects": [
+   {
+    "kind": "status",
+    "status": "frostbite",
+    "chance": 10
+   },
+   {
+    "kind": "flinch",
+    "chance": 10
+   }
+  ],
+  "anim": "melee_lunge"
+ },
+ {
+  "id": "m057",
+  "name": "Snowcall",
+  "type": "frost",
+  "category": "status",
+  "power": null,
+  "accuracy": null,
+  "charges": 5,
+  "priority": 0,
+  "target": "field",
+  "effects": [
+   {
+    "kind": "weather",
+    "weather": "snow"
+   }
+  ],
+  "anim": "weather_call"
+ },
+ {
+  "id": "m058",
+  "name": "Rime Beam",
+  "type": "frost",
+  "category": "special",
+  "power": 90,
+  "accuracy": 100,
+  "charges": 10,
+  "priority": 0,
+  "target": "foe",
+  "effects": [
+   {
+    "kind": "status",
+    "status": "frostbite",
+    "chance": 10
+   }
+  ],
+  "anim": "beam"
+ },
+ {
+  "id": "m059",
+  "name": "Avalanche Drop",
+  "type": "frost",
+  "category": "physical",
+  "power": 100,
+  "accuracy": 90,
+  "charges": 10,
+  "priority": 0,
+  "target": "foe",
+  "effects": [
+   {
+    "kind": "neverMissIn",
+    "weather": "snow"
+   }
+  ],
+  "anim": "rain_down"
+ },
+ {
+  "id": "m060",
+  "name": "Whiteout",
+  "type": "frost",
+  "category": "special",
+  "power": 110,
+  "accuracy": 70,
+  "charges": 5,
+  "priority": 0,
+  "target": "foe",
+  "effects": [
+   {
+    "kind": "status",
+    "status": "frostbite",
+    "chance": 10
+   },
+   {
+    "kind": "neverMissIn",
+    "weather": "snow"
+   }
+  ],
+  "anim": "burst_area"
+ },
+ {
+  "id": "m061",
+  "name": "Puff Gust",
+  "type": "gale",
+  "category": "special",
+  "power": 40,
+  "accuracy": 100,
+  "charges": 35,
+  "priority": 0,
+  "target": "foe",
+  "effects": [],
+  "anim": "projectile_bolt"
+ },
+ {
+  "id": "m062",
+  "name": "Wing Clip",
+  "type": "gale",
+  "category": "physical",
+  "power": 40,
+  "accuracy": 100,
+  "charges": 30,
+  "priority": 0,
+  "target": "foe",
+  "effects": [],
+  "anim": "melee_sweep"
+ },
+ {
+  "id": "m063",
+  "name": "Slipstream",
+  "type": "gale",
+  "category": "physical",
+  "power": 40,
+  "accuracy": 100,
+  "charges": 20,
+  "priority": 1,
+  "target": "foe",
+  "effects": [],
+  "anim": "dash_through"
+ },
+ {
+  "id": "m064",
+  "name": "Down Flurry",
+  "type": "gale",
+  "category": "status",
+  "power": null,
+  "accuracy": 100,
+  "charges": 15,
+  "priority": 0,
+  "target": "foe",
+  "effects": [
+   {
+    "kind": "stat",
+    "target": "foe",
+    "stat": "atk",
+    "delta": -2,
+    "chance": 100
+   }
+  ],
+  "anim": "debuff_cloud"
+ },
+ {
+  "id": "m065",
+  "name": "Razor Draft",
+  "type": "gale",
+  "category": "special",
+  "power": 75,
+  "accuracy": 95,
+  "charges": 15,
+  "priority": 0,
+  "target": "foe",
+  "effects": [
+   {
+    "kind": "critStage",
+    "delta": 1
+   }
+  ],
+  "anim": "projectile_bolt"
+ },
+ {
+  "id": "m066",
+  "name": "Sky Dive",
+  "type": "gale",
+  "category": "physical",
+  "power": 75,
+  "accuracy": 100,
+  "charges": 15,
+  "priority": 0,
+  "target": "foe",
+  "effects": [],
+  "anim": "dash_through"
+ },
+ {
+  "id": "m067",
+  "name": "Clearing Wind",
+  "type": "gale",
+  "category": "status",
+  "power": null,
+  "accuracy": null,
+  "charges": 5,
+  "priority": 0,
+  "target": "field",
+  "effects": [
+   {
+    "kind": "clearAll"
+   }
+  ],
+  "anim": "weather_call"
+ },
+ {
+  "id": "m068",
+  "name": "Perch Rest",
+  "type": "gale",
+  "category": "status",
+  "power": null,
+  "accuracy": null,
+  "charges": 10,
+  "priority": 0,
+  "target": "self",
+  "effects": [
+   {
+    "kind": "heal",
+    "num": 1,
+    "den": 2,
+    "weather": {}
+   }
+  ],
+  "anim": "heal_glow"
+ },
+ {
+  "id": "m069",
+  "name": "Gale Cleaver",
+  "type": "gale",
+  "category": "physical",
+  "power": 90,
+  "accuracy": 100,
+  "charges": 10,
+  "priority": 0,
+  "target": "foe",
+  "effects": [],
+  "anim": "melee_sweep"
+ },
+ {
+  "id": "m070",
+  "name": "Stormwheel",
+  "type": "gale",
+  "category": "special",
+  "power": 110,
+  "accuracy": 70,
+  "charges": 5,
+  "priority": 0,
+  "target": "foe",
+  "effects": [
+   {
+    "kind": "dizzy",
+    "chance": 30
+   },
+   {
+    "kind": "neverMissIn",
+    "weather": "rain"
+   }
+  ],
+  "anim": "burst_area"
+ },
+ {
+  "id": "m071",
+  "name": "Barb Prick",
+  "type": "toxin",
+  "category": "physical",
+  "power": 40,
+  "accuracy": 100,
+  "charges": 30,
+  "priority": 0,
+  "target": "foe",
+  "effects": [
+   {
+    "kind": "status",
+    "status": "poison",
+    "chance": 20
+   }
+  ],
+  "anim": "melee_lunge"
+ },
+ {
+  "id": "m072",
+  "name": "Acid Spittle",
+  "type": "toxin",
+  "category": "special",
+  "power": 40,
+  "accuracy": 100,
+  "charges": 25,
+  "priority": 0,
+  "target": "foe",
+  "effects": [
+   {
+    "kind": "stat",
+    "target": "foe",
+    "stat": "spd",
+    "delta": -1,
+    "chance": 10
+   }
+  ],
+  "anim": "projectile_arc"
+ },
+ {
+  "id": "m073",
+  "name": "Blight Puff",
+  "type": "toxin",
+  "category": "status",
+  "power": null,
+  "accuracy": 90,
+  "charges": 20,
+  "priority": 0,
+  "target": "foe",
+  "effects": [
+   {
+    "kind": "status",
+    "status": "poison",
+    "chance": 100
+   }
+  ],
+  "anim": "debuff_cloud"
+ },
+ {
+  "id": "m074",
+  "name": "Corrode",
+  "type": "toxin",
+  "category": "status",
+  "power": null,
+  "accuracy": 100,
+  "charges": 20,
+  "priority": 0,
+  "target": "foe",
+  "effects": [
+   {
+    "kind": "stat",
+    "target": "foe",
+    "stat": "def",
+    "delta": -2,
+    "chance": 100
+   }
+  ],
+  "anim": "debuff_cloud"
+ },
+ {
+  "id": "m075",
+  "name": "Sludge Lob",
+  "type": "toxin",
+  "category": "special",
+  "power": 65,
+  "accuracy": 100,
+  "charges": 20,
+  "priority": 0,
+  "target": "foe",
+  "effects": [
+   {
+    "kind": "status",
+    "status": "poison",
+    "chance": 30
+   }
+  ],
+  "anim": "projectile_arc"
+ },
+ {
+  "id": "m076",
+  "name": "Blight Fang",
+  "type": "toxin",
+  "category": "physical",
+  "power": 70,
+  "accuracy": 100,
+  "charges": 15,
+  "priority": 0,
+  "target": "foe",
+  "effects": [
+   {
+    "kind": "status",
+    "status": "poison",
+    "chance": 30
+   }
+  ],
+  "anim": "melee_lunge"
+ },
+ {
+  "id": "m077",
+  "name": "Festering Wave",
+  "type": "toxin",
+  "category": "special",
+  "power": 65,
+  "accuracy": 100,
+  "charges": 10,
+  "priority": 0,
+  "target": "foe",
+  "effects": [
+   {
+    "kind": "powerIfTargetStatus",
+    "status": "poison",
+    "mult": 2
+   }
+  ],
+  "anim": "burst_area"
+ },
+ {
+  "id": "m078",
+  "name": "Noxious Burst",
+  "type": "toxin",
+  "category": "special",
+  "power": 90,
+  "accuracy": 100,
+  "charges": 10,
+  "priority": 0,
+  "target": "foe",
+  "effects": [
+   {
+    "kind": "status",
+    "status": "poison",
+    "chance": 30
+   }
+  ],
+  "anim": "burst_area"
+ },
+ {
+  "id": "m079",
+  "name": "Needle Crush",
+  "type": "toxin",
+  "category": "physical",
+  "power": 90,
+  "accuracy": 100,
+  "charges": 10,
+  "priority": 0,
+  "target": "foe",
+  "effects": [
+   {
+    "kind": "status",
+    "status": "poison",
+    "chance": 20
+   }
+  ],
+  "anim": "melee_lunge"
+ },
+ {
+  "id": "m080",
+  "name": "Miasma Torrent",
+  "type": "toxin",
+  "category": "special",
+  "power": 110,
+  "accuracy": 80,
+  "charges": 5,
+  "priority": 0,
+  "target": "foe",
+  "effects": [
+   {
+    "kind": "status",
+    "status": "poison",
+    "chance": 30
+   }
+  ],
+  "anim": "beam"
+ },
+ {
+  "id": "m081",
+  "name": "Gloom Nip",
+  "type": "shade",
+  "category": "physical",
+  "power": 40,
+  "accuracy": 100,
+  "charges": 30,
+  "priority": 0,
+  "target": "foe",
+  "effects": [
+   {
+    "kind": "flinch",
+    "chance": 10
+   }
+  ],
+  "anim": "melee_lunge"
+ },
+ {
+  "id": "m082",
+  "name": "Dusk Mote",
+  "type": "shade",
+  "category": "special",
+  "power": 40,
+  "accuracy": 100,
+  "charges": 25,
+  "priority": 0,
+  "target": "foe",
+  "effects": [],
+  "anim": "projectile_bolt"
+ },
+ {
+  "id": "m083",
+  "name": "Sneak Snap",
+  "type": "shade",
+  "category": "physical",
+  "power": 40,
+  "accuracy": 100,
+  "charges": 20,
+  "priority": 1,
+  "target": "foe",
+  "effects": [],
+  "anim": "dash_through"
+ },
+ {
+  "id": "m084",
+  "name": "Unsettling Gaze",
+  "type": "shade",
+  "category": "status",
+  "power": null,
+  "accuracy": 100,
+  "charges": 10,
+  "priority": 0,
+  "target": "foe",
+  "effects": [
+   {
+    "kind": "dizzy",
+    "chance": 100
+   }
+  ],
+  "anim": "debuff_cloud"
+ },
+ {
+  "id": "m085",
+  "name": "Dread Whisper",
+  "type": "shade",
+  "category": "status",
+  "power": null,
+  "accuracy": 100,
+  "charges": 20,
+  "priority": 0,
+  "target": "foe",
+  "effects": [
+   {
+    "kind": "stat",
+    "target": "foe",
+    "stat": "spa",
+    "delta": -2,
+    "chance": 100
+   }
+  ],
+  "anim": "debuff_cloud"
+ },
+ {
+  "id": "m086",
+  "name": "Night Rake",
+  "type": "shade",
+  "category": "physical",
+  "power": 70,
+  "accuracy": 100,
+  "charges": 15,
+  "priority": 0,
+  "target": "foe",
+  "effects": [
+   {
+    "kind": "critStage",
+    "delta": 1
+   }
+  ],
+  "anim": "melee_sweep"
+ },
+ {
+  "id": "m087",
+  "name": "Fogfall",
+  "type": "shade",
+  "category": "status",
+  "power": null,
+  "accuracy": null,
+  "charges": 5,
+  "priority": 0,
+  "target": "field",
+  "effects": [
+   {
+    "kind": "weather",
+    "weather": "fog"
+   }
+  ],
+  "anim": "weather_call"
+ },
+ {
+  "id": "m088",
+  "name": "Umbral Pulse",
+  "type": "shade",
+  "category": "special",
+  "power": 80,
+  "accuracy": 100,
+  "charges": 15,
+  "priority": 0,
+  "target": "foe",
+  "effects": [
+   {
+    "kind": "flinch",
+    "chance": 20
+   }
+  ],
+  "anim": "beam"
+ },
+ {
+  "id": "m089",
+  "name": "Gloom Crusher",
+  "type": "shade",
+  "category": "physical",
+  "power": 95,
+  "accuracy": 95,
+  "charges": 10,
+  "priority": 0,
+  "target": "foe",
+  "effects": [
+   {
+    "kind": "stat",
+    "target": "foe",
+    "stat": "def",
+    "delta": -1,
+    "chance": 20
+   }
+  ],
+  "anim": "charge_rush"
+ },
+ {
+  "id": "m090",
+  "name": "Void Surge",
+  "type": "shade",
+  "category": "special",
+  "power": 110,
+  "accuracy": 85,
+  "charges": 5,
+  "priority": 0,
+  "target": "foe",
+  "effects": [
+   {
+    "kind": "stat",
+    "target": "foe",
+    "stat": "spd",
+    "delta": -1,
+    "chance": 20
+   }
+  ],
+  "anim": "burst_area"
+ },
+ {
+  "id": "m091",
+  "name": "Glimmer Tap",
+  "type": "lumen",
+  "category": "physical",
+  "power": 40,
+  "accuracy": 100,
+  "charges": 30,
+  "priority": 0,
+  "target": "foe",
+  "effects": [],
+  "anim": "melee_lunge"
+ },
+ {
+  "id": "m092",
+  "name": "Mote Flick",
+  "type": "lumen",
+  "category": "special",
+  "power": 40,
+  "accuracy": 100,
+  "charges": 25,
+  "priority": 0,
+  "target": "foe",
+  "effects": [],
+  "anim": "projectile_bolt"
+ },
+ {
+  "id": "m093",
+  "name": "Dazzle Flash",
+  "type": "lumen",
+  "category": "status",
+  "power": null,
+  "accuracy": 100,
+  "charges": 20,
+  "priority": 0,
+  "target": "foe",
+  "effects": [
+   {
+    "kind": "stat",
+    "target": "foe",
+    "stat": "acc",
+    "delta": -1,
+    "chance": 100
+   }
+  ],
+  "anim": "burst_area"
+ },
+ {
+  "id": "m094",
+  "name": "Radiant Mend",
+  "type": "lumen",
+  "category": "status",
+  "power": null,
+  "accuracy": null,
+  "charges": 10,
+  "priority": 0,
+  "target": "self",
+  "effects": [
+   {
+    "kind": "heal",
+    "num": 1,
+    "den": 2,
+    "weather": {}
+   }
+  ],
+  "anim": "heal_glow"
+ },
+ {
+  "id": "m095",
+  "name": "Halo Veil",
+  "type": "lumen",
+  "category": "status",
+  "power": null,
+  "accuracy": null,
+  "charges": 20,
+  "priority": 0,
+  "target": "self",
+  "effects": [
+   {
+    "kind": "stat",
+    "target": "self",
+    "stat": "def",
+    "delta": 1,
+    "chance": 100
+   },
+   {
+    "kind": "stat",
+    "target": "self",
+    "stat": "spd",
+    "delta": 1,
+    "chance": 100
+   }
+  ],
+  "anim": "aura_self"
+ },
+ {
+  "id": "m096",
+  "name": "Prism Ray",
+  "type": "lumen",
+  "category": "special",
+  "power": 65,
+  "accuracy": 100,
+  "charges": 20,
+  "priority": 0,
+  "target": "foe",
+  "effects": [
+   {
+    "kind": "dizzy",
+    "chance": 10
+   }
+  ],
+  "anim": "beam"
+ },
+ {
+  "id": "m097",
+  "name": "Dawn Lance",
+  "type": "lumen",
+  "category": "physical",
+  "power": 75,
+  "accuracy": 100,
+  "charges": 15,
+  "priority": 0,
+  "target": "foe",
+  "effects": [
+   {
+    "kind": "critStage",
+    "delta": 1
+   }
+  ],
+  "anim": "dash_through"
+ },
+ {
+  "id": "m098",
+  "name": "Cleansing Chime",
+  "type": "lumen",
+  "category": "status",
+  "power": null,
+  "accuracy": null,
+  "charges": 10,
+  "priority": 0,
+  "target": "self",
+  "effects": [
+   {
+    "kind": "cleanse"
+   }
+  ],
+  "anim": "heal_glow"
+ },
+ {
+  "id": "m099",
+  "name": "Sunlance Beam",
+  "type": "lumen",
+  "category": "special",
+  "power": 90,
+  "accuracy": 100,
+  "charges": 10,
+  "priority": 0,
+  "target": "foe",
+  "effects": [
+   {
+    "kind": "stat",
+    "target": "foe",
+    "stat": "spd",
+    "delta": -1,
+    "chance": 10
+   }
+  ],
+  "anim": "beam"
+ },
+ {
+  "id": "m100",
+  "name": "Starfall Crash",
+  "type": "lumen",
+  "category": "physical",
+  "power": 110,
+  "accuracy": 100,
+  "charges": 10,
+  "priority": 0,
+  "target": "foe",
+  "effects": [
+   {
+    "kind": "recoil",
+    "num": 1,
+    "den": 3
+   }
+  ],
+  "anim": "rain_down"
+ }
+]

@@ -1,0 +1,540 @@
+[
+ {
+  "id": "i_chime_reed",
+  "name": "Reed Chime",
+  "kind": "orb",
+  "price": 200,
+  "sell": 100,
+  "desc": "A woven-reed bell-lantern. Its ring asks a wild kin to join your troupe.",
+  "params": {
+   "mult10": 10,
+   "tier": 1
+  }
+ },
+ {
+  "id": "i_chime_brass",
+  "name": "Brass Chime",
+  "kind": "orb",
+  "price": 600,
+  "sell": 300,
+  "desc": "A brass bell-lantern with a truer ring. Better odds than a Reed Chime.",
+  "params": {
+   "mult10": 15,
+   "tier": 2
+  }
+ },
+ {
+  "id": "i_chime_silver",
+  "name": "Silver Chime",
+  "kind": "orb",
+  "price": 1200,
+  "sell": 600,
+  "desc": "An engraved silver chime whose note carries far. Strong odds.",
+  "params": {
+   "mult10": 20,
+   "tier": 3
+  }
+ },
+ {
+  "id": "i_chime_crown",
+  "name": "Crown Chime",
+  "kind": "orb",
+  "price": 2500,
+  "sell": 1250,
+  "desc": "A crown-topped master chime. Few kin can resist its call.",
+  "params": {
+   "mult10": 30,
+   "tier": 4
+  }
+ },
+ {
+  "id": "i_salve_1",
+  "name": "Honey Salve",
+  "kind": "heal",
+  "price": 200,
+  "sell": 100,
+  "desc": "Restores 20 HP to one kin.",
+  "params": {
+   "amount": 20
+  }
+ },
+ {
+  "id": "i_salve_2",
+  "name": "Clover Salve",
+  "kind": "heal",
+  "price": 500,
+  "sell": 250,
+  "desc": "Restores 60 HP to one kin.",
+  "params": {
+   "amount": 60
+  }
+ },
+ {
+  "id": "i_salve_3",
+  "name": "Ember-root Salve",
+  "kind": "heal",
+  "price": 1000,
+  "sell": 500,
+  "desc": "Restores 150 HP to one kin.",
+  "params": {
+   "amount": 150
+  }
+ },
+ {
+  "id": "i_salve_4",
+  "name": "Hearth Balm",
+  "kind": "heal",
+  "price": 2000,
+  "sell": 1000,
+  "desc": "Fully restores one kin's HP.",
+  "params": {
+   "amount": "full"
+  }
+ },
+ {
+  "id": "i_cure_burn",
+  "name": "Cooling Moss",
+  "kind": "cure",
+  "price": 150,
+  "sell": 75,
+  "desc": "Soothes a burn.",
+  "params": {
+   "cures": [
+    "burn"
+   ]
+  }
+ },
+ {
+  "id": "i_cure_poison",
+  "name": "Bitterleaf",
+  "kind": "cure",
+  "price": 150,
+  "sell": 75,
+  "desc": "Draws out poison.",
+  "params": {
+   "cures": [
+    "poison"
+   ]
+  }
+ },
+ {
+  "id": "i_cure_para",
+  "name": "Loosening Oil",
+  "kind": "cure",
+  "price": 150,
+  "sell": 75,
+  "desc": "Eases paralysis.",
+  "params": {
+   "cures": [
+    "paralysis"
+   ]
+  }
+ },
+ {
+  "id": "i_cure_sleep",
+  "name": "Waking Bell",
+  "kind": "cure",
+  "price": 150,
+  "sell": 75,
+  "desc": "A tiny bell that rouses a sleeping kin.",
+  "params": {
+   "cures": [
+    "sleep"
+   ]
+  }
+ },
+ {
+  "id": "i_cure_frost",
+  "name": "Warm Wrap",
+  "kind": "cure",
+  "price": 150,
+  "sell": 75,
+  "desc": "Thaws frostbite.",
+  "params": {
+   "cures": [
+    "frostbite"
+   ]
+  }
+ },
+ {
+  "id": "i_cure_all",
+  "name": "Tuning Tonic",
+  "kind": "cure",
+  "price": 450,
+  "sell": 225,
+  "desc": "Cures any lingering condition, including dizziness.",
+  "params": {
+   "cures": [
+    "burn",
+    "poison",
+    "paralysis",
+    "sleep",
+    "frostbite",
+    "dizzy"
+   ]
+  }
+ },
+ {
+  "id": "i_revive_1",
+  "name": "Kindling Spark",
+  "kind": "revive",
+  "price": 1200,
+  "sell": 600,
+  "desc": "Revives a quiet kin with half its HP.",
+  "params": {}
+ },
+ {
+  "id": "i_revive_2",
+  "name": "Rekindle Draught",
+  "kind": "revive",
+  "price": null,
+  "sell": 1000,
+  "desc": "Revives a quiet kin with full HP.",
+  "params": {
+   "full": true
+  }
+ },
+ {
+  "id": "i_charge_1",
+  "name": "Rosin Cake",
+  "kind": "charge",
+  "price": 600,
+  "sell": 300,
+  "desc": "Restores 10 charges to one move.",
+  "params": {
+   "amount": 10
+  }
+ },
+ {
+  "id": "i_charge_2",
+  "name": "Rosin Block",
+  "kind": "charge",
+  "price": null,
+  "sell": 800,
+  "desc": "Fully restores every move charge of one kin.",
+  "params": {
+   "all": true
+  }
+ },
+ {
+  "id": "i_repel_1",
+  "name": "Hush Incense",
+  "kind": "repel",
+  "price": 300,
+  "sell": 150,
+  "desc": "Wild kin keep their distance for 200 m of walking.",
+  "params": {
+   "meters": 200
+  }
+ },
+ {
+  "id": "i_repel_2",
+  "name": "Deep Hush Incense",
+  "kind": "repel",
+  "price": 500,
+  "sell": 250,
+  "desc": "Wild kin keep their distance for 400 m of walking.",
+  "params": {
+   "meters": 400
+  }
+ },
+ {
+  "id": "i_escape",
+  "name": "Homeward Thread",
+  "kind": "escape",
+  "price": 400,
+  "sell": 200,
+  "desc": "Follow the thread back to the last Hearthrest from wild areas.",
+  "params": {}
+ },
+ {
+  "id": "i_evo_prism",
+  "name": "Dawn Prism",
+  "kind": "evo",
+  "price": 3000,
+  "sell": 1500,
+  "desc": "A prism that lets a stage-2 lumen kin reach its crescendo.",
+  "params": {
+   "family": "f10"
+  }
+ },
+ {
+  "id": "i_disc_01",
+  "name": "Etude: Heat Ribbon",
+  "kind": "disc",
+  "price": 2000,
+  "sell": 0,
+  "desc": "A wax cylinder that teaches Heat Ribbon. Reusable.",
+  "params": {
+   "move": "m005",
+   "universal": false
+  }
+ },
+ {
+  "id": "i_disc_02",
+  "name": "Etude: Deluge Beam",
+  "kind": "disc",
+  "price": null,
+  "sell": 0,
+  "desc": "A wax cylinder that teaches Deluge Beam. Reusable.",
+  "params": {
+   "move": "m019",
+   "universal": false
+  }
+ },
+ {
+  "id": "i_disc_03",
+  "name": "Etude: Arc Lash",
+  "kind": "disc",
+  "price": 1500,
+  "sell": 0,
+  "desc": "A wax cylinder that teaches Arc Lash. Reusable.",
+  "params": {
+   "move": "m025",
+   "universal": false
+  }
+ },
+ {
+  "id": "i_disc_04",
+  "name": "Etude: Draining Bloom",
+  "kind": "disc",
+  "price": null,
+  "sell": 0,
+  "desc": "A wax cylinder that teaches Draining Bloom. Reusable.",
+  "params": {
+   "move": "m036",
+   "universal": false
+  }
+ },
+ {
+  "id": "i_disc_05",
+  "name": "Etude: Rock Tumble",
+  "kind": "disc",
+  "price": null,
+  "sell": 0,
+  "desc": "A wax cylinder that teaches Rock Tumble. Reusable.",
+  "params": {
+   "move": "m044",
+   "universal": false
+  }
+ },
+ {
+  "id": "i_disc_06",
+  "name": "Etude: Sleet Spray",
+  "kind": "disc",
+  "price": 2000,
+  "sell": 0,
+  "desc": "A wax cylinder that teaches Sleet Spray. Reusable.",
+  "params": {
+   "move": "m055",
+   "universal": false
+  }
+ },
+ {
+  "id": "i_disc_07",
+  "name": "Etude: Razor Draft",
+  "kind": "disc",
+  "price": null,
+  "sell": 0,
+  "desc": "A wax cylinder that teaches Razor Draft. Reusable.",
+  "params": {
+   "move": "m065",
+   "universal": false
+  }
+ },
+ {
+  "id": "i_disc_08",
+  "name": "Etude: Sludge Lob",
+  "kind": "disc",
+  "price": 2000,
+  "sell": 0,
+  "desc": "A wax cylinder that teaches Sludge Lob. Reusable.",
+  "params": {
+   "move": "m075",
+   "universal": false
+  }
+ },
+ {
+  "id": "i_disc_09",
+  "name": "Etude: Umbral Pulse",
+  "kind": "disc",
+  "price": null,
+  "sell": 0,
+  "desc": "A wax cylinder that teaches Umbral Pulse. Reusable.",
+  "params": {
+   "move": "m088",
+   "universal": false
+  }
+ },
+ {
+  "id": "i_disc_10",
+  "name": "Etude: Prism Ray",
+  "kind": "disc",
+  "price": null,
+  "sell": 0,
+  "desc": "A wax cylinder that teaches Prism Ray. Reusable.",
+  "params": {
+   "move": "m096",
+   "universal": false
+  }
+ },
+ {
+  "id": "i_disc_11",
+  "name": "Etude: Bulwark",
+  "kind": "disc",
+  "price": 1500,
+  "sell": 0,
+  "desc": "A wax cylinder that teaches Bulwark. Reusable.",
+  "params": {
+   "move": "m045",
+   "universal": true
+  }
+ },
+ {
+  "id": "i_disc_12",
+  "name": "Etude: Buzz Field",
+  "kind": "disc",
+  "price": 1500,
+  "sell": 0,
+  "desc": "A wax cylinder that teaches Buzz Field. Reusable.",
+  "params": {
+   "move": "m024",
+   "universal": false
+  }
+ },
+ {
+  "id": "i_disc_13",
+  "name": "Etude: Quake Stomp",
+  "kind": "disc",
+  "price": null,
+  "sell": 0,
+  "desc": "A wax cylinder that teaches Quake Stomp. Reusable.",
+  "params": {
+   "move": "m048",
+   "universal": false
+  }
+ },
+ {
+  "id": "i_disc_14",
+  "name": "Etude: Rime Beam",
+  "kind": "disc",
+  "price": 3000,
+  "sell": 0,
+  "desc": "A wax cylinder that teaches Rime Beam. Reusable.",
+  "params": {
+   "move": "m058",
+   "universal": false
+  }
+ },
+ {
+  "id": "i_disc_15",
+  "name": "Etude: Stormcoil Bolt",
+  "kind": "disc",
+  "price": null,
+  "sell": 0,
+  "desc": "A wax cylinder that teaches Stormcoil Bolt. Reusable.",
+  "params": {
+   "move": "m028",
+   "universal": false
+  }
+ },
+ {
+  "id": "i_disc_16",
+  "name": "Etude: Kiln Blast",
+  "kind": "disc",
+  "price": 3000,
+  "sell": 0,
+  "desc": "A wax cylinder that teaches Kiln Blast. Reusable.",
+  "params": {
+   "move": "m007",
+   "universal": false
+  }
+ },
+ {
+  "id": "i_disc_17",
+  "name": "Etude: Night Rake",
+  "kind": "disc",
+  "price": null,
+  "sell": 0,
+  "desc": "A wax cylinder that teaches Night Rake. Reusable.",
+  "params": {
+   "move": "m086",
+   "universal": false
+  }
+ },
+ {
+  "id": "i_disc_18",
+  "name": "Etude: Radiant Mend",
+  "kind": "disc",
+  "price": null,
+  "sell": 0,
+  "desc": "A wax cylinder that teaches Radiant Mend. Reusable.",
+  "params": {
+   "move": "m094",
+   "universal": false
+  }
+ },
+ {
+  "id": "i_keynote_1",
+  "name": "Moss Keynote",
+  "kind": "key",
+  "price": null,
+  "sell": 0,
+  "desc": "A tuning-fork crystal earned at a Cadence Hall (1 of 6).",
+  "params": {}
+ },
+ {
+  "id": "i_keynote_2",
+  "name": "Slate Keynote",
+  "kind": "key",
+  "price": null,
+  "sell": 0,
+  "desc": "A tuning-fork crystal earned at a Cadence Hall (2 of 6).",
+  "params": {}
+ },
+ {
+  "id": "i_keynote_3",
+  "name": "Mere Keynote",
+  "kind": "key",
+  "price": null,
+  "sell": 0,
+  "desc": "A tuning-fork crystal earned at a Cadence Hall (3 of 6).",
+  "params": {}
+ },
+ {
+  "id": "i_keynote_4",
+  "name": "Vane Keynote",
+  "kind": "key",
+  "price": null,
+  "sell": 0,
+  "desc": "A tuning-fork crystal earned at a Cadence Hall (4 of 6).",
+  "params": {}
+ },
+ {
+  "id": "i_keynote_5",
+  "name": "Forge Keynote",
+  "kind": "key",
+  "price": null,
+  "sell": 0,
+  "desc": "A tuning-fork crystal earned at a Cadence Hall (5 of 6).",
+  "params": {}
+ },
+ {
+  "id": "i_keynote_6",
+  "name": "Rime Keynote",
+  "kind": "key",
+  "price": null,
+  "sell": 0,
+  "desc": "A tuning-fork crystal earned at a Cadence Hall (6 of 6).",
+  "params": {}
+ },
+ {
+  "id": "i_key_ledger",
+  "name": "Tuning Ledger",
+  "kind": "key",
+  "price": null,
+  "sell": 0,
+  "desc": "Your leather-bound Tuner's ledger: journal, map and Keynotes.",
+  "params": {}
+ }
+]
