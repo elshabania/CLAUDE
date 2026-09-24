@@ -47,7 +47,7 @@ Data encoding: `types.json` stores each cell as integer k ∈ {0, 1, 2, 4} meani
 | shade | smothers sparks (electric); eclipses lumen | toxin is kin to decay; shade vs shade |
 | lumen | thaws rime (frost); purifies toxin; banishes shade | electric is kindred energy; lumen vs lumen |
 
-Starter triangle (f01 electric / f02 fire / f03 water): water→fire 2, fire→electric 2, electric→water 2; reverse directions are ½ (fire→water, electric→fire) and 1 (water→electric). The rival always takes the starter that is strong against the player's (section 11).
+Starter triangle (f01 electric / f02 fire / f03 water): water→fire 2, fire→electric 2, electric→water 2; reverse directions are ½ (fire→water, electric→fire) and 1 (water→electric). The rival always takes the starter that is strong against the player's (section 14.1).
 
 Notable pair: shade and lumen are mutually super-effective (2 both ways) and each resists itself — high-risk mirror matchup.
 
@@ -82,7 +82,7 @@ Per species: base `hp, atk, def, spa, spd, spe` (integers 20–140). Recommended
 - `growth` per family: f01 medium, f02 medium, f03 medium, f04 fast, f05 slow, f06 medium, f07 fast, f08 medium, f09 slow, f10 slow.
 
 ### 2.2 Instance data (generated when a creature instance is created)
-- `potential[stat]` for each of the 6 stats: integer 0–15. Wild: `rng.int(0,15)` per stat. Gifts/starters: 10 each. Trainers: see 11.4.
+- `potential[stat]` for each of the 6 stats: integer 0–15. Wild: `rng.int(0,15)` per stat. Gifts/starters: 10 each. Trainers: see 13.3 (6 normal, 12 hard, 15 champion).
 - `temperament`: one of 21 ids. `tm_steady` (no change) or `tm_<up>_<down>` with up ≠ down, both from {atk, def, spa, spd, spe} (20 ids, e.g. `tm_spa_atk` = +10% spa, −10% atk). Wild: uniform over the 21. Starter: `tm_steady`. HP is never affected. Display names by Creative Director.
 - `level` 1–60 (cap 60), `xp`, `moves[1..4]` each with `charges`, `currentHp`, `status`, `uid`.
 
@@ -187,7 +187,7 @@ Secondary-effect status chance: rolled only if the move hit, dealt > 0 damage, t
 | `sapped` | m033 | End-of-turn step 4: loses floor(maxHp/8) (min 1); the opposing active creature, if not fainted, heals the same amount. verdant types immune. Cannot stack. |
 | `shielded` | m045 | Until end of turn, all foe-targeted moves against it are blocked ("braced"). Consecutive successful uses: n = count of immediately preceding successful Bulwarks; success if n = 0 or `rng.int(1, 3^n) == 1`. Any other action resets n to 0. |
 | `absorbedFlame` | `tr_flame_sink` | Fire moves ×3/2 while on field. |
-| `weariness` | turn ≥ 50 | See 13.8. |
+| `weariness` | turn ≥ 50 | See 15.8. |
 
 ### 4.3 Action check order (per creature, when its turn to move arrives)
 1. Fainted → skip. 2. Flinched → lose action. 3. Sleep (4.1). 4. Paralysis 25% lock. 5. Dizzy (4.2). 6. Choose move: if all 4 moves have 0 charges → m000. 7. Deduct 1 charge (deducted even if the move then misses/fails/is blocked; not deducted if the action was lost in steps 2–5). 8. Execute.
@@ -231,7 +231,7 @@ Battle start:
 3. Entry traits in effSpe order (tie `rng.int(0,1)`): `tr_menace`.
 
 Each turn:
-1. **Command phase.** AI command is computed first from an `AIView` snapshot using the separate `rngAI` stream (section 10). Then the player chooses Fight / Bag / Switch / Run. The player's choice is never an input to the AI function.
+1. **Command phase.** AI command is computed first from an `AIView` snapshot using the separate `rngAI` stream (section 13). Then the player chooses Fight / Bag / Switch / Run. The player's choice is never an input to the AI function.
 2. **Phase A — Run** (wild only): see 6.1. Success ends battle.
 3. **Phase B — Switches**: player switch then AI switch (trainers only switch under hard AI). Outgoing creature's volatiles and stages cleared. Incoming entry traits trigger.
 4. **Phase C — Items / capture**: player item, then AI item. Capture resolves here (section 7); success ends the battle immediately (no end-of-turn).
@@ -243,7 +243,7 @@ Each turn:
    3. Major status damage: burn, poison, frostbite.
    4. `sapped` drain/heal.
    5. Traits: `tr_regrowth` heal, `tr_shed_status` (`rng.chance(30)`).
-   6. Weariness (turn ≥ 50): each active loses floor(maxHp/16).
+   6. Weariness (turn ≥ 50): each active loses floor(maxHp × (turn − 49) / 16) (min 1) — escalating, so any battle ends by turn 65.
    7. Clear `flinch` and `shielded`; turn += 1.
    8. Faint checks.
 8. **Faint resolution**:
@@ -325,7 +325,7 @@ Recipients: every non-fainted party member. **Participants** (was active at any 
 
 Multiple level-ups from one award are processed one level at a time (stat recompute, move prompts per level).
 
-Sanity model (estimate): XP per foe at equal level ≈ Y·L/7·T. Foes needed per level ≈ 21L/(Y·T). With campaign-average Y·T ≈ 180, Lv 5→50 on the medium curve needs ≈ 145 foe-defeats for the lead; the campaign plan in section 11 contains ≈ 150 trainer creatures plus optional wild battles, and the S factor (up to ×1.5) pulls under-levelled members up. Slow families end ~2 levels below medium ones; acceptable.
+Sanity model (estimate): XP per foe at equal level ≈ Y·L/7·T. Foes needed per level ≈ 21L/(Y·T). With campaign-average Y·T ≈ 180, Lv 5→50 on the medium curve needs ≈ 145 foe-defeats for the lead; the campaign plan in sections 12.5/14 contains ≈ 150 trainer creatures plus optional wild battles, and the S factor (up to ×1.5) pulls under-levelled members up. Slow families end ~2 levels below medium ones; acceptable.
 
 ### 8.3 Evolution
 | Family | Stage 1→2 | Stage 2→3 | Evolution move (learned on evolving) |
@@ -351,7 +351,7 @@ On reaching level L, for each learnset entry at exactly L (in table order): alre
 Wild/trainer default moveset: the last 4 distinct learnset moves with level ≤ its level (evolution moves count at the evolution level).
 
 ### 8.5 Teaching discs
-Discs are **reusable** (never consumed; key-item pocket; sellable 0 — cannot be sold). Compatibility: a species can learn a disc's move if (a) the move type is one of the species' types, or (b) the move type is in its family's `discCoverage` list (section 9.3), or (c) the disc is flagged universal (`i_disc_11` only). Teaching uses the replacement flow. Disc list in section 10A.
+Discs are **reusable** (never consumed; key-item pocket; sellable 0 — cannot be sold). Compatibility: a species can learn a disc's move if (a) the move type is one of the species' types, or (b) the move type is in its family's `discCoverage` list (section 9.3), or (c) the disc is flagged universal (`i_disc_11` only). Teaching uses the replacement flow. Disc list in section 12.2.
 
 ---
 
@@ -680,7 +680,7 @@ Battle usage: HP/cure/revive items target a party member (revive only fainted; o
 - Wipe penalty: see 15.1. Money is capped at 999,999 and never negative.
 
 ### 12.5 Income vs spending per chapter (estimate; excludes pickups and quest rewards)
-Trainer mix per chapter matches section 13 (counts are the World Designer's target; they may vary ±20% without breaking the budget).
+Trainer mix per chapter matches section 14 (counts are the World Designer's target; they may vary ±20% without breaking the budget).
 
 | Chapter | Est. hours | Trainers (class×count @ max lvl) | Income | Typical purchases | Spend | Balance after |
 |---|---|---|---|---|---|---|
@@ -777,7 +777,7 @@ Estimated total main story ≈ 8.6 h (range 8–10 h depending on exploration); 
 5. **Evolution cancelled**: evolution stays available from the party menu (8.3).
 6. **Missed/forgotten moves**: free Recall at every healing center (8.4). Discs are reusable (8.5).
 7. **Full storage**: explicit release prompt (7.4); the game never silently discards a creature.
-8. **Endless battles**: from turn 50, *Weariness*: both actives lose floor(maxHp/16) at end-of-turn step 6 ("growing weary"). Guarantees termination against stall loops (heals/Bulwark).
+8. **Endless battles**: from turn 50, *Weariness*: both actives lose floor(maxHp × (turn − 49)/16) at end-of-turn step 6 ("growing weary"; 1/16 on turn 50, 2/16 on turn 51, …). Every active faints by turn 65 at the latest; if both sides are out simultaneously the player wins (6, step 8.2). Guarantees termination against heal/Bulwark stall loops.
 9. **Party integrity**: cannot deposit or release the last party creature; cannot deposit the last non-fainted creature while outside a healing center; the party menu cannot reorder a fainted creature into slot 1 during battle.
 10. **Trainer battles cannot be fled**; wild battles always offer Run and, after a faint, "Flee" that always succeeds.
 11. **Saves**: battle state is never saved; saving is disabled in battle and during capture/evolution scenes. Loading after a crash mid-battle restores the pre-battle committed state (the wild creature/trainer is still there).
@@ -789,7 +789,7 @@ Estimated total main story ≈ 8.6 h (range 8–10 h depending on exploration); 
 ## 16. Worked example — one full turn
 
 Setup (placeholder base stats; real ones come from creatures.md): Rival R2 on a route whose `attunedType = electric`, ambient weather **rain**.
-- Player: c02 (f01 stage 2, pure electric for this example), Lv 18, bases hp 55 / atk 60 / def 50 / spa 80 / spd 55 / spe 95, potential 10 all, temperament `tm_spa_atk`. Stats: core(hp) = floor(120×18/100) = 21 → maxHp 21+18+10 = **49**; atk (core 12+5)×9/10 = **25**; def **24**; spa (core 30+5)×11/10 = **38**; spd **26**; spe **41**.
+- Player: c02 (f01 stage 2, pure electric for this example), Lv 18, bases hp 55 / atk 60 / def 50 / spa 80 / spd 55 / spe 95, potential 10 all, temperament `tm_spa_atk`. Stats: core(hp) = floor(120×18/100) = 21 → maxHp 21+18+10 = **49**; atk (core 23+5)×9/10 = **25**; def **24**; spa (core 30+5)×11/10 = **38**; spd **26**; spe **41**.
 - Rival: c08 (f03 stage 2, water), Lv 17, bases 70 / 80 / 70 / 55 / 60 / 65, potential 12, `tm_steady`. Stats: maxHp **52**, atk **34**, def **30**, spa **25**, spd **27**, spe **29**. Status: **burn** (from an earlier turn). HP 52/52.
 
 1. **Command phase.** AI (Normal) scores with the AIView. Riptide Bite m016 (physical): base = floor(floor(8×70×34/24)/50)+2 = 17 → rain ×3/2 = 25 → R92 → 23 → STAB 34 → ×1 → burn ×1/2 = 17 → pct 34 → score 34. Bubble Lance m015 (special): base = floor(floor(8×65×25/26)/50)+2 = 12 → 18 → 16 → 24 → pct 48 → score 48. `rngAI.int(1,100)` = 71 > 25 → pick the best: **m015**. Player then selects **m025 Arc Lash**.
@@ -830,7 +830,7 @@ See 7.5 (Lv 18, 36% HP, `i_orb_2`, a = 102, threshold 48287, 2 shakes then escap
 11. Move data: ≥ 100 moves + m000, every type exactly 10, every move has a valid anim id from 9.1, each learnset move exists.
 12. Every family has ≥ 4 known moves by Lv 13 and a coverage move against at least one weakness by Lv 30 (automated check against 11.1).
 13. Economy simulation (script over section 12.5 inputs) keeps balance ≥ 0 at every chapter end.
-14. Softlock tests: wipe → respawn with penalty formula; 0 orbs + <200 money → attendant gives 5 orbs; all-charges-empty → m000; storage full → mandatory release prompt; turn 50+ weariness ends a Bulwark/heal stall within 32 turns.
+14. Softlock tests: wipe → respawn with penalty formula; 0 orbs + <200 money → attendant gives 5 orbs; all-charges-empty → m000; storage full → mandatory release prompt; a scripted heal/Bulwark stall battle ends by turn 65.
 
 ## 20. Dependencies
 - **creatures.md** (Creature Art Director): base stats per species (within 2.1 bands), final types (stage 2/3 secondaries), trait proposals, BST → derived catchRate/xpYield. The worked example uses placeholder stats.
