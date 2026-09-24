@@ -531,7 +531,7 @@ Columns: id | name | type | cat | power | acc | charges | pri | target | effects
 | m100 | *Starfall Crash* | lumen | physical | 110 | 100 | 10 | 0 | foe | recoil 1/3 | rain_down |
 
 ### 9.4 Move coverage summary
-- Per type: 10 moves (3–4 physical, 3–4 special, 2–3 status); power tiers 40 → 60–75 → 80–95 → 100–110 in every type.
+- Per type: 10 moves (3–5 physical, 2–5 special, 2–3 status); power tiers 40 → 60–75 → 80–95 → 100–110 in every type.
 - Priority: m013, m023, m053, m063, m083 (+1), m045 (+3). Healing: m014, m037, m068, m094 (+ drain m036). Recoil (no multi-turn moves exist in v1): m008, m030, m040, m100. Weather: m009, m017, m057, m087, m067 (clear). Status infliction: burn m006, paralysis m024, sleep m034, poison m073, frostbite m054, dizzy m084, sapped m033. Self boosts: m003, m026, m043, m095. Foe drops: m064 (atk), m074 (def), m085 (spa), m093 (acc), m044 (spe). Cleanse: m098.
 - No two-turn charge moves, no forced-switch moves, no trapping — deliberate simplification of the state machine (see Unresolved questions).
 
