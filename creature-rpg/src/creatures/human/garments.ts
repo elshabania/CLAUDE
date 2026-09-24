@@ -221,7 +221,7 @@ export function buildOutfit(d: HumanData, s: BodyShape, L: ResolvedLook, lod: nu
   // ---------------- outer layer
   if (W.outer !== 'none') {
     const long = W.outer === 'coat';
-    const hem = long ? hipY - 0.06 : W.outer === 'vest' ? hipY - 0.02 : hipY - 0.085;
+    const hem = long ? hipY - 0.06 : W.outer === 'vest' ? hipY - 0.02 : hipY - 0.04;
     const sleeve = W.outer === 'vest' ? -0.05 : W.outerSleeve;
     const open = W.outer === 'jacket' || W.outer === 'cardigan' || W.outer === 'vest';
     const openW = (o: number) => (open ? (W.outer === 'vest' ? 0.045 : 0.03) + 0.055 * sstep(chestY - 0.16, neckY + 0.02, y(o)) : 0.0);

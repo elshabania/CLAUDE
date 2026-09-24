@@ -26,7 +26,7 @@ const EXPR: Record<Expression, Record<string, number>> = {
   faint: { blink: 1, frown: 0.3, jawOpen: 0.08, browInnerUp: 0.3 },
 };
 
-const BASE_FACE: Record<string, number> = { jawOpen: -0.07, lidUp: 0.25, smile: 0.1, kiss: 0.04 };
+const BASE_FACE: Record<string, number> = { jawOpen: -0.07, lidUp: 0.35, smile: 0.1, kiss: 0.04 };
 
 interface Act { name: HumanAction; t: number; dur: number; contact: number; fired: boolean; hold: boolean; onContact?: () => void; onDone?: () => void }
 
