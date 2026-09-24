@@ -65,7 +65,11 @@ S.S25_head = () => {
   s.absarc(0, 0, 0.5, 0, Math.PI * 2, false);
   return withHoles(s, [circlePts(0.2, 0.04, 0.17), crescentPts(-0.2, 0.04, 0.175, 0.1, 0.16)]);
 };
-S.S25_earTall = () => smooth([[-0.5, -0.5], [0.5, -0.5], [0.42, -0.1], [0.28, 0.25], [0.2, 0.5], [0.02, 0.2], [-0.25, -0.15]], 36);
+// tall pointed ear with a cut notch on its outer edge (reads as anatomy, not headwear: narrow rounded root, no brim)
+S.S25_earTall = () => roundPoly([[-0.3, -0.5], [0.3, -0.5], [0.5, -0.08], [0.46, 0.1], [0.16, 0.14], [0.36, 0.26], [0.12, 0.5], [-0.12, 0.26], [-0.46, -0.12]], 0.05);
+S.S25_earInner = () => roundPoly([[-0.3, -0.5], [0.3, -0.5], [0.42, -0.05], [0.05, 0.5], [-0.35, -0.05]], 0.08);
+// short ear stub whose upper half is folded down (the flap is a separate plate hinged on the crease)
+S.S25_earStub = () => roundPoly([[-0.5, -0.5], [0.5, -0.5], [0.4, 0.5], [-0.4, 0.5]], 0.12);
 S.S25_zig = () => {
   // strip running up +Y with 4 zig-zag teeth on both edges
   const L: [number, number][] = [], R: [number, number][] = [];
@@ -113,12 +117,14 @@ export const c25: SpeciesVisual = {
     { name: 'eye', parent: 'head', mirror: true, prim: { t: 'eye', r: 0.11, bulge: 0.3 }, at: [0.092, 0.018, -0.018] },
     { name: 'mouth', parent: 'head', prim: { t: 'mouth', r: 0.05, w: 1.5 }, at: [0, -0.11, 0.022] },
     ...plate('headBack', 'head', 'S25_disc', 0.42, 0.42, [0, 0.01, -0.09]),
-    // tall pointed ear-flap (creature's left) and a folded-down flap (right)
-    { name: 'earTall', parent: 'headBack', prim: { t: 'none' }, at: [0.1, 0.14, 0], rot: [0, 0, -16], anim: ['sway'] },
-    ...plate('earTallPlate', 'earTall', 'S25_earTall', 0.16, 0.42, [0.01, 0.2, 0], { rim: 0.028 }),
-    { name: 'earFold', parent: 'headBack', prim: { t: 'none' }, at: [-0.12, 0.15, 0], rot: [0, 0, 28] },
-    ...plate('earFoldBase', 'earFold', 'X_rect', 0.13, 0.09, [0, 0, 0]),
-    { name: 'earFlap', parent: 'earFold', prim: { t: 'extrude', shape: 'X_tri', w: 0.14, h: 0.16, depth: 0.03 }, at: [0, 0.085, 0.03], rot: [0, 0, 150], slot: 'S' },
+    // two asymmetric ears set on the sides of the head: a tall notched ear (creature's left) and a short ear folded down (right)
+    { name: 'earTall', parent: 'headBack', prim: { t: 'none' }, at: [0.13, 0.12, 0], rot: [0, 0, -32], anim: ['sway'] },
+    ...plate('earTallPlate', 'earTall', 'S25_earTall', 0.15, 0.36, [0, 0.17, 0], { rim: 0.022 }),
+    { name: 'earTallInner', parent: 'earTallPlate', prim: { t: 'extrude', shape: 'S25_earInner', w: 0.065, h: 0.2, depth: 0.012 }, at: [-0.005, -0.04, 0.024], slot: 'S' },
+    { name: 'earFold', parent: 'headBack', prim: { t: 'none' }, at: [-0.14, 0.12, 0], rot: [0, 0, 40] },
+    ...plate('earFoldBase', 'earFold', 'S25_earStub', 0.13, 0.12, [0, 0.05, 0], { rim: 0.018 }),
+    { name: 'earFoldInner', parent: 'earFoldBase', prim: { t: 'extrude', shape: 'S25_earStub', w: 0.06, h: 0.07, depth: 0.012 }, at: [0, -0.01, 0.024], slot: 'S' },
+    { name: 'earFlap', parent: 'earFold', prim: { t: 'extrude', shape: 'X_tri', w: 0.12, h: 0.15, depth: 0.03 }, at: [0.0, 0.11, 0.035], rot: [0, 0, 128], slot: 'S+' },
     // rod legs ending in discs
     { name: 'leg', parent: 'waist', mirror: true, prim: { t: 'capsule', r: 0.02, len: 0.23 }, at: [0.1, 0, 0], rot: [180, 0, 0], anim: ['gait:L'] },
     { name: 'foot', parent: 'leg', mirror: true, prim: { t: 'cyl', r: 0.065, h: 0.016 }, at: [0, 0.255, 0.015], slot: 'S' },

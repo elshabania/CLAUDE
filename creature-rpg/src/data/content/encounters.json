@@ -1,0 +1,617 @@
+{
+ "tables": {
+  "route_1": [
+   {
+    "species": "c10",
+    "lo": 3,
+    "hi": 6,
+    "day": 35,
+    "night": 20
+   },
+   {
+    "species": "c13",
+    "lo": 4,
+    "hi": 6,
+    "day": 15,
+    "night": 0
+   },
+   {
+    "species": "c19",
+    "lo": 3,
+    "hi": 6,
+    "day": 35,
+    "night": 10
+   },
+   {
+    "species": "c22",
+    "lo": 4,
+    "hi": 6,
+    "day": 0,
+    "night": 20
+   },
+   {
+    "species": "c25",
+    "lo": 4,
+    "hi": 7,
+    "day": 0,
+    "night": 30
+   },
+   {
+    "species": "c28",
+    "lo": 4,
+    "hi": 7,
+    "day": 15,
+    "night": 20
+   }
+  ],
+  "forest": [
+   {
+    "species": "c10",
+    "lo": 7,
+    "hi": 11,
+    "day": 35,
+    "night": 20
+   },
+   {
+    "species": "c13",
+    "lo": 7,
+    "hi": 10,
+    "day": 10,
+    "night": 0
+   },
+   {
+    "species": "c19",
+    "lo": 7,
+    "hi": 10,
+    "day": 20,
+    "night": 5
+   },
+   {
+    "species": "c22",
+    "lo": 7,
+    "hi": 10,
+    "day": 20,
+    "night": 25
+   },
+   {
+    "species": "c25",
+    "lo": 8,
+    "hi": 11,
+    "day": 0,
+    "night": 35
+   },
+   {
+    "species": "c28",
+    "lo": 8,
+    "hi": 11,
+    "day": 15,
+    "night": 15
+   }
+  ],
+  "route_2": [
+   {
+    "species": "c10",
+    "lo": 12,
+    "hi": 15,
+    "day": 15,
+    "night": 0
+   },
+   {
+    "species": "c11",
+    "lo": 16,
+    "hi": 16,
+    "day": 5,
+    "night": 5
+   },
+   {
+    "species": "c13",
+    "lo": 11,
+    "hi": 15,
+    "day": 30,
+    "night": 25
+   },
+   {
+    "species": "c19",
+    "lo": 11,
+    "hi": 13,
+    "day": 25,
+    "night": 0
+   },
+   {
+    "species": "c20",
+    "lo": 14,
+    "hi": 16,
+    "day": 10,
+    "night": 0
+   },
+   {
+    "species": "c22",
+    "lo": 12,
+    "hi": 15,
+    "day": 15,
+    "night": 25
+   },
+   {
+    "species": "c25",
+    "lo": 12,
+    "hi": 15,
+    "day": 0,
+    "night": 30
+   },
+   {
+    "species": "c28",
+    "lo": 12,
+    "hi": 15,
+    "day": 0,
+    "night": 15
+   }
+  ],
+  "route_3": [
+   {
+    "species": "c11",
+    "lo": 19,
+    "hi": 23,
+    "day": 15,
+    "night": 10
+   },
+   {
+    "species": "c13",
+    "lo": 19,
+    "hi": 20,
+    "day": 10,
+    "night": 0
+   },
+   {
+    "species": "c14",
+    "lo": 20,
+    "hi": 23,
+    "day": 10,
+    "night": 5
+   },
+   {
+    "species": "c20",
+    "lo": 19,
+    "hi": 23,
+    "day": 15,
+    "night": 0
+   },
+   {
+    "species": "c22",
+    "lo": 19,
+    "hi": 21,
+    "day": 25,
+    "night": 20
+   },
+   {
+    "species": "c23",
+    "lo": 19,
+    "hi": 23,
+    "day": 20,
+    "night": 20
+   },
+   {
+    "species": "c25",
+    "lo": 19,
+    "hi": 23,
+    "day": 0,
+    "night": 30
+   },
+   {
+    "species": "c28",
+    "lo": 20,
+    "hi": 23,
+    "day": 5,
+    "night": 15
+   }
+  ],
+  "lake": [
+   {
+    "species": "c11",
+    "lo": 22,
+    "hi": 26,
+    "day": 20,
+    "night": 10
+   },
+   {
+    "species": "c14",
+    "lo": 22,
+    "hi": 26,
+    "day": 10,
+    "night": 0
+   },
+   {
+    "species": "c20",
+    "lo": 22,
+    "hi": 26,
+    "day": 15,
+    "night": 0
+   },
+   {
+    "species": "c22",
+    "lo": 22,
+    "hi": 23,
+    "day": 10,
+    "night": 5
+   },
+   {
+    "species": "c23",
+    "lo": 22,
+    "hi": 26,
+    "day": 25,
+    "night": 25
+   },
+   {
+    "species": "c25",
+    "lo": 22,
+    "hi": 24,
+    "day": 0,
+    "night": 15
+   },
+   {
+    "species": "c26",
+    "lo": 24,
+    "hi": 27,
+    "day": 0,
+    "night": 15
+   },
+   {
+    "species": "c28",
+    "lo": 22,
+    "hi": 25,
+    "day": 15,
+    "night": 20
+   },
+   {
+    "species": "c29",
+    "lo": 26,
+    "hi": 27,
+    "day": 5,
+    "night": 10
+   }
+  ],
+  "route_4": [
+   {
+    "species": "c11",
+    "lo": 28,
+    "hi": 31,
+    "day": 10,
+    "night": 0
+   },
+   {
+    "species": "c14",
+    "lo": 28,
+    "hi": 32,
+    "day": 20,
+    "night": 10
+   },
+   {
+    "species": "c19",
+    "lo": 28,
+    "hi": 29,
+    "day": 10,
+    "night": 0
+   },
+   {
+    "species": "c20",
+    "lo": 28,
+    "hi": 29,
+    "day": 30,
+    "night": 15
+   },
+   {
+    "species": "c21",
+    "lo": 30,
+    "hi": 32,
+    "day": 5,
+    "night": 0
+   },
+   {
+    "species": "c23",
+    "lo": 28,
+    "hi": 32,
+    "day": 20,
+    "night": 20
+   },
+   {
+    "species": "c25",
+    "lo": 28,
+    "hi": 29,
+    "day": 0,
+    "night": 10
+   },
+   {
+    "species": "c26",
+    "lo": 28,
+    "hi": 32,
+    "day": 0,
+    "night": 25
+   },
+   {
+    "species": "c28",
+    "lo": 28,
+    "hi": 30,
+    "day": 0,
+    "night": 5
+   },
+   {
+    "species": "c29",
+    "lo": 28,
+    "hi": 32,
+    "day": 5,
+    "night": 15
+   }
+  ],
+  "volcano": [
+   {
+    "species": "c14",
+    "lo": 32,
+    "hi": 35,
+    "day": 30,
+    "night": 20
+   },
+   {
+    "species": "c15",
+    "lo": 36,
+    "hi": 37,
+    "day": 5,
+    "night": 5
+   },
+   {
+    "species": "c20",
+    "lo": 32,
+    "hi": 33,
+    "day": 15,
+    "night": 0
+   },
+   {
+    "species": "c21",
+    "lo": 32,
+    "hi": 36,
+    "day": 15,
+    "night": 10
+   },
+   {
+    "species": "c23",
+    "lo": 32,
+    "hi": 34,
+    "day": 30,
+    "night": 20
+   },
+   {
+    "species": "c24",
+    "lo": 34,
+    "hi": 37,
+    "day": 5,
+    "night": 10
+   },
+   {
+    "species": "c26",
+    "lo": 32,
+    "hi": 37,
+    "day": 0,
+    "night": 35
+   }
+  ],
+  "route_5": [
+   {
+    "species": "c14",
+    "lo": 37,
+    "hi": 39,
+    "day": 10,
+    "night": 0
+   },
+   {
+    "species": "c15",
+    "lo": 37,
+    "hi": 41,
+    "day": 10,
+    "night": 0
+   },
+   {
+    "species": "c16",
+    "lo": 37,
+    "hi": 39,
+    "day": 20,
+    "night": 15
+   },
+   {
+    "species": "c17",
+    "lo": 37,
+    "hi": 41,
+    "day": 25,
+    "night": 20
+   },
+   {
+    "species": "c21",
+    "lo": 37,
+    "hi": 41,
+    "day": 15,
+    "night": 5
+   },
+   {
+    "species": "c25",
+    "lo": 37,
+    "hi": 38,
+    "day": 0,
+    "night": 10
+   },
+   {
+    "species": "c26",
+    "lo": 37,
+    "hi": 39,
+    "day": 0,
+    "night": 25
+   },
+   {
+    "species": "c27",
+    "lo": 40,
+    "hi": 41,
+    "day": 0,
+    "night": 5
+   },
+   {
+    "species": "c29",
+    "lo": 37,
+    "hi": 41,
+    "day": 20,
+    "night": 20
+   }
+  ],
+  "snowpeak": [
+   {
+    "species": "c15",
+    "lo": 40,
+    "hi": 44,
+    "day": 10,
+    "night": 0
+   },
+   {
+    "species": "c16",
+    "lo": 40,
+    "hi": 41,
+    "day": 15,
+    "night": 10
+   },
+   {
+    "species": "c17",
+    "lo": 40,
+    "hi": 44,
+    "day": 30,
+    "night": 25
+   },
+   {
+    "species": "c18",
+    "lo": 40,
+    "hi": 44,
+    "day": 5,
+    "night": 10
+   },
+   {
+    "species": "c21",
+    "lo": 40,
+    "hi": 44,
+    "day": 15,
+    "night": 0
+   },
+   {
+    "species": "c26",
+    "lo": 40,
+    "hi": 41,
+    "day": 0,
+    "night": 15
+   },
+   {
+    "species": "c27",
+    "lo": 40,
+    "hi": 44,
+    "day": 0,
+    "night": 15
+   },
+   {
+    "species": "c29",
+    "lo": 40,
+    "hi": 44,
+    "day": 20,
+    "night": 20
+   },
+   {
+    "species": "c30",
+    "lo": 44,
+    "hi": 44,
+    "day": 5,
+    "night": 5
+   }
+  ],
+  "cave_upper": [
+   {
+    "species": "c13",
+    "lo": 16,
+    "hi": 19,
+    "day": 40,
+    "night": 40
+   },
+   {
+    "species": "c22",
+    "lo": 16,
+    "hi": 17,
+    "day": 20,
+    "night": 20
+   },
+   {
+    "species": "c23",
+    "lo": 18,
+    "hi": 19,
+    "day": 15,
+    "night": 15
+   },
+   {
+    "species": "c25",
+    "lo": 16,
+    "hi": 19,
+    "day": 25,
+    "night": 25
+   }
+  ],
+  "cave_lower": [
+   {
+    "species": "c13",
+    "lo": 19,
+    "hi": 19,
+    "day": 25,
+    "night": 25
+   },
+   {
+    "species": "c14",
+    "lo": 20,
+    "hi": 21,
+    "day": 25,
+    "night": 25
+   },
+   {
+    "species": "c22",
+    "lo": 19,
+    "hi": 19,
+    "day": 10,
+    "night": 10
+   },
+   {
+    "species": "c23",
+    "lo": 19,
+    "hi": 21,
+    "day": 15,
+    "night": 15
+   },
+   {
+    "species": "c25",
+    "lo": 19,
+    "hi": 21,
+    "day": 25,
+    "night": 25
+   }
+  ]
+ },
+ "weatherMult": {
+  "rain": {
+   "verdant": 1.5,
+   "toxin": 1.5,
+   "gale": 0.5,
+   "lumen": 0.75
+  },
+  "fog": {
+   "shade": 2.0,
+   "lumen": 1.5,
+   "gale": 0.5
+  },
+  "snow": {
+   "frost": 2.0,
+   "verdant": 0.25,
+   "toxin": 0.5
+  },
+  "sunlight": {
+   "stone": 1.25,
+   "gale": 1.25,
+   "shade": 0.5,
+   "frost": 0.5
+  }
+ }
+}

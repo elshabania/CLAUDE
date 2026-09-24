@@ -71,8 +71,8 @@ export const c23: SpeciesVisual = {
     { name: 'lidL', parent: 'body', prim: { t: 'sphere', r: [0.088, 0.036, 0.075], half: true }, at: [0.105, 0.117, 0.14], rot: [20, 30, -22], slot: 'P' },
     { name: 'lidR', parent: 'body', prim: { t: 'sphere', r: [0.088, 0.036, 0.075], half: true }, at: [-0.105, 0.124, 0.14], rot: [20, -30, 4], slot: 'P' },
     // translucent brine-filled mantle (no helmet: this IS the mantle, attached to the body)
-    { name: 'mantle', parent: 'body', prim: { t: 'lathe', profile: 'L_bulb', h: MH, rmax: MR }, at: [0, 0.02, -0.05], rot: [-26, 0, 0], slot: '#EDAA55', mat: 'MEMBRANE', opacity: 0.5, anim: ['br', 'fx:core'] },
-    { name: 'brine', parent: 'mantle', prim: { t: 'lathe', profile: BRINE, h: MH, rmax: MR * 0.94 }, at: [0, 0.0, 0], slot: 'S', mat: 'ICE', opacity: 0.72, anim: ['sway'] },
+    { name: 'mantle', parent: 'body', prim: { t: 'lathe', profile: 'L_bulb', h: MH, rmax: MR }, at: [0, 0.02, -0.05], rot: [-26, 0, 0], slot: '#EDAA55', mat: 'MEMBRANE', opacity: 0.4, anim: ['br', 'fx:core'] },
+    { name: 'brine', parent: 'mantle', prim: { t: 'lathe', profile: BRINE, h: MH, rmax: MR * 0.94 }, at: [0, 0.0, 0], slot: 'S', mat: 'ICE', opacity: 0.85, anim: ['sway'] },
     { name: 'brineTop', parent: 'brine', prim: { t: 'cyl', r: MR * 0.86, h: 0.006 }, at: [0, MH * 0.555, 0], rot: [26, 0, 0], slot: 'S+', mat: 'ICE', opacity: 0.8 },
     mantleRing('mRing1', 0.42, 55, 0.06),
     mantleRing('mRing2', 0.42, -55, 0.06),
@@ -83,7 +83,7 @@ export const c23: SpeciesVisual = {
     { name: 'bubble', parent: 'mantle', prim: { t: 'sphere', r: 0.018 }, at: [0.08, 0.32, 0.05], slot: '#E8FFFF', mat: 'ICE', opacity: 0.8, lod: 0 },
     { name: 'bubble2', parent: 'mantle', prim: { t: 'sphere', r: 0.012 }, at: [-0.06, 0.36, 0.08], slot: '#E8FFFF', mat: 'ICE', opacity: 0.8, lod: 0 },
     // curling snorkel siphon from the mantle's side, up and forward
-    { name: 'snorkel', parent: 'mantle', prim: { t: 'tube', pts: [[0, 0, 0], [0.03, 0.08, -0.01], [0.05, 0.16, 0.04], [0.04, 0.19, 0.12], [0.02, 0.17, 0.18]], r0: 0.035, r1: 0.026 }, at: [0.07, MH * 0.86, 0.0], rot: [20, 0, 0], slot: 'P' },
+    { name: 'snorkel', parent: 'mantle', prim: { t: 'tube', pts: [[0, 0, 0], [0.03, 0.08, -0.01], [0.05, 0.16, 0.04], [0.04, 0.19, 0.12], [0.02, 0.17, 0.18]], r0: 0.035, r1: 0.026 }, at: [0.07, MH * 0.86, 0.0], rot: [30, 0, 0], scale: [0.7, 0.7, 0.7], slot: 'P' },
     { name: 'snorkelTip', parent: 'snorkel', prim: { t: 'lathe', profile: 'L_crater', h: 0.05, rmax: 0.036 }, at: [0.02, 0.17, 0.18], rot: [110, 0, 0], slot: 'P-', anim: ['fx:snorkel'] },
     ...legs,
   ],

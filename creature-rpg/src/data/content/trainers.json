@@ -1,0 +1,2593 @@
+[
+ {
+  "id": "t_rival_1",
+  "zone": "town_1",
+  "at": [
+   5.0,
+   -35.0
+  ],
+  "mandatory": true,
+  "name": "Cass",
+  "title": "Rival",
+  "look": "cass",
+  "classBase": 40,
+  "team": [
+   {
+    "species": "RS1",
+    "level": 5
+   }
+  ],
+  "ai": "normal",
+  "potential": 12,
+  "items": [
+   "i_salve_1"
+  ],
+  "sight": 0,
+  "payout": 200
+ },
+ {
+  "id": "t_r1_01",
+  "zone": "route_1",
+  "at": [
+   -10.0,
+   40.0
+  ],
+  "mandatory": false,
+  "name": "Rook",
+  "title": "Kite Flyer",
+  "look": "youth",
+  "classBase": 16,
+  "team": [
+   {
+    "species": "c19",
+    "level": 4
+   }
+  ],
+  "ai": "normal",
+  "potential": 6,
+  "items": [],
+  "lines": {
+   "intro": "A Tuner! Finally. My kin have been practising all morning.",
+   "lose": "I'll practise my scales and try again.",
+   "win": "Keep at it \u2014 every Tuner loses a verse now and then."
+  },
+  "sight": 8,
+  "payout": 64
+ },
+ {
+  "id": "t_r1_02",
+  "zone": "route_1",
+  "at": [
+   15.0,
+   0.0
+  ],
+  "mandatory": false,
+  "name": "Lowri",
+  "title": "Village Kid",
+  "look": "villagerC",
+  "classBase": 16,
+  "team": [
+   {
+    "species": "c10",
+    "level": 5
+   },
+   {
+    "species": "c13",
+    "level": 6
+   }
+  ],
+  "ai": "normal",
+  "potential": 6,
+  "items": [],
+  "lines": {
+   "intro": "Every good song needs a second voice. Care to be mine?",
+   "lose": "My kin need a nap. So do I.",
+   "win": "Ha! Back to the Hearthrest with you."
+  },
+  "sight": 8,
+  "payout": 96
+ },
+ {
+  "id": "t_r1_03",
+  "zone": "route_1",
+  "at": [
+   -20.0,
+   -40.0
+  ],
+  "mandatory": false,
+  "name": "Osric",
+  "title": "Trail Scout",
+  "look": "climber",
+  "classBase": 24,
+  "team": [
+   {
+    "species": "c28",
+    "level": 6
+   },
+   {
+    "species": "c22",
+    "level": 7
+   }
+  ],
+  "ai": "normal",
+  "potential": 6,
+  "items": [],
+  "lines": {
+   "intro": "You're in my spot. Battle for it?",
+   "lose": "I'll practise my scales and try again.",
+   "win": "Ha! Back to the Hearthrest with you."
+  },
+  "sight": 8,
+  "payout": 168
+ },
+ {
+  "id": "t_fo_01",
+  "zone": "forest",
+  "at": [
+   -30.0,
+   55.0
+  ],
+  "mandatory": false,
+  "name": "Nessa",
+  "title": "Hiker",
+  "look": "hiker",
+  "classBase": 24,
+  "team": [
+   {
+    "species": "c10",
+    "level": 8
+   },
+   {
+    "species": "c13",
+    "level": 9
+   }
+  ],
+  "ai": "normal",
+  "potential": 6,
+  "items": [],
+  "lines": {
+   "intro": "A Tuner! Finally. My kin have been practising all morning.",
+   "lose": "Well played. That was a proper chord.",
+   "win": "Ha! Back to the Hearthrest with you."
+  },
+  "sight": 8,
+  "payout": 216
+ },
+ {
+  "id": "t_fo_02",
+  "zone": "forest",
+  "at": [
+   40.0,
+   10.0
+  ],
+  "mandatory": false,
+  "name": "Nia",
+  "title": "Trail Scout",
+  "look": "climber",
+  "classBase": 24,
+  "team": [
+   {
+    "species": "c19",
+    "level": 9
+   },
+   {
+    "species": "c22",
+    "level": 10
+   }
+  ],
+  "ai": "normal",
+  "potential": 6,
+  "items": [],
+  "lines": {
+   "intro": "A Tuner! Finally. My kin have been practising all morning.",
+   "lose": "Ah \u2014 you out-tuned me. Fair and square.",
+   "win": "Keep at it \u2014 every Tuner loses a verse now and then."
+  },
+  "sight": 8,
+  "payout": 240
+ },
+ {
+  "id": "t_fo_03",
+  "zone": "forest",
+  "at": [
+   -60.0,
+   -10.0
+  ],
+  "mandatory": false,
+  "name": "Pell",
+  "title": "Hiker",
+  "look": "hiker",
+  "classBase": 24,
+  "team": [
+   {
+    "species": "c25",
+    "level": 10
+   },
+   {
+    "species": "c28",
+    "level": 11
+   }
+  ],
+  "ai": "normal",
+  "potential": 6,
+  "items": [],
+  "lines": {
+   "intro": "I heard you coming three hedges back. Let's see if your kin are as loud!",
+   "lose": "Well played. That was a proper chord.",
+   "win": "Ha! Back to the Hearthrest with you."
+  },
+  "sight": 8,
+  "payout": 264
+ },
+ {
+  "id": "t_still_01",
+  "zone": "forest",
+  "at": [
+   20.0,
+   -15.0
+  ],
+  "mandatory": true,
+  "name": "Sable",
+  "title": "Stillmark Engineer",
+  "look": "stillhand",
+  "classBase": 20,
+  "team": [
+   {
+    "species": "c22",
+    "level": 10
+   },
+   {
+    "species": "c13",
+    "level": 11
+   }
+  ],
+  "ai": "normal",
+  "potential": 6,
+  "items": [],
+  "lines": {
+   "intro": "Guild business. Please step back \u2014 ah, you won't. Very well.",
+   "lose": "That\u2026 was not in the work order.",
+   "win": "Please don't make me write you up twice."
+  },
+  "sight": 8,
+  "payout": 220
+ },
+ {
+  "id": "t_still_02",
+  "zone": "forest",
+  "at": [
+   32.0,
+   -22.0
+  ],
+  "mandatory": true,
+  "name": "Willa",
+  "title": "Stillmark Engineer",
+  "look": "stillhand",
+  "classBase": 20,
+  "team": [
+   {
+    "species": "c25",
+    "level": 10
+   },
+   {
+    "species": "c22",
+    "level": 11
+   }
+  ],
+  "ai": "normal",
+  "potential": 6,
+  "items": [],
+  "lines": {
+   "intro": "Guild business. Please step back \u2014 ah, you won't. Very well.",
+   "lose": "That\u2026 was not in the work order.",
+   "win": "Please don't make me write you up twice."
+  },
+  "sight": 8,
+  "payout": 220
+ },
+ {
+  "id": "t_hall1_01",
+  "zone": "trial_1",
+  "at": [
+   -8.0,
+   10.0
+  ],
+  "mandatory": true,
+  "name": "Zeb",
+  "title": "Hall Tuner",
+  "look": "veteran",
+  "classBase": 36,
+  "team": [
+   {
+    "species": "c10",
+    "level": 10
+   },
+   {
+    "species": "c10",
+    "level": 11
+   }
+  ],
+  "ai": "normal",
+  "potential": 6,
+  "items": [],
+  "lines": {
+   "intro": "You're in my spot. Battle for it?",
+   "lose": "I'll practise my scales and try again.",
+   "win": "Ha! Back to the Hearthrest with you."
+  },
+  "sight": 8,
+  "payout": 396
+ },
+ {
+  "id": "t_hall1_02",
+  "zone": "trial_1",
+  "at": [
+   8.0,
+   0.0
+  ],
+  "mandatory": true,
+  "name": "Ilse",
+  "title": "Hall Tuner",
+  "look": "veteran",
+  "classBase": 36,
+  "team": [
+   {
+    "species": "c10",
+    "level": 11
+   },
+   {
+    "species": "c19",
+    "level": 12
+   }
+  ],
+  "ai": "normal",
+  "potential": 6,
+  "items": [],
+  "lines": {
+   "intro": "Every good song needs a second voice. Care to be mine?",
+   "lose": "Ah \u2014 you out-tuned me. Fair and square.",
+   "win": "Ha! Back to the Hearthrest with you."
+  },
+  "sight": 8,
+  "payout": 432
+ },
+ {
+  "id": "t_cantor_1",
+  "zone": "trial_1",
+  "at": [
+   0.0,
+   -20.0
+  ],
+  "mandatory": true,
+  "name": "Wren Mossgrave",
+  "title": "Cantor",
+  "look": "wren",
+  "classBase": 100,
+  "team": [
+   {
+    "species": "c10",
+    "level": 10
+   },
+   {
+    "species": "c13",
+    "level": 11
+   },
+   {
+    "species": "c11",
+    "level": 12
+   }
+  ],
+  "ai": "hard",
+  "potential": 12,
+  "items": [
+   "i_salve_3",
+   "i_salve_3"
+  ],
+  "sight": 0,
+  "payout": 1200
+ },
+ {
+  "id": "t_r2_01",
+  "zone": "route_2",
+  "at": [
+   10.0,
+   70.0
+  ],
+  "mandatory": false,
+  "name": "Nia",
+  "title": "Hiker",
+  "look": "hiker",
+  "classBase": 24,
+  "team": [
+   {
+    "species": "c13",
+    "level": 12
+   },
+   {
+    "species": "c19",
+    "level": 13
+   }
+  ],
+  "ai": "normal",
+  "potential": 6,
+  "items": [],
+  "lines": {
+   "intro": "A Tuner! Finally. My kin have been practising all morning.",
+   "lose": "Ah \u2014 you out-tuned me. Fair and square.",
+   "win": "Keep at it \u2014 every Tuner loses a verse now and then."
+  },
+  "sight": 8,
+  "payout": 312
+ },
+ {
+  "id": "t_r2_02",
+  "zone": "route_2",
+  "at": [
+   -25.0,
+   40.0
+  ],
+  "mandatory": false,
+  "name": "Ula",
+  "title": "Bell Ringer",
+  "look": "villagerB",
+  "classBase": 24,
+  "team": [
+   {
+    "species": "c13",
+    "level": 13
+   },
+   {
+    "species": "c22",
+    "level": 14
+   }
+  ],
+  "ai": "normal",
+  "potential": 6,
+  "items": [],
+  "lines": {
+   "intro": "I heard you coming three hedges back. Let's see if your kin are as loud!",
+   "lose": "Well played. That was a proper chord.",
+   "win": "Ha! Back to the Hearthrest with you."
+  },
+  "sight": 8,
+  "payout": 336
+ },
+ {
+  "id": "t_r2_03",
+  "zone": "route_2",
+  "at": [
+   20.0,
+   0.0
+  ],
+  "mandatory": false,
+  "name": "Jory",
+  "title": "Kite Flyer",
+  "look": "youth",
+  "classBase": 16,
+  "team": [
+   {
+    "species": "c19",
+    "level": 13
+   },
+   {
+    "species": "c19",
+    "level": 13
+   },
+   {
+    "species": "c28",
+    "level": 14
+   }
+  ],
+  "ai": "normal",
+  "potential": 6,
+  "items": [],
+  "lines": {
+   "intro": "Every good song needs a second voice. Care to be mine?",
+   "lose": "Ah \u2014 you out-tuned me. Fair and square.",
+   "win": "Keep at it \u2014 every Tuner loses a verse now and then."
+  },
+  "sight": 8,
+  "payout": 224
+ },
+ {
+  "id": "t_r2_04",
+  "zone": "route_2",
+  "at": [
+   -10.0,
+   -35.0
+  ],
+  "mandatory": false,
+  "name": "Fen",
+  "title": "Trail Scout",
+  "look": "climber",
+  "classBase": 24,
+  "team": [
+   {
+    "species": "c25",
+    "level": 14
+   },
+   {
+    "species": "c10",
+    "level": 15
+   }
+  ],
+  "ai": "normal",
+  "potential": 6,
+  "items": [],
+  "lines": {
+   "intro": "I heard you coming three hedges back. Let's see if your kin are as loud!",
+   "lose": "Well played. That was a proper chord.",
+   "win": "Ha! Back to the Hearthrest with you."
+  },
+  "sight": 8,
+  "payout": 360
+ },
+ {
+  "id": "t_rival_2",
+  "zone": "route_2",
+  "at": [
+   0.0,
+   -70.0
+  ],
+  "mandatory": true,
+  "name": "Cass",
+  "title": "Rival",
+  "look": "cass",
+  "classBase": 40,
+  "team": [
+   {
+    "species": "c20",
+    "level": 14
+   },
+   {
+    "species": "RS2",
+    "level": 16
+   }
+  ],
+  "ai": "normal",
+  "potential": 12,
+  "items": [
+   "i_salve_1"
+  ],
+  "sight": 0,
+  "payout": 640
+ },
+ {
+  "id": "t_hall2_01",
+  "zone": "trial_2",
+  "at": [
+   -8.0,
+   10.0
+  ],
+  "mandatory": true,
+  "name": "Tam",
+  "title": "Hall Tuner",
+  "look": "veteran",
+  "classBase": 36,
+  "team": [
+   {
+    "species": "c13",
+    "level": 13
+   },
+   {
+    "species": "c13",
+    "level": 14
+   }
+  ],
+  "ai": "normal",
+  "potential": 6,
+  "items": [],
+  "lines": {
+   "intro": "Hold up! Your troupe looks ready for a tune-up.",
+   "lose": "Ah \u2014 you out-tuned me. Fair and square.",
+   "win": "Keep at it \u2014 every Tuner loses a verse now and then."
+  },
+  "sight": 8,
+  "payout": 504
+ },
+ {
+  "id": "t_hall2_02",
+  "zone": "trial_2",
+  "at": [
+   8.0,
+   0.0
+  ],
+  "mandatory": true,
+  "name": "Pim",
+  "title": "Hall Tuner",
+  "look": "veteran",
+  "classBase": 36,
+  "team": [
+   {
+    "species": "c13",
+    "level": 14
+   },
+   {
+    "species": "c20",
+    "level": 15
+   }
+  ],
+  "ai": "normal",
+  "potential": 6,
+  "items": [],
+  "lines": {
+   "intro": "I heard you coming three hedges back. Let's see if your kin are as loud!",
+   "lose": "My kin need a nap. So do I.",
+   "win": "Ha! Back to the Hearthrest with you."
+  },
+  "sight": 8,
+  "payout": 540
+ },
+ {
+  "id": "t_cantor_2",
+  "zone": "trial_2",
+  "at": [
+   0.0,
+   -20.0
+  ],
+  "mandatory": true,
+  "name": "Dorran Shale",
+  "title": "Cantor",
+  "look": "dorran",
+  "classBase": 100,
+  "team": [
+   {
+    "species": "c13",
+    "level": 15
+   },
+   {
+    "species": "c22",
+    "level": 16
+   },
+   {
+    "species": "c14",
+    "level": 17
+   }
+  ],
+  "ai": "hard",
+  "potential": 12,
+  "items": [
+   "i_salve_3",
+   "i_salve_3"
+  ],
+  "sight": 0,
+  "payout": 1700
+ },
+ {
+  "id": "t_cv_01",
+  "zone": "cave",
+  "at": [
+   60.0,
+   -20.0
+  ],
+  "mandatory": false,
+  "name": "Mabon",
+  "title": "Miner",
+  "look": "hiker",
+  "classBase": 24,
+  "team": [
+   {
+    "species": "c13",
+    "level": 17
+   },
+   {
+    "species": "c23",
+    "level": 18
+   }
+  ],
+  "ai": "normal",
+  "potential": 6,
+  "items": [],
+  "lines": {
+   "intro": "I heard you coming three hedges back. Let's see if your kin are as loud!",
+   "lose": "Ah \u2014 you out-tuned me. Fair and square.",
+   "win": "Keep at it \u2014 every Tuner loses a verse now and then."
+  },
+  "sight": 8,
+  "payout": 432
+ },
+ {
+  "id": "t_cv_02",
+  "zone": "cave",
+  "at": [
+   30.0,
+   40.0
+  ],
+  "mandatory": false,
+  "name": "Zeb",
+  "title": "Miner",
+  "look": "hiker",
+  "classBase": 24,
+  "team": [
+   {
+    "species": "c13",
+    "level": 17
+   },
+   {
+    "species": "c25",
+    "level": 18
+   },
+   {
+    "species": "c23",
+    "level": 19
+   }
+  ],
+  "ai": "normal",
+  "potential": 6,
+  "items": [],
+  "lines": {
+   "intro": "I heard you coming three hedges back. Let's see if your kin are as loud!",
+   "lose": "I'll practise my scales and try again.",
+   "win": "Ha! Back to the Hearthrest with you."
+  },
+  "sight": 8,
+  "payout": 456
+ },
+ {
+  "id": "t_cv_03",
+  "zone": "cave",
+  "at": [
+   -40.0,
+   50.0
+  ],
+  "mandatory": false,
+  "name": "Pell",
+  "title": "Trail Scout",
+  "look": "climber",
+  "classBase": 24,
+  "team": [
+   {
+    "species": "c25",
+    "level": 19
+   },
+   {
+    "species": "c23",
+    "level": 20
+   }
+  ],
+  "ai": "normal",
+  "potential": 6,
+  "items": [],
+  "lines": {
+   "intro": "Hold up! Your troupe looks ready for a tune-up.",
+   "lose": "Well played. That was a proper chord.",
+   "win": "Ha! Back to the Hearthrest with you."
+  },
+  "sight": 8,
+  "payout": 480
+ },
+ {
+  "id": "t_still_03",
+  "zone": "cave",
+  "at": [
+   -20.0,
+   -30.0
+  ],
+  "mandatory": true,
+  "name": "Ula",
+  "title": "Stillmark Engineer",
+  "look": "stillhand",
+  "classBase": 20,
+  "team": [
+   {
+    "species": "c13",
+    "level": 19
+   },
+   {
+    "species": "c23",
+    "level": 20
+   }
+  ],
+  "ai": "normal",
+  "potential": 6,
+  "items": [],
+  "lines": {
+   "intro": "Pardon us. We're only servicing the stone.",
+   "lose": "The Magister will want to hear about you.",
+   "win": "Please don't make me write you up twice."
+  },
+  "sight": 8,
+  "payout": 400
+ },
+ {
+  "id": "t_still_04",
+  "zone": "cave",
+  "at": [
+   -40.0,
+   -45.0
+  ],
+  "mandatory": true,
+  "name": "Wyn",
+  "title": "Stillmark Engineer",
+  "look": "stillhand",
+  "classBase": 20,
+  "team": [
+   {
+    "species": "c25",
+    "level": 19
+   },
+   {
+    "species": "c14",
+    "level": 20
+   }
+  ],
+  "ai": "normal",
+  "potential": 6,
+  "items": [],
+  "lines": {
+   "intro": "Pardon us. We're only servicing the stone.",
+   "lose": "The Magister will want to hear about you.",
+   "win": "Please don't make me write you up twice."
+  },
+  "sight": 8,
+  "payout": 400
+ },
+ {
+  "id": "t_admin_brann_1",
+  "zone": "cave",
+  "at": [
+   -50.0,
+   -58.0
+  ],
+  "mandatory": true,
+  "name": "Brann Coldcourt",
+  "title": "Warden",
+  "look": "brann",
+  "classBase": 60,
+  "team": [
+   {
+    "species": "c22",
+    "level": 18
+   },
+   {
+    "species": "c25",
+    "level": 19
+   },
+   {
+    "species": "c23",
+    "level": 20
+   }
+  ],
+  "ai": "hard",
+  "potential": 12,
+  "items": [
+   "i_salve_3",
+   "i_salve_3"
+  ],
+  "sight": 0,
+  "payout": 1200
+ },
+ {
+  "id": "t_r3_01",
+  "zone": "route_3",
+  "at": [
+   70.0,
+   10.0
+  ],
+  "mandatory": false,
+  "name": "Wyn",
+  "title": "Fen Wader",
+  "look": "angler",
+  "classBase": 24,
+  "team": [
+   {
+    "species": "c23",
+    "level": 20
+   },
+   {
+    "species": "c23",
+    "level": 20
+   },
+   {
+    "species": "c11",
+    "level": 21
+   }
+  ],
+  "ai": "normal",
+  "potential": 6,
+  "items": [],
+  "lines": {
+   "intro": "Every good song needs a second voice. Care to be mine?",
+   "lose": "Well played. That was a proper chord.",
+   "win": "Ha! Back to the Hearthrest with you."
+  },
+  "sight": 8,
+  "payout": 504
+ },
+ {
+  "id": "t_r3_02",
+  "zone": "route_3",
+  "at": [
+   30.0,
+   -25.0
+  ],
+  "mandatory": false,
+  "name": "Quill",
+  "title": "Angler",
+  "look": "angler",
+  "classBase": 24,
+  "team": [
+   {
+    "species": "c23",
+    "level": 21
+   },
+   {
+    "species": "c20",
+    "level": 22
+   }
+  ],
+  "ai": "normal",
+  "potential": 6,
+  "items": [],
+  "lines": {
+   "intro": "You're in my spot. Battle for it?",
+   "lose": "I'll practise my scales and try again.",
+   "win": "Ha! Back to the Hearthrest with you."
+  },
+  "sight": 8,
+  "payout": 528
+ },
+ {
+  "id": "t_r3_03",
+  "zone": "route_3",
+  "at": [
+   -10.0,
+   25.0
+  ],
+  "mandatory": false,
+  "name": "Kit",
+  "title": "Fen Wader",
+  "look": "angler",
+  "classBase": 24,
+  "team": [
+   {
+    "species": "c11",
+    "level": 21
+   },
+   {
+    "species": "c25",
+    "level": 21
+   },
+   {
+    "species": "c23",
+    "level": 22
+   }
+  ],
+  "ai": "normal",
+  "potential": 6,
+  "items": [],
+  "lines": {
+   "intro": "I heard you coming three hedges back. Let's see if your kin are as loud!",
+   "lose": "My kin need a nap. So do I.",
+   "win": "Keep at it \u2014 every Tuner loses a verse now and then."
+  },
+  "sight": 8,
+  "payout": 528
+ },
+ {
+  "id": "t_r3_04",
+  "zone": "route_3",
+  "at": [
+   -70.0,
+   -15.0
+  ],
+  "mandatory": false,
+  "name": "Vance",
+  "title": "Trail Scout",
+  "look": "climber",
+  "classBase": 24,
+  "team": [
+   {
+    "species": "c14",
+    "level": 22
+   },
+   {
+    "species": "c28",
+    "level": 23
+   }
+  ],
+  "ai": "normal",
+  "potential": 6,
+  "items": [],
+  "lines": {
+   "intro": "Hold up! Your troupe looks ready for a tune-up.",
+   "lose": "I'll practise my scales and try again.",
+   "win": "Keep at it \u2014 every Tuner loses a verse now and then."
+  },
+  "sight": 8,
+  "payout": 552
+ },
+ {
+  "id": "t_still_05",
+  "zone": "route_3",
+  "at": [
+   -35.0,
+   -8.0
+  ],
+  "mandatory": true,
+  "name": "Elsie",
+  "title": "Stillmark Engineer",
+  "look": "stillhand",
+  "classBase": 20,
+  "team": [
+   {
+    "species": "c23",
+    "level": 21
+   },
+   {
+    "species": "c25",
+    "level": 22
+   }
+  ],
+  "ai": "normal",
+  "potential": 6,
+  "items": [],
+  "lines": {
+   "intro": "Pardon us. We're only servicing the stone.",
+   "lose": "That\u2026 was not in the work order.",
+   "win": "Please don't make me write you up twice."
+  },
+  "sight": 8,
+  "payout": 440
+ },
+ {
+  "id": "t_admin_vey_1",
+  "zone": "route_3",
+  "at": [
+   -25.0,
+   5.0
+  ],
+  "mandatory": true,
+  "name": "Vey Lanternlow",
+  "title": "Warden",
+  "look": "vey",
+  "classBase": 60,
+  "team": [
+   {
+    "species": "c25",
+    "level": 21
+   },
+   {
+    "species": "c28",
+    "level": 21
+   },
+   {
+    "species": "c23",
+    "level": 22
+   }
+  ],
+  "ai": "hard",
+  "potential": 12,
+  "items": [
+   "i_salve_3",
+   "i_salve_3"
+  ],
+  "sight": 0,
+  "payout": 1320
+ },
+ {
+  "id": "t_rival_3",
+  "zone": "route_3",
+  "at": [
+   90.0,
+   0.0
+  ],
+  "mandatory": true,
+  "name": "Cass",
+  "title": "Rival",
+  "look": "cass",
+  "classBase": 40,
+  "team": [
+   {
+    "species": "c20",
+    "level": 21
+   },
+   {
+    "species": "c14",
+    "level": 22
+   },
+   {
+    "species": "RS2",
+    "level": 23
+   }
+  ],
+  "ai": "hard",
+  "potential": 12,
+  "items": [
+   "i_salve_3",
+   "i_salve_3"
+  ],
+  "sight": 0,
+  "payout": 920
+ },
+ {
+  "id": "t_lk_01",
+  "zone": "lake",
+  "at": [
+   40.0,
+   80.0
+  ],
+  "mandatory": false,
+  "name": "Vance",
+  "title": "Angler",
+  "look": "angler",
+  "classBase": 24,
+  "team": [
+   {
+    "species": "c23",
+    "level": 23
+   },
+   {
+    "species": "c11",
+    "level": 23
+   },
+   {
+    "species": "c28",
+    "level": 24
+   }
+  ],
+  "ai": "normal",
+  "potential": 6,
+  "items": [],
+  "lines": {
+   "intro": "I heard you coming three hedges back. Let's see if your kin are as loud!",
+   "lose": "My kin need a nap. So do I.",
+   "win": "Keep at it \u2014 every Tuner loses a verse now and then."
+  },
+  "sight": 8,
+  "payout": 576
+ },
+ {
+  "id": "t_lk_02",
+  "zone": "lake",
+  "at": [
+   -60.0,
+   40.0
+  ],
+  "mandatory": false,
+  "name": "Hettie",
+  "title": "Sail Hand",
+  "look": "angler",
+  "classBase": 24,
+  "team": [
+   {
+    "species": "c20",
+    "level": 23
+   },
+   {
+    "species": "c23",
+    "level": 25
+   }
+  ],
+  "ai": "normal",
+  "potential": 6,
+  "items": [],
+  "lines": {
+   "intro": "Every good song needs a second voice. Care to be mine?",
+   "lose": "My kin need a nap. So do I.",
+   "win": "Ha! Back to the Hearthrest with you."
+  },
+  "sight": 8,
+  "payout": 600
+ },
+ {
+  "id": "t_lk_03",
+  "zone": "lake",
+  "at": [
+   -70.0,
+   -30.0
+  ],
+  "mandatory": false,
+  "name": "Nia",
+  "title": "Angler",
+  "look": "angler",
+  "classBase": 24,
+  "team": [
+   {
+    "species": "c23",
+    "level": 24
+   },
+   {
+    "species": "c26",
+    "level": 24
+   },
+   {
+    "species": "c11",
+    "level": 25
+   }
+  ],
+  "ai": "normal",
+  "potential": 6,
+  "items": [],
+  "lines": {
+   "intro": "Hold up! Your troupe looks ready for a tune-up.",
+   "lose": "I'll practise my scales and try again.",
+   "win": "Keep at it \u2014 every Tuner loses a verse now and then."
+  },
+  "sight": 8,
+  "payout": 600
+ },
+ {
+  "id": "t_lk_04",
+  "zone": "lake",
+  "at": [
+   70.0,
+   -10.0
+  ],
+  "mandatory": false,
+  "name": "Bram",
+  "title": "Sail Hand",
+  "look": "angler",
+  "classBase": 24,
+  "team": [
+   {
+    "species": "c20",
+    "level": 24
+   },
+   {
+    "species": "c28",
+    "level": 24
+   },
+   {
+    "species": "c14",
+    "level": 25
+   }
+  ],
+  "ai": "normal",
+  "potential": 6,
+  "items": [],
+  "lines": {
+   "intro": "A Tuner! Finally. My kin have been practising all morning.",
+   "lose": "Well played. That was a proper chord.",
+   "win": "Keep at it \u2014 every Tuner loses a verse now and then."
+  },
+  "sight": 8,
+  "payout": 600
+ },
+ {
+  "id": "t_hall3_01",
+  "zone": "trial_3",
+  "at": [
+   -8.0,
+   10.0
+  ],
+  "mandatory": true,
+  "name": "Ilse",
+  "title": "Hall Tuner",
+  "look": "veteran",
+  "classBase": 36,
+  "team": [
+   {
+    "species": "c23",
+    "level": 22
+   },
+   {
+    "species": "c23",
+    "level": 23
+   }
+  ],
+  "ai": "normal",
+  "potential": 6,
+  "items": [],
+  "lines": {
+   "intro": "Every good song needs a second voice. Care to be mine?",
+   "lose": "Ah \u2014 you out-tuned me. Fair and square.",
+   "win": "Keep at it \u2014 every Tuner loses a verse now and then."
+  },
+  "sight": 8,
+  "payout": 828
+ },
+ {
+  "id": "t_hall3_02",
+  "zone": "trial_3",
+  "at": [
+   8.0,
+   0.0
+  ],
+  "mandatory": true,
+  "name": "Pim",
+  "title": "Hall Tuner",
+  "look": "veteran",
+  "classBase": 36,
+  "team": [
+   {
+    "species": "c23",
+    "level": 23
+   },
+   {
+    "species": "c08",
+    "level": 23
+   },
+   {
+    "species": "c23",
+    "level": 24
+   }
+  ],
+  "ai": "normal",
+  "potential": 6,
+  "items": [],
+  "lines": {
+   "intro": "I heard you coming three hedges back. Let's see if your kin are as loud!",
+   "lose": "Well played. That was a proper chord.",
+   "win": "Ha! Back to the Hearthrest with you."
+  },
+  "sight": 8,
+  "payout": 864
+ },
+ {
+  "id": "t_cantor_3",
+  "zone": "trial_3",
+  "at": [
+   0.0,
+   -20.0
+  ],
+  "mandatory": true,
+  "name": "Nerys Tidewell",
+  "title": "Cantor",
+  "look": "nerys",
+  "classBase": 100,
+  "team": [
+   {
+    "species": "c23",
+    "level": 23
+   },
+   {
+    "species": "c17",
+    "level": 23
+   },
+   {
+    "species": "c23",
+    "level": 24
+   },
+   {
+    "species": "c08",
+    "level": 25
+   }
+  ],
+  "ai": "hard",
+  "potential": 12,
+  "items": [
+   "i_salve_3",
+   "i_salve_3"
+  ],
+  "sight": 0,
+  "payout": 2500
+ },
+ {
+  "id": "t_hall4_01",
+  "zone": "trial_4",
+  "at": [
+   -8.0,
+   10.0
+  ],
+  "mandatory": true,
+  "name": "Pell",
+  "title": "Hall Tuner",
+  "look": "veteran",
+  "classBase": 36,
+  "team": [
+   {
+    "species": "c20",
+    "level": 26
+   },
+   {
+    "species": "c20",
+    "level": 26
+   },
+   {
+    "species": "c20",
+    "level": 27
+   }
+  ],
+  "ai": "normal",
+  "potential": 6,
+  "items": [],
+  "lines": {
+   "intro": "A Tuner! Finally. My kin have been practising all morning.",
+   "lose": "Ah \u2014 you out-tuned me. Fair and square.",
+   "win": "Ha! Back to the Hearthrest with you."
+  },
+  "sight": 8,
+  "payout": 972
+ },
+ {
+  "id": "t_hall4_02",
+  "zone": "trial_4",
+  "at": [
+   8.0,
+   0.0
+  ],
+  "mandatory": true,
+  "name": "Bram",
+  "title": "Hall Tuner",
+  "look": "veteran",
+  "classBase": 36,
+  "team": [
+   {
+    "species": "c20",
+    "level": 27
+   },
+   {
+    "species": "c29",
+    "level": 27
+   },
+   {
+    "species": "c20",
+    "level": 28
+   }
+  ],
+  "ai": "normal",
+  "potential": 6,
+  "items": [],
+  "lines": {
+   "intro": "I heard you coming three hedges back. Let's see if your kin are as loud!",
+   "lose": "Well played. That was a proper chord.",
+   "win": "Keep at it \u2014 every Tuner loses a verse now and then."
+  },
+  "sight": 8,
+  "payout": 1008
+ },
+ {
+  "id": "t_cantor_4",
+  "zone": "trial_4",
+  "at": [
+   0.0,
+   -20.0
+  ],
+  "mandatory": true,
+  "name": "Tamsin Galloway",
+  "title": "Cantor",
+  "look": "tamsin",
+  "classBase": 100,
+  "team": [
+   {
+    "species": "c20",
+    "level": 27
+   },
+   {
+    "species": "c14",
+    "level": 28
+   },
+   {
+    "species": "c20",
+    "level": 29
+   },
+   {
+    "species": "c21",
+    "level": 30
+   }
+  ],
+  "ai": "hard",
+  "potential": 12,
+  "items": [
+   "i_salve_3",
+   "i_salve_3"
+  ],
+  "sight": 0,
+  "payout": 3000
+ },
+ {
+  "id": "t_r4_01",
+  "zone": "route_4",
+  "at": [
+   70.0,
+   -5.0
+  ],
+  "mandatory": false,
+  "name": "Quill",
+  "title": "Cliff Runner",
+  "look": "climber",
+  "classBase": 24,
+  "team": [
+   {
+    "species": "c20",
+    "level": 29
+   },
+   {
+    "species": "c14",
+    "level": 29
+   },
+   {
+    "species": "c21",
+    "level": 30
+   }
+  ],
+  "ai": "normal",
+  "potential": 6,
+  "items": [],
+  "lines": {
+   "intro": "Every good song needs a second voice. Care to be mine?",
+   "lose": "I'll practise my scales and try again.",
+   "win": "Keep at it \u2014 every Tuner loses a verse now and then."
+  },
+  "sight": 8,
+  "payout": 720
+ },
+ {
+  "id": "t_r4_02",
+  "zone": "route_4",
+  "at": [
+   40.0,
+   20.0
+  ],
+  "mandatory": false,
+  "name": "Rosa",
+  "title": "Kite Flyer",
+  "look": "youth",
+  "classBase": 16,
+  "team": [
+   {
+    "species": "c21",
+    "level": 30
+   },
+   {
+    "species": "c29",
+    "level": 30
+   },
+   {
+    "species": "c21",
+    "level": 31
+   }
+  ],
+  "ai": "normal",
+  "potential": 6,
+  "items": [],
+  "lines": {
+   "intro": "Every good song needs a second voice. Care to be mine?",
+   "lose": "My kin need a nap. So do I.",
+   "win": "Ha! Back to the Hearthrest with you."
+  },
+  "sight": 8,
+  "payout": 496
+ },
+ {
+  "id": "t_r4_03",
+  "zone": "route_4",
+  "at": [
+   -10.0,
+   -25.0
+  ],
+  "mandatory": false,
+  "name": "Sable",
+  "title": "Cliff Runner",
+  "look": "climber",
+  "classBase": 24,
+  "team": [
+   {
+    "species": "c14",
+    "level": 31
+   },
+   {
+    "species": "c26",
+    "level": 31
+   },
+   {
+    "species": "c14",
+    "level": 32
+   }
+  ],
+  "ai": "normal",
+  "potential": 6,
+  "items": [],
+  "lines": {
+   "intro": "You're in my spot. Battle for it?",
+   "lose": "I'll practise my scales and try again.",
+   "win": "Keep at it \u2014 every Tuner loses a verse now and then."
+  },
+  "sight": 8,
+  "payout": 768
+ },
+ {
+  "id": "t_still_06",
+  "zone": "stillhouse",
+  "at": [
+   -18.0,
+   5.0
+  ],
+  "mandatory": true,
+  "name": "Bram",
+  "title": "Stillmark Engineer",
+  "look": "stillhand",
+  "classBase": 20,
+  "team": [
+   {
+    "species": "c23",
+    "level": 30
+   },
+   {
+    "species": "c14",
+    "level": 30
+   },
+   {
+    "species": "c26",
+    "level": 31
+   }
+  ],
+  "ai": "normal",
+  "potential": 6,
+  "items": [],
+  "lines": {
+   "intro": "Guild business. Please step back \u2014 ah, you won't. Very well.",
+   "lose": "I'll have to file a report about this.",
+   "win": "Please don't make me write you up twice."
+  },
+  "sight": 8,
+  "payout": 620
+ },
+ {
+  "id": "t_still_07",
+  "zone": "stillhouse",
+  "at": [
+   18.0,
+   5.0
+  ],
+  "mandatory": true,
+  "name": "Sable",
+  "title": "Stillmark Engineer",
+  "look": "stillhand",
+  "classBase": 20,
+  "team": [
+   {
+    "species": "c26",
+    "level": 31
+   },
+   {
+    "species": "c23",
+    "level": 31
+   },
+   {
+    "species": "c17",
+    "level": 31
+   }
+  ],
+  "ai": "normal",
+  "potential": 6,
+  "items": [],
+  "lines": {
+   "intro": "Guild business. Please step back \u2014 ah, you won't. Very well.",
+   "lose": "The Magister will want to hear about you.",
+   "win": "Please don't make me write you up twice."
+  },
+  "sight": 8,
+  "payout": 620
+ },
+ {
+  "id": "t_admin_vey_2",
+  "zone": "stillhouse",
+  "at": [
+   0.0,
+   -8.0
+  ],
+  "mandatory": true,
+  "name": "Vey Lanternlow",
+  "title": "Warden",
+  "look": "vey",
+  "classBase": 60,
+  "team": [
+   {
+    "species": "c26",
+    "level": 31
+   },
+   {
+    "species": "c23",
+    "level": 31
+   },
+   {
+    "species": "c29",
+    "level": 32
+   },
+   {
+    "species": "c26",
+    "level": 33
+   }
+  ],
+  "ai": "hard",
+  "potential": 12,
+  "items": [
+   "i_salve_3",
+   "i_salve_3"
+  ],
+  "sight": 0,
+  "payout": 1980
+ },
+ {
+  "id": "t_rival_4",
+  "zone": "route_4",
+  "at": [
+   -85.0,
+   -5.0
+  ],
+  "mandatory": true,
+  "name": "Cass",
+  "title": "Rival",
+  "look": "cass",
+  "classBase": 40,
+  "team": [
+   {
+    "species": "c21",
+    "level": 31
+   },
+   {
+    "species": "c14",
+    "level": 31
+   },
+   {
+    "species": "c26",
+    "level": 32
+   },
+   {
+    "species": "RS2",
+    "level": 33
+   }
+  ],
+  "ai": "hard",
+  "potential": 12,
+  "items": [
+   "i_salve_3",
+   "i_salve_3"
+  ],
+  "sight": 0,
+  "payout": 1320
+ },
+ {
+  "id": "t_vo_01",
+  "zone": "volcano",
+  "at": [
+   60.0,
+   30.0
+  ],
+  "mandatory": false,
+  "name": "Lark",
+  "title": "Forge Hand",
+  "look": "villagerB",
+  "classBase": 36,
+  "team": [
+   {
+    "species": "c14",
+    "level": 33
+   },
+   {
+    "species": "c23",
+    "level": 33
+   },
+   {
+    "species": "c14",
+    "level": 34
+   }
+  ],
+  "ai": "normal",
+  "potential": 6,
+  "items": [],
+  "lines": {
+   "intro": "Hold up! Your troupe looks ready for a tune-up.",
+   "lose": "Ah \u2014 you out-tuned me. Fair and square.",
+   "win": "Ha! Back to the Hearthrest with you."
+  },
+  "sight": 8,
+  "payout": 1224
+ },
+ {
+  "id": "t_vo_02",
+  "zone": "volcano",
+  "at": [
+   20.0,
+   -10.0
+  ],
+  "mandatory": false,
+  "name": "Rook",
+  "title": "Forge Hand",
+  "look": "villagerB",
+  "classBase": 36,
+  "team": [
+   {
+    "species": "c14",
+    "level": 34
+   },
+   {
+    "species": "c26",
+    "level": 34
+   },
+   {
+    "species": "c14",
+    "level": 35
+   }
+  ],
+  "ai": "normal",
+  "potential": 6,
+  "items": [],
+  "lines": {
+   "intro": "Hold up! Your troupe looks ready for a tune-up.",
+   "lose": "I'll practise my scales and try again.",
+   "win": "Ha! Back to the Hearthrest with you."
+  },
+  "sight": 8,
+  "payout": 1260
+ },
+ {
+  "id": "t_vo_03",
+  "zone": "volcano",
+  "at": [
+   -60.0,
+   -20.0
+  ],
+  "mandatory": false,
+  "name": "Tove",
+  "title": "Hiker",
+  "look": "hiker",
+  "classBase": 24,
+  "team": [
+   {
+    "species": "c21",
+    "level": 35
+   },
+   {
+    "species": "c24",
+    "level": 35
+   },
+   {
+    "species": "c15",
+    "level": 36
+   }
+  ],
+  "ai": "normal",
+  "potential": 6,
+  "items": [],
+  "lines": {
+   "intro": "Every good song needs a second voice. Care to be mine?",
+   "lose": "Well played. That was a proper chord.",
+   "win": "Keep at it \u2014 every Tuner loses a verse now and then."
+  },
+  "sight": 8,
+  "payout": 864
+ },
+ {
+  "id": "t_hall5_01",
+  "zone": "trial_5",
+  "at": [
+   -8.0,
+   10.0
+  ],
+  "mandatory": true,
+  "name": "Grig",
+  "title": "Hall Tuner",
+  "look": "veteran",
+  "classBase": 36,
+  "team": [
+   {
+    "species": "c05",
+    "level": 33
+   },
+   {
+    "species": "c14",
+    "level": 33
+   },
+   {
+    "species": "c06",
+    "level": 34
+   }
+  ],
+  "ai": "normal",
+  "potential": 6,
+  "items": [],
+  "lines": {
+   "intro": "A Tuner! Finally. My kin have been practising all morning.",
+   "lose": "I'll practise my scales and try again.",
+   "win": "Keep at it \u2014 every Tuner loses a verse now and then."
+  },
+  "sight": 8,
+  "payout": 1224
+ },
+ {
+  "id": "t_hall5_02",
+  "zone": "trial_5",
+  "at": [
+   8.0,
+   0.0
+  ],
+  "mandatory": true,
+  "name": "Wyn",
+  "title": "Hall Tuner",
+  "look": "veteran",
+  "classBase": 36,
+  "team": [
+   {
+    "species": "c24",
+    "level": 34
+   },
+   {
+    "species": "c06",
+    "level": 34
+   },
+   {
+    "species": "c24",
+    "level": 35
+   }
+  ],
+  "ai": "normal",
+  "potential": 6,
+  "items": [],
+  "lines": {
+   "intro": "A Tuner! Finally. My kin have been practising all morning.",
+   "lose": "My kin need a nap. So do I.",
+   "win": "Keep at it \u2014 every Tuner loses a verse now and then."
+  },
+  "sight": 8,
+  "payout": 1260
+ },
+ {
+  "id": "t_cantor_5",
+  "zone": "trial_5",
+  "at": [
+   0.0,
+   -20.0
+  ],
+  "mandatory": true,
+  "name": "Bastian Coalridge",
+  "title": "Cantor",
+  "look": "bastian",
+  "classBase": 100,
+  "team": [
+   {
+    "species": "c05",
+    "level": 34
+   },
+   {
+    "species": "c14",
+    "level": 35
+   },
+   {
+    "species": "c05",
+    "level": 35
+   },
+   {
+    "species": "c15",
+    "level": 36
+   },
+   {
+    "species": "c06",
+    "level": 37
+   }
+  ],
+  "ai": "hard",
+  "potential": 12,
+  "items": [
+   "i_salve_3",
+   "i_salve_3"
+  ],
+  "sight": 0,
+  "payout": 3700
+ },
+ {
+  "id": "t_r5_01",
+  "zone": "route_5",
+  "at": [
+   15.0,
+   70.0
+  ],
+  "mandatory": false,
+  "name": "Ysa",
+  "title": "Pilgrim",
+  "look": "veteran",
+  "classBase": 36,
+  "team": [
+   {
+    "species": "c29",
+    "level": 37
+   },
+   {
+    "species": "c17",
+    "level": 37
+   },
+   {
+    "species": "c29",
+    "level": 38
+   }
+  ],
+  "ai": "normal",
+  "potential": 6,
+  "items": [],
+  "lines": {
+   "intro": "Every good song needs a second voice. Care to be mine?",
+   "lose": "My kin need a nap. So do I.",
+   "win": "Keep at it \u2014 every Tuner loses a verse now and then."
+  },
+  "sight": 8,
+  "payout": 1368
+ },
+ {
+  "id": "t_r5_02",
+  "zone": "route_5",
+  "at": [
+   -20.0,
+   30.0
+  ],
+  "mandatory": false,
+  "name": "Fen",
+  "title": "Ski Patroller",
+  "look": "climber",
+  "classBase": 36,
+  "team": [
+   {
+    "species": "c18",
+    "level": 38
+   },
+   {
+    "species": "c21",
+    "level": 38
+   },
+   {
+    "species": "c18",
+    "level": 39
+   }
+  ],
+  "ai": "normal",
+  "potential": 6,
+  "items": [],
+  "lines": {
+   "intro": "Every good song needs a second voice. Care to be mine?",
+   "lose": "Ah \u2014 you out-tuned me. Fair and square.",
+   "win": "Keep at it \u2014 every Tuner loses a verse now and then."
+  },
+  "sight": 8,
+  "payout": 1404
+ },
+ {
+  "id": "t_r5_03",
+  "zone": "route_5",
+  "at": [
+   20.0,
+   -20.0
+  ],
+  "mandatory": false,
+  "name": "Wyn",
+  "title": "Pilgrim",
+  "look": "veteran",
+  "classBase": 36,
+  "team": [
+   {
+    "species": "c26",
+    "level": 39
+   },
+   {
+    "species": "c29",
+    "level": 39
+   },
+   {
+    "species": "c15",
+    "level": 40
+   }
+  ],
+  "ai": "normal",
+  "potential": 6,
+  "items": [],
+  "lines": {
+   "intro": "Hold up! Your troupe looks ready for a tune-up.",
+   "lose": "I'll practise my scales and try again.",
+   "win": "Ha! Back to the Hearthrest with you."
+  },
+  "sight": 8,
+  "payout": 1440
+ },
+ {
+  "id": "t_rival_5",
+  "zone": "route_5",
+  "at": [
+   0.0,
+   -70.0
+  ],
+  "mandatory": true,
+  "name": "Cass",
+  "title": "Rival",
+  "look": "cass",
+  "classBase": 40,
+  "team": [
+   {
+    "species": "c21",
+    "level": 38
+   },
+   {
+    "species": "c15",
+    "level": 38
+   },
+   {
+    "species": "c18",
+    "level": 38
+   },
+   {
+    "species": "c26",
+    "level": 39
+   },
+   {
+    "species": "RS3",
+    "level": 40
+   }
+  ],
+  "ai": "hard",
+  "potential": 12,
+  "items": [
+   "i_salve_3",
+   "i_salve_3"
+  ],
+  "sight": 0,
+  "payout": 1600
+ },
+ {
+  "id": "t_sp_01",
+  "zone": "snowpeak",
+  "at": [
+   -30.0,
+   75.0
+  ],
+  "mandatory": false,
+  "name": "Nia",
+  "title": "Ski Patroller",
+  "look": "climber",
+  "classBase": 36,
+  "team": [
+   {
+    "species": "c18",
+    "level": 40
+   },
+   {
+    "species": "c21",
+    "level": 40
+   },
+   {
+    "species": "c18",
+    "level": 41
+   }
+  ],
+  "ai": "normal",
+  "potential": 6,
+  "items": [],
+  "lines": {
+   "intro": "A Tuner! Finally. My kin have been practising all morning.",
+   "lose": "I'll practise my scales and try again.",
+   "win": "Ha! Back to the Hearthrest with you."
+  },
+  "sight": 8,
+  "payout": 1476
+ },
+ {
+  "id": "t_sp_02",
+  "zone": "snowpeak",
+  "at": [
+   -40.0,
+   10.0
+  ],
+  "mandatory": false,
+  "name": "Yarrow",
+  "title": "Aurora Chaser",
+  "look": "scholar",
+  "classBase": 36,
+  "team": [
+   {
+    "species": "c29",
+    "level": 41
+   },
+   {
+    "species": "c18",
+    "level": 41
+   },
+   {
+    "species": "c29",
+    "level": 42
+   }
+  ],
+  "ai": "normal",
+  "potential": 6,
+  "items": [],
+  "lines": {
+   "intro": "I heard you coming three hedges back. Let's see if your kin are as loud!",
+   "lose": "Well played. That was a proper chord.",
+   "win": "Ha! Back to the Hearthrest with you."
+  },
+  "sight": 8,
+  "payout": 1512
+ },
+ {
+  "id": "t_sp_03",
+  "zone": "snowpeak",
+  "at": [
+   60.0,
+   0.0
+  ],
+  "mandatory": false,
+  "name": "Tove",
+  "title": "Aurora Chaser",
+  "look": "scholar",
+  "classBase": 36,
+  "team": [
+   {
+    "species": "c18",
+    "level": 42
+   },
+   {
+    "species": "c27",
+    "level": 42
+   },
+   {
+    "species": "c29",
+    "level": 43
+   }
+  ],
+  "ai": "normal",
+  "potential": 6,
+  "items": [],
+  "lines": {
+   "intro": "You're in my spot. Battle for it?",
+   "lose": "Ah \u2014 you out-tuned me. Fair and square.",
+   "win": "Keep at it \u2014 every Tuner loses a verse now and then."
+  },
+  "sight": 8,
+  "payout": 1548
+ },
+ {
+  "id": "t_hall6_01",
+  "zone": "trial_6",
+  "at": [
+   -8.0,
+   10.0
+  ],
+  "mandatory": true,
+  "name": "Sable",
+  "title": "Hall Tuner",
+  "look": "veteran",
+  "classBase": 36,
+  "team": [
+   {
+    "species": "c18",
+    "level": 40
+   },
+   {
+    "species": "c18",
+    "level": 40
+   },
+   {
+    "species": "c18",
+    "level": 41
+   }
+  ],
+  "ai": "normal",
+  "potential": 6,
+  "items": [],
+  "lines": {
+   "intro": "Every good song needs a second voice. Care to be mine?",
+   "lose": "My kin need a nap. So do I.",
+   "win": "Ha! Back to the Hearthrest with you."
+  },
+  "sight": 8,
+  "payout": 1476
+ },
+ {
+  "id": "t_hall6_02",
+  "zone": "trial_6",
+  "at": [
+   8.0,
+   0.0
+  ],
+  "mandatory": true,
+  "name": "Yarrow",
+  "title": "Hall Tuner",
+  "look": "veteran",
+  "classBase": 36,
+  "team": [
+   {
+    "species": "c18",
+    "level": 41
+   },
+   {
+    "species": "c29",
+    "level": 41
+   },
+   {
+    "species": "c18",
+    "level": 42
+   }
+  ],
+  "ai": "normal",
+  "potential": 6,
+  "items": [],
+  "lines": {
+   "intro": "A Tuner! Finally. My kin have been practising all morning.",
+   "lose": "Ah \u2014 you out-tuned me. Fair and square.",
+   "win": "Ha! Back to the Hearthrest with you."
+  },
+  "sight": 8,
+  "payout": 1512
+ },
+ {
+  "id": "t_cantor_6",
+  "zone": "trial_6",
+  "at": [
+   0.0,
+   -20.0
+  ],
+  "mandatory": true,
+  "name": "Isaure Frostmere",
+  "title": "Cantor",
+  "look": "isaure",
+  "classBase": 100,
+  "team": [
+   {
+    "species": "c17",
+    "level": 41
+   },
+   {
+    "species": "c15",
+    "level": 42
+   },
+   {
+    "species": "c09",
+    "level": 43
+   },
+   {
+    "species": "c18",
+    "level": 43
+   },
+   {
+    "species": "c24",
+    "level": 44
+   },
+   {
+    "species": "c18",
+    "level": 45
+   }
+  ],
+  "ai": "hard",
+  "potential": 12,
+  "items": [
+   "i_salve_3",
+   "i_salve_3"
+  ],
+  "sight": 0,
+  "payout": 4500
+ },
+ {
+  "id": "t_still_08",
+  "zone": "snowpeak",
+  "at": [
+   -10.0,
+   -50.0
+  ],
+  "mandatory": true,
+  "name": "Ula",
+  "title": "Stillmark Engineer",
+  "look": "stillhand",
+  "classBase": 20,
+  "team": [
+   {
+    "species": "c24",
+    "level": 42
+   },
+   {
+    "species": "c27",
+    "level": 42
+   },
+   {
+    "species": "c18",
+    "level": 43
+   }
+  ],
+  "ai": "normal",
+  "potential": 6,
+  "items": [],
+  "lines": {
+   "intro": "Guild business. Please step back \u2014 ah, you won't. Very well.",
+   "lose": "I'll have to file a report about this.",
+   "win": "Please don't make me write you up twice."
+  },
+  "sight": 8,
+  "payout": 860
+ },
+ {
+  "id": "t_odile",
+  "zone": "snowpeak",
+  "at": [
+   0.0,
+   -84.0
+  ],
+  "mandatory": true,
+  "name": "Odile Graven",
+  "title": "Magister",
+  "look": "odile",
+  "classBase": 60,
+  "phases": [
+   {
+    "attuned": null,
+    "team": [
+     {
+      "species": "c24",
+      "level": 42
+     },
+     {
+      "species": "c29",
+      "level": 43
+     },
+     {
+      "species": "c26",
+      "level": 44
+     }
+    ]
+   },
+   {
+    "attuned": "frost",
+    "team": [
+     {
+      "species": "c27",
+      "level": 46
+     }
+    ]
+   }
+  ],
+  "team": [
+   {
+    "species": "c24",
+    "level": 42
+   },
+   {
+    "species": "c29",
+    "level": 43
+   },
+   {
+    "species": "c26",
+    "level": 44
+   },
+   {
+    "species": "c27",
+    "level": 46
+   }
+  ],
+  "ai": "hard",
+  "potential": 13,
+  "items": [
+   "i_salve_4",
+   "i_salve_4",
+   "i_cure_all"
+  ],
+  "sight": 0,
+  "payout": 2760
+ },
+ {
+  "id": "t_rival_6",
+  "zone": "league",
+  "at": [
+   0.0,
+   10.0
+  ],
+  "mandatory": true,
+  "name": "Cass",
+  "title": "Rival",
+  "look": "cass",
+  "classBase": 40,
+  "team": [
+   {
+    "species": "c21",
+    "level": 45
+   },
+   {
+    "species": "c15",
+    "level": 46
+   },
+   {
+    "species": "c18",
+    "level": 46
+   },
+   {
+    "species": "c27",
+    "level": 46
+   },
+   {
+    "species": "c12",
+    "level": 47
+   },
+   {
+    "species": "RS3",
+    "level": 48
+   }
+  ],
+  "ai": "hard",
+  "potential": 12,
+  "items": [
+   "i_salve_3",
+   "i_salve_3"
+  ],
+  "sight": 0,
+  "payout": 1920
+ },
+ {
+  "id": "t_champion",
+  "zone": "league",
+  "at": [
+   0.0,
+   -20.0
+  ],
+  "mandatory": true,
+  "name": "Rhea Rookwell",
+  "title": "the Concordant",
+  "look": "rhea",
+  "classBase": 200,
+  "team": [
+   {
+    "species": "c12",
+    "level": 47
+   },
+   {
+    "species": "c24",
+    "level": 47
+   },
+   {
+    "species": "c21",
+    "level": 48
+   },
+   {
+    "species": "c15",
+    "level": 48
+   },
+   {
+    "species": "c18",
+    "level": 49
+   },
+   {
+    "species": "c30",
+    "level": 50
+   }
+  ],
+  "ai": "hard",
+  "potential": 15,
+  "items": [
+   "i_salve_4",
+   "i_salve_4",
+   "i_cure_all"
+  ],
+  "sight": 0,
+  "payout": 10000
+ },
+ {
+  "id": "t_rival_post",
+  "zone": "town_1",
+  "at": [
+   5.0,
+   -35.0
+  ],
+  "mandatory": false,
+  "name": "Cass",
+  "title": "Rival",
+  "look": "cass",
+  "classBase": 40,
+  "team": [
+   {
+    "species": "RS3",
+    "level": 55
+   },
+   {
+    "species": "c21",
+    "level": 53
+   },
+   {
+    "species": "c15",
+    "level": 53
+   },
+   {
+    "species": "c18",
+    "level": 54
+   },
+   {
+    "species": "c27",
+    "level": 54
+   },
+   {
+    "species": "c12",
+    "level": 53
+   }
+  ],
+  "ai": "hard",
+  "potential": 12,
+  "items": [
+   "i_salve_3",
+   "i_salve_3"
+  ],
+  "sight": 0,
+  "payout": 2200
+ }
+]

@@ -510,3 +510,135 @@ Rationale:
 What this blocks, and what it does not:
 - It blocks closing Phase 0 and any deployment.
 - It does **not** block engine or builder work, which continues under the separate Phase 1 character gate.
+
+---
+
+## Phase 0 (design) re-review v3 — fail (one rename outstanding) — 2026-09-24  {#p0-design-v3}
+
+| Field | Value |
+|---|---|
+| Date | 2026-09-24 |
+| Phase / target | Phase 0: design gate / no deployment |
+| Build commit | `1497ba1b9c4e3ff527506327103d255d8a5a0636` (HEAD; the working tree is clean for `design/` and `src/data/`) |
+| Re-checked files (sha256, first 16 hex) | traits.json a141c8a55b4abf03 · species.json 2d592ea5c9fea6c8 · creatures.md 1c1f36b0fc344a45 · creative_direction.md 810bfe1b2f5ea027 · systems.md b1fcd4bb807dee5e · qa_plan.md 77532c26377cfc54 |
+| Reviewer(s) | release-character-agent. Second reviewer: pending. |
+| Supersedes | `#p0-design-v2` (fail) |
+| Automated report | Not run (`gate:character` is not implemented). The trait scoring is the same one-off scratchpad JW script as v2, run against about 110 franchise ability names from general knowledge. The list is partial. |
+
+### Scope of this re-check
+It covers only what changed since `#p0-design-v2`:
+- the 26 trait display names in `traits.json`
+- the conditions C-1 to C-3
+- the stale-name search, repeated over all design docs except DECISIONS.md (history) and my gate doc (whose regression fixture (j) keeps "Venomantle" on purpose)
+
+### Trait display names: all 26 scored (GC-13 JW against franchise ability names)
+| Trait id | Display name | Closest ability | JW | Status |
+|---|---|---|---|---|
+| tr_last_stand | Final Verse | Iron Barbs | 0.660 | clear |
+| tr_resonant | Deep Resonance | Serene Grace | 0.724 | clear |
+| tr_static_hide | **Crackle Plating** (new) | Hydration | 0.630 | clear. Closes the v2 fail. |
+| tr_ember_hide | Ember Hide | Early Bird | 0.685 | clear |
+| tr_toxic_skin | Blight Skin | Rough Skin | 0.779 | clear |
+| tr_frost_hide | Rime Hide | Rain Dish | 0.750 | clear |
+| tr_thorned | Thorned | Torrent | 0.769 | clear |
+| tr_menace | Looming | Stamina | 0.619 | clear |
+| tr_clear_mind | **Steadfast Tone** (new) | **Steadfast** | **0.929** | **FAIL**. "Steadfast" is itself a franchise ability name. The effects differ (ours blocks stat drops; Steadfast raises Speed when the creature flinches), but the name contains the whole ability name. This is the same situation as the v2 "Snow Coat" fail. |
+| tr_sturdy_core | Keystone Core | Keen Eye | 0.786 | clear. Tier B note carried from v2: it echoes the "Key Stone" item; kept. |
+| tr_keen_focus | **Sharp Ear** (new) | Solar Power | 0.781 | clear |
+| tr_small_strikes | Quick Pecks | Quick Feet | 0.867 | warn: keep (a different effect, and "Quick Feet" is no longer a trait name in this game) |
+| tr_reckless | Headlong | Heatproof | 0.754 | clear. Tier B note kept ("Headlong Rush" is a move). |
+| tr_regrowth | Regrowth | Regenerator | 0.785 | clear |
+| tr_charge_sink | Lode Sink | Shed Skin | 0.733 | clear |
+| tr_tide_sink | Tide Sink | Shed Skin | 0.733 | clear |
+| tr_flame_sink | Kiln Heart | Thick Fat | 0.672 | clear |
+| tr_rain_glide | Rain Glide | Rain Dish | 0.867 | warn: keep (a different effect) |
+| tr_sun_bask | Sun Bask | Snow Cloak | 0.738 | clear |
+| tr_snow_coat | **Rimeguard** (new) | Magic Guard | 0.733 | clear. Closes the v2 fail. |
+| tr_fog_veil | Fog Veil | Sand Veil | 0.727 | clear |
+| tr_shed_status | **Restless Molt** (new) | Reckless | 0.723 | clear. Closes the v2 fail. |
+| tr_early_riser | Light Sleeper | Lightning Rod | 0.815 | warn: keep (noise) |
+| tr_adaptive | Attuned Style | Rattled | 0.700 | clear |
+| tr_thick_fur | **Weatherwool** (new) | Weak Armor | 0.756 | clear. Closes the v2 fail. |
+| tr_quick_feet | **Frantic Stride** (new) | Frisk | 0.756 | clear |
+
+**Result:** 25 of 26 pass (22 clear, 3 warn with keep judgments). **1 fail: Steadfast Tone.**
+
+**Pre-screened replacements for `tr_clear_mind`,** scored with the same script. All are clear, and none matches the 101 game move names or the franchise move list:
+
+| Candidate | Closest ability | JW |
+|---|---|---|
+| **Held Note** (recommended; fits the music vocabulary) | Shield Dust | 0.737 |
+| True Pitch | Trace | 0.707 |
+| Fixed Key | Frisk | 0.680 |
+| Unbent | Torrent | 0.643 |
+
+### Conditions from v2
+| ID | Evidence | Status |
+|---|---|---|
+| C-1 c09 helmet sentence | The `creatures.md` c09 cell now only says "**No helmet**: the head is a bare otter head with brow meshes." | **Closed** |
+| C-2 stale D29 names | A search of every design doc except DECISIONS.md and the gate doc finds **no** Arden, Dorran Flint, Samaraptor or Venomantle. QA M-01 now says the default name is **Hollis**. | **Closed** |
+| C-3 c28 blurb | `species.json` c28: "Cheerful. Drawn to lanterns and to Tuners' lights." | **Closed** |
+| C-4 proportion bands | Accepted by the coordinator as a carried condition | **Carried** (fix by Phase 2) |
+| C-5 encounter-text pool | Accepted as a carried condition; to be authored in Phase 2 or 3 dialogue content | **Carried** (fix by Phase 3) |
+
+### Render-stage notes for the builders
+These are informational. They come from the dev `/?tool=sheet` capture of 2026-09-24, which is not gate evidence. They will be judged formally at the gate where each species is in scope.
+
+| ID | Species | Observation | Suggested direction | Gate |
+|---|---|---|---|---|
+| N-1 | c25 Snipling | The single tall pointed ear-flap over a dark round face with two glowing eyeholes reads at thumbnail and gameplay distance as a **pointed wizard hat over a shadowed face with glowing eyes**. That is the signature look of Final Fantasy's Black Mage and Vivi. It is a cover-test candidate (gate §4.2 test 2). | Break the hat read. Options: tilt the tall ear 25–35° off vertical, notch or split its tip, so the silhouette is ear-like rather than a cone; attach it off-centre so there is no brim line; show a lighter face plate or visible plate edges so the face is not a black void. Keep the asymmetric ears (the `creatures.md` motif) and the lit eyeholes. | Phase 2+ (whenever c25 is in scope). Added to the watchlist. |
+| N-2 | c09 Floeguard | Without the helmet, the stout grey biped with spine crystals reads more **"yeti"** than "otter". This is not an originality issue. It is a family-identity check (CC-16): the line should still read as Rippleback's lineage. | Strengthen the otter read without re-adding a helmet or long whiskers: a rounder otter muzzle with a white whisker pad (the family motif), small round ears, the brown or slate otter tone on the head, and a visible shingle pattern on the back carapace matching Rippleback's tail plates. | Phase 3 (CC-16) |
+
+### Not run / Not measured
+- Every automated gate check: Not run.
+- Render-stage checks: Not run. N-1 and N-2 are informal observations.
+- Name similarity: partial lists, not a legal or register search.
+- Second reviewer: pending.
+
+### Decision
+**fail**: one Major remains, **F-0V-02**, the trait display name "Steadfast Tone", which contains the franchise ability name "Steadfast" (JW 0.929; GC-13).
+
+Everything else in the design gate is resolved or carried as an accepted condition.
+
+**Closing path:**
+1. Rename `tr_clear_mind` in `src/data/content/traits.json` and systems §10 to one of the pre-screened names above (recommended: *Held Note*).
+2. That makes this gate a **conditional pass**, carrying C-4 (fix by Phase 2) and C-5 (fix by Phase 3). The confirmation is a verification-only re-check: string match plus file hash, recorded as a new entry.
+3. A name other than the pre-screened ones needs scoring first.
+
+This entry authorizes no deployment.
+
+---
+
+## Phase 0 (design) confirmation — conditional_pass — 2026-09-24  {#p0-design-v4}
+
+| Field | Value |
+|---|---|
+| Date | 2026-09-24 |
+| Phase / target | Phase 0: design gate / no deployment |
+| Build commit | `1497ba1b9c4e3ff527506327103d255d8a5a0636` plus the uncommitted `src/data/content/traits.json` change (pinned by its hash below) |
+| Check type | A verification-only re-check, as defined in `#p0-design-v3`: a string match plus a file hash |
+| Evidence | `traits.json` sha256 prefix **e0c553cd9e643411**. `tr_clear_mind` has the display name **"Held Note"**, which was pre-screened in v3 (JW 0.737 to Shield Dust; clear). No trait name contains "Steadfast". `systems.md` has no trait display names, so there is nothing stale there. |
+| Reviewer(s) | release-character-agent. Second reviewer: pending. |
+| Supersedes | `#p0-design-v3` (fail) |
+
+**F-0V-02: closed.** All 26 trait display names now pass GC-13 as scored in v3, with 3 warns carrying keep judgments. No other file changed within the scope of the v3 findings.
+
+### Conditions carried (gate §1.3: each carries at most one further gate)
+| ID | Finding | Owner | Fix by |
+|---|---|---|---|
+| C-4 | Per-body-plan proportion bands (F-0-10); CC-05 and GC-08 stay warn-only until then | Creative Director | Phase 2 |
+| C-5 | Encounter-text pool, with fewer than half the lines starting "A wild" (F-0-21) | Creative Director | Phase 3 |
+
+The render notes N-1 (c25 hat-like ear) and N-2 (c09 reads as a yeti) are handed to the builders. They will be judged at the gates where those species are in scope.
+
+### Not run / Not measured
+- Every automated gate check: Not run (`gate:character` is not implemented).
+- Render-stage checks: Not run.
+- Name similarity: run against partial reference lists; this is not legal clearance.
+- The trademark and store check (R-14): Not run.
+- Second reviewer: pending.
+
+### Decision
+**conditional_pass** (Phase 0 design gate), carrying C-4 and C-5.
+
+This entry authorizes **no deployment**. Deployments require the phase gates (Phase 1 and later) with build evidence.
