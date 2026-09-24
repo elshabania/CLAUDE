@@ -17,10 +17,23 @@ const stripe: V3[] = [0.25, 0.2, 0.1, -0.02, -0.14, -0.24, -0.3].map((z, i, a) =
   const sink = i === 0 || i === a.length - 1 ? 0.03 : 0;
   return [0.36 * k + 0.004 - sink, 0, z] as V3;
 });
-// glowing rim along the fan's scalloped arc (fan-local, shape space scaled by w=0.72, h=0.38)
-const fanEdge: V3[] = Array.from({ length: 9 }, (_, i) => {
-  const a = (i / 8) * Math.PI;
-  return [Math.cos(Math.PI - a) * 0.36 * 0.98, Math.sin(a) * 0.38 * 0.98, 0] as V3;
+// big fan tail: a ~110° sector spreading from the peduncle with 7 scalloped lobes (unit box, root at origin, +Y = back)
+const FAN_A0 = (30 * Math.PI) / 180, FAN_A1 = (150 * Math.PI) / 180, FAN_X = 0.5 / Math.cos(FAN_A0);
+(SHAPES as Record<string, () => THREE.Shape>).S28_fan = () => {
+  const pts = [new THREE.Vector2(0, 0)];
+  const n = 42;
+  for (let i = 0; i <= n; i++) {
+    const a = FAN_A0 + ((FAN_A1 - FAN_A0) * i) / n;
+    const r = 1 - 0.07 * Math.abs(Math.sin((i / n) * Math.PI * 7));
+    pts.push(new THREE.Vector2(Math.cos(a) * r * FAN_X, Math.sin(a) * r));
+  }
+  return new THREE.Shape(pts);
+};
+const FAN_W = 0.8, FAN_H = 0.42;
+// glowing rim along the fan's arc (fan-local ×H)
+const fanEdge: V3[] = Array.from({ length: 11 }, (_, i) => {
+  const a = FAN_A0 + ((FAN_A1 - FAN_A0) * i) / 10;
+  return [Math.cos(a) * FAN_X * FAN_W * 0.97, Math.sin(a) * FAN_H * 0.97, 0] as V3;
 });
 
 export const c28: SpeciesVisual = {
@@ -48,8 +61,8 @@ export const c28: SpeciesVisual = {
     // tiny pectorals that flutter
     { name: 'pectoral', parent: 'body', mirror: true, prim: { t: 'extrude', shape: 'X_leaf', w: 0.07, h: 0.15, depth: 0.015 }, at: [0.31, -0.08, 0.06], rot: [0, 35, -100], slot: 'S', mat: 'MEMBRANE', opacity: 0.85, anim: ['flap'] },
     // peduncle + big fan tail with a glowing rim
-    { name: 'tail', parent: 'body', prim: { t: 'none' }, chain: { n: 2, r0: 0.13, r1: 0.085, len: 0.14 }, at: [0, 0, -0.3], rot: [-90, 0, 0], anim: ['wave'] },
-    { name: 'fan', parent: 'tailTip', prim: { t: 'extrude', shape: 'X_fan', w: 0.72, h: 0.38, depth: 0.02 }, at: [0, -0.02, 0], rot: [0, -90, 0], slot: 'S', mat: 'MEMBRANE', opacity: 0.85, anim: ['fx:tail'] },
+    { name: 'tail', parent: 'body', prim: { t: 'none' }, chain: { n: 2, r0: 0.15, r1: 0.09, len: 0.16 }, at: [0, 0, -0.26], rot: [-90, 0, 0], anim: ['wave'] },
+    { name: 'fan', parent: 'tailTip', prim: { t: 'extrude', shape: 'S28_fan', w: FAN_W, h: FAN_H, depth: 0.02 }, at: [0, -0.06, 0], rot: [0, -90, 0], slot: 'S', mat: 'MEMBRANE', opacity: 0.85, anim: ['fx:tail'] },
     { name: 'fanEdge', parent: 'fan', prim: { t: 'tube', pts: fanEdge, r0: 0.014, r1: 0.014 }, slot: 'A', emissive: 1.2, mat: 'GLOW' },
   ],
 };

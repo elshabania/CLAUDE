@@ -71,6 +71,8 @@ export interface SpeciesDef {
   blurb?: string;
   colors: string[];
   cry: CryParams;
+  temperament?: 'skittish' | 'curious' | 'territorial' | 'wander';
+  attackStyle?: string;
 }
 
 export interface CryParams {

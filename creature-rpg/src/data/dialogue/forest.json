@@ -1,0 +1,128 @@
+{
+  "forest_steward": {
+    "variants": [
+      {
+        "if": "flag_forest_rootgate_open",
+        "lines": [
+          { "s": "Steward Hale", "t": "There. It'll stay open for good. Catch a verdant friend when you can — the wild's full of them." },
+          { "s": "Steward Hale", "t": "Murmurwood's past the roots. Mind the hollow trees; they talk back when the wind's up." }
+        ]
+      },
+      {
+        "if": "!flag_resonance_tutorial",
+        "lines": [
+          { "s": "Steward Hale", "t": "Rootgate's closed since the hum faded. You'll want Oriel in Larkhollow to show you how glyphs work first. Everyone starts there." }
+        ]
+      },
+      {
+        "lines": [
+          { "s": "Steward Hale", "t": "Rootgate's closed since the hum faded. A verdant kin could coax it. Got one?" },
+          { "s": "Steward Hale", "t": "If not, no shame in it. That glyph wants a verdant voice. I'll lend you mine — just this once." }
+        ],
+        "choice": {
+          "options": [
+            { "label": "Please lend a hand", "actions": [{ "steward": "rn_forest_01" }, { "set": "flag_forest_rootgate_open" }] },
+            { "label": "I'll try it myself", "actions": [] }
+          ]
+        }
+      }
+    ]
+  },
+  "forest_hollow_warden": {
+    "variants": [
+      {
+        "if": "flag_q_hollow_done",
+        "lines": [
+          { "s": "Warden Isla", "t": "Listen. All four hollows, humming in thirds. I haven't heard that since I was your age. Thank you." }
+        ]
+      },
+      {
+        "if": "flag_q_hollow_hum && rn_forest_04 && rn_forest_05 && rn_forest_06 && rn_forest_07",
+        "lines": [
+          { "s": "Warden Isla", "t": "You woke them. All four. The whole wood just breathed out — did you feel it?" },
+          { "s": "Warden Isla", "t": "Brass Chimes, from the wardens' store, and some good Salves. You've earned both twice over." }
+        ],
+        "actions": [
+          { "give": "i_chime_brass", "n": 3 },
+          { "give": "i_salve_2", "n": 2 },
+          { "set": "flag_q_hollow_done" },
+          { "questDone": "q_side_hollow_hum" }
+        ]
+      },
+      {
+        "if": "flag_q_hollow_hum",
+        "lines": [
+          { "s": "Warden Isla", "t": "Four hollows: by the Chordstone to the west, the east grove, the far west hill, and the little one near the engineers' tents." },
+          { "s": "Warden Isla", "t": "A verdant, electric or fire voice will wake one. No such kin? A glowcap works too — they grow along the old paths." }
+        ]
+      },
+      {
+        "if": "flag_stillmark_first_seen",
+        "lines": [
+          { "s": "Warden Isla", "t": "Since those engineers clamped their coil on the Great Tree, four of the hollows have gone mute. Just… stopped." },
+          { "s": "Warden Isla", "t": "A hollow tree that won't hum is a tree that's forgotten it's alive. Would you wake them for me?" }
+        ],
+        "choice": {
+          "options": [
+            { "label": "I'll wake them.", "actions": [{ "set": "flag_q_hollow_hum" }, { "quest": "q_side_hollow_hum", "step": 1 }] },
+            { "label": "Not right now.", "actions": [] }
+          ]
+        }
+      },
+      {
+        "lines": [
+          { "s": "Warden Isla", "t": "Murmurwood's hollow trees hum when the wind passes through. Most days it's a lullaby. Today it's a complaint." },
+          { "s": "Warden Isla", "t": "There's a strange tapping from the Great Hollow Tree, east of here. Brass on bark. I don't like it." }
+        ]
+      }
+    ]
+  },
+  "forest_survey_lead": {
+    "variants": [
+      {
+        "if": "flag_stillmark_first_seen",
+        "lines": [
+          { "s": "Survey Lead Corbin", "t": "We're engineers, not bandits. A stone that sings on its own is a hazard. We make it safe. That's all." },
+          { "s": "Survey Lead Corbin", "t": "The Magister says unregulated stones are how people get hurt. She's usually right about hazards." }
+        ]
+      },
+      {
+        "if": "flag_t_still_01_won && flag_t_still_02_won",
+        "lines": [
+          { "s": "Survey Lead Corbin", "t": "Both of my engineers, off the job. I'll have to note this on the work order. Obstruction of service." },
+          { "s": "Survey Lead Corbin", "t": "We're engineers, not bandits. A stone that sings on its own is a hazard. We make it safe. That's all." },
+          { "s": "Survey Lead Corbin", "t": "Fine. We'll pack the coil. The wardens can have their hall back. For now." }
+        ],
+        "actions": [{ "set": "flag_stillmark_first_seen" }, { "quest": "q_main_ch02", "step": 2 }]
+      },
+      {
+        "lines": [
+          { "s": "Survey Lead Corbin", "t": "Licensed survey, Tuner. Stand clear of the coil, please." },
+          { "s": "Survey Lead Corbin", "t": "If you have a complaint, my engineers will take it. They're right there. They love complaints." }
+        ]
+      }
+    ]
+  },
+  "forest_rootwarden": {
+    "variants": [
+      {
+        "if": "flag_trial_1_cleared",
+        "lines": [
+          { "s": "Rootwarden Tamm", "t": "Wren's Keynote on your belt! Then the canopy bridge is yours. We've lowered it over the ravine — north, past the old path." }
+        ]
+      },
+      {
+        "if": "flag_stillmark_first_seen",
+        "lines": [
+          { "s": "Rootwarden Tamm", "t": "The coil's off the Great Tree and the doors are open. Cantor Wren is waiting inside. Tread softly — the floor listens." }
+        ]
+      },
+      {
+        "lines": [
+          { "s": "Rootwarden Tamm", "t": "Hall's shut, I'm afraid. Can't hold a trial with engineers clamping brass to the very tree it grows in." },
+          { "s": "Rootwarden Tamm", "t": "If someone were to have a firm word with them — a battling sort of word — I'd open these doors in a heartbeat." }
+        ]
+      }
+    ]
+  }
+}

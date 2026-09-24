@@ -1,4 +1,4 @@
-// c07 Rippleback — f03 stage 1, water. Sitting otter pup with a thick shingle-plated tail (design/creatures.md §4 c07).
+// c07 Rippleback — f03 stage 1, water (v2: E1 round eyes with sclera ring, brow meshes). Sitting otter pup with a thick shingle-plated tail (design/creatures.md §4 c07).
 // Originality (§8, D7): shell plates ONLY on the tail; nothing shell-like on chest or belly; the chest is cream fur.
 import type { SpeciesVisual, PartDef } from '../assemble';
 
@@ -34,14 +34,14 @@ export const c07: SpeciesVisual = {
   mat: 'FUR',
   rim: '#BFF6FF',
   rimStrength: 0.3,
-  eye: { shape: 'round', sclera: '#1B1B1B', iris: '#2A2A30', irisRatio: 0.8, pupil: 'round', pupilRatio: 0.8, highlights: 2, lid: 0 },
+  eye: { shape: 'round', iris: '#1B1B1B', irisRatio: 0.84, pupil: 'round', pupilRatio: 0.8, highlights: 2, lid: 0 },
   mouth: { style: 'smile' },
   rig: { type: 'QUAD', gaitHz: 2.5, stride: 26, bounce: 0.08, breath: 0.03, breathHz: 0.7, waveAmp: 6, waveHz: 1.1, waveAxis: 'pitch', attack: 'spin', special: 'cast', faint: 'side', lean: 8 },
   parts: [
     { name: 'body', prim: { t: 'none' }, at: [0, 0.3, 0], anim: ['br'] },
     // torso tilted up at the front: the otter sits up on its haunches
     { name: 'torso', parent: 'body', prim: { t: 'capsule', r: 0.2, len: 0.3 }, at: [0, -0.1, -0.2], rot: [42, 0, 0] },
-    { name: 'chest', parent: 'torso', prim: { t: 'sphere', r: [0.16, 0.27, 0.11] }, at: [0, 0.33, 0.125], slot: 'W' },
+    { name: 'chest', parent: 'torso', prim: { t: 'sphere', r: [0.145, 0.26, 0.1] }, at: [0, 0.34, 0.13], slot: 'W' },
     // head
     { name: 'head', parent: 'body', prim: { t: 'sphere', r: [0.2, 0.185, 0.18] }, at: [0, 0.47, 0.27], anim: ['look'] },
     { name: 'cheek', parent: 'head', mirror: true, prim: { t: 'sphere', r: [0.09, 0.08, 0.08] }, at: [0.11, -0.07, 0.07] },
@@ -52,7 +52,7 @@ export const c07: SpeciesVisual = {
     { name: 'whiskerA', parent: 'pad', mirror: true, prim: { t: 'tube', pts: [[0, 0, 0], [0.07, 0.01, 0.0], [0.13, 0.025, -0.02]], r0: 0.005, r1: 0.002 }, at: [0.03, 0.01, 0.03], slot: 'W', lod: 0 },
     { name: 'whiskerB', parent: 'pad', mirror: true, prim: { t: 'tube', pts: [[0, 0, 0], [0.07, -0.01, 0.0], [0.13, -0.03, -0.02]], r0: 0.005, r1: 0.002 }, at: [0.03, -0.005, 0.03], slot: 'W', lod: 0 },
     { name: 'eye', parent: 'head', mirror: true, prim: { t: 'eye', r: 0.068 }, at: [0.095, 0.045, 0.14], rot: [-4, 28, 0] },
-    { name: 'brow', parent: 'head', mirror: true, prim: { t: 'tube', pts: [[-0.035, 0, 0], [0, 0.012, 0.004], [0.035, 0.002, 0]], r0: 0.007, r1: 0.006 }, at: [0.1, 0.13, 0.14], rot: [0, 28, 0], slot: 'D', lod: 0 },
+    { name: 'brow', parent: 'head', mirror: true, prim: { t: 'capsule', r: 0.012, len: 0.05 }, at: [0.13, 0.125, 0.125], rot: [0, 28, 94], slot: 'D' },
     { name: 'ear', parent: 'head', mirror: true, prim: { t: 'sphere', r: [0.05, 0.048, 0.025] }, at: [0.15, 0.115, -0.03], rot: [0, 35, -20] },
     { name: 'earIn', parent: 'ear', mirror: true, prim: { t: 'sphere', r: [0.032, 0.03, 0.01] }, at: [0, 0, 0.018], slot: 'P-', lod: 0 },
     // forelegs: left paw on the ground, right paw raised holding the pebble

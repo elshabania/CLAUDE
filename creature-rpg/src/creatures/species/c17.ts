@@ -43,8 +43,8 @@ const body: PartDef[] = [];
 for (let i = 0; i < N; i++) {
   const r = segR(i);
   // chain frame: local +Y runs tail-ward, local +Z is up
-  body.push({ name: `shell${i}`, parent: segName(i), prim: { t: 'sphere', r: [r, SEG * 0.72, r * 0.9] }, at: [0, SEG * 0.42, 0], slot: 'P', mat: 'SCALE' });
-  body.push({ name: `belly${i}`, parent: `shell${i}`, prim: { t: 'sphere', r: [r * 0.8, SEG * 0.62, r * 0.45] }, at: [0, 0, -r * 0.5], slot: '#D6F0FF', mat: 'SCALE' });
+  // pale belly strip: a slimmer capsule slung under each of the first 10 segments
+  if (i < 10) body.push({ name: `belly${i}`, parent: segName(i), prim: { t: 'capsule', r: r * 0.72, len: SEG * 0.5 }, at: [0, -r * 0.2, -r * 0.36], slot: '#D6F0FF', mat: 'SCALE' });
 }
 // five separate dorsal sails on segments 2, 4, 6, 8, 10 (rot [0,90,90]: outline +X → tail-ward, +Y → up)
 const SAIL_SEGS = [1, 3, 5, 7, 9];
@@ -94,15 +94,14 @@ export const c17: SpeciesVisual = {
   rig: { type: 'CHAIN', gaitHz: 1, stride: 0, bounce: 0.01, breath: 0.02, breathHz: 0.5, waveAmp: 9, waveHz: 0.45, waveAxis: 'roll', attack: 'lunge', special: 'cast', faint: 'collapse', lean: 0 },
   parts: [
     // body: 12-segment chain running back from the neck base, gentle rest curve
-    { name: 'bodyA', prim: { t: 'none' }, chain: { n: HALF, r0: 0.07, r1: 0.05, len: BODY_LEN / 2, bend: [0, 0, 11] }, at: [0, 0.16, Z0], rot: [-90, 0, -40], slot: 'P', anim: ['wave'] },
-    { name: 'bodyB', parent: 'bodyATip', prim: { t: 'none' }, chain: { n: HALF, r0: 0.05, r1: 0.03, len: BODY_LEN / 2, bend: [0, 0, -13] }, rot: [0, 0, -8], slot: 'P', anim: ['wave'] },
+    { name: 'bodyA', prim: { t: 'none' }, chain: { n: HALF, r0: segR(0), r1: segR(HALF), len: BODY_LEN / 2, bend: [0, 0, 11] }, at: [0, 0.16, Z0], rot: [-90, 0, -40], slot: 'P', anim: ['wave'] },
+    { name: 'bodyB', parent: 'bodyATip', prim: { t: 'none' }, chain: { n: HALF, r0: segR(HALF), r1: 0.035, len: BODY_LEN / 2, bend: [0, 0, -13] }, rot: [0, 0, -8], slot: 'P', anim: ['wave'] },
     ...body,
     ...sails,
     { name: 'flake', parent: 'bodyBTip', prim: { t: 'extrude', shape: 'X_flake6', w: 0.66, h: 0.66, depth: 0.025 }, at: [0, 0.12, 0.03], rot: [0, 90, 0], slot: 'S', mat: 'ICE', opacity: 0.85, emissive: 0.3, glowColor: '#CFEFFF', anim: ['fx:tail'] },
     // raised neck (3 segments) curving forward to a level head
-    { name: 'neck', prim: { t: 'none' }, chain: { n: 3, r0: 0.13, r1: 0.105, len: 0.66, bend: [16, 0, 0] }, at: [0, 0.14, Z0], rot: [14, 0, 0], slot: 'P', mat: 'SCALE' },
-    { name: 'neckShell', parent: 'neck0', prim: { t: 'sphere', r: [0.16, 0.2, 0.15] }, at: [0, 0.02, 0], slot: 'P' },
-    { name: 'throat', parent: 'neck1', prim: { t: 'sphere', r: [0.1, 0.22, 0.06] }, at: [0, 0.1, 0.07], slot: '#D6F0FF' },
+    { name: 'neck', prim: { t: 'none' }, chain: { n: 3, r0: 0.16, r1: 0.11, len: 0.66, bend: [16, 0, 0] }, at: [0, 0.14, Z0], rot: [14, 0, 0], slot: 'P', mat: 'SCALE' },
+    { name: 'throat', parent: 'neck1', prim: { t: 'capsule', r: 0.085, len: 0.16 }, at: [0, -0.02, 0.06], slot: '#D6F0FF' },
     ...ribbon(1),
     ...ribbon(-1),
     { name: 'headP', parent: 'neckTip', prim: { t: 'none' }, at: [0, -0.02, 0], rot: [-46, 0, 0], anim: ['look', 'fx:head'] },

@@ -50,7 +50,7 @@ export const c08: SpeciesVisual = {
   mat: 'SKIN_WET',
   rim: '#D8FFFF',
   rimStrength: 0.45,
-  eye: { shape: 'almond', iris: '#3FB8B0', irisRatio: 0.66, pupil: 'round', pupilRatio: 0.4, highlights: 1, lid: 0.12, lidAngle: -6 },
+  eye: { shape: 'round', iris: '#3FB8B0', irisRatio: 0.66, pupil: 'round', pupilRatio: 0.4, highlights: 1, lid: 0.12, lidAngle: -6 },
   mouth: { style: 'smile' },
   rig: { type: 'CHAIN', gaitHz: 1.2, stride: 28, bounce: 0.01, breath: 0.025, breathHz: 0.5, waveAmp: 11, waveHz: 0.6, waveAxis: 'yaw', attack: 'lunge', special: 'cast', faint: 'forward', lean: 0 },
   parts: [

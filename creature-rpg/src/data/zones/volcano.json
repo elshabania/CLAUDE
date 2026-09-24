@@ -1,0 +1,972 @@
+{
+  "id": "volcano",
+  "name": "Mount Cindral",
+  "biome": "volcano",
+  "attuned": "fire",
+  "music": "volcano",
+  "terrain": {
+    "seed": 505,
+    "size": [
+      210,
+      210
+    ],
+    "base": 2,
+    "amp": 5,
+    "scale": 34,
+    "rim": 20,
+    "rimWidth": 16,
+    "hills": [
+      {
+        "at": [
+          0,
+          -30
+        ],
+        "r": 45,
+        "h": 32
+      },
+      {
+        "at": [
+          -55,
+          -62
+        ],
+        "r": 22,
+        "h": 12
+      },
+      {
+        "at": [
+          48,
+          -64
+        ],
+        "r": 18,
+        "h": 9
+      },
+      {
+        "at": [
+          -20,
+          72
+        ],
+        "r": 18,
+        "h": 4
+      },
+      {
+        "at": [
+          62,
+          62
+        ],
+        "r": 14,
+        "h": 3
+      },
+      {
+        "at": [
+          0,
+          -65
+        ],
+        "r": 8,
+        "h": 6
+      },
+      {
+        "at": [
+          17.7,
+          -57.7
+        ],
+        "r": 8,
+        "h": 6
+      },
+      {
+        "at": [
+          25,
+          -40
+        ],
+        "r": 8,
+        "h": 5
+      },
+      {
+        "at": [
+          -25,
+          -40
+        ],
+        "r": 8,
+        "h": 5
+      },
+      {
+        "at": [
+          -17.7,
+          -57.7
+        ],
+        "r": 8,
+        "h": 6
+      },
+      {
+        "at": [
+          -17.7,
+          -22.3
+        ],
+        "r": 7,
+        "h": 4
+      }
+    ],
+    "flats": [
+      {
+        "at": [
+          0,
+          -40
+        ],
+        "r": 17,
+        "h": 31
+      },
+      {
+        "at": [
+          80,
+          19
+        ],
+        "r": 8,
+        "h": 0.2
+      },
+      {
+        "at": [
+          60,
+          -10
+        ],
+        "r": 6,
+        "h": 6.1
+      },
+      {
+        "at": [
+          48,
+          -6
+        ],
+        "r": 5,
+        "h": 9.4
+      },
+      {
+        "at": [
+          30,
+          -14
+        ],
+        "r": 5,
+        "h": 20.2
+      },
+      {
+        "at": [
+          12,
+          -21
+        ],
+        "r": 5,
+        "h": 30.7
+      },
+      {
+        "at": [
+          20,
+          -10
+        ],
+        "r": 4,
+        "h": 24.4
+      },
+      {
+        "at": [
+          60,
+          30
+        ],
+        "r": 4,
+        "h": 1.4
+      },
+      {
+        "at": [
+          -60,
+          -20
+        ],
+        "r": 4,
+        "h": 7.3
+      },
+      {
+        "at": [
+          -70,
+          -60
+        ],
+        "r": 5,
+        "h": 9.8
+      },
+      {
+        "at": [
+          60,
+          -60
+        ],
+        "r": 5,
+        "h": 10.3
+      },
+      {
+        "at": [
+          -40,
+          62
+        ],
+        "r": 6,
+        "h": 2.8
+      },
+      {
+        "at": [
+          50,
+          20
+        ],
+        "r": 7,
+        "h": 4.2
+      },
+      {
+        "at": [
+          -40,
+          -10
+        ],
+        "r": 7,
+        "h": 13.2
+      },
+      {
+        "at": [
+          10,
+          60
+        ],
+        "r": 7,
+        "h": 3.8
+      },
+      {
+        "at": [
+          24,
+          55
+        ],
+        "r": 3,
+        "h": 0.4
+      }
+    ],
+    "paths": [
+      {
+        "pts": [
+          [
+            105,
+            0
+          ],
+          [
+            92,
+            0
+          ],
+          [
+            84,
+            8
+          ],
+          [
+            80,
+            24
+          ]
+        ],
+        "w": 5
+      },
+      {
+        "pts": [
+          [
+            92,
+            0
+          ],
+          [
+            76,
+            -5
+          ]
+        ],
+        "w": 4
+      }
+    ],
+    "water": [
+      {
+        "at": [
+          -42,
+          42
+        ],
+        "r": 14,
+        "rz": 6,
+        "depth": 1.4,
+        "level": 2.8
+      },
+      {
+        "at": [
+          30,
+          64
+        ],
+        "r": 4,
+        "rz": 12,
+        "depth": 1.3,
+        "level": 0.3
+      },
+      {
+        "at": [
+          -13,
+          -46
+        ],
+        "r": 2.5,
+        "rz": 7,
+        "depth": 1.2,
+        "level": 31
+      },
+      {
+        "at": [
+          13,
+          -46
+        ],
+        "r": 2.5,
+        "rz": 7,
+        "depth": 1.2,
+        "level": 31
+      }
+    ]
+  },
+  "palette": {
+    "ground": "#4A3B34",
+    "ground2": "#6B5A4E",
+    "path": "#8A7A6A",
+    "cliff": "#2B2320",
+    "accent": "#F2A541",
+    "sky": "#E3AE86",
+    "fog": "#B98A6E"
+  },
+  "fogDensity": 0.008,
+  "weather": {
+    "clear": 45,
+    "sunlight": 30,
+    "fog": 25
+  },
+  "spawns": [
+    {
+      "id": "sp_volcano_e",
+      "at": [
+        93,
+        0
+      ],
+      "yaw": 270
+    },
+    {
+      "id": "sp_volcano_hall",
+      "at": [
+        0,
+        -29
+      ],
+      "yaw": 180
+    },
+    {
+      "id": "sp_volcano_hearth",
+      "at": [
+        80,
+        26
+      ],
+      "yaw": 0
+    },
+    {
+      "id": "sp_volcano_ws",
+      "at": [
+        60,
+        -4
+      ],
+      "yaw": 0
+    }
+  ],
+  "exits": [
+    {
+      "id": "x_volcano_e",
+      "at": [
+        101,
+        0
+      ],
+      "r": 5,
+      "to": "route_4",
+      "spawn": "sp_route_4_w",
+      "label": "Highscar Rise"
+    },
+    {
+      "id": "x_volcano_hall",
+      "at": [
+        0,
+        -34.6
+      ],
+      "r": 2.5,
+      "to": "trial_5",
+      "spawn": "sp_trial_5_door",
+      "label": "Forge Hall",
+      "gate": {
+        "flag": "flag_rival_4_done",
+        "message": "The Forge Hall door is too hot to touch. Steam hisses from the vent beside it."
+      }
+    }
+  ],
+  "props": [
+    {
+      "kind": "hearth",
+      "at": [
+        80,
+        19
+      ],
+      "yaw": 180,
+      "label": "Cindral Base Hearthrest"
+    },
+    {
+      "kind": "stall",
+      "at": [
+        87,
+        24
+      ],
+      "yaw": 180,
+      "color": "#E4572E"
+    },
+    {
+      "kind": "chordstone",
+      "at": [
+        60,
+        -10
+      ],
+      "color": "#E4572E",
+      "label": "Cindral Basalt Chordstone"
+    },
+    {
+      "kind": "hall_forge",
+      "at": [
+        0,
+        -42
+      ],
+      "yaw": 180,
+      "label": "Forge Hall"
+    },
+    {
+      "kind": "sign",
+      "at": [
+        96,
+        6
+      ],
+      "yaw": 270,
+      "label": "Mount Cindral — Forge Hall up at the caldera. West: Highscar Rise."
+    },
+    {
+      "kind": "sign",
+      "at": [
+        5,
+        -27
+      ],
+      "yaw": 180,
+      "label": "Forge Hall — Cantor Bastian Coalridge. Mind the vent."
+    },
+    {
+      "kind": "sign",
+      "at": [
+        -40,
+        60
+      ],
+      "yaw": 180,
+      "label": "Ash Flats Memorial — \"For the herd of the Ash Flats, who ran toward the loudest stone.\""
+    },
+    {
+      "kind": "wall",
+      "at": [
+        -40,
+        64
+      ],
+      "w": 3,
+      "h": 1.6,
+      "color": "#5A4D46"
+    },
+    {
+      "kind": "lamp",
+      "at": [
+        70,
+        -6
+      ]
+    },
+    {
+      "kind": "lamp",
+      "at": [
+        55,
+        -10
+      ]
+    },
+    {
+      "kind": "lamp",
+      "at": [
+        44,
+        -2
+      ]
+    },
+    {
+      "kind": "lamp",
+      "at": [
+        34,
+        -16
+      ]
+    },
+    {
+      "kind": "lamp",
+      "at": [
+        26,
+        -8
+      ]
+    },
+    {
+      "kind": "lamp",
+      "at": [
+        16,
+        -24
+      ]
+    },
+    {
+      "kind": "lamp",
+      "at": [
+        8,
+        -18
+      ]
+    },
+    {
+      "kind": "lamp",
+      "at": [
+        -4,
+        -26
+      ]
+    },
+    {
+      "kind": "lamp",
+      "at": [
+        5,
+        -31
+      ]
+    },
+    {
+      "kind": "wall",
+      "at": [
+        -42,
+        34.6
+      ],
+      "w": 26,
+      "h": 0.9,
+      "color": "#3A322E"
+    },
+    {
+      "kind": "wall",
+      "at": [
+        -42,
+        49.4
+      ],
+      "w": 26,
+      "h": 0.9,
+      "color": "#3A322E"
+    },
+    {
+      "kind": "wall",
+      "at": [
+        24.8,
+        64
+      ],
+      "yaw": 90,
+      "w": 22,
+      "h": 0.9,
+      "color": "#3A322E"
+    },
+    {
+      "kind": "wall",
+      "at": [
+        35.2,
+        64
+      ],
+      "yaw": 90,
+      "w": 22,
+      "h": 0.9,
+      "color": "#3A322E"
+    },
+    {
+      "kind": "wall",
+      "at": [
+        -9.6,
+        -46
+      ],
+      "yaw": 90,
+      "w": 13,
+      "h": 0.9,
+      "color": "#3A322E"
+    },
+    {
+      "kind": "wall",
+      "at": [
+        9.6,
+        -46
+      ],
+      "yaw": 90,
+      "w": 13,
+      "h": 0.9,
+      "color": "#3A322E"
+    },
+    {
+      "kind": "tent",
+      "at": [
+        67,
+        37
+      ],
+      "yaw": 225,
+      "color": "#6B4A3A"
+    },
+    {
+      "kind": "crate",
+      "at": [
+        64,
+        40
+      ]
+    },
+    {
+      "kind": "crate",
+      "at": [
+        65,
+        41.2
+      ]
+    },
+    {
+      "kind": "crate",
+      "at": [
+        -8,
+        -30
+      ]
+    },
+    {
+      "kind": "crate",
+      "at": [
+        84,
+        14
+      ]
+    },
+    {
+      "kind": "crate",
+      "at": [
+        -56,
+        -24
+      ]
+    },
+    {
+      "kind": "basalt",
+      "at": [
+        40,
+        -24
+      ]
+    },
+    {
+      "kind": "basalt",
+      "at": [
+        -30,
+        20
+      ]
+    },
+    {
+      "kind": "basalt",
+      "at": [
+        -78,
+        -40
+      ]
+    },
+    {
+      "kind": "basalt",
+      "at": [
+        72,
+        -40
+      ]
+    },
+    {
+      "kind": "basalt",
+      "at": [
+        10,
+        40
+      ]
+    },
+    {
+      "kind": "basalt",
+      "at": [
+        -10,
+        85
+      ]
+    },
+    {
+      "kind": "basalt",
+      "at": [
+        52,
+        80
+      ]
+    },
+    {
+      "kind": "basalt",
+      "at": [
+        -82,
+        30
+      ]
+    },
+    {
+      "kind": "crystal",
+      "at": [
+        -66,
+        -58
+      ]
+    },
+    {
+      "kind": "crystal",
+      "at": [
+        58,
+        -56
+      ]
+    },
+    {
+      "kind": "crystal",
+      "at": [
+        -4,
+        -58
+      ]
+    }
+  ],
+  "scatter": [
+    {
+      "kind": "basalt",
+      "density": 0.7,
+      "minDist": 5
+    },
+    {
+      "kind": "rock",
+      "density": 0.6,
+      "minDist": 4
+    },
+    {
+      "kind": "boulder",
+      "density": 0.12,
+      "minDist": 9
+    },
+    {
+      "kind": "deadtree",
+      "density": 0.3,
+      "minDist": 6
+    },
+    {
+      "kind": "crystal",
+      "density": 0.12,
+      "minDist": 7
+    }
+  ],
+  "npcs": [
+    {
+      "id": "npc_hk_volcano",
+      "at": [
+        76,
+        23.5
+      ],
+      "yaw": 180,
+      "look": "hearth2",
+      "name": "Ash",
+      "dialogue": "dlg_hk_volcano",
+      "role": "hearth"
+    },
+    {
+      "id": "npc_ch_volcano",
+      "at": [
+        87,
+        26
+      ],
+      "yaw": 180,
+      "look": "chandler2",
+      "name": "Cindral Chandler",
+      "dialogue": "dlg_ch_volcano",
+      "role": "shop",
+      "shop": "shop_volcano"
+    },
+    {
+      "id": "npc_forge_steward",
+      "at": [
+        6,
+        -30
+      ],
+      "yaw": 180,
+      "look": "villagerB",
+      "name": "Hall steward Corran",
+      "dialogue": "dlg_forge_steward",
+      "role": "steward"
+    },
+    {
+      "id": "npc_volcano_pell",
+      "at": [
+        -35,
+        63
+      ],
+      "yaw": 240,
+      "look": "villagerD",
+      "name": "Old Pell",
+      "dialogue": "dlg_volcano_pell",
+      "role": "villager"
+    },
+    {
+      "id": "npc_volcano_railwright",
+      "at": [
+        23,
+        55
+      ],
+      "yaw": 180,
+      "look": "hiker",
+      "name": "Railwright Juno",
+      "dialogue": "dlg_volcano_railwright",
+      "role": "villager"
+    }
+  ],
+  "trainers": [
+    {
+      "id": "t_vo_01",
+      "at": [
+        60,
+        30
+      ],
+      "yaw": 270,
+      "sight": 8
+    },
+    {
+      "id": "t_vo_02",
+      "at": [
+        20,
+        -10
+      ],
+      "yaw": 90,
+      "sight": 8
+    },
+    {
+      "id": "t_vo_03",
+      "at": [
+        -60,
+        -20
+      ],
+      "yaw": 90,
+      "sight": 8
+    }
+  ],
+  "nodes": [
+    {
+      "id": "rn_volcano_01",
+      "type": "water",
+      "at": [
+        -6,
+        -30
+      ],
+      "yaw": 180,
+      "kind": "current",
+      "label": "Overheated vent",
+      "opens": "x_volcano_hall",
+      "sets": "flag_volcano_vent_cooled",
+      "blocker": {
+        "at": [
+          0,
+          -33.7
+        ],
+        "w": 14,
+        "d": 1.8
+      }
+    },
+    {
+      "id": "rn_volcano_02",
+      "type": "fire",
+      "at": [
+        -70,
+        -60
+      ],
+      "yaw": 0,
+      "kind": "thorn",
+      "label": "Ashthorn thicket",
+      "reward": {
+        "item": "i_revive_2",
+        "count": 1
+      }
+    },
+    {
+      "id": "rn_volcano_03",
+      "type": "toxin",
+      "at": [
+        60,
+        -60
+      ],
+      "yaw": 0,
+      "kind": "grate",
+      "label": "Sulphur grate",
+      "reward": {
+        "item": "i_salve_4",
+        "count": 1
+      }
+    }
+  ],
+  "pickups": [
+    {
+      "id": "pk_volcano_01",
+      "at": [
+        50,
+        -10
+      ],
+      "item": "i_salve_3",
+      "count": 2
+    },
+    {
+      "id": "pk_volcano_02",
+      "at": [
+        -50,
+        20
+      ],
+      "item": "i_cure_burn",
+      "count": 3
+    },
+    {
+      "id": "pk_volcano_03",
+      "at": [
+        -80,
+        0
+      ],
+      "item": "money",
+      "money": 2000,
+      "hidden": true
+    }
+  ],
+  "wildRegions": [
+    {
+      "at": [
+        56,
+        44
+      ],
+      "r": 20
+    },
+    {
+      "at": [
+        -60,
+        0
+      ],
+      "r": 22
+    },
+    {
+      "at": [
+        0,
+        75
+      ],
+      "r": 15
+    }
+  ],
+  "maxWild": 6,
+  "encounters": "volcano",
+  "battleStages": [
+    {
+      "at": [
+        50,
+        20
+      ],
+      "yaw": 90
+    },
+    {
+      "at": [
+        -40,
+        -10
+      ],
+      "yaw": 90
+    },
+    {
+      "at": [
+        10,
+        60
+      ],
+      "yaw": 90
+    }
+  ],
+  "hearthSpawn": "sp_volcano_hearth",
+  "waystone": [
+    60,
+    -10
+  ]
+}

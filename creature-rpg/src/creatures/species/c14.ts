@@ -105,13 +105,14 @@ export const c14: SpeciesVisual = {
     { name: 'domeRim', parent: 'domeP', prim: { t: 'torus', R: 0.53, r: 0.045 }, at: [0, 0.01, 0], rot: [90, 0, 0], scale: [1, 1.4, 1], slot: 'P-', mat: 'STONE' },
     ...plates,
     // under-body (dark skin, mostly hidden under the dome)
-    { name: 'body', prim: { t: 'sphere', r: [0.4, 0.16, 0.62] }, at: [0, 0.22, 0], slot: 'D' },
+    { name: 'body', prim: { t: 'none' }, at: [0, 0.22, 0] },
+    // under-body ≈ ellipsoid (0.40, 0.16, 0.62) as a squashed capsule (cheaper than a sphere; mostly hidden)
+    { name: 'bodyMesh', parent: 'body', prim: { t: 'capsule', r: 0.4, len: 0.44 }, at: [0, 0, -0.62], rot: [90, 0, 0], scale: [1, 1, 0.4], slot: 'D' },
     // head
     { name: 'head', parent: 'body', prim: { t: 'sphere', r: [0.2, 0.17, 0.2] }, at: [0, 0.03, 0.8], slot: 'D', anim: ['look', 'fx:head'] },
     { name: 'headCap', parent: 'head', prim: { t: 'lathe', profile: 'L_dome', h: 0.09, rmax: 0.19 }, at: [0, 0.085, -0.015], rot: [12, 0, 0], scale: [1, 1, 1.15], slot: 'P', mat: 'STONE' },
     { name: 'capPlate', parent: 'headCap', prim: { t: 'extrude', shape: 'X_hexplate', w: 0.14, h: 0.14, depth: 0.03 }, at: [0, 0.085, 0], rot: [-90, 0, 0], slot: 'S', mat: 'STONE' },
     { name: 'muzzle', parent: 'head', prim: { t: 'sphere', r: [0.11, 0.085, 0.1] }, at: [0, -0.045, 0.15], slot: 'D+' },
-    { name: 'nostril', parent: 'muzzle', mirror: true, prim: { t: 'sphere', r: 0.014 }, at: [0.035, 0.03, 0.08], slot: '#231D19', lod: 0 },
     { name: 'jaw', parent: 'head', prim: { t: 'sphere', r: [0.085, 0.035, 0.08], half: true }, at: [0, -0.11, 0.11], rot: [180, 0, 0], slot: 'D', anim: ['jaw'] },
     { name: 'mouth', parent: 'muzzle', prim: { t: 'mouth', r: 0.035, w: 1.8 }, at: [0, -0.035, 0.075], rot: [25, 0, 0], anim: ['fx:mouth'] },
     { name: 'eye', parent: 'head', mirror: true, prim: { t: 'eye', r: 0.068 }, at: [0.128, 0.045, 0.142], rot: [-5, 38, 0] },
@@ -127,16 +128,17 @@ export const c14: SpeciesVisual = {
     { name: 'nailBa', parent: 'legB', mirror: true, prim: { t: 'cone', r: 0.02, h: 0.045 }, at: [0.065, 0.215, 0.095], rot: [90, 30, 0], slot: '#D8CFB8', lod: 0 },
     { name: 'nailBb', parent: 'legB', mirror: true, prim: { t: 'cone', r: 0.02, h: 0.045 }, at: [-0.065, 0.215, 0.095], rot: [90, -30, 0], slot: '#D8CFB8', lod: 0 },
     // tail: 5 stone rings on a dark skin chain, ending in the cairn club
-    { name: 'tail', parent: 'body', prim: { t: 'none' }, chain: { n: TAIL_N, r0: 0.08, r1: 0.06, len: 0.55, bend: [5, 0, 0] }, at: [0, 0.02, -0.56], rot: [-104, 0, 0], slot: 'D', anim: ['wave'] },
+    { name: 'tail', parent: 'body', prim: { t: 'none' }, chain: { n: TAIL_N, r0: 0.08, r1: 0.05, len: 0.55, bend: [5, 0, 0] }, at: [0, 0.02, -0.56], rot: [-104, 0, 0], slot: 'D', anim: ['wave'] },
     ...tailParts,
     // tip frame: local +Y ≈ backwards, local +Z ≈ up. Stones stack upward (a cairn), largest at the bottom.
     { name: 'club', parent: 'tailTip', prim: { t: 'none' }, at: [0, 0.14, -0.04], rot: [-22, 0, 0], anim: ['fx:club'] },
-    { name: 'stone0', parent: 'club', prim: { t: 'sphere', r: [0.23, 0.2, 0.11] }, at: [0, 0, -0.03], rot: [0, 0, 8], slot: 'P', mat: 'STONE', flat: true },
-    { name: 'stone1', parent: 'club', prim: { t: 'sphere', r: [0.195, 0.175, 0.1] }, at: [0.016, 0.02, 0.14], rot: [0, 0, -14], slot: 'S', mat: 'STONE', flat: true },
-    { name: 'stone2', parent: 'club', prim: { t: 'sphere', r: [0.16, 0.145, 0.088] }, at: [-0.014, 0.0, 0.28], rot: [0, 0, 20], slot: 'P', mat: 'STONE', flat: true },
-    { name: 'stone3', parent: 'club', prim: { t: 'sphere', r: [0.12, 0.11, 0.08] }, at: [0.01, 0.012, 0.4], rot: [0, 0, -6], slot: 'S', mat: 'STONE', flat: true },
-    { name: 'spikeA', parent: 'stone1', mirror: true, prim: { t: 'cone', r: 0.04, h: 0.1 }, at: [0.18, 0.0, 0], rot: [0, 0, -90], slot: 'P-', mat: 'STONE' },
-    { name: 'spikeB', parent: 'stone2', mirror: true, prim: { t: 'cone', r: 0.035, h: 0.09 }, at: [0.1, 0.1, 0], rot: [0, 0, -45], slot: 'P-', mat: 'STONE' },
+    // stones are low faceted pucks (cheap 16-gon cylinders, flat-shaded); rot pitch 90 stands them on the club's up axis
+    { name: 'stone0', parent: 'club', prim: { t: 'cyl', r: 0.25, h: 0.15, r2: 0.22 }, at: [0, 0, -0.1], rot: [96, 0, 6], slot: 'P', mat: 'STONE', flat: true },
+    { name: 'stone1', parent: 'club', prim: { t: 'cyl', r: 0.21, h: 0.12, r2: 0.18 }, at: [0.016, 0.02, 0.045], rot: [84, 0, -10], slot: 'S', mat: 'STONE', flat: true },
+    { name: 'stone2', parent: 'club', prim: { t: 'cyl', r: 0.17, h: 0.1, r2: 0.14 }, at: [-0.014, 0.0, 0.165], rot: [98, 0, 12], slot: 'P', mat: 'STONE', flat: true },
+    { name: 'stone3', parent: 'club', prim: { t: 'cyl', r: 0.125, h: 0.085, r2: 0.075 }, at: [0.01, 0.012, 0.265], rot: [88, 0, -6], slot: 'S', mat: 'STONE', flat: true },
+    { name: 'spikeA', parent: 'stone1', mirror: true, prim: { t: 'cone', r: 0.04, h: 0.1 }, at: [0.18, 0.06, 0], rot: [0, 0, -90], slot: 'P+', mat: 'STONE' },
+    { name: 'spikeB', parent: 'stone2', mirror: true, prim: { t: 'cone', r: 0.035, h: 0.09 }, at: [0.1, 0.05, -0.1], rot: [0, 45, -90], slot: 'P+', mat: 'STONE' },
     { name: 'ground', prim: { t: 'none' }, at: [0, 0, 0.9], anim: ['fx:ground'] },
   ],
 };

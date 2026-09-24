@@ -86,7 +86,7 @@ export const c13: SpeciesVisual = {
   rimStrength: 0.2,
   eye: { shape: 'round', sclera: '#15110F', iris: '#111111', irisRatio: 0.9, pupil: 'none', highlights: 2, lid: 0 },
   mouth: { style: 'line' },
-  rig: { type: 'BALL', gaitHz: 3.2, stride: 30, bounce: 0.05, breath: 0.025, breathHz: 0.7, attack: 'roll', special: 'slam', faint: 'side', lean: 2 },
+  rig: { type: 'BALL', gaitHz: 3.2, stride: 30, bounce: 0.05, breath: 0.025, breathHz: 0.7, attack: 'spin', special: 'slam', faint: 'side', lean: 2 },
   parts: [
     { name: 'shell', prim: { t: 'none' }, at: [0, 0.5, 0], rot: [-10, 0, 0], anim: ['br'] },
     // the dome itself is the dark groove colour; the raised hex plates sit on it

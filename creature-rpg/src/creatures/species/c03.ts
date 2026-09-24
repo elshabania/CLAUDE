@@ -71,7 +71,7 @@ export const c03: SpeciesVisual = {
     { name: 'crest', parent: 'head', prim: { t: 'extrude', shape: 'X_fin_crescent', w: 0.4, h: 0.34, depth: 0.018 }, at: [0, -0.09, 0.07], rot: [0, -90, 72], slot: 'S', emissive: 0.3, mat: 'MEMBRANE' },
     { name: 'crestEdge', parent: 'crest', prim: { t: 'tube', pts: Array.from({ length: 11 }, (_, i) => { const a = ((-75 + 15 * i) * Math.PI) / 180; return [(Math.cos(a) * 0.5 + 0.5) * 0.4, (Math.sin(a) * 0.5 + 0.5) * 0.34, 0] as V3; }), r0: 0.01, r1: 0.01 }, slot: 'A', emissive: 1.2, mat: 'GLOW' },
     // --- wings: flapping root pivots, rib spars, 3 delta panels per side ---
-    { name: 'wing', parent: 'body', mirror: true, prim: { t: 'none' }, at: [0.08, 0.03, 0], rot: [0, 0, 14], anim: ['flap'] },
+    { name: 'wing', parent: 'body', mirror: true, prim: { t: 'none' }, at: [0.08, 0.03, 0], rot: [0, 0, 20], anim: ['flap'] },
     ...ribParts,
     ...membrane,
     seam('L'),

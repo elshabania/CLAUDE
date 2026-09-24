@@ -50,9 +50,8 @@ for (const a of ARMS) {
   const yr = (a.yaw * Math.PI) / 180;
   armParts.push({ name: a.id + 'Root', parent: 'head', prim: { t: 'none' }, at: [Math.sin(yr) * 0.2, -0.1, Math.cos(yr) * 0.18], rot: [0, a.yaw, 0] });
   armParts.push({ name: a.id, parent: a.id + 'Root', prim: { t: 'none' }, chain: { n: 4, r0: 0.075, r1: 0.022, len: 0.55, bend: [-17, 0, 0] }, rot: [118, 0, 0], anim: ['gait:' + a.gait, 'wave'] });
-  // rings on top of segments 1 and 2 (local -Z is up for these segments)
+  // one ring on top of segment 1 (local -Z is up for these segments)
   armParts.push({ name: a.id + 'Ring1', parent: a.id + '1', prim: { t: 'torus', R: 0.034, r: 0.009 }, at: [0, 0.06, -0.055], slot: 'A', mat: 'GLOW', emissive: 0.7, anim: ['glow'] });
-  armParts.push({ name: a.id + 'Ring2', parent: a.id + '2', prim: { t: 'torus', R: 0.026, r: 0.008 }, at: [0, 0.06, -0.04], slot: 'A', mat: 'GLOW', emissive: 0.7, anim: ['glow'] });
   armParts.push({ name: a.id + 'Drop', parent: a.id + 'Tip', prim: { t: 'sphere', r: [0.022, 0.028, 0.022] }, at: [0, 0.015, 0], slot: '#9FE05A', mat: 'SKIN_WET', emissive: 0.25, lod: 0 });
 }
 

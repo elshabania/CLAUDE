@@ -38,7 +38,6 @@ for (const [id, yaw, gait] of [['legFL', 35, 'FL'], ['legFR', -35, 'FR'], ['legB
   legs.push({ name: id, parent: id + 'Root', prim: { t: 'none' }, chain: { n: 4, r0: 0.07, r1: 0.03, len: 0.44, bend: [-15, 0, 0] }, rot: [148, 0, 0], anim: ['gait:' + gait] });
   // rings on top of segments (local -Z is up/outward for these)
   legs.push({ name: id + 'Ring1', parent: id + '1', prim: { t: 'torus', R: 0.045, r: 0.01 }, at: [0, 0.05, -0.058], ...RING });
-  legs.push({ name: id + 'Ring2', parent: id + '2', prim: { t: 'torus', R: 0.038, r: 0.009 }, at: [0, 0.05, -0.046], ...RING });
 }
 // two lasso arms raised from the sides: a gently curved reach (3 segments) then a tight loop (4 segments)
 for (const [id, side] of [['lassoL', 1], ['lassoR', -1]] as [string, number][]) {
@@ -47,7 +46,6 @@ for (const [id, side] of [['lassoL', 1], ['lassoR', -1]] as [string, number][]) 
   legs.push({ name: id + 'Ring1', parent: id + '0', prim: { t: 'torus', R: 0.042, r: 0.009 }, at: [0, 0.05, 0.045], ...RING });
   legs.push({ name: id + 'Ring2', parent: id + '1', prim: { t: 'torus', R: 0.036, r: 0.008 }, at: [0, 0.05, 0.04], ...RING });
   legs.push({ name: id + 'Ring3', parent: id + 'Loop0', prim: { t: 'torus', R: 0.03, r: 0.007 }, at: [0, 0.04, 0.03], ...RING });
-  legs.push({ name: id + 'Ring4', parent: id + 'Loop2', prim: { t: 'torus', R: 0.025, r: 0.006 }, at: [0, 0.04, 0.024], ...RING });
 }
 
 // brine volume: lower ~55% of the L_bulb, flat top = water surface

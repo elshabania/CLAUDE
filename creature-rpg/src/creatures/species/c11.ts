@@ -8,14 +8,16 @@ import type { SpeciesVisual, PartDef, V3 } from '../assemble';
 function cluster(id: string, parent: string, at: V3, rot: V3, stem: V3[]): PartDef[] {
   const tip = stem[stem.length - 1];
   const out: PartDef[] = [
-    { name: `${id}Stem`, parent, prim: { t: 'tube', pts: stem, r0: 0.013, r1: 0.008 }, at, rot, slot: 'P-', anim: ['sway'] },
-    { name: `${id}Hub`, parent: `${id}Stem`, prim: { t: 'sphere', r: 0.018 }, at: tip, slot: 'P-', anim: id === 'bellC' ? ['fx:bells'] : [] },
+    { name: `${id}Stem`, parent, prim: { t: 'tube', pts: stem, r0: 0.016, r1: 0.011 }, at, rot, slot: 'P', anim: ['sway'] },
+    { name: `${id}Hub`, parent: `${id}Stem`, prim: { t: 'sphere', r: 0.022 }, at: tip, slot: 'P', anim: id === 'bellC' ? ['fx:bells'] : [] },
   ];
-  const bells: [V3, number, number][] = [[[0.0, -0.2, 0.0], 0, 1], [[0.055, -0.13, 0.03], 18, 0.82], [[-0.05, -0.155, -0.03], -16, 0.9]];
+  const bells: [V3, number, number][] = [[[0.0, -0.22, 0.0], 0, 1], [[0.065, -0.14, 0.035], 18, 0.82], [[-0.06, -0.165, -0.035], -16, 0.9]];
   bells.forEach(([p, roll, s], i) => {
-    out.push({ name: `${id}${i}`, parent: `${id}Hub`, prim: { t: 'lathe', profile: 'L_bell', h: 0.1 * s, rmax: 0.052 * s }, at: p, rot: [0, 0, roll], slot: 'A', mat: 'MEMBRANE', emissive: 0.1, anim: ['sway'] });
-    out.push({ name: `${id}${i}Throat`, parent: `${id}${i}`, prim: { t: 'cyl', r: 0.036 * s, h: 0.006 }, at: [0, 0.012, 0], slot: '#F1E7A0', lod: 0 });
-    out.push({ name: `${id}${i}Stalk`, parent: `${id}${i}`, prim: { t: 'capsule', r: 0.005, len: Math.max(0.005, -p[1] - 0.1 * s - 0.01) }, at: [0, 0.095 * s, 0], rot: [0, 0, -roll], slot: 'P-', lod: 0 });
+    const L = -p[1] - 0.11 * s;
+    // stalk hangs straight down from the hub (pendulum), the bell hangs mouth-down from the stalk tip
+    out.push({ name: `${id}${i}Stalk`, parent: `${id}Hub`, prim: { t: 'capsule', r: 0.008, len: L }, at: [p[0], 0, p[2]], rot: [180, 0, roll * 0.5], slot: 'P+', anim: ['sway'] });
+    out.push({ name: `${id}${i}`, parent: `${id}${i}Stalk`, prim: { t: 'lathe', profile: 'L_bell', h: 0.11 * s, rmax: 0.06 * s }, at: [0, L + 0.11 * s, 0], rot: [180, 0, 0], slot: 'A', mat: 'MEMBRANE', emissive: 0.1 });
+    out.push({ name: `${id}${i}Throat`, parent: `${id}${i}`, prim: { t: 'cyl', r: 0.044 * s, h: 0.006 }, at: [0, 0.012, 0], slot: '#F1E7A0', lod: 0 });
   });
   return out;
 }
@@ -39,11 +41,11 @@ const claws: PartDef[] = [-1, 0, 1].map((k) => ({
 export const c11: SpeciesVisual = {
   id: 'c11',
   H: 1.2,
-  colors: { P: '#4E7D3A', A: '#B05FC4', S: '#9C8466', D: '#2E2620' },
+  colors: { P: '#3A6128', A: '#C98BDB', S: '#9C8466', D: '#2E2620' },
   mat: 'FUR',
   rim: '#D9A6FF',
   rimStrength: 0.25,
-  eye: { shape: 'droopy', iris: '#8C6A2F', irisRatio: 0.6, pupil: 'round', pupilRatio: 0.4, highlights: 1, lid: 0.45, lidAngle: 8 },
+  eye: { shape: 'halfmoon', iris: '#8C6A2F', irisRatio: 0.6, pupil: 'round', pupilRatio: 0.4, highlights: 1, lid: 0.45, lidAngle: 8 },
   mouth: { style: 'o' },
   rig: { type: 'BIPED', gaitHz: 0.9, stride: 20, bounce: 0.03, breath: 0.025, breathHz: 0.35, attack: 'slam', special: 'cast', faint: 'side', lean: 25 },
   parts: [
@@ -60,12 +62,13 @@ export const c11: SpeciesVisual = {
     { name: 'hoodRim', parent: 'hood', prim: { t: 'torus', R: 0.14, r: 0.022, arc: 180 }, at: [0, 0.02, 0.0], rot: [70, 0, 0], slot: 'P+', fluffy: 0.004 },
     { name: 'face', parent: 'head', prim: { t: 'sphere', r: [0.095, 0.115, 0.05] }, at: [0, -0.01, 0.075], slot: 'S+' },
     { name: 'stripe', parent: 'face', mirror: true, prim: { t: 'sphere', r: [0.026, 0.085, 0.02] }, at: [0.042, -0.01, 0.034], rot: [0, 20, 12], slot: '#3A2C22' },
+    { name: 'brow', parent: 'face', mirror: true, prim: { t: 'capsule', r: 0.01, len: 0.03 }, at: [0.062, 0.072, 0.036], rot: [0, 20, 80], slot: 'S-' },
     { name: 'eye', parent: 'face', mirror: true, prim: { t: 'eye', r: 0.048 }, at: [0.045, 0.02, 0.045], rot: [0, 20, 0] },
     { name: 'nose', parent: 'face', prim: { t: 'sphere', r: [0.024, 0.018, 0.018] }, at: [0, -0.04, 0.05], slot: 'D' },
     { name: 'mouth', parent: 'face', prim: { t: 'mouth', r: 0.028 }, at: [0, -0.078, 0.036], rot: [20, 0, 0], anim: ['fx:mouth'] },
     // very long arms reaching the ground (knuckle-crutch)
-    { name: 'upperArm', parent: 'torso', mirror: true, prim: { t: 'capsule', r: 0.042, len: 0.3 }, at: [0.17, 0.3, 0.0], rot: [138, 0, -12], slot: 'S', anim: ['gait:BL'] },
-    { name: 'forearm', parent: 'upperArm', mirror: true, prim: { t: 'capsule', r: 0.036, len: 0.28, r2: 0.04 }, at: [0, 0.37, 0], rot: [18, 0, 4], slot: 'S' },
+    { name: 'upperArm', parent: 'torso', mirror: true, prim: { t: 'capsule', r: 0.048, len: 0.3 }, at: [0.17, 0.3, 0.0], rot: [138, 0, -12], slot: 'S', anim: ['gait:BL'] },
+    { name: 'forearm', parent: 'upperArm', mirror: true, prim: { t: 'capsule', r: 0.04, len: 0.28, r2: 0.045 }, at: [0, 0.37, 0], rot: [18, 0, 4], slot: 'S' },
     { name: 'hand', parent: 'forearm', mirror: true, prim: { t: 'sphere', r: [0.048, 0.042, 0.05] }, at: [0, 0.36, 0], slot: 'S-' },
     ...claws,
     // short legs
@@ -77,6 +80,6 @@ export const c11: SpeciesVisual = {
     // three foxglove bell clusters: left shoulder, right shoulder, crown
     ...cluster('bellL', 'mantle', [0.17, 0.02, 0.03], [0, 0, 0], [[0, 0, 0], [0.05, 0.05, 0.01], [0.1, 0.03, 0.02], [0.12, -0.02, 0.02]]),
     ...cluster('bellR', 'mantle', [-0.17, 0.02, 0.03], [0, 0, 0], [[0, 0, 0], [-0.05, 0.05, 0.01], [-0.1, 0.03, 0.02], [-0.12, -0.02, 0.02]]),
-    ...cluster('bellC', 'hood', [0, 0.15, 0.0], [0, 0, 0], [[0, 0, 0], [0.0, 0.07, 0.03], [0.0, 0.08, 0.1], [0.0, 0.04, 0.15]]),
+    ...cluster('bellC', 'hood', [0, 0.15, 0.0], [0, 0, 0], [[0, 0, 0], [-0.01, 0.07, -0.02], [-0.06, 0.1, -0.05], [-0.13, 0.07, -0.06]]),
   ],
 };
