@@ -6,9 +6,9 @@ Owner: World Designer. **Version 2** (2026-09-24). This is a design spec: nothin
 - `design/DECISIONS.md` wins over every other document.
 - `design/ANCHORS.md`.
 - `design/creative_direction.md` (CD) for names, story, flags, and the Resonance registers.
-- `design/systems.md` (SY) for evolution levels and trainer levels.
-- `design/creatures.md` (CR) for species names and types. The D7 renames apply: c11 Lullstalk, c27 Emberfold, c30 Coronaleen.
-- `src/data/content/items.json` for item ids (D10).
+- `design/systems.md` **v2** (SY) for evolution levels and the 17 story battles (§14.2).
+- `design/creatures.md` (CR) for species names and types. The D7 and D29 renames apply: c11 Lullstalk, c21 Samarch, c24 Drapetide, c27 Emberfold, c30 Coronaleen; protagonist Hollis; Cantor Dorran Shale.
+- `src/data/content/items.json` for item ids (D10), with systems v2 §12.1 renames: `i_hush_1/2`, `i_thread`.
 - `src/world/zoneTypes.ts` for the zone data shape.
 
 **What changed from v1** (review `design/reviews/world_designer.md`):
@@ -16,13 +16,13 @@ Owner: World Designer. **Version 2** (2026-09-24). This is a design spec: nothin
 - **Resonance:** exactly 4 mandatory Resonance gates, each with a Steward. Any troupe member of the type can act, fainted or not. CD register names are used (D2).
 - **Rivals and starters:** 6 rival battles (D4). Unchosen starters come through `q_foster_leftover` / `q_second_clutch` (D5).
 - **Antagonists:** the Stillmark is a survey guild with no theft (D6).
-- **Names and ids:** renames (D7), items.json ids (D10), CD §4.2 flags.
+- **Names and ids:** renames (D7, D29), items.json ids (D10), CD §4.2 flags.
 - **Levels:** evolution levels from SY (D11). No wild stage-2/3 below its evolution level (D23), enforced by the generator.
 - **Cave:** single-level (D17).
 - **Wild creatures:** at most 6 roaming per zone (D21). Wild spawn and respawn timing follows the rendering document §2.6.
 - **Additions:** hand-placed `battleStages` for every zone, and 14 Waystones.
 
-> **Id note.** DECISIONS D10 lists `i_hush_1..2` and `i_thread`. The live `items.json` uses `i_repel_1..2` and `i_escape` (display names "Hush Incense" and "Homeward Thread"). D10 says items.json is the source, so this document uses **`i_repel_1/2`** and **`i_escape`**. See §11 Q1.
+> **Id note.** This document uses the D10 / systems v2 ids `i_hush_1..2` and `i_thread`. The current `items.json` still has the old ids (`i_repel_1..2`, `i_escape`), and systems §12.1 requires the rename.
 
 ---
 
@@ -89,7 +89,7 @@ Legend:
 - **Towns** have no wild encounters. `town_2` hosts trial_2 and `town_3` hosts trial_4.
 - **Extra zone:** `league` (Concord Spire), reached by the resonance lift from the Hoarcrown summit.
 
-Scene count: 14 exterior zones, plus 6 Cadence Hall interiors `trial_1..trial_6`, for 20 scenes. The Stillhouse is a walled compound inside `route_4`, not a separate scene.
+Scene count: 14 exterior zones, plus 6 Cadence Hall interiors `trial_1..trial_6`, plus 1 extra interior `stillhouse` (the Stillmark base, entered from `route_4`; systems §14.2 stages Vey 2 there with null attunement), for **21 scenes**.
 
 ### 1.3 Adjacency table (all bidirectional unless marked)
 
@@ -278,15 +278,15 @@ Terrain maps to `TerrainSpec`. Wild regions are circles `{at, r}`. `maxWild` = 6
 - **Terrain:** a 14 m cliff face along x = 15 separates the lower slope from the upper tier. The only way up is the **Gust updraft vent** `rn_route_4_01` at (20,5), which lands at (5,5): **mandatory Gust**. Resonance Steward at (26,10). A second vent at (8,5) takes the player back down.
 - **Landmarks:**
   - Ribbon-marker Chordstone on the lower slope (60,30), `ws_route_4`.
-  - **Stillhouse compound** in a cliff notch on the upper tier (x −80..−30, z −48..−20), with a west wing (−70,−30), an east wing (−40,−30), and a strays pen (−55,−42), where the leftover starter is found.
-  - Stillhouse back-door Seep grate `rn_route_4_03` (−70,−45), an optional shortcut.
+  - **Stillhouse door** in a cliff notch on the upper tier (−55,−25). It leads to the interior `stillhouse`.
+  - Stillhouse back door (−75,−42). It opens only from inside, via Seep node `rn_stillhouse_01`, as an optional shortcut.
   - Secret Gust vent `rn_route_4_02` (70,−35).
-- **Exits:** `x_route_4_e` (100,0); `x_route_4_w` (−100,0).
-- **Spawns:** `sp_route_4_e` (92,0,270); `sp_route_4_w` (−92,0,90); `sp_route_4_ws` (60,36,0).
+- **Exits:** `x_route_4_e` (100,0); `x_route_4_w` (−100,0); door `x_route_4_stillhouse` (−55,−25) → `sp_stillhouse_door`; back door `x_route_4_back` (−75,−42) → `sp_stillhouse_back`, after rn_stillhouse_01.
+- **Spawns:** `sp_route_4_e` (92,0,270); `sp_route_4_w` (−92,0,90); `sp_route_4_ws` (60,36,0); `sp_route_4_stillhouse` (−55,−19,180); `sp_route_4_back` (−75,−36,180).
 - **Wild regions:**
   - Lower slope, gale-rich, before the vent: {(70,−20),r20}, {(50,30),r15}.
   - Upper tier: {(−20,20),r18}.
-- **Battle stages:** (60,0,90), (−10,15,90), (−55,−32,90) for Vey 2; (−85,−5,90) for rival 4.
+- **Battle stages:** (60,0,90), (−10,15,90), (−85,−5,90) for rival 4.
 - **Peddler:** Wick's cart at (80,15).
 
 #### `volcano` — Mount Cindral
@@ -358,6 +358,19 @@ Terrain maps to `TerrainSpec`. Wild regions are circles `{at, r}`. `maxWild` = 6
 - **Battle stages:** (0,4,90), (0,−14,90).
 - **Wild:** none.
 
+#### `stillhouse` — the Stillhouse (interior; extra scene)
+- **Size/shape:** 60×40 interior. x ±30, z ±20. **Attuned:** none (null; systems §14.2). **Lighting:** interior. Music: the Stillhouse theme (CD §8.3).
+- **Landmarks:**
+  - West wing workshop (−18,5).
+  - East wing coil store (18,5).
+  - Vey's survey office (0,−8).
+  - Strays pen (0,−15), where the leftover starter is found.
+  - Back-door Seep grate `rn_stillhouse_01` (−25,−15).
+- **Exits:** door (0,20) → `sp_route_4_stillhouse`; back door (−28,−15) → `sp_route_4_back` (after the Seep).
+- **Spawns:** `sp_stillhouse_door` (0,14,0); `sp_stillhouse_back` (−22,−15,90).
+- **Battle stages:** (−18,−2,90), (18,−2,90), (0,0,90) for Vey 2.
+- **Wild:** none.
+
 #### Cadence Hall interiors `trial_1`..`trial_6` (40×60)
 - **Layout:** door (0,30); hall Tuner posts (−8,10) and (8,0); Cantor stage (0,−20).
 - **Battle stages:** (0,4,90) for hall Tuners; (0,−14,90) for the Cantor.
@@ -387,26 +400,26 @@ Terrain maps to `TerrainSpec`. Wild regions are circles `{at, r}`. `maxWild` = 6
 
 | Tier | Items |
 |---|---|
-| A | `i_chime_reed`, `i_salve_1`, `i_cure_burn`, `i_cure_poison`, `i_cure_para`, `i_cure_sleep`, `i_cure_frost`, `i_escape`. After trial_1 it adds `i_chime_brass`, `i_salve_2`, `i_repel_1`, and discs `i_disc_03` and `i_disc_11` (Larkhollow only). |
-| B | A, plus `i_cure_all`, `i_revive_1`, `i_charge_1` (after trial_2); `i_chime_silver`, `i_salve_3`, `i_repel_2` (after trial_3). Knellstone also sells discs `i_disc_01`, `i_disc_06`, `i_disc_08`, `i_disc_12`. |
-| C | B, plus `i_chime_crown`, `i_salve_4` (after trial_5). Galewick also sells `i_disc_14`, `i_disc_16`, `i_evo_prism`. |
+| A | `i_chime_reed`, `i_salve_1`, `i_cure_burn`, `i_cure_poison`, `i_cure_para`, `i_cure_sleep`, `i_cure_frost`, `i_thread`. After trial_1 it adds `i_chime_brass`, `i_salve_2`, `i_hush_1`, and discs `i_disc_03` and `i_disc_11` (Larkhollow only). |
+| B | A, plus `i_cure_all`, `i_revive_1`, `i_charge_1` (after trial_2); `i_chime_silver`, `i_salve_3`, `i_hush_2` (after trial_3). Knellstone also sells discs `i_disc_01`, `i_disc_06`, `i_disc_08`, `i_disc_12`. |
+| C | B, plus `i_chime_crown`, `i_salve_4` (after trial_5). Galewick also sells `i_evo_prism` (3000). Systems v2 sells no discs here. |
 | D | C, everything unlocked. |
 
-**Wick's cart** (traveling peddler). It appears at route_2 (35,65) and route_4 (80,15). The stock rotates **by Keynote count**, with no clock involved: 0–1 Keynotes `i_repel_1` ×3; 2 `i_cure_all`; 3 `i_charge_1`; 4 `i_revive_1`; 5 `i_salve_4`; 6 `i_chime_crown`. Each item costs the list price minus 10%.
+**Wick's cart** (traveling peddler). It appears at route_2 (35,65) and route_4 (80,15). The stock rotates **by Keynote count**, with no clock involved: 0–1 Keynotes `i_hush_1` ×3; 2 `i_cure_all`; 3 `i_charge_1`; 4 `i_revive_1`; 5 `i_salve_4`; 6 `i_chime_crown`. Each item costs the list price minus 10%.
 
 ### 2.2 Cadence Halls and champion (order is enforced by the graph and by the door checks)
 
-The hall Tuner count includes the mandatory hall Tuners. Trainer levels follow systems §14.1.
+The hall Tuner count includes the mandatory hall Tuners. Cantor teams are exactly systems v2 §14.2 (the ace is listed last).
 
 | Venue | Cantor (`t_cantor_N`) | Type | Door opens when | Hall Tuners | Cantor team (levels) | Reward |
 |---|---|---|---|---|---|---|
-| trial_1 Rootloft | Wren Mossgrave | verdant | `flag_stillmark_first_seen` | 2 | 2: 12, 14 | `i_keynote_1` → **Heave**; `i_disc_05` |
-| trial_2 Knell | Dorran Flint | stone | `flag_rival_2_done` | 2 | 3: 17, 18, 20 | `i_keynote_2` → **Seep**; `i_disc_10` |
-| trial_3 Mere | Nerys Tidewell | water | `flag_rival_3_done` | 2 (mandatory) | 3: 23, 24, 26 | `i_keynote_3` → **Gust**; `i_disc_02` |
-| trial_4 Vane | Tamsin Galloway | gale | `flag_trial_3_cleared` | 2 | 4: 29, 30, 30, 32 | `i_keynote_4` → **Veil**; `i_disc_13` |
-| trial_5 Forge | Bastian Coalridge | fire | `flag_rival_4_done` + vent cooled | 2 | 4: 35, 36, 36, 38 | `i_keynote_5` → **Rime**; `i_disc_15` |
-| trial_6 Rime | Isaure Frostmere | frost | `flag_trial_5_cleared` | 2 | 5: 40, 41, 41, 42, 43 | `i_keynote_6` → **Gleam**; `i_disc_18` |
-| champion | the Concordant, Rhea Rookwell | mixed, lumen ace | `flag_spire_open` ∧ `flag_rival_6_done` | — | 6: 46, 47, 47, 48, 48, 50 | `flag_champion_defeated` → `flag_game_cleared` |
+| trial_1 Rootloft | Wren Mossgrave | verdant | `flag_stillmark_first_seen` | 2 | 3: c10 10, c13 11, c11 12 | `i_keynote_1` → **Heave**; `i_disc_04` |
+| trial_2 Knell | Dorran Shale | stone | `flag_rival_2_done` | 2 | 3: c13 15, c22 16, c14 17 | `i_keynote_2` → **Seep**; `i_disc_05` |
+| trial_3 Mere | Nerys Tidewell | water | `flag_rival_3_done` | 2 (mandatory) | 4: c23 23, c17 23, c23 24, c08 25 | `i_keynote_3` → **Gust**; `i_disc_02` |
+| trial_4 Vane | Tamsin Galloway | gale | `flag_trial_3_cleared` | 2 | 4: c20 27, c14 28, c20 29, c21 30 | `i_keynote_4` → **Veil**; `i_disc_07` |
+| trial_5 Forge | Bastian Coalridge | fire | `flag_rival_4_done` + vent cooled | 2 | 5: c05 34, c14 35, c05 35, c15 36, c06 37 | `i_keynote_5` → **Rime**; `i_disc_16` |
+| trial_6 Rime | Isaure Frostmere | frost | `flag_trial_5_cleared` | 2 | 6: c17 41, c15 42, c09 43, c18 43, c24 44, c18 45 | `i_keynote_6` → **Gleam**; `i_disc_14` |
+| champion | the Concordant, Rhea Rookwell | mixed, lumen ace | `flag_spire_open` ∧ `flag_rival_6_done` | — | 6: c12 47, c24 47, c21 48, c15 48, c18 49, c30 50 | `flag_champion_defeated` → `flag_game_cleared` |
 
 ### 2.3 Resonance registers (D2, CD §6.2)
 
@@ -473,8 +486,8 @@ Chapters and beats are CD §4, and flags are CD §4.2. World-side placements fol
 | ev_15 | 6 | trial_3 | beat Nerys | `flag_trial_3_cleared` | Keynote 3 (Gust). The causeway rises and Marra moves to Galewick. |
 | ev_16 | 7 | trial_4 | beat Tamsin | `flag_trial_4_cleared`, `flag_odile_named` | Keynote 4 (Veil). Oriel's letter arrives at the Galewick Hearthrest. |
 | ev_17 | 8 | route_4 (20,5) | vent | `flag_route4_updraft` | Mandatory Gust. |
-| ev_18 | 8 | route_4 Stillhouse (−35,−25) | reach the compound gate | `flag_stillhouse_found` | Cass joins. Two wings: t_still_06 in the west, t_still_07 in the east. |
-| ev_19 | 8 | route_4 (−55,−35) | Vey's office | `flag_admin_vey_2` → `flag_leftover_rescued` | After Vey 2, the strays pen (−55,−42) opens. The leftover starter comes to the player's starter (CD ch8). Vey drops `i_disc_09`. |
+| ev_18 | 8 | route_4 Stillhouse door (−55,−25) | reach the door | `flag_stillhouse_found` | Cass joins. Inside the interior: west wing t_still_06, east wing t_still_07. |
+| ev_19 | 8 | stillhouse (0,−8) | Vey's office | `flag_admin_vey_2` → `flag_leftover_rescued` | After Vey 2, the strays pen (0,−15) opens. The leftover starter comes to the player's starter (CD ch8). Vey drops `i_disc_09`. |
 | ev_20 | 8 | route_4 (−85,−5) | compound exit | `flag_rival_4_done` | Rival 4 ("to see if we're even"). Unlocks the volcano exit. |
 | ev_21 | 9 | trial_5 | beat Bastian | `flag_trial_5_cleared` | Keynote 5 (Rime). Opens the Galewick north gate. |
 | ev_22 | 10 | route_5 (0,−65) | approach | `flag_rival_5_done` | Rival 5. |
@@ -495,7 +508,7 @@ Chapters and beats are CD §4, and flags are CD §4.2. World-side placements fol
 | c07 Rippleback (water) | c01 Fizzkit (electric) | c04 Wickwool | c01 Fizzkit |
 
 **`q_foster_leftover`**
-- Opens at `flag_leftover_rescued` (ch8, route_4 strays pen (−55,−42)).
+- Opens at `flag_leftover_rescued` (ch8, Stillhouse strays pen (0,−15)).
 - Step 1: return to Oriel in Larkhollow (fast travel).
 - Step 2: choose **[Foster it]** to receive stage 1 at **Lv 25**, which sets `flag_leftover_obtained`. **[Not yet]** leaves it in the fosterage pen (−25,−20), claimable any time.
 - It arrives above its evolution level (16), so it evolves at its first battle end unless cancelled (systems §8.3).
@@ -518,28 +531,29 @@ Register-unlock timing is given in §2.3. Starter-type secrets need the matching
 |---|---|---|---|---|
 | sec_01 | rn_town_1_01/02/03 (cluster) | Spark / Kindle / Swell | town_1 green (−8,−2), (−6,−6), (−12,−6) | First solved: `i_chime_reed` ×2 (CD tutorial). Each other node: `i_salve_1` |
 | sec_02 | rn_route_1_01 | Swell | route_1 (−24,−42) → islet (−30,−45) | `i_salve_2` ×2 |
-| sec_03 | rn_forest_02 | Kindle | forest thicket (−70,−45) | `i_disc_04` |
+| sec_03 | rn_forest_02 | Kindle | forest thicket (−70,−45) | `i_chime_brass` ×2, `i_salve_2` |
 | sec_04 | rn_forest_03 | Spark | forest lantern-lode (60,55) | `i_chime_brass` ×3 |
 | sec_05 | rn_route_2_01 | Heave | route_2 (25,40) | shortcut + `i_salve_2` |
 | sec_06 | rn_route_2_02 | Gust | route_2 kite ridge (30,−50) | `i_charge_1` |
 | sec_07 | rn_town_2_01 | Spark | town_2 crane (45,−30) | `i_chime_silver` |
-| sec_08 | rn_cave_02 | Spark | cave brass lift (40,0) | `i_disc_17` on the upper ledge (45,10) |
+| sec_08 | rn_cave_02 | Spark | cave brass lift (40,0) | `i_chime_silver` ×2 on the upper ledge (45,10) |
 | sec_09 | rn_cave_03 | Heave | cave (60,78) | tunnel to route_2 |
 | sec_10 | rn_cave_04 | Seep | cave (−70,20) | `i_revive_1` |
+| sec_10b | rn_cave_06 | Heave | cave lower galleries boulder (−70,−75) | `i_disc_13` (systems §12.2) |
 | sec_11 | rn_route_3_01 | Seep | route_3 (40,30) | `i_cure_all` ×2 |
 | sec_12 | rn_route_3_02 | Veil | route_3 (−60,30) | `i_salve_3` + tale page 1 |
 | sec_13 | rn_lake_01 | Swell | lake (65,−45) → reed-isle (45,−45) | `i_chime_silver` ×2 |
 | sec_14 | rn_lake_02 | Heave | lake (0,90) | shortcut to town_2 |
 | sec_15 | rn_town_3_01 | Spark | town_3 lighthouse (60,−60) | `i_charge_2` |
-| sec_16 | rn_town_3_02 | Veil | town_3 cellar (−35,−28) | `i_revive_2` + tale page 3 |
-| sec_17 | rn_route_4_02 | Gust | route_4 (70,−35) | `i_disc_07` |
-| sec_18 | rn_route_4_03 | Seep | route_4 (−70,−45) | Stillhouse back door |
+| sec_16 | rn_town_3_02 | Veil | town_3 cellar (−35,−28) | `i_disc_17` (systems §12.2 Veil secret) + tale page 3 |
+| sec_17 | rn_route_4_02 | Gust | route_4 (70,−35) | `i_charge_2` |
+| sec_18 | rn_stillhouse_01 | Seep | stillhouse (−25,−15) | back door to route_4 (−75,−42) |
 | sec_19 | rn_volcano_02 | Kindle | volcano (−70,−60) | `i_revive_2` |
 | sec_20 | rn_volcano_03 | Seep | volcano (60,−60) | `i_salve_4` |
 | sec_21 | rn_route_5_01 | Heave | route_5 (−35,−40) | `i_charge_2` |
 | sec_22 | rn_route_5_02 | Veil | route_5 (30,20) | `i_salve_4` |
 | sec_23 | rn_snowpeak_02 | Kindle | snowpeak ice plug (70,40) | `i_chime_crown` |
-| sec_24 | rn_snowpeak_03 | Gleam | snowpeak (−70,−70) | `i_revive_2` |
+| sec_24 | rn_snowpeak_03 | Gleam | snowpeak (−70,−70) | `i_disc_10` (systems §12.2 Gleam secret) |
 | sec_25 | rn_route_1_02 | Gleam | route_1 Old Chord Shrine (35,−60), after `flag_game_cleared` | cosmetic Ledger clasp + `i_chime_crown` ×2 |
 
 (Tale page 2 is in the cave; see q_side_veil_tales.)
@@ -575,13 +589,15 @@ Register-unlock timing is given in §2.3. Starter-type secrets need the matching
 | npc_hamlet ×4 | lake | around (55,65) | ambient | Stilt-hamlet life. |
 
 **Character-builder archetypes** (release gate GC-02).
-- **Named unique builders (21):** Arden (the protagonist), Oriel, Cass, Rhea, Odile, Brann, Vey, the 6 Cantors, Marra, Wick, Maud, Tobin, Ysolde, Pip, Garrow, Nell.
+- **Named unique builders (21):** Hollis (the protagonist), Oriel, Cass, Rhea, Odile, Brann, Vey, the 6 Cantors, Marra, Wick, Maud, Tobin, Ysolde, Pip, Garrow, Nell.
 - **Shared archetypes (8):** hearthkeeper, chandler, steward, stillmark_engineer, villager_adult, villager_child, miner, hall_tuner.
 - **Trainer-class archetypes (12):** hiker, kite_flyer, scout, bell_ringer, fen_wader, angler, sail_hand, cliff_runner, forge_hand, pilgrim, ski_patrol, aurora_chaser.
 
 ### 2.9 Trainers
 
-Levels follow systems §14.1 for major battles. Optional trainers have ≤ 3 kin from ch5 onward (D23). Sight range is 8 m (0 = must talk). M = mandatory (story or path), O = optional.
+**The 17 story battles** (`t_rival_1..6`, `t_cantor_1..6`, `t_admin_brann_1`, `t_admin_vey_1`, `t_admin_vey_2`, `t_odile`, `t_champion`) use **exactly the teams and levels of systems v2 §14.2**. RS = the rival's starter line (§2.6); stage 2 from rival 2 onward, stage 3 from rival 5 onward.
+
+Other trainers follow the systems §14.1 legality rules and the §14.4 route-trainer bands. Optional trainers have ≤ 3 kin from ch5 onward (D23). Sight range is 8 m (0 = must talk). M = mandatory (story or path), O = optional.
 
 | Id | Zone | Pos (x,z) | Archetype | Size | Lv | Families | M/O |
 |---|---|---|---|---|---|---|---|
@@ -596,65 +612,65 @@ Levels follow systems §14.1 for major battles. Optional trainers have ≤ 3 kin
 | t_still_02 | forest | (32,−22) | stillmark_engineer | 2 | 10–11 | f09, f08 | M |
 | t_hall1_01 | trial_1 | (−8,10) | hall_tuner | 2 | 10–11 | f04 | M |
 | t_hall1_02 | trial_1 | (8,0) | hall_tuner | 2 | 11–12 | f04, f07 | M |
-| t_cantor_1 | trial_1 | (0,−20) | Wren | 2 | 12, 14 | c10 Dozebud 12, ace c20 Whirlseed (gale·verdant) 14 | M |
+| t_cantor_1 | trial_1 | (0,−20) | Wren | 3 | 10, 11, 12 | c10, c13, c11 ace | M |
 | t_r2_01 | route_2 | (10,70) | hiker | 2 | 12–13 | f05, f07 | O |
 | t_r2_02 | route_2 | (−25,40) | bell_ringer | 2 | 13–14 | f05, f08 | O |
 | t_r2_03 | route_2 | (20,0) | kite_flyer | 3 | 13–14 | f07, f07, f10 | O |
 | t_r2_04 | route_2 | (−10,−35) | scout | 2 | 14–15 | f09, f04 | O |
-| t_rival_2 | route_2 | (0,−70) | Cass | 2 | 15, 17 | starter + f07 | M |
-| t_hall2_01 | trial_2 | (−8,10) | hall_tuner | 2 | 15–16 | f05 | M |
-| t_hall2_02 | trial_2 | (8,0) | hall_tuner | 3 | 16–17 | f05, f05, f07 | M |
-| t_cantor_2 | trial_2 | (0,−20) | Dorran | 3 | 17, 18, 20 | f05 (c13, c13, c14 ace) | M |
+| t_rival_2 | route_2 | (0,−70) | Cass | 2 | 14, 16 | c20, RS2 ace | M |
+| t_hall2_01 | trial_2 | (−8,10) | hall_tuner | 2 | 13–14 | f05 | M |
+| t_hall2_02 | trial_2 | (8,0) | hall_tuner | 2 | 14–15 | f05, f07 | M |
+| t_cantor_2 | trial_2 | (0,−20) | Dorran Shale | 3 | 15, 16, 17 | c13, c22, c14 ace | M |
 | t_cv_01 | cave | (60,−20) | miner | 2 | 17–18 | f05, f08 | O |
 | t_cv_02 | cave | (30,40) | miner | 3 | 17–19 | f05, f09, f08 | O |
 | t_cv_03 | cave | (−40,50) | scout | 2 | 19–20 | f09, f08 | O |
 | t_still_03 | cave | (−20,−30) | stillmark_engineer | 2 | 19–20 | f05, f08 | M |
 | t_still_04 | cave | (−40,−45) | stillmark_engineer | 2 | 19–20 | f09, f05 | M |
-| t_admin_brann_1 | cave | (−50,−58) | Brann | 2 | 20, 22 | f05 (c14), f06 (c17) | M |
+| t_admin_brann_1 | cave | (−50,−58) | Brann | 3 | 18, 19, 20 | c22, c25, c23 ace | M |
 | t_r3_01 | route_3 | (70,10) | fen_wader | 3 | 20–21 | f08, f08, f04 | O |
 | t_r3_02 | route_3 | (30,−25) | angler | 2 | 21–22 | f08, f07 | O |
 | t_r3_03 | route_3 | (−10,25) | fen_wader | 3 | 21–22 | f04, f09, f08 | O |
 | t_r3_04 | route_3 | (−70,−15) | scout | 2 | 22–23 | f05, f10 | O |
 | t_still_05 | route_3 | (−35,−8) | stillmark_engineer | 2 | 21–22 | f08, f09 | M |
-| t_admin_vey_1 | route_3 | (−25,5) | Vey | 3 | 21, 22, 23 | f08, f09, f08 (c23 ace) | M |
-| t_rival_3 | route_3 | (90,0) | Cass | 3 | 21, 22, 24 | starter + f07 + f05 | M |
+| t_admin_vey_1 | route_3 | (−25,5) | Vey | 3 | 21, 21, 22 | c25, c28, c23 ace | M |
+| t_rival_3 | route_3 | (90,0) | Cass | 3 | 21, 22, 23 | c20, c14, RS2 ace | M |
 | t_lk_01 | lake | (40,80) | angler | 3 | 23–24 | f08, f04, f10 | O |
 | t_lk_02 | lake | (−60,40) | sail_hand | 2 | 23–25 | f07, f08 | O |
 | t_lk_03 | lake | (−70,−30) | angler | 3 | 24–25 | f08, f09, f04 | O |
 | t_lk_04 | lake | (70,−10) | sail_hand | 3 | 24–25 | f07, f10, f05 | O |
 | t_hall3_01 | trial_3 | (−8,10) | hall_tuner | 2 | 22–23 | f08 (c23) | M |
 | t_hall3_02 | trial_3 | (8,0) | hall_tuner | 3 | 23–24 | f08, f03 | M |
-| t_cantor_3 | trial_3 | (0,−20) | Nerys | 3 | 23, 24, 26 | c23, c23, c08 ace | M |
-| t_hall4_01 | trial_4 | (−8,10) | hall_tuner | 3 | 27–28 | f07 | M |
-| t_hall4_02 | trial_4 | (8,0) | hall_tuner | 3 | 28–29 | f07, f10 | M |
-| t_cantor_4 | trial_4 | (0,−20) | Tamsin | 4 | 29, 30, 30, 32 | c20, c20, c29, c21 ace | M |
+| t_cantor_3 | trial_3 | (0,−20) | Nerys | 4 | 23, 23, 24, 25 | c23, c17, c23, c08 ace | M |
+| t_hall4_01 | trial_4 | (−8,10) | hall_tuner | 3 | 26–27 | f07 | M |
+| t_hall4_02 | trial_4 | (8,0) | hall_tuner | 3 | 27–28 | f07, f10 | M |
+| t_cantor_4 | trial_4 | (0,−20) | Tamsin | 4 | 27, 28, 29, 30 | c20, c14, c20, c21 ace | M |
 | t_r4_01 | route_4 | (70,−5) | cliff_runner | 3 | 29–30 | f07, f05 | O |
 | t_r4_02 | route_4 | (40,20) | kite_flyer | 3 | 30–31 | f07, f10 | O |
 | t_r4_03 | route_4 | (−10,−25) | cliff_runner | 3 | 31–32 | f05, f09 | O |
-| t_still_06 | route_4 | (−70,−30) | stillmark_engineer | 3 | 31–32 | f08, f05, f09 | M |
-| t_still_07 | route_4 | (−40,−30) | stillmark_engineer | 3 | 32 | f09, f08, f06 | M |
-| t_admin_vey_2 | route_4 | (−55,−38) | Vey | 3 | 32, 33, 34 | f09 (c26), f08 (c24 ace) | M |
-| t_rival_4 | route_4 | (−85,−5) | Cass | 4 | 32, 33, 34, 35 | starter (stage 3 at 35) + 3 | M |
+| t_still_06 | stillhouse | (−18,5) | stillmark_engineer | 3 | 30–31 | f08, f05, f09 | M |
+| t_still_07 | stillhouse | (18,5) | stillmark_engineer | 3 | 31 | f09, f08, f06 | M |
+| t_admin_vey_2 | stillhouse | (0,−8) | Vey | 4 | 31, 31, 32, 33 | c26, c23, c29, c26 ace | M |
+| t_rival_4 | route_4 | (−85,−5) | Cass | 4 | 31, 31, 32, 33 | c21, c14, c26, RS2 ace | M |
 | t_vo_01 | volcano | (60,30) | forge_hand | 3 | 33–34 | f05, f08 | O |
 | t_vo_02 | volcano | (20,−10) | forge_hand | 3 | 34–35 | f05, f09 | O |
 | t_vo_03 | volcano | (−60,−20) | hiker | 3 | 35–36 | f07, f08, f05 | O |
-| t_hall5_01 | trial_5 | (−8,10) | hall_tuner | 3 | 34–35 | f02, f05 | M |
-| t_hall5_02 | trial_5 | (8,0) | hall_tuner | 3 | 35–36 | f08, f02 | M |
-| t_cantor_5 | trial_5 | (0,−20) | Bastian | 4 | 35, 36, 36, 38 | c14, c05, c24, c06 ace | M |
+| t_hall5_01 | trial_5 | (−8,10) | hall_tuner | 3 | 33–34 | f02, f05 | M |
+| t_hall5_02 | trial_5 | (8,0) | hall_tuner | 3 | 34–35 | f08, f02 | M |
+| t_cantor_5 | trial_5 | (0,−20) | Bastian | 5 | 34, 35, 35, 36, 37 | c05, c14, c05, c15, c06 ace | M |
 | t_r5_01 | route_5 | (15,70) | pilgrim | 3 | 37–38 | f10, f06 | O |
 | t_r5_02 | route_5 | (−20,30) | ski_patrol | 3 | 38–39 | f06, f07 | O |
 | t_r5_03 | route_5 | (20,−20) | pilgrim | 3 | 39–40 | f09, f10, f05 | O |
-| t_rival_5 | route_5 | (0,−70) | Cass | 5 | 39, 40, 40, 41, 42 | starter (stage 3) + 4, own picks | M |
+| t_rival_5 | route_5 | (0,−70) | Cass | 5 | 38, 38, 38, 39, 40 | c21, c15, c18, c26, RS3 ace | M |
 | t_sp_01 | snowpeak | (−30,75) | ski_patrol | 3 | 40–41 | f06, f07 | O |
 | t_sp_02 | snowpeak | (−40,10) | aurora_chaser | 3 | 41–42 | f10, f06 | O |
 | t_sp_03 | snowpeak | (60,0) | aurora_chaser | 3 | 42–43 | f06, f09, f10 | O |
 | t_hall6_01 | trial_6 | (−8,10) | hall_tuner | 3 | 40–41 | f06 | M |
 | t_hall6_02 | trial_6 | (8,0) | hall_tuner | 3 | 41–42 | f06, f10 | M |
-| t_cantor_6 | trial_6 | (0,−20) | Isaure | 5 | 40, 41, 41, 42, 43 | c17, c17, c09, c18, c18 ace | M |
+| t_cantor_6 | trial_6 | (0,−20) | Isaure | 6 | 41, 42, 43, 43, 44, 45 | c17, c15, c09, c18, c24, c18 ace | M |
 | t_still_08 | snowpeak | (−10,−50) | stillmark_engineer | 3 | 42–43 | f08, f09, f06 | M |
-| t_odile | snowpeak | (0,−84) | Odile | 6 (phase A 3 + phase B 3) | A: 42, 43, 43. B: 44, 45, 46 | A: f08, f10, f09; B: f10, f08, ace c27 Emberfold | M |
-| t_rival_6 | league | (0,10) | Cass | 6 | 44, 45, 45, 46, 46, 47 | starter (stage 3) + 5 | M |
-| t_champion | league | (0,−20) | Rhea | 6 | 46, 47, 47, 48, 48, 50 | f04, f07, f06, f05, f09 (stage 3s), ace c30 Coronaleen | M |
+| t_odile | snowpeak | (0,−84) | Odile | 4 (phase A 3 + phase B 1; systems §14.3) | A: 42, 43, 44. B: 46 | A: c24, c29, c26; B: ace c27 Emberfold | M |
+| t_rival_6 | league | (0,10) | Cass | 6 | 45, 46, 46, 46, 47, 48 | c21, c15, c18, c27, c12, RS3 ace | M |
+| t_champion | league | (0,−20) | Rhea | 6 | 47, 47, 48, 48, 49, 50 | c12, c24, c21, c15, c18, ace c30 Coronaleen | M |
 | t_rival_post | town_1 | (5,−35) | Cass | 6 | 55 | mixed | O (post-game) |
 
 **Totals:**
@@ -803,10 +819,9 @@ Levels follow systems §14.1 for major battles. Optional trainers have ≤ 3 kin
 | c13 | Rollith | stone (1) | 19–20 | 10 | — | 0.100 | 0.083 | 0.105 | — | — | — |
 | c14 | Cairnback | stone (2) | 20–23 | 10 | 5 | 0.100 | 0.082 | 0.105 | 0.050 | 0.041 | 0.036 |
 | c20 | Whirlseed | gale·verdant (2) | 19–23 | 15 | — | 0.150 | 0.062 | 0.079 | — | — | — |
-| c22 | Ringdrip | toxin (1) | 19–21 | 25 | 20 | 0.250 | 0.309 | 0.263 | 0.200 | 0.248 | 0.145 |
+| c22 | Ringdrip | toxin (1) | 19–21 | 25 | 20 | 0.250 | 0.309 | 0.263 | 0.200 | 0.248 | 0.146 |
 | c23 | Brineloop | toxin·water (2) | 19–23 | 20 | 20 | 0.200 | 0.247 | 0.211 | 0.200 | 0.247 | 0.145 |
-| c25 | Snipling | shade (1) | 19–23 | — | 25 | — | — | — | 0.250 | 0.206 | 0.364 |
-| c26 | Marionyx | shade (2) | 24 | — | 5 | — | — | — | 0.050 | 0.041 | 0.073 |
+| c25 | Snipling | shade (1) | 19–23 | — | 30 | — | — | — | 0.300 | 0.247 | 0.436 |
 | c28 | Dawnfry | lumen (1) | 20–23 | 5 | 15 | 0.050 | 0.031 | 0.079 | 0.150 | 0.093 | 0.164 |
 | **Sum** | | | | 100 | 100 | **1.000** | **1.000** | **1.000** | **1.000** | **1.000** | **1.000** |
 
@@ -833,7 +848,7 @@ Levels follow systems §14.1 for major battles. Optional trainers have ≤ 3 kin
 | c14 | Cairnback | stone (2) | 28–32 | 20 | 10 | 0.200 | 0.219 | 0.100 | 0.103 |
 | c19 | Gustling | gale (1) | 28–29 | 10 | — | 0.100 | 0.055 | — | — |
 | c20 | Whirlseed | gale·verdant (2) | 28–29 | 30 | 15 | 0.300 | 0.164 | 0.150 | 0.077 |
-| c21 | Samaraptor | gale·verdant (3) | 30–32 | 5 | — | 0.050 | 0.028 | — | — |
+| c21 | Samarch | gale·verdant (3) | 30–32 | 5 | — | 0.050 | 0.028 | — | — |
 | c23 | Brineloop | toxin·water (2) | 28–32 | 20 | 20 | 0.200 | 0.329 | 0.200 | 0.308 |
 | c25 | Snipling | shade (1) | 28–29 | — | 10 | — | — | 0.100 | 0.103 |
 | c26 | Marionyx | shade (2) | 28–32 | — | 25 | — | — | 0.250 | 0.256 |
@@ -848,9 +863,9 @@ Levels follow systems §14.1 for major battles. Optional trainers have ≤ 3 kin
 | c14 | Cairnback | stone (2) | 32–35 | 30 | 20 | 0.300 | 0.323 | 0.353 | 0.200 | 0.274 | 0.154 |
 | c15 | Lodestodon | stone·electric (3) | 36–37 | 5 | 5 | 0.050 | 0.054 | 0.059 | 0.050 | 0.068 | 0.039 |
 | c20 | Whirlseed | gale·verdant (2) | 32–33 | 15 | — | 0.150 | 0.161 | 0.088 | — | — | — |
-| c21 | Samaraptor | gale·verdant (3) | 32–36 | 15 | 10 | 0.150 | 0.161 | 0.088 | 0.100 | 0.137 | 0.038 |
+| c21 | Samarch | gale·verdant (3) | 32–36 | 15 | 10 | 0.150 | 0.161 | 0.088 | 0.100 | 0.137 | 0.038 |
 | c23 | Brineloop | toxin·water (2) | 32–34 | 30 | 20 | 0.300 | 0.258 | 0.353 | 0.200 | 0.219 | 0.154 |
-| c24 | Venomantle | toxin·water (3) | 34–37 | 5 | 10 | 0.050 | 0.043 | 0.059 | 0.100 | 0.110 | 0.077 |
+| c24 | Drapetide | toxin·water (3) | 34–37 | 5 | 10 | 0.050 | 0.043 | 0.059 | 0.100 | 0.110 | 0.077 |
 | c26 | Marionyx | shade (2) | 32–37 | — | 35 | — | — | — | 0.350 | 0.192 | 0.538 |
 | **Sum** | | | | 100 | 100 | **1.000** | **1.000** | **1.000** | **1.000** | **1.000** | **1.000** |
 
@@ -862,7 +877,7 @@ Levels follow systems §14.1 for major battles. Optional trainers have ≤ 3 kin
 | c15 | Lodestodon | stone·electric (3) | 37–41 | 10 | — | 0.100 | 0.069 | 0.097 | — | — | — |
 | c16 | Rimelet | frost (1) | 37–39 | 20 | 15 | 0.200 | 0.276 | 0.195 | 0.150 | 0.222 | 0.102 |
 | c17 | Sleetribbon | frost (2) | 37–41 | 25 | 20 | 0.250 | 0.345 | 0.244 | 0.200 | 0.297 | 0.136 |
-| c21 | Samaraptor | gale·verdant (3) | 37–41 | 15 | 5 | 0.150 | 0.103 | 0.073 | 0.050 | 0.037 | 0.017 |
+| c21 | Samarch | gale·verdant (3) | 37–41 | 15 | 5 | 0.150 | 0.103 | 0.073 | 0.050 | 0.037 | 0.017 |
 | c25 | Snipling | shade (1) | 37–38 | — | 10 | — | — | — | 0.100 | 0.074 | 0.135 |
 | c26 | Marionyx | shade (2) | 37–39 | — | 25 | — | — | — | 0.250 | 0.185 | 0.339 |
 | c27 | Emberfold | shade·fire (3) | 40–41 | — | 5 | — | — | — | 0.050 | 0.037 | 0.068 |
@@ -877,7 +892,7 @@ Levels follow systems §14.1 for major battles. Optional trainers have ≤ 3 kin
 | c16 | Rimelet | frost (1) | 40–41 | 15 | 10 | 0.150 | 0.200 | 0.143 | 0.100 | 0.138 | 0.070 |
 | c17 | Sleetribbon | frost (2) | 40–44 | 30 | 25 | 0.300 | 0.400 | 0.286 | 0.250 | 0.345 | 0.175 |
 | c18 | Borealoop | frost·lumen (3) | 40–44 | 5 | 10 | 0.050 | 0.067 | 0.048 | 0.100 | 0.138 | 0.070 |
-| c21 | Samaraptor | gale·verdant (3) | 40–44 | 15 | — | 0.150 | 0.100 | 0.071 | — | — | — |
+| c21 | Samarch | gale·verdant (3) | 40–44 | 15 | — | 0.150 | 0.100 | 0.071 | — | — | — |
 | c26 | Marionyx | shade (2) | 40–41 | — | 15 | — | — | — | 0.150 | 0.103 | 0.210 |
 | c27 | Emberfold | shade·fire (3) | 40–44 | — | 15 | — | — | — | 0.150 | 0.103 | 0.211 |
 | c29 | Lumarlin | lumen (2) | 40–44 | 20 | 20 | 0.200 | 0.133 | 0.286 | 0.200 | 0.138 | 0.211 |
@@ -931,12 +946,12 @@ Levels follow systems §14.1 for major battles. Optional trainers have ≤ 3 kin
 | c18 | Borealoop | f06 / 3 | frost·lumen | wild snowpeak; evolve 38 | ch11 |
 | c19 | Gustling | f07 / 1 | gale | wild route_1, forest, route_2, route_4 | ch1 |
 | c20 | Whirlseed | f07 / 2 | gale·verdant | wild route_2 (14–16), route_3, lake, route_4, volcano; evolve 14 | ch3 |
-| c21 | Samaraptor | f07 / 3 | gale·verdant | wild route_4 (30–32), volcano, route_5, snowpeak; evolve 30 | ch8 |
+| c21 | Samarch | f07 / 3 | gale·verdant | wild route_4 (30–32), volcano, route_5, snowpeak; evolve 30 | ch8 |
 | c22 | Ringdrip | f08 / 1 | toxin | wild route_1 (night), forest, route_2, cave, route_3, lake | ch1 |
 | c23 | Brineloop | f08 / 2 | toxin·water | wild cave, route_3, lake, route_4, volcano; evolve 18 | ch4 |
-| c24 | Venomantle | f08 / 3 | toxin·water | wild volcano (34–37); evolve 34 | ch9 |
+| c24 | Drapetide | f08 / 3 | toxin·water | wild volcano (34–37); evolve 34 | ch9 |
 | c25 | Snipling | f09 / 1 | shade | wild route_1 (night), forest (night), route_2 (night), cave (any time), route_3, lake, route_4, route_5 | ch1 |
-| c26 | Marionyx | f09 / 2 | shade | wild route_3 (night, 24), lake, route_4, volcano, route_5, snowpeak; evolve 24 | ch5 |
+| c26 | Marionyx | f09 / 2 | shade | wild lake (night, 24–27), route_4, volcano, route_5, snowpeak; evolve 24 | ch6 |
 | c27 | Emberfold | f09 / 3 | shade·fire | wild route_5 (night, 40–41), snowpeak (night); evolve 40 | ch10 |
 | c28 | Dawnfry | f10 / 1 | lumen | wild route_1, forest, route_2 (night), route_3, lake, route_4 | ch1 |
 | c29 | Lumarlin | f10 / 2 | lumen | wild lake (26–27), route_4, route_5, snowpeak; evolve 26 | ch6 |
@@ -963,17 +978,17 @@ Main quests use CD ids `q_main_ch01..ch12`, and each completes on its chapter's 
 | Id | Prereq | Steps (flags, CD §4) | Reward |
 |---|---|---|---|
 | q_main_ch01 | new game | starter → rival 1 → tutorial → capture tutorial → route_1 Waystone | starter, Ledger, 5 `i_chime_reed`, 3 `i_salve_1` |
-| q_main_ch02 | `flag_capture_tutorial` | Rootgate → Stillmark sighting → trial_1 | `i_keynote_1`, `i_disc_05`, 200 |
-| q_main_ch03 | `flag_trial_1_cleared` | rival 2 → trial_2 | `i_keynote_2`, `i_disc_10`, 375 |
+| q_main_ch02 | `flag_capture_tutorial` | Rootgate → Stillmark sighting → trial_1 | `i_keynote_1`, `i_disc_04`, 200 |
+| q_main_ch03 | `flag_trial_1_cleared` | rival 2 → trial_2 | `i_keynote_2`, `i_disc_05`, 375 |
 | q_main_ch04 | `flag_trial_2_cleared` | Heave gate → Brann → miners saved | 500, `i_chime_brass` ×3 |
 | q_main_ch05 | `flag_cave_miners_saved` | Vey 1 → fen stone restored → rival 3 | 500 |
 | q_main_ch06 | `flag_rival_3_done` | trial_3 | `i_keynote_3`, `i_disc_02`, 625 |
-| q_main_ch07 | `flag_trial_3_cleared` | trial_4 → Odile named | `i_keynote_4`, `i_disc_13`, 875 |
+| q_main_ch07 | `flag_trial_3_cleared` | trial_4 → Odile named | `i_keynote_4`, `i_disc_07`, 875 |
 | q_main_ch08 | `flag_trial_4_cleared` | Gust ascent → Stillhouse → Vey 2 → leftover rescued → rival 4 | `i_disc_09`, 1000 |
-| q_main_ch09 | `flag_rival_4_done` | vent → trial_5 | `i_keynote_5`, `i_disc_15`, 1125 |
+| q_main_ch09 | `flag_rival_4_done` | vent → trial_5 | `i_keynote_5`, `i_disc_16`, 1125 |
 | q_main_ch10 | `flag_trial_5_cleared` | rival 5 → Odile revealed | 750 |
-| q_main_ch11 | `flag_odile_revealed` | Rime falls → trial_6 → Brann → Odile → Null Bell | `i_keynote_6`, `i_disc_18`, 2000, `i_chime_crown` |
-| q_main_ch12 | `flag_nullbell_broken` ∧ all trials | Spire open → rival 6 → Concordant | 3750, credits |
+| q_main_ch11 | `flag_odile_revealed` | Rime falls → trial_6 → Brann → Odile → Null Bell | `i_keynote_6`, `i_disc_14`, 2000, `i_chime_crown` |
+| q_main_ch12 | `flag_nullbell_broken` ∧ all trials | Spire open → rival 6 → Concordant | 0 (systems §12.4: the final quest pays nothing), credits |
 
 | Id | Giver @ zone | Prereq | Steps | Reward |
 |---|---|---|---|---|
@@ -983,9 +998,9 @@ Main quests use CD ids `q_main_ch01..ch12`, and each completes on its chapter's 
 | q_side_hollow_hum | npc_hollow_warden, forest | `flag_stillmark_first_seen` | re-wake 4 hollow trees at (−40,60), (50,30), (−75,0), (15,−10). Each accepts Rootcall, Spark, Kindle **or** an `i_q_glowcap` (4 lie visible at (−30,30), (65,45), (−65,−30), (5,55)) → return | `i_chime_brass` ×3, `i_salve_2` ×2 |
 | q_side_offkey_bells | npc_bellwright, town_2 | `flag_rival_2_done` | retune 3 bells: Spark at each (−10,−30), (30,−20), (−45,−35), **or** bring 3 `i_q_clapper` from route_2 (40,70), (−40,0), (25,−40) → return | 750, `i_cure_all` ×2 |
 | q_side_miners_samples | npc_foreman, cave | `flag_trial_2_cleared` | find 4 hidden crystal samples: cave (75,−40), (20,70) upper; (−75,40), (−20,−75) lower → return | `i_chime_silver` ×3, 1000 |
-| q_side_kinsong_survey | npc_marra | `flag_rival_2_done` | stage 1: 10 species sung; stage 2: 20; stage 3: 30 | S1 `i_chime_brass` ×5; S2 `i_chime_silver` ×5 + 1500; S3 Kinsong gold edging (cosmetic) + `i_chime_crown` ×2 |
+| q_side_kinsong_survey | npc_marra | `flag_rival_2_done` | stage 1: 10 species sung; stage 2: 20; stage 3: 30 | S1 `i_chime_brass` ×5; S2 **`i_disc_18`** + `i_chime_silver` ×3 + 1500; S3 Kinsong gold edging (cosmetic) + `i_chime_crown` ×2 |
 | q_side_veil_tales | npc_storyteller, route_3 | `i_keynote_4` | pass 3 Veil curtains (route_3 (−60,30); cave (−80,−20) `rn_cave_05`; town_3 cellar (−35,−28)); read the tale pages → return | 1000, `i_revive_2` |
-| q_side_kite_contest | npc_kitewright, town_3 | `i_keynote_3` | Gust at route_2 (30,−50), route_4 (70,−35), town_3 cliff vent (−60,−60) `rn_town_3_03` to retrieve 3 kites → return | 750, `i_salve_3` ×3 |
+| q_side_kite_contest | npc_kitewright, town_3 | `i_keynote_3` | Gust at route_2 (30,−50), route_4 (70,−35), town_3 cliff vent (−60,−60) `rn_town_3_03` to retrieve 3 kites → return | **`i_disc_15`** (systems §12.2, ch7 town_3 side quest), 750 |
 | q_side_market_courier | npc_courier, town_3 | `flag_trial_3_cleared` | deliver a parcel to npc_hk_volcano (after `flag_rival_4_done`) → return the reply | `i_chime_silver` ×5, 1250 |
 | q_side_gleam_beacons | npc_beaconkeeper, lake | `i_keynote_6` | Gleam 3 shore beacons (−60,−50), (60,−20), (−40,60) (`rn_lake_03..05`) → return | `i_salve_4` ×3, 750 |
 | q_side_rival_rematch | npc_cass, town_1 | `flag_game_cleared` | defeat t_rival_post | `i_chime_crown`, 1500 |
@@ -1006,16 +1021,16 @@ Ids are `pk_<zone>_<nn>`, one-time, and saved in the collected set.
 | town_1 | H | (3,−2) | `i_chime_reed` ×1 |
 | route_1 | V | (20,50) | `i_chime_reed` ×3 |
 | route_1 | V | (−30,10) | `i_cure_poison` ×1 |
-| route_1 | H | (−15,60) | `i_salve_1` ×2 |
+| route_1 | H | (−15,60) | coin pouch 200 |
 | forest | V | (−20,50) | `i_salve_1` ×2 |
 | forest | V | (50,20) | `i_cure_sleep` ×2 |
 | forest | V | (−60,−20) | `i_chime_reed` ×3 |
-| forest | H | (70,−10) | `i_escape` ×1 |
+| forest | H | (70,−10) | `i_thread` ×1 |
 | route_2 | V | (−30,60) | `i_salve_2` ×1 |
 | route_2 | V | (35,−10) | `i_chime_brass` ×2 |
 | route_2 | H | (0,−20) | `i_revive_1` ×1 |
 | town_2 | V | (−50,30) | `i_cure_all` ×1 |
-| town_2 | H | (−30,−40) | `i_charge_1` ×1 |
+| town_2 | H | (−30,−40) | coin pouch 800 |
 | cave | V | (50,40) | `i_salve_2` ×2 |
 | cave | V | (−10,50) | `i_chime_brass` ×2 |
 | cave | V | (−60,−10) | `i_cure_all` ×1 |
@@ -1025,7 +1040,7 @@ Ids are `pk_<zone>_<nn>`, one-time, and saved in the collected set.
 | lake | V | (−50,40) | `i_salve_3` ×1 |
 | lake | V | (70,30) | `i_revive_1` ×1 |
 | lake | V | (−80,−60) | `i_chime_silver` ×2 |
-| lake | H | (30,90) | `i_charge_1` ×2 |
+| lake | H | (30,90) | coin pouch 800 |
 | town_3 | H | (50,−50) | `i_revive_1` ×1 |
 | route_4 | V | (70,30) | `i_salve_3` ×1 |
 | route_4 | V | (0,20) | `i_chime_silver` ×2 |
@@ -1033,48 +1048,48 @@ Ids are `pk_<zone>_<nn>`, one-time, and saved in the collected set.
 | route_4 | H | (20,−40) | `i_revive_1` ×1 |
 | volcano | V | (50,−10) | `i_salve_3` ×2 |
 | volcano | V | (−50,20) | `i_cure_burn` ×3 |
-| volcano | H | (−80,0) | `i_revive_2` ×1 |
+| volcano | H | (−80,0) | coin pouch 2000 |
 | route_5 | V | (30,60) | `i_salve_3` ×1 |
 | route_5 | **V** | **(−30,−60)** | **`i_evo_prism` ×1 (guaranteed; systems §12.1)** |
 | route_5 | H | (40,−70) | `i_charge_2` ×1 |
 | snowpeak | V | (−60,50) | `i_salve_4` ×1 |
 | snowpeak | V | (60,−10) | `i_revive_2` ×1 |
-| snowpeak | H | (−20,70) | `i_cure_frost` ×3 |
+| snowpeak | H | (−20,70) | coin pouch 2000 |
 
-Quest items (`i_q_windchime`, `i_q_glowcap` ×4, `i_q_clapper` ×3, crystal samples ×4) are new key-kind ids for `items.json` (§11 Q2).
+Coin pouches are money pickups; systems §12.4 counts them unchanged, which needs `money?: number` on `PickupSpec`. Quest items (`i_q_windchime`, `i_q_glowcap` ×4, `i_q_clapper` ×3, crystal samples ×4) are new key-kind ids for `items.json` (§11 Q2).
 
-### 7.2 Etudes / teaching discs (`i_disc_01..18`, systems §12.2; each has exactly one source)
+### 7.2 Etudes / teaching discs (`i_disc_01..18`, systems v2 §12.2; each has exactly one source)
 
 | Disc | Move | Source |
 |---|---|---|
 | i_disc_01 | Heat Ribbon | Knellstone Chandlery (2000) |
-| i_disc_02 | Deluge Beam | trial_3 reward (Nerys) |
+| i_disc_02 | Deluge Beam | trial_3 reward (Nerys, water) |
 | i_disc_03 | Arc Lash | Larkhollow Chandlery after trial_1 (1500) |
-| i_disc_04 | Draining Bloom | forest Kindle secret sec_03 |
-| i_disc_05 | Rock Tumble | trial_1 reward (Wren) |
+| i_disc_04 | Draining Bloom | trial_1 reward (Wren, verdant) |
+| i_disc_05 | Rock Tumble | trial_2 reward (Dorran Shale, stone) |
 | i_disc_06 | Sleet Spray | Knellstone Chandlery (2000) |
-| i_disc_07 | Razor Draft | route_4 Gust secret sec_17 |
+| i_disc_07 | Razor Draft | trial_4 reward (Tamsin, gale) |
 | i_disc_08 | Sludge Lob | Knellstone Chandlery (2000) |
-| i_disc_09 | Umbral Pulse | Vey 2 defeat reward (ev_19) |
-| i_disc_10 | Prism Ray | trial_2 reward (Dorran) |
+| i_disc_09 | Umbral Pulse | Vey 2 defeat reward (ev_19, Stillhouse) |
+| i_disc_10 | Prism Ray | snowpeak Gleam secret sec_24 |
 | i_disc_11 | Bulwark (universal) | Larkhollow Chandlery (1500) |
 | i_disc_12 | Buzz Field | Knellstone Chandlery (1500) |
-| i_disc_13 | Quake Stomp | trial_4 reward (Tamsin) |
-| i_disc_14 | Rime Beam | Galewick Chandlery (3000) |
-| i_disc_15 | Stormcoil Bolt | trial_5 reward (Bastian) |
-| i_disc_16 | Kiln Blast | Galewick Chandlery (3000) |
-| i_disc_17 | Night Rake | cave Spark secret sec_08 |
-| i_disc_18 | Radiant Mend | trial_6 reward (Isaure) |
+| i_disc_13 | Quake Stomp | cave lower-gallery Heave secret sec_10b |
+| i_disc_14 | Rime Beam | trial_6 reward (Isaure, frost); not sold |
+| i_disc_15 | Stormcoil Bolt | q_side_kite_contest (ch7, Galewick) |
+| i_disc_16 | Kiln Blast | trial_5 reward (Bastian, fire); not sold |
+| i_disc_17 | Night Rake | Galewick cellar Veil secret sec_16 (after trial_4) |
+| i_disc_18 | Radiant Mend | q_side_kinsong_survey stage 2 (Marra Aske) |
 
 ---
 
 ## 8. Environmental storytelling (character-forward, colorful)
 
 1. **Silenced stones.** A Chordstone under a Stillmark coil-rig renders its surroundings at reduced saturation, with low-passed ambience.
-   - Data per site: center and radius. Sites: forest (25,−25) r 25; cave (−50,−55) r 30; route_3 (−20,0) r 30; route_4 Stillhouse (−55,−35) r 35; summit (0,−84) r 60. There is also a 0.2 region-wide mute until `flag_nullbell_broken`.
+   - Data per site: center and radius. Sites: forest (25,−25) r 25; cave (−50,−55) r 30; route_3 (−20,0) r 30; the `stillhouse` interior (whole scene); summit (0,−84) r 60. There is also a 0.2 region-wide mute until `flag_nullbell_broken`.
    - Restoring a stone plays a radial color wave (0.8 s), and the zone melody returns.
 2. **The survey guild (D6).** Stillmark sites look like tidy engineering jobs rather than lairs: tripods, clipboards on posts, coil-rigs, brass ear-muff helmets on hooks, coil lanterns with the guild mark etched on the glass, neatly stacked felt baffles, and "Stone under service" signboards. Engineers are polite, busy, and slightly condescending, and they explain their measurements.
-   - The strays pens (cave (−65,−40), Stillhouse (−55,−42)) show the cost of the plan: frightened kin who ran when their stones went quiet, fed and fenced "for safekeeping".
+   - The strays pens (cave (−65,−40), Stillhouse (0,−15)) show the cost of the plan: frightened kin who ran when their stones went quiet, fed and fenced "for safekeeping".
    - Nothing is stolen from people.
 3. **Kin at work and play.** Each town has at least 6 ambient kin vignettes with clear silhouettes and one exaggerated emotional pose each:
    - Larkhollow: Dozebud napping in orchard crates; Gustling carrying chime-strings.
@@ -1117,7 +1132,7 @@ Quest items (`i_q_windchime`, `i_q_glowcap` ×4, `i_q_clapper` ×3, crystal samp
 
 ## 10. Acceptance criteria
 
-1. **Zone content.** Zone JSON (`ZoneSpec`) exists for the 14 exterior zones and 6 hall interiors. Sizes, exits, spawn ids and coordinates, waystones, Hearthrests, and at least one `battleStages` entry per zone must match §1.3–§1.4 and §2.4.
+1. **Zone content.** Zone JSON (`ZoneSpec`) exists for the 14 exterior zones, the 6 hall interiors and `stillhouse`. Sizes, exits, spawn ids and coordinates, waystones, Hearthrests, and at least one `battleStages` entry per zone must match §1.3–§1.4 and §2.4.
 2. **Graph.** Every exit has a reciprocal exit. The one-sided shortcuts E14/E15 are declared. A BFS from `town_1`, applying CD §4.2 flags in chapter order, reaches every zone and hall door. With no flags set, only town_1 is reachable.
 3. **Mandatory gates.**
    - Exactly 4 nodes are marked `mandatory: true`: rn_forest_01, rn_cave_01, rn_route_4_01, rn_snowpeak_01.
@@ -1127,7 +1142,7 @@ Quest items (`i_q_windchime`, `i_q_glowcap` ×4, `i_q_clapper` ×3, crystal samp
 4. **Encounter tables.** Each time band sums to 100 per zone. Recomputed probabilities match §4.3 within ±0.001. No stage-2/3 appears below its evolution level (D23). maxWild = 6 in every zone.
 5. **Obtainability.** D-25 passes for each starter choice. Leftover and rival-line mapping follows §2.6.
 6. **Items.** Every referenced item id exists in `items.json` (plus the listed quest-item additions). `i_disc_01..18` each have exactly one source. `i_evo_prism` has a guaranteed pickup.
-7. **Trainers.** Trainer ids, counts and levels match §2.9. Cantor aces are 14/20/26/32/38/43 and the champion ace is 50. Rival battles number 6.
+7. **Trainers.** Trainer ids, counts and levels match §2.9. The 17 story battles match systems v2 §14.2 exactly: Cantor aces 12/17/25/30/37/45, Odile 46, champion 50, 6 rival battles.
 8. **Quests.** Every quest prerequisite references an existing flag. No real-time wait or multiplayer dependency exists (QA D-36). The Swell 60 s reset and Wick's rotation are clock-free for completion.
 9. **Playtime.** Playtime is labeled "estimate" until playtested.
 
@@ -1151,7 +1166,7 @@ Quest items (`i_q_windchime`, `i_q_glowcap` ×4, `i_q_clapper` ×3, crystal samp
 | Evolution-rule tightness leaves few stage-2s early | Accepted; stage-2 variety arrives from ch3 |
 
 **Unresolved questions:**
-1. D10 lists `i_hush_1..2` / `i_thread`, but `items.json` has `i_repel_1..2` / `i_escape`. Which is canonical? This document uses the items.json ids.
-2. Quest key items (`i_q_windchime`, `i_q_glowcap`, `i_q_clapper`, crystal samples) need adding to `items.json`.
+1. `items.json` must still apply the systems §12.1 rename (`i_repel_1/2` → `i_hush_1/2`, `i_escape` → `i_thread`); this document already uses the new ids.
+2. Quest key items (`i_q_windchime`, `i_q_glowcap`, `i_q_clapper`, crystal samples) need adding to `items.json`, and `PickupSpec` needs a `money` field for coin pouches.
 3. Is the league landing Hearthrest acceptable to CD? It is not in the CD §2.4 list.
 4. Route_5's fixed blue-hour lighting vs clock-based encounter bands: is this acceptable to CD?

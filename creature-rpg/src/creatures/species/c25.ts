@@ -14,9 +14,12 @@ function roundPoly(pts: [number, number][], r: number): THREE.Shape {
     const la = Math.hypot(p[0] - a[0], p[1] - a[1]), lb = Math.hypot(b[0] - p[0], b[1] - p[1]);
     const p0 = lerp(p, a, Math.min(0.45, r / la));
     const p1 = lerp(p, b, Math.min(0.45, r / lb));
+    // corner approximated with a few straight points (keeps extrude triangle counts low)
+    const q = (t: number): [number, number] => [(1 - t) * (1 - t) * p0[0] + 2 * (1 - t) * t * p[0] + t * t * p1[0], (1 - t) * (1 - t) * p0[1] + 2 * (1 - t) * t * p[1] + t * t * p1[1]];
     if (i === 0) s.moveTo(p0[0], p0[1]);
     else s.lineTo(p0[0], p0[1]);
-    s.quadraticCurveTo(p[0], p[1], p1[0], p1[1]);
+    for (const t of [0.33, 0.67]) s.lineTo(...q(t));
+    s.lineTo(p1[0], p1[1]);
   }
   s.closePath();
   return s;

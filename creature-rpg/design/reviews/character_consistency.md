@@ -385,3 +385,128 @@ To move to `pass` or `conditional_pass`, all of the following are needed:
 4. The open Minor items F-0-14, F-0-15 (import summary), F-0-20 and F-0-21 are either fixed or carried forward as conditions.
 
 The earlier `fail` (`#p0-design-review`) remains the recorded design-gate decision until this entry is closed.
+
+---
+
+## Phase 0 (design) re-review v2 — fail — 2026-09-24  {#p0-design-v2}
+
+| Field | Value |
+|---|---|
+| Date | 2026-09-24 |
+| Phase / target | Phase 0: design gate (documents and content data) / no deployment |
+| Build commit | `2c7beb754fb6e344246f701ff444ea1b93b9c43c` (HEAD) **plus uncommitted working-tree changes**: `design/world.md` is modified; `GAME_BIBLE.md`, `BUILD_PLAN.md` and `CONTENT_MANIFEST.md` are untracked. The reviewed content is pinned by the file hashes below, not by the commit alone. |
+| Reviewed files (sha256, first 16 hex) | creative_direction.md aa18e6337c62c0de · creatures.md b653265fbbd3b20e · systems.md 602efa419105954f · world.md 2d1a77305907afb9 · rendering_and_architecture.md 27df012f27db1f81 · qa_plan.md d6d9078e9ee0f25c · DECISIONS.md 0855fb0d81789547 · GAME_BIBLE.md 34444f81ee576c64 · BUILD_PLAN.md 2b3f2ae0764ba6df · CONTENT_MANIFEST.md a835c8e6153c8cd9 · species.json 8c199957b434071c · traits.json 99de53f745c95186 · items.json 9ace1e4ecc5482cd · moves.json 4a9a395705ab6b71 |
+| Reviewer(s) | release-character-agent. Second reviewer: still pending (gate §4.3). |
+| Supersedes | `#p0-design-review` (fail) and `#p0-design-rereview` (pending). This entry closes both. |
+| Automated report | Not run. `gate:character` is not implemented yet. The name and term checks below were one-off scratchpad scripts, not the gate. |
+| Manual captures | Informational only: one dev-server capture of `/?tool=sheet` (16 built species) was taken with `scripts/shot.mjs` into the session scratchpad. It is **not** gate evidence and is not committed. The Phase 1 character gate will capture it properly. |
+
+### Method
+1. **Stale-name search.** Every v2 document and every content JSON file was searched for retired names (D7, D29), old world working names, status abbreviations and capture "shake" wording.
+2. **String scan.** Every string value in `src/data/content/*.json` (species blurbs, trait, item and move names) was scanned for Tier A and Tier B terms after NFKD folding and lowercasing.
+3. **Species names.** The two D29 species renames were scored against the 845-name creature reference list, and the D29 character names against the roughly 190-name franchise character list. Both lists are partial and typed from general knowledge.
+4. **Trait names.** The 26 trait display names were scored against about 110 franchise ability names. The metric is GC-13 JW; this is **the first time trait names were checked**.
+5. **Move names.** The 101 move names were exact-matched against about 330 franchise move names.
+6. **Targeted re-reads.** I re-read CD §2.3 (the Stillmark) and appendix A (dialogue), `creatures.md` c09 and the pupil rules, systems §4.1 and §7.3, the world Cantor table and peddler text, and the rendering face atlas and LOD2 rules.
+
+### Verification of Phase 0 findings
+| Finding | Evidence in v2 | Status |
+|---|---|---|
+| F-0-01 Stillmark ≈ Team Plasma | CD §2.3 changes all four axes. **Goal:** "control for safety" through Stillbells. **Public face:** a licensed survey guild with no pamphlets or sermons. **Look:** quilted work-coats, brass ear-muff helmets and coil lanterns, with no hoods, no chest emblem and the mark only on lantern glass. **Methods:** they never steal people's kin and pen strays. CD §5.7 item 7 and AC 11 lock this in. world.md §8 says "Nothing is stolen from people." No survey guild reads as an energy corporation (the Macro Cosmos and Galactic watch item). | **Resolved** |
+| F-0-02 / 03 / 04 Umbraleen, Cinderscrim, Nodbell | `species.json`: Coronaleen, Emberfold, Lullstalk | **Resolved** |
+| F-0-05 Juniper | CD §2.4: **Marra Aske** | **Resolved** |
+| F-0-06 Floeguard | `creatures.md` c09 v2: no helmet, two whisker nubs, back carapace and tail-fan only. The builder `src/creatures/species/c09.ts` follows it: a `whiskerNub` part and the comment "no helmet (D7)". **But** the c09 "Distinctive anatomy (v2)" cell still contains the stale v1 sentence "A shell 'helmet' cap with a brow ridge", which contradicts the rest of the cell. | **Resolved in substance**; doc defect → C-1 |
+| F-0-07 cross-document cast and terms | world.md adopts the CD zones, Cantors (Wren Mossgrave, Dorran **Shale**, Nerys Tidewell, Tamsin Galloway…), Keynotes, Hearthrests, Chandleries, Wick and D10 item ids. The trial order matches D1. | **Resolved**, except for the stale D29 names (→ C-2) |
+| F-0-08 face states | D14 8-cell atlas appears in `creatures.md` §2.4 and rendering §4.4; cells 256/256/128 (rendering §6) | **Resolved** |
+| F-0-09 timing | D15 and gate v2 GC-05 | **Resolved** |
+| F-0-10 proportion bands | The CD has no per-body-plan bands yet. Gate v2 CC-05 and GC-08 are warn-only. | **Open** (downgraded to Minor, because the gate no longer fails on it) → C-4 |
+| F-0-11 LOD2 silhouettes | Rendering §4.6: silhouette-tagged parts are always kept at LOD2 | **Resolved** |
+| F-0-12 Rowan → Arden → Hollis (D29) | DECISIONS D29 says Hollis. But CD §2.1, §4, §5 and appendix A, plus QA M-01 ("the default name is **Arden**") and QA's D7 row, still say Arden. | **Resolved by precedence**; docs stale → C-2 |
+| F-0-13 status codes | Systems §4.1 and CD §7.3: Scorch SCH, Blight BLT, Jolt JLT, Drowse DRW, Rimebite RMB, Muddled. No SLP, BRN, PSN, PAR or FRZ anywhere. | **Resolved** |
+| Chime rings (D9) | Systems §7.3 "rings, not shakes" (hovering, no wobble; event field `rings`); CD capture clip and SFX ("no shake sounds") | **Resolved** |
+| F-0-14 identical sibling pedlars | world.md: a single traveling peddler, **Wick**. CD §5.7 item 10 bans identical-sibling NPCs. | **Resolved** |
+| F-0-15 item and term leaks | D10 display names (Hush Incense, Homeward Thread, Kindling Spark…). There is no "badges" in the rendering import text. | **Resolved** |
+| F-0-16 trait clones | D13 renamed Reckless to *Headlong* and Sturdy to *Keystone Core*. **Other trait display names still fail GC-13** (see F-0V-01). | **Not resolved** → F-0V-01 |
+| F-0-17 warn-band judgments | Carried forward | Carried |
+| F-0-18 Rippleback render check | Phase 2 cover test | Carried (render stage) |
+| F-0-19 Coronaleen and the Wind Fish | Watch item in gate §4.2 | Carried (render stage) |
+| F-0-20 pupil types | `creatures.md` §2.4 v2 withdraws `slit` and `w-shape`. The whitelist is round, v-oval, h-bar and ring. | **Resolved**. The f08 h-bar awaits the CD's OK, with v-oval as the fallback; either is compliant. |
+| F-0-21 "A wild…" pool | CD §3 still gives only two examples. GC-14 warns at build time if more than half the pool starts with "A wild". | **Open (Minor)** → C-5 |
+| F-0-22 harnesses | D27, gate v2 §3.1 and §3.5, QA C-08 aligned to GC-13 | **Resolved** |
+| F-0-23 gate self-alignment | Gate v2 | **Resolved** |
+| F-0R-01 to 04 (Arden, Venomantle, Samaraptor, Flint) | D29: Hollis, **Drapetide**, **Samarch**, Dorran **Shale**. `species.json` has Samarch and Drapetide. | **Resolved in data and DECISIONS**. `creatures.md` §0, §3 and §4, plus CD and systems, still use the retired names → C-2 |
+| F-0R-05 Lumarlin | Kept by D29, with my recorded reason | Closed (orchestrator decision) |
+
+### New checks in this round
+**D29 replacement names (GC-13 metrics):**
+
+| Name | Closest | JW | Lev ≤ 2 | Substr ≥ 5 | Status | Judgment |
+|---|---|---|---|---|---|---|
+| c24 **Drapetide** | Drapion | 0.854 | — | — | warn | Keep. Drapion is a Poison/Dark scorpion with a different etymology (dragon + scorpion); Drapetide is a toxin/water cloaked octopus. They share a 4-letter prefix and poison typing but no anatomy. Recorded like Lumarlin. The orchestrator may rename at no design cost. |
+| c21 **Samarch** | Samurott | 0.783 | — | — | clear | — |
+| **Hollis** (default name) | Hop | 0.733 | — | — | clear | — |
+| Dorran **Shale** | Shauna | 0.790 | — | — | clear | — |
+
+**Content JSON string scan** (species blurbs, trait, item and move names): no Tier A hits. The Tier B and noise hits were:
+- `items.json` `kind: orb|revive|repel`, and `tr_reckless` and `tr_sturdy_core` ids: internal ids, info only.
+- c08 "Hoards shiny things" and c19 "beyond its ability": generic English, keep.
+- c22 "A curious poker": the "poke" token under the whole-word rule is not a hit, so it goes on the allow list.
+- **c28 Dawnfry blurb "Drawn to lanterns and to trainers' lights"**: "trainer" is Tier B, and the CD's term is *Tuner* → C-3.
+
+**Move names:** 101 names, **0 exact matches** to franchise move names. Compound echoes such as *Volt Fang* and *Surge Tackle* are genre-level and acceptable. *Whiteout* is a weather word, not the loss message, so keep.
+
+**Trait display names** (first check; about 110 franchise ability names):
+
+| Trait id | Display name | Closest ability | JW | Same effect? | Status |
+|---|---|---|---|---|---|
+| `tr_shed_status` | **Shed Skin** | Shed Skin | **exact** | Yes (≈ 30% per turn to cure a status) | **FAIL** |
+| `tr_thick_fur` | **Thick Coat** | Thick Fat | **0.938** | Yes (halves fire and ice/frost damage) | **FAIL** |
+| `tr_static_hide` | **Static Hide** | Static | **0.909** | Yes (30% paralysis on contact) | **FAIL** |
+| `tr_clear_mind` | **Clear Mind** | Clear Body | **0.880** | Yes (opponent cannot lower stats) | **FAIL** |
+| `tr_snow_coat` | **Snow Coat** | Snow Cloak | **0.938** | No (defense in snow vs evasion in hail) | **FAIL** (name only) |
+| `tr_keen_focus` | Keen Focus | Keen Eye | 0.825 | No | warn: keep |
+| `tr_small_strikes` | Quick Pecks | Quick Feet | 0.867 | No (the effect is Technician's) | warn: keep |
+| `tr_rain_glide` | Rain Glide | Rain Dish | 0.867 | No (the effect is Swift Swim's) | warn: keep |
+| `tr_early_riser` | Light Sleeper | Lightning Rod | 0.815 | No | warn: keep |
+| the other 17 | — | — | < 0.80 | — | clear |
+
+Note: `tr_quick_feet` (*Fleet Foot*) and `tr_adaptive` (*Attuned Style*) copy the effects of Quick Feet and Adaptability, but their names are original. Mechanics are genre conventions (F-0-16 note), so no action.
+
+### Render-stage observation (informational; for the Phase 1 or 2 character gate, not this decision)
+From the dev `/?tool=sheet` capture, taken for information only:
+- **c25 Snipling**: the single tall pointed ear-flap over a dark round face with two glowing eyeholes reads at a glance as a **pointed wizard hat over a shadowed, glowing-eyed face**. That is the signature look of Final Fantasy's Black Mage (and Vivi). This is a cover-test candidate for the gate where c25 is in scope. A likely fix: tilt or split the ear-flap so it does not read as a hat brim plus cone, or light the face plate.
+- **c09 Floeguard** (no helmet, per spec) reads more "stout yeti" than "otter". This is not an originality problem; it is a family-identity check (CC-16) for Phase 3.
+- No other built species (c01, c02, c03, c07, c08, c10, c13, c14, c15, c19, c20, c21, c22, c26, c27) prompted an imitation concern in this glance.
+
+### New findings
+| ID | Severity | Affected requirement | Finding | Consequence | Proposed resolution | Owner |
+|---|---|---|---|---|---|---|
+| F-0V-01 | **Major** | CC-10, GC-13 (trait display names); §4.2 "trait set copies a franchise's abilities" | Five trait display names fail GC-13: **Shed Skin** (an exact franchise ability name, with the same effect), **Thick Coat**, **Static Hide** and **Clear Mind** (each ≥ 0.88 to an ability with the same effect), and **Snow Coat** (0.938, name only). Locations: `src/data/content/traits.json`, systems §10. | The name plus identical effect is a recognizable franchise ability, and GC-13 will fail at Phase 1 once trait strings are scanned. | Rename all five in `traits.json` and systems §10 using the sound, craft and weather vocabulary, for example Molt/"Shrug Off", "Hearth Coat", "Crackle Hide", "Steady Mind" and "Drift Coat". Each must be re-checked against the ability list before adoption; these examples have **not** been scored. | Systems (with CD) |
+| C-1 | Minor | CC-11 doc hygiene | `creatures.md` c09 v2 anatomy cell still contains "A shell 'helmet' cap with a brow ridge" | A builder or reviewer could reintroduce the helmet | Delete the sentence | Creature Art Director |
+| C-2 | Minor | CC-10, CC-09 | D29 names are stale in the documents. **Arden**: CD §2.1, §4, §5.1, §5.6, appendix A, and **QA M-01, which would assert "Arden" as the default name**, plus QA's D7 row. **Dorran Flint**: CD §4 ch3, §5.6, `dlg_03_dorran_pre` speaker, systems §14 table. **Samaraptor and Venomantle**: `creatures.md` §0, §3, §4. | Content extracted from these documents would reintroduce names that fail GC-13, and a QA test would enforce the wrong name | Replace them per D29, and add Arden, Flint, Samaraptor and Venomantle to QA C-09's retired-name scan | CD, Creature Art Director, Systems, QA |
+| C-3 | Minor | CC-12 terminology | c28 blurb "trainers' lights" (`species.json` / `creatures.md`) | A Tier B term in Kinsong text | Change it to "Tuners' lanterns" or similar | Creature Art Director |
+| C-4 | Minor | CC-05 | There are still no per-body-plan proportion bands (F-0-10) | CC-05 and GC-08 stay warn-only | The CD publishes the bands before Phase 2 (when CC-05 starts to apply) | CD |
+| C-5 | Minor | CC-12, GC-14 | The encounter-text pool is still only two examples, one opening "A wild" (F-0-21) | GC-14 will warn if the final pool is weighted to "A wild" | Write the full pool (8 or more lines, fewer than half starting "A wild") before Phase 3 | CD |
+
+### Not run / Not measured
+- Every automated gate check (GC-00 to GC-18): Not run, because `gate:character` is not implemented.
+- The rubric, cover tests and silhouettes: Not run (render-stage; Phase 1 and later).
+- Name similarity: run against partial reference lists from general knowledge. This is not a register or web search, and it is not legal clearance.
+- The trademark and store check of the title, region and names (R-14): Not run (the orchestrator's task).
+- Second reviewer: pending.
+
+### Conditions
+C-1 to C-5 above (5 Minor findings; each carries forward at most one gate, gate §1.3). They apply once F-0V-01 is fixed.
+
+### Decision
+**fail** (design gate, v2).
+
+Rationale:
+- The substantive originality redesigns are all confirmed in v2: the Stillmark (D6), the renames (D7 and D29 in `species.json`), Floeguard, the status codes and the Chime rings. The cross-document contradictions are resolved.
+- **One Major remains: F-0V-01**, five trait display names that fail GC-13, four of them with the same effect as the named franchise ability. Under gate §1.1 any open Major means `fail`, and a conditional pass is not available.
+- The fix is a data and document rename only.
+- **Expected outcome on retest:** when F-0V-01 is fixed and the new names re-checked, this gate becomes a **conditional pass** carrying C-1 to C-5, provided nothing else changes.
+
+What this blocks, and what it does not:
+- It blocks closing Phase 0 and any deployment.
+- It does **not** block engine or builder work, which continues under the separate Phase 1 character gate.

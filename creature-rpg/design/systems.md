@@ -895,7 +895,7 @@ RS = the rival's starter line, which is strong against the player's (Water > Fir
 | 1 | 1 | Rival 1 `t_rival_1` | town_1 (null) | RS1 5 | Normal | 5 | 5 |
 | 2 | 2 | Cantor Wren Mossgrave `t_cantor_1` | trial_1 (verdant) | c10 10, c13 11, **c11 12** | Hard | 12 | 11 |
 | 3 | 3 | Rival 2 `t_rival_2` | route_2 (stone) | c20 14, **RS2 16** | Normal | 16 | 14 |
-| 4 | 3 | Cantor Dorran Flint `t_cantor_2` | trial_2 (stone) | c13 15, c22 16, **c14 17** | Hard | 17 | 14 |
+| 4 | 3 | Cantor Dorran Shale `t_cantor_2` | trial_2 (stone) | c13 15, c22 16, **c14 17** | Hard | 17 | 14 |
 | 5 | 4 | Admin Brann 1 `t_admin_brann_1` | cave (electric) | c22 18, c25 19, **c23 20** | Hard | 20 | 19 |
 | 6 | 5 | Admin Vey 1 `t_admin_vey_1` | route_3 (null, silenced) | c25 21, c28 21, **c23 22** | Hard | 22 | 23 |
 | 7 | 5 | Rival 3 `t_rival_3` | route_3 (toxin, restored) | c20 21, c14 22, **RS2 23** | Hard | 23 | 24 |

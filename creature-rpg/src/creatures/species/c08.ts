@@ -11,7 +11,7 @@ const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
 const body: PartDef[] = [];
 for (let i = 0; i < N; i++) {
   const t = i / (N - 1);
-  const r: V3 = [lerp(0.17, 0.08, t), lerp(0.145, 0.07, t), lerp(0.27, 0.17, t)];
+  const r: V3 = [lerp(0.17, 0.08, t), lerp(0.145, 0.07, t), lerp(0.3, 0.19, t)];
   body.push({
     name: `seg${i}`,
     parent: i === 0 ? 'root' : `seg${i - 1}`,
@@ -64,18 +64,18 @@ export const c08: SpeciesVisual = {
     { name: 'jaw', parent: 'muzzle', prim: { t: 'sphere', r: [0.07, 0.025, 0.07], half: true }, at: [0, -0.04, -0.01], rot: [180, 0, 0], slot: 'W', anim: ['jaw'] },
     { name: 'mouth', parent: 'muzzle', prim: { t: 'mouth', r: 0.04, w: 1.7 }, at: [0, -0.018, 0.066], rot: [14, 0, 0], anim: ['fx:mouth'] },
     { name: 'eye', parent: 'head', mirror: true, prim: { t: 'eye', r: 0.066 }, at: [0.085, 0.04, 0.1], rot: [-6, 38, 0] },
-    { name: 'brow', parent: 'head', mirror: true, prim: { t: 'cone', r: 0.018, h: 0.075 }, at: [0.08, 0.1, 0.08], rot: [-60, 0, -30], slot: 'P-' },
+    { name: 'brow', parent: 'head', mirror: true, prim: { t: 'cone', r: 0.016, h: 0.07 }, at: [0.075, 0.095, 0.1], rot: [-95, 30, -10], slot: 'P-' },
     { name: 'earSlit', parent: 'head', mirror: true, prim: { t: 'sphere', r: [0.012, 0.03, 0.02] }, at: [0.135, 0.035, -0.04], slot: 'P-' },
     { name: 'whiskerA', parent: 'muzzle', mirror: true, prim: { t: 'tube', pts: [[0, 0, 0], [0.1, 0.01, -0.02], [0.2, 0.03, -0.06]], r0: 0.005, r1: 0.002 }, at: [0.06, 0.0, 0.03], slot: 'W', lod: 0 },
     { name: 'whiskerB', parent: 'muzzle', mirror: true, prim: { t: 'tube', pts: [[0, 0, 0], [0.1, -0.015, -0.02], [0.19, -0.04, -0.07]], r0: 0.005, r1: 0.002 }, at: [0.06, -0.01, 0.03], slot: 'W', lod: 0 },
     { name: 'whiskerC', parent: 'muzzle', mirror: true, prim: { t: 'tube', pts: [[0, 0, 0], [0.09, 0.03, -0.03], [0.17, 0.07, -0.08]], r0: 0.004, r1: 0.002 }, at: [0.06, 0.005, 0.02], slot: 'W', lod: 0 },
     // four short flipper-legs on seg2 and seg6, paddling close to the body
-    { name: 'legF', parent: 'seg1', mirror: true, prim: { t: 'capsule', r: 0.04, len: 0.06 }, at: [0.12, -0.08, 0.04], rot: [0, 20, -118], anim: ['gait:FL'] },
-    { name: 'flipperF', parent: 'legF', mirror: true, prim: { t: 'extrude', shape: 'X_leaf', w: 0.4, h: 0.17, depth: 0.02 }, at: [0, 0.1, 0], rot: [0, 90, 0], slot: 'P-' },
-    { name: 'legB', parent: 'seg5', mirror: true, prim: { t: 'capsule', r: 0.032, len: 0.045 }, at: [0.085, -0.05, 0.02], rot: [0, 20, -118], anim: ['gait:BL'] },
-    { name: 'flipperB', parent: 'legB', mirror: true, prim: { t: 'extrude', shape: 'X_leaf', w: 0.34, h: 0.13, depth: 0.018 }, at: [0, 0.08, 0], rot: [0, 90, 0], slot: 'P-' },
+    { name: 'legF', parent: 'seg1', mirror: true, prim: { t: 'capsule', r: 0.04, len: 0.06 }, at: [0.12, -0.08, 0.04], rot: [0, 25, -104], anim: ['gait:FL'] },
+    { name: 'flipperF', parent: 'legF', mirror: true, prim: { t: 'extrude', shape: 'X_leaf', w: 0.4, h: 0.17, depth: 0.02 }, at: [0, 0.1, 0], rot: [0, 90, 0], slot: 'P' },
+    { name: 'legB', parent: 'seg5', mirror: true, prim: { t: 'capsule', r: 0.032, len: 0.045 }, at: [0.085, -0.05, 0.02], rot: [0, 25, -104], anim: ['gait:BL'] },
+    { name: 'flipperB', parent: 'legB', mirror: true, prim: { t: 'extrude', shape: 'X_leaf', w: 0.34, h: 0.13, depth: 0.018 }, at: [0, 0.08, 0], rot: [0, 90, 0], slot: 'P' },
     // vertical shell rudder
     { name: 'rudderStem', parent: 'seg7', prim: { t: 'capsule', r: 0.05, len: 0.1, r2: 0.03 }, at: [0, 0, -0.08], rot: [-90, 0, 0], anim: ['wave', `chain:${N}:${N}`] },
-    { name: 'rudder', parent: 'rudderStem', prim: { t: 'extrude', shape: 'X_fin_crescent', w: 0.3, h: 0.46, depth: 0.045 }, at: [0, 0.06, -0.23], rot: [0, 90, 90], slot: 'S', mat: 'SHELL', anim: ['fx:tail'] },
+    { name: 'rudder', parent: 'rudderStem', prim: { t: 'extrude', shape: 'X_fin_crescent', w: 0.42, h: 0.52, depth: 0.05 }, at: [0, 0.04, -0.26], rot: [0, 90, 90], slot: 'S', mat: 'SHELL', anim: ['fx:tail'] },
   ],
 };

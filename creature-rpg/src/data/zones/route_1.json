@@ -1,0 +1,59 @@
+{
+  "id": "route_1",
+  "name": "Thistledown Way",
+  "biome": "meadow",
+  "attuned": "lumen",
+  "music": "route_1",
+  "terrain": {
+    "seed": 101,
+    "size": [110, 200],
+    "base": 2,
+    "amp": 3.2,
+    "scale": 26,
+    "rim": 14,
+    "rimWidth": 14,
+    "hills": [{ "at": [28, 30], "r": 16, "h": 9 }, { "at": [-30, 10], "r": 14, "h": 5 }, { "at": [30, -40], "r": 12, "h": 4 }],
+    "flats": [{ "at": [15, -10], "r": 7 }, { "at": [0, 50], "r": 8 }, { "at": [-5, -15], "r": 7 }, { "at": [10, -60], "r": 7 }, { "at": [-10, 70], "r": 5 }],
+    "paths": [{ "pts": [[0, 100], [0, 80], [-6, 60], [-4, 35], [4, 15], [8, -5], [0, -30], [-6, -55], [0, -80], [0, -100]], "w": 5 }],
+    "water": [{ "at": [-30, -42], "r": 16, "rz": 9, "depth": 1.4, "level": 1.3 }]
+  },
+  "palette": { "ground": "#8DB25A", "ground2": "#A7C46A", "path": "#C9B07A", "cliff": "#8A8174", "accent": "#F2E3A0", "sky": "#BFD9EE", "fog": "#CFE3F0" },
+  "fogDensity": 0.006,
+  "weather": { "clear": 80, "rain": 20 },
+  "spawns": [
+    { "id": "sp_route_1_s", "at": [0, 82], "yaw": 180 },
+    { "id": "sp_route_1_n", "at": [0, -82], "yaw": 0 },
+    { "id": "sp_route_1_ws", "at": [15, -4], "yaw": 180 }
+  ],
+  "exits": [
+    { "id": "x_route_1_s", "at": [0, 96], "r": 5, "to": "town_1", "spawn": "sp_town_1_n", "label": "Larkhollow" },
+    { "id": "x_route_1_n", "at": [0, -96], "r": 5, "to": "forest", "spawn": "sp_forest_s", "label": "Murmurwood" }
+  ],
+  "props": [
+    { "kind": "chordstone", "at": [15, -10], "color": "#F5E6A8", "label": "Thistledown Chordstone" },
+    { "kind": "sign", "at": [5, 88], "yaw": 180, "label": "Thistledown Way — north to Murmurwood" },
+    { "kind": "sign", "at": [5, -88], "label": "South: Larkhollow" },
+    { "kind": "fence", "at": [-8, 72] },
+    { "kind": "wall", "at": [-35, 60], "w": 10, "h": 1.2, "color": "#9C9384", "yaw": 20 },
+    { "kind": "wall", "at": [38, -20], "w": 12, "h": 1.2, "color": "#9C9384", "yaw": -15 },
+    { "kind": "crate", "at": [30, -58] }
+  ],
+  "scatter": [
+    { "kind": "tree", "density": 0.9, "minDist": 5 },
+    { "kind": "blossom", "density": 0.25, "minDist": 6 },
+    { "kind": "bush", "density": 1.2, "minDist": 2.5 },
+    { "kind": "grass", "density": 14, "minDist": 0.9 },
+    { "kind": "flowers", "density": 6, "minDist": 1 },
+    { "kind": "rock", "density": 0.4, "minDist": 4 },
+    { "kind": "reeds", "density": 3, "minDist": 0.8, "avoidPaths": true }
+  ],
+  "npcs": [],
+  "trainers": [],
+  "nodes": [],
+  "pickups": [],
+  "wildRegions": [{ "at": [-25, 55], "r": 18 }, { "at": [25, 15], "r": 20 }, { "at": [-20, -30], "r": 18 }, { "at": [20, -70], "r": 15 }],
+  "maxWild": 6,
+  "encounters": "route_1",
+  "battleStages": [{ "at": [0, 50], "yaw": 90 }, { "at": [-5, -15], "yaw": 90 }, { "at": [10, -60], "yaw": 90 }],
+  "waystone": [15, -10]
+}

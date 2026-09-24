@@ -57,11 +57,11 @@ Every non-town zone has exactly one **attuned type** (§6.4), and the ten outdoo
 
 | Item | Decision |
 |---|---|
-| Name | Player-entered (default **Arden**). Two body builds × three skin tones × three hair styles; outfit palette fixed (see §5.6). Pronouns chosen at start (they/she/he); dialogue uses names more than pronouns. |
+| Name | Player-entered (default **Hollis**). Two body builds × three skin tones × three hair styles; outfit palette fixed (see §5.6). Pronouns chosen at start (they/she/he); dialogue uses names more than pronouns. |
 | Age read | ~14–15 (young teen). |
-| Motivation (personal) | Arden grew up sweeping Oriel's workshop and listening to Larkhollow's Chordstone hum every dawn. On licensing day the stone goes silent for the first time in living memory, and the third young kin in Oriel's fosterage bolts in panic. Arden promises Oriel to find out why the stone fell silent and to bring the little one home. |
+| Motivation (personal) | Hollis grew up sweeping Oriel's workshop and listening to Larkhollow's Chordstone hum every dawn. On licensing day the stone goes silent for the first time in living memory, and the third young kin in Oriel's fosterage bolts in panic. Hollis promises Oriel to find out why the stone fell silent and to bring the little one home. |
 | Motivation (ambition) | Earn six Keynotes, climb Concord Spire and "sound the Great Chord", the traditional feat of a master Tuner. |
-| Arc | From "I want to be the best" to "I want everyone to be heard". Arden ends by restoring the stones rather than just winning. |
+| Arc | From "I want to be the best" to "I want everyone to be heard". Hollis ends by restoring the stones rather than just winning. |
 
 ### 2.2 Rival — Cass Rookwell
 
@@ -178,9 +178,9 @@ Notes:
   - *Starter choice:* three young kin in the fosterage pen. Oriel: "Don't pick the strongest. Pick the one that looks back at you."
   - *Cass bursts in:* "Did I miss it? I missed it. Fine — I'll take *that* one. No reason. Definitely not because it'd flatten yours."
   - *Rival 1 (after Cass's pick):* on a loss the player is healed and the story continues (§6.6 recovery rule). Cass on losing: "Okay. Okay! First one doesn't count. That's a rule. I just made it."
-  - *Tutorial:* Oriel shows the carved glyph on a bramble knot near the green. The player's starter resonates its own type on a secret-only node (Spark/Kindle/Swell). Oriel then explains the Rootcall (verdant) register, and Arden hears that the stone is not dead, just "holding its breath".
+  - *Tutorial:* Oriel shows the carved glyph on a bramble knot near the green. The player's starter resonates its own type on a secret-only node (Spark/Kindle/Swell). Oriel then explains the Rootcall (verdant) register, and Hollis hears that the stone is not dead, just "holding its breath".
   - *Capture tutorial:* Oriel gives 5 Reed Chimes. A guaranteed wild f04 stage-1 kin sits by the stile. Oriel: "Weaken, don't wound. A Chime asks. It doesn't grab."
-  - *The stone falls fully silent (end of ch1):* as Arden returns from route_1, the Larkhollow Chordstone gives one cracked note and goes dead. The remaining young kin in the fosterage panics, slips the pen gate and **bolts north into the dusk**. Oriel: "It's the stone. They navigate by it. Without it they're lost." No villain is present. A brass-rimmed survey stake with a work-order tag ("Service ref. 114 — Larkhollow") is found at the stone's base (`flag_leftover_bolted` set here; it is a side-effect flag and does not gate anything).
+  - *The stone falls fully silent (end of ch1):* as Hollis returns from route_1, the Larkhollow Chordstone gives one cracked note and goes dead. The remaining young kin in the fosterage panics, slips the pen gate and **bolts north into the dusk**. Oriel: "It's the stone. They navigate by it. Without it they're lost." No villain is present. A brass-rimmed survey stake with a work-order tag ("Service ref. 114 — Larkhollow") is found at the stone's base (`flag_leftover_bolted` set here; it is a side-effect flag and does not gate anything).
 
 ### Ch2 — Murmurwood (route_1 → forest) — est. 50 m
 
@@ -200,7 +200,7 @@ Notes:
 - **Flags set:** `flag_rival_2_done`, `flag_trial_2_cleared` (grants `i_keynote_2`, which unlocks the **Seep/toxin** register), `flag_ws_route_2`, `flag_ws_town_2`.
 - **Beats:**
   - Cass before R2: "Mum's got six Keynotes and a spire. I've got one Keynote and a *plan*. The plan is: beat you."
-  - **Cantor Dorran Flint** (gimmick: pillar maze; striking tuning plates raises or lowers pillar rows): "Stone keeps time better than any clock. Let's see if you do."
+  - **Cantor Dorran Shale** (gimmick: pillar maze; striking tuning plates raises or lowers pillar rows): "Stone keeps time better than any clock. Let's see if you do."
   - Town gossip (Nell): "There's surveyors in brass ear-muffs measuring the bell towers. Say the stones need *servicing*. Never knew stone needed servicing."
 
 ### Ch4 — The Undertone (cave) — est. 40 m
@@ -245,7 +245,7 @@ Notes:
 - **Prereq:** `flag_trial_4_cleared`.
 - **Flags set:** `flag_route4_updraft`, `flag_stillhouse_found`, `flag_admin_vey_2`, `flag_leftover_rescued`, `flag_rival_4_done`, `flag_ws_route_4`.
 - **Beats:**
-  - Discovery scene: the leftover starter is curled in a pen with a neat tag: "Stray, young, triad line — found route_1, day 1". It won't come to Cass, but it comes to Arden's starter. That opens `q_foster_leftover` (§4.1). The other strays are released toward their home zones as the Stillhouse coils are shut off.
+  - Discovery scene: the leftover starter is curled in a pen with a neat tag: "Stray, young, triad line — found route_1, day 1". It won't come to Cass, but it comes to Hollis's starter. That opens `q_foster_leftover` (§4.1). The other strays are released toward their home zones as the Stillhouse coils are shut off.
   - Vey after defeat: "*Curtain.* …The Magister is already on Hoarcrown, darling. You're late to your own finale."
   - Cass: "We make a good team. I hate that. Battle me anyway."
 
@@ -266,7 +266,7 @@ Notes:
 - **Beats:**
   - Cass before R5: "I stopped using Mum's lineup. These are *mine*. So if I lose, it's on me. Which — is weirdly great?"
   - Odile: "A stone that sings whenever it likes is a stone nobody is responsible for. I watched one sing a herd into a lava field." And: "With the Great Stillbell hung, the stones sound when it is *safe*. When we say. No more surges. No more stampedes. Isn't that kinder?"
-  - Arden's reply choice (flavor only, no branching): **[Who decides what's safe?]** / **[You'd silence all of them for one bad day.]**
+  - Hollis's reply choice (flavor only, no branching): **[Who decides what's safe?]** / **[You'd silence all of them for one bad day.]**
   - Odile: "Someone has to decide. I would rather it be someone who remembers."
 
 ### Ch11 — Hoarcrown (snowpeak) — est. 60 m
@@ -277,7 +277,7 @@ Notes:
 - **Beats:**
   - **Cantor Isaure Frostmere** (gimmick: rime panels; Rime freezes water panels into floor and Kindle thaws them, while a hall lever lets a player without fire kin thaw them too): "Cold is patience made visible. Let's see how patient you are."
   - Brann: "Go on. I've heard enough quiet."
-  - Odile phase-B trigger: "…Why is it *singing*? It shouldn't—" Arden's starter answers the stone.
+  - Odile phase-B trigger: "…Why is it *singing*? It shouldn't—" Hollis's starter answers the stone.
   - After victory: "Then no one holds the bell. …Promise me someone will at least *listen* when a stone starts to shout." (Seeds post-game: Oriel and Odile's letter proposes a volunteer stone-watch.)
 
 ### Ch12 — Concord (league) — est. 40 m
@@ -294,7 +294,7 @@ Notes:
 
 | Quest | Starter obtained | Availability | Steps | Reward |
 |---|---|---|---|---|
-| `q_foster_leftover` | **Leftover** starter (neither player nor Cass took it) | Opens at `flag_leftover_rescued` (ch8). Critical-path rescue; accepting the kin is optional. | 1) Return it to Oriel in Larkhollow (fast travel). 2) Oriel asks Arden to foster it: **[Foster it]** gives it at Lv 25, stage 1. **[Not yet]** leaves it in the Larkhollow fosterage pen, where it can be claimed any time. | Species stage 1 (`c01`/`c04`/`c07` by case), `flag_leftover_obtained` |
+| `q_foster_leftover` | **Leftover** starter (neither player nor Cass took it) | Opens at `flag_leftover_rescued` (ch8). Critical-path rescue; accepting the kin is optional. | 1) Return it to Oriel in Larkhollow (fast travel). 2) Oriel asks Hollis to foster it: **[Foster it]** gives it at Lv 25, stage 1. **[Not yet]** leaves it in the Larkhollow fosterage pen, where it can be claimed any time. | Species stage 1 (`c01`/`c04`/`c07` by case), `flag_leftover_obtained` |
 | `q_second_clutch` | **Rival's** starter line | Opens at `flag_trial_5_cleared` **and** `flag_leftover_obtained`. Optional; can be finished before the champion. | 1) Oriel: a wild young of Cass's line has been hanging around the fosterage but won't let anyone near. 2) Bring your own starter line **and** the leftover line in your troupe to the Larkhollow Chordstone and resonate. The "Triad Chord" cutscene plays. 3) The young kin joins. | Rival-line stage 1 at Lv 30, `flag_triad_complete`. Kinsong gets a special page flourish. |
 
 Softlock notes:
@@ -325,7 +325,7 @@ Head ratio = head height / total standing height, measured on the default rest p
 | Kin stage 1 | **0.42–0.50** (about 1:1 to 1:1.4 head:body) | 24–30 % | Stubby limbs, short or absent neck | Wide, bouncy, bottom-heavy (center of mass low) |
 | Kin stage 2 | **0.30–0.38** | 16–22 % | Limbs lengthen and joints read | Mid-stance, more directional (leaning forward or up) |
 | Kin stage 3 | **0.18–0.28** | 10–15 % | Defined musculature via shape, not detail | Grounded or imposing. Silhouette owns one dominant "hero feature". |
-| Human child/teen (Arden, Cass) | 4.5–5 heads tall (0.20–0.22) | 14–16 % | Hands and feet ×1.15 realistic size | Neutral upright, slight forward lean |
+| Human child/teen (Hollis, Cass) | 4.5–5 heads tall (0.20–0.22) | 14–16 % | Hands and feet ×1.15 realistic size | Neutral upright, slight forward lean |
 | Human adult | 5.5–6 heads (0.17–0.18) | 11–13 % | Hands ×1.1 | Per-character (see §5.6) |
 | Human elder | 5.5 heads with 5–10° upper-back curve | 11–12 % | — | — |
 
@@ -388,7 +388,7 @@ Atlas: 4 × 2 cells per species. Cell size **256 px on High and Balanced** (batt
 - **20 px rule.** At 20 px tall, every stage-3 silhouette (flat black fill) must be distinguishable from all other 29 in a side-by-side test (QA owns the test). Stage 1s must be distinguishable within 3 wrong guesses.
 - **Hero feature.** Each family has one hero feature on its outline (horns, fin-sail, tail plate, ear-fans, etc.), plus a second "silhouette break" feature from stage 2.
 - **Mass classes.** Each kin belongs to one: *ball*, *pear*, *wedge*, *long-low*, *upright*, *spread-wing*. Within a mass class, no two families use the same hero feature position (top, back, tail, sides).
-- **Humans** get a silhouette hook each: Arden's satchel and cropped jacket, Cass's scarf tail, Oriel's monocle cord and apron, Odile's high collar and long glove, Rhea's asymmetric cape, and a signature prop per Cantor (§5.6).
+- **Humans** get a silhouette hook each: Hollis's satchel and cropped jacket, Cass's scarf tail, Oriel's monocle cord and apron, Odile's high collar and long glove, Rhea's asymmetric cape, and a signature prop per Cantor (§5.6).
 
 ### 5.4 Color grouping
 
@@ -453,7 +453,7 @@ Additional principles:
 
 | Character | Build | Colors (dominant/secondary/accent) | Hook |
 |---|---|---|---|
-| Arden | Teen, 4.75 heads | Moss `#5E7D4A` jacket / cream `#EDE3CC` shirt / brass `#C8963E` buckle | Cross-body satchel with a hanging Reed Chime |
+| Hollis | Teen, 4.75 heads | Moss `#5E7D4A` jacket / cream `#EDE3CC` shirt / brass `#C8963E` buckle | Cross-body satchel with a hanging Reed Chime |
 | Cass Rookwell | Teen, 4.75 heads, lanky | Charcoal `#3B3F4A` coat / red-orange `#D9582B` scarf / white `#F2F2F2` | Scarf tail (a 4-segment physics tube) |
 | Oriel Vantasse | Adult 5.6 heads, broad | Leather `#7A4E32` / linen `#E8DCC3` / brass | Monocle on a cord, tool-key apron |
 | Odile Graven | Adult 6 heads, tall and narrow | Slate `#4A4F5C` quilted long coat / bone `#DAD4C8` / brass `#B08D57` | Slim brass ear-cup headband worn around the neck, high collar, single long glove, a pocket-sized Stillbell at the belt |
@@ -461,7 +461,7 @@ Additional principles:
 | Vey Lanternlow | Adult 5.8 heads, thin | Slate quilted coat / mauve lantern glow / plum `#5C3A5E` | Tall coil lantern held aloft like a stage prop; brass ear-cups pushed back like a tiara |
 | Stillhand (generic) | Adult 5.5–6 heads, 4 body/palette variants | Slate quilted coat / brass ear-muff helmet / leather belt | Coil lantern at the hip, clipboard; the Stillmark mark appears only on the lantern glass |
 | Wren Mossgrave (trial_1, verdant) | Adult, wiry | Bark / leaf green / pollen | Pruning hook staff, vine sleeve |
-| Dorran Flint (trial_2, stone) | Adult, stocky | Slate / ochre / white dust | Mallet over shoulder, safety goggles pushed up |
+| Dorran Shale (trial_2, stone) | Adult, stocky | Slate / ochre / white dust | Mallet over shoulder, safety goggles pushed up |
 | Nerys Tidewell (trial_3, water) | Adult | Lake blue / driftwood / reed gold | Wide-brim rain hat, punt pole |
 | Tamsin Galloway (trial_4, gale) | Adult, athletic | White / sea teal / sail red | Kite harness with ribbons |
 | Bastian Coalridge (trial_5, fire) | Adult elder, 5.5 heads | Soot / ember orange / brass | Leather forge apron, tongs |
@@ -870,7 +870,7 @@ Every SFX is synthesized, and each gets an id `sfx_*`.
 4. **`league` placement.** Concord Spire is the separate zone `league`, reached from `snowpeak` (world.md).
 5. **Choice line in ch10.** Is the flavor-only choice worth the localization cost? Currently kept.
 6. **Post-game scope.** The Old Chord Shrine (Gleam secret) and an Odile epilogue letter are proposed, but not budgeted in the 9 h 20 m estimate.
-7. ~~Default protagonist name~~: resolved as **Arden** (DECISIONS D7).
+7. ~~Default protagonist name~~: resolved as **Hollis** (DECISIONS D7).
 8. **Stray release in ch8.** Should released strays visibly reappear in their home zones' encounter tables (flavor only), or is the on-screen release enough? The CD prefers on-screen release only (no encounter-table change).
 
 ---
@@ -878,7 +878,7 @@ Every SFX is synthesized, and each gets an id `sfx_*`.
 ## Appendix A — Dialogue lines for implementation
 
 Conventions:
-- **Ids.** `dlg_<ch>_<speaker>_<nn>` (chapter `00` = any chapter or repeatable). `{player}` = the protagonist's name (default Arden). `{starter}`, `{rivalStarter}` and `{leftover}` = species display names. `{kin}` = a species name.
+- **Ids.** `dlg_<ch>_<speaker>_<nn>` (chapter `00` = any chapter or repeatable). `{player}` = the protagonist's name (default Hollis). `{starter}`, `{rivalStarter}` and `{leftover}` = species display names. `{kin}` = a species name.
 - **Text.** Lines are final English text, subject to light copy-edit. One line = one dialogue box (≤ 140 characters where possible).
 - **Pre/post.** Battle lines use `pre` (before battle), `win` (the player wins) and `lose` (the player loses; systems wipe rule applies, except Rival 1 per DECISIONS D20).
 - **Tone check.** Stillmark lines are procedural and courteous, never cruel. Nobody in the Stillmark ever takes a kin from a person.
@@ -953,7 +953,7 @@ Conventions:
 | dlg_03_cass_lose | Cass | "Ha! Plan A! It worked! Write that down somewhere official." |
 | dlg_03_cass_after | Cass | "Saw some gale kin on the ridge. Mine loves updrafts. Just saying. For no reason." |
 | dlg_03_nell_01 | Nell (gossip) | "There's surveyors in brass ear-muffs measuring the bell towers. Say the stones need *servicing*. Never knew stone needed servicing." |
-| dlg_03_dorran_pre | Cantor Dorran Flint | "Stone keeps time better than any clock. Let's see if you do." |
+| dlg_03_dorran_pre | Cantor Dorran Shale | "Stone keeps time better than any clock. Let's see if you do." |
 | dlg_03_dorran_win | Dorran | "Steady hands. Steady head. You'd have made a fair quarryman." |
 | dlg_03_dorran_lose | Dorran | "Rushed it. Stone doesn't rush. Try again when you've counted to ten." |
 | dlg_03_dorran_keynote | Dorran | "Keynote's yours. Tuned to toxin. Odd pairing, stone and rot — but rot's how stone becomes soil." |

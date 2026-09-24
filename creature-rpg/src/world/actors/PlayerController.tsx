@@ -12,6 +12,7 @@ import { Animator } from '../../creatures/anim';
 import { humanVisual, type HumanLook } from '../../creatures/humans';
 import { useSettings } from '../../state/settingsStore';
 import { sfx } from '../../audio/sfxBus';
+import { safeRemoveBody, safeRemoveController } from '../physicsSafe';
 
 const WALK = 3.4;
 const RUN = 6.2;
@@ -50,8 +51,8 @@ export function PlayerController({ look, start, killY }: { look: HumanLook; star
     runtime.camYaw = start.yaw + Math.PI;
     runtime.lastGrounded.copy(runtime.playerPos);
     return () => {
-      world.removeCharacterController(ctrl);
-      world.removeRigidBody(body);
+      safeRemoveController(world, ctrl);
+      safeRemoveBody(world, body);
       refs.current = null;
     };
   }, [world, rapier, start.x, start.z, start.yaw]);

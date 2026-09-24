@@ -498,7 +498,7 @@ A deployment with any R item at `fail` is blocked. `not_run` or `not_measured` i
   - (g) a `.glb` is added to `public/`
   - (h) a `placeholder: true` species is added to an encounter table
   - (i) a silhouette-feature part is dropped at LOD2
-  - (j) a species display name is set to "Venomantle" while that name still fails GC-13 (a regression fixture for the Phase 0 finding)
+  - (j) a species display name is set to "Venomantle" (retired, fails GC-13) (a regression fixture for the Phase 0 finding)
 - **AC-2:** Silhouette sheets are deterministic: two runs produce identical hashes.
 - **AC-3:** `gate:verify` refuses in each of these cases, each covered by a test: no matching entry; a `fail` entry; a `conditional_pass` with target production; code changes after `buildCommit`; a report hash mismatch.
 - **AC-4:** `design/reviews/character_consistency.md` has one entry per gate, following the template, with evidence paths that resolve.
@@ -508,7 +508,7 @@ A deployment with any R item at `fail` is blocked. `not_run` or `not_measured` i
 | From | What this gate needs |
 |---|---|
 | Orchestrator (`DECISIONS.md`) | Binding rulings (D6–D16, D27, D28). Adding the npm scripts and the Vercel preview wiring. Acknowledging each gate entry. Names the second reviewer. The trademark and store name check (R-14). The sourcemap policy (R-15). |
-| Creative Director (`creative_direction.md`) | **Per-body-plan proportion bands** (CC-05, GC-08). The human pose and clip set. The display-term glossary (GC-12). D8 status names in UI. Battle phrasing and an encounter pool that passes GC-14. D6 Stillmark text. D7 names (Marra Aske, Arden or its replacement, see the Phase 0 re-review). |
+| Creative Director (`creative_direction.md`) | **Per-body-plan proportion bands** (CC-05, GC-08). The human pose and clip set. The display-term glossary (GC-12). D8 status names in UI. Battle phrasing and an encounter pool that passes GC-14. D6 Stillmark text. D7 names (Marra Aske, Hollis or its replacement, see the Phase 0 re-review). |
 | Creature Art Director (`creatures.md`) | D7 names and designs (Lullstalk, Emberfold, Coronaleen, Floeguard without helmet). `meta.silhouetteFeatures` and optional `silhouetteSideYaw` per species. `clipDurations` and `contactT` per species. An 8-state face spec (D14). A rename for any name that fails GC-13 (see the re-review). |
 | Rendering Engineer (`rendering_and_architecture.md`) | The builder contract (§3.2) with the injectable texture factory. The `?tool=` routes (silhouettes, faces, surface), excluded from production (D28). D14 atlas cell sizes. D16 LOD rules with silhouette-feature retention. The builder-rendered portrait cache. The rendering §11 script table updated to call this gate. |
 | Systems / World | Data file locations for the scans and reachability checks: `src/data/content/**`. D10 item ids. D13 trait display names. |

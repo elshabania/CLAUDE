@@ -3,6 +3,7 @@ import { useEffect, useMemo } from 'react';
 import * as THREE from 'three';
 import type { ZoneSpec } from '../zoneTypes';
 import { distToPath, fbm, type HeightGrid } from './heightfield';
+import { safeRemoveCollider } from '../physicsSafe';
 
 /** Builds the render mesh (vertex-coloured blend of ground/path/cliff) and a matching trimesh collider. */
 export function buildTerrainGeometry(zone: ZoneSpec, g: HeightGrid): THREE.BufferGeometry {
@@ -82,10 +83,10 @@ export function Terrain({ zone, grid }: { zone: ZoneSpec; grid: HeightGrid }) {
   useEffect(() => {
     const verts = geo.attributes.position.array as Float32Array;
     const indices = new Uint32Array(geo.index!.array as ArrayLike<number>);
-    const desc = rapier.ColliderDesc.trimesh(new Float32Array(verts), indices, rapier.TriMeshFlags.FIX_INTERNAL_EDGES).setFriction(0.8);
+    const desc = rapier.ColliderDesc.trimesh(new Float32Array(verts), indices).setFriction(0.8);
     const col = world.createCollider(desc);
     return () => {
-      world.removeCollider(col, false);
+      safeRemoveCollider(world, col);
     };
   }, [geo, world, rapier]);
   useEffect(() => () => {

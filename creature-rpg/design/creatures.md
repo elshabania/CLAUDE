@@ -53,10 +53,10 @@ H = model height in metres in the neutral idle pose, measured from the lowest po
 | c18 | Borealoop | f06 | 3 | frost · lumen | floating ring-serpent | 1.80 | 1.60 span | FL | polar navy / aurora green |
 | c19 | Gustling | f07 | 1 | gale | round hopping fledgling | **0.40** (v2) | 0.47 L | RB | off-white / sky blue |
 | c20 | Whirlseed | f07 | 2 | gale · verdant | samara-winged swift | 0.60 | 1.40 span | WG | blue / seed tan |
-| c21 | Samaraptor | f07 | 3 | gale · verdant | rotor-winged hover raptor | 1.50 | 2.00 rotor | WG | deep green / gold |
+| c21 | Samarch | f07 | 3 | gale · verdant | rotor-winged hover raptor | 1.50 | 2.00 rotor | WG | deep green / gold |
 | c22 | Ringdrip | f08 | 1 | toxin | six-armed land octopus | 0.30 | 0.50 L | RD | amber / electric blue |
 | c23 | Brineloop | f08 | 2 | toxin · water | upright four-leg octopus | 0.90 | 0.70 L | RD | ochre orange / electric blue |
-| c24 | Venomantle | f08 | 3 | toxin · water | cloaked tripod octopus | 1.80 | 1.60 span | RD | deep violet / blue |
+| c24 | Drapetide | f08 | 3 | toxin · water | cloaked tripod octopus | 1.80 | 1.60 span | RD | deep violet / blue |
 | c25 | Snipling | f09 | 1 | shade | flat cut-out biped | 0.40 | 0.25 L | FT | ink black / violet |
 | c26 | Marionyx | f09 | 2 | shade | suspended marionette | 1.10 | 0.50 L | FL | ink black / ghost cyan |
 | c27 | Emberfold | f09 | 3 | shade · fire | folding-screen spectre | 2.00 | 1.10 span | FT | char black / ember orange |
@@ -93,7 +93,7 @@ Method: exact-phrase web searches, run 2026-09-24 through the session's web-sear
 
 ### 1.3 Final names: screening result
 
-All 30 final names were searched. No creature-collecting-game or major-franchise creature match was found for: Fizzkit, Crackleap, Tempestrel, Wickwool, Kilnhorn, Magmouflon, Tidesleek, Floeguard, Dozebud, Nodbell, Belladrowse, Rollith, Cairnback, Lodestodon, Rimelet, Sleetribbon, Borealoop, Whirlseed, Samaraptor, Ringdrip, Brineloop, Venomantle, Marionyx, Cinderscrim, Dawnfry, Lumarlin.
+All 30 final names were searched. No creature-collecting-game or major-franchise creature match was found for: Fizzkit, Crackleap, Tempestrel, Wickwool, Kilnhorn, Magmouflon, Tidesleek, Floeguard, Dozebud, Nodbell, Belladrowse, Rollith, Cairnback, Lodestodon, Rimelet, Sleetribbon, Borealoop, Whirlseed, Samarch, Ringdrip, Brineloop, Drapetide, Marionyx, Cinderscrim, Dawnfry, Lumarlin.
 
 Four names had minor, non-creature or niche hits that are accepted as low risk and recorded:
 
@@ -352,8 +352,8 @@ A **motif** is the element that appears on all three stages and must stay visibl
 | f04 | Dozebud → Lullstalk → Belladrowse | **Moss mantle, hanging bell-flowers, dark eye-mask** stripes on sleepy half-lidded eyes | ball curled around a seed pod → lanky biped with arms to its ankles → quadruped knuckle-walker carrying a canopy tree hung with bells | clingy sleeper → languid ambusher that "nods off" → serene sentinel sheltering others |
 | f05 | Rollith → Cairnback → Lodestodon | **Hex-plate dome carapace** and a pale snout shield | rolling ball → low glyptodont-like quadruped with a stacked-stone club tail → colossus with geode crystal ridges and orbiting lodestones in place of the club | startled roller → grumpy tail-swinger → solemn magnetic controller |
 | f06 | Rimelet → Sleetribbon → Borealoop | **Translucent ice crest fins** and a **six-armed flake** tail or core | sidewinding hatchling → long limbless serpent with a sail-fin row → floating closed ring-coil with aurora plumes, a flake core and small forelimbs | shy cold-clinger → vain graceful hunter → dreamlike night guide |
-| f07 | Gustling → Whirlseed → Samaraptor | **Samara (maple-seed) wings** with a nut at the root, twin tail streamers, cheek swirl marks | round fledgling with stub seed-wings → slender swift with long blade wings → upright raptor whose wings became a two-blade rotor over its back | bubbly hopper → prankish autorotating diver → proud hovering hunter |
-| f08 | Ringdrip → Brineloop → Venomantle | **Glowing blue ring spots** that flash when threatened, and **six arms** (never eight) | radial crawler → upright on 4 leg-arms with 2 lasso arms and a translucent brine-filled mantle → tall tripod with 3 raised arms joined by a cloak web | nervous flasher → cocky trickster → regal intimidator |
+| f07 | Gustling → Whirlseed → Samarch | **Samara (maple-seed) wings** with a nut at the root, twin tail streamers, cheek swirl marks | round fledgling with stub seed-wings → slender swift with long blade wings → upright raptor whose wings became a two-blade rotor over its back | bubbly hopper → prankish autorotating diver → proud hovering hunter |
+| f08 | Ringdrip → Brineloop → Drapetide | **Glowing blue ring spots** that flash when threatened, and **six arms** (never eight) | radial crawler → upright on 4 leg-arms with 2 lasso arms and a translucent brine-filled mantle → tall tripod with 3 raised arms joined by a cloak web | nervous flasher → cocky trickster → regal intimidator |
 | f09 | Snipling → Marionyx → Emberfold | **Flat layered cut-out plates**, punched eye-holes lit from behind, **12 fps stepped motion** | hopping paper cut-out → floating marionette hung from its own crossbar crown → three-panel folding screen backlit by an ember core | mischievous mimic → theatrical show-off → dramatic avenger that projects shadow illusions |
 | f10 | Dawnfry → Lumarlin → Coronaleen | **Lateral light-stripe** (emissive band or spots), crescent dorsal fin, pale belly | round fry → marlin with a light-bill and sail fin → vast baleen whale with an eclipse corona crown | cheerful light-chaser → disciplined duellist → ancient eclipse-bringer |
 
@@ -713,7 +713,7 @@ Reading guide:
 | H / length | 1.60 m / 1.10 m (incl. tail shield) |
 | Habitat | Lore: floe edges below `snowpeak` where it meets `lake`. Not wild in the main game. |
 | Personality | Stoic, protective and patient. Moves last and stands its ground. |
-| Distinctive anatomy (v2) | The shingle plates have fused into a **back carapace only** (no chest shell and no shoulder shells), with a ridge of frost crystals along its spine. The chest is bare pale fur. **No helmet**: the head is a bare otter head with brow meshes. The whiskers are reduced to **two short nubs**. **The tail is a broad scalloped fan-shell used as a shield**: rested on the ground in idle, swung forward to block. A shell "helmet" cap with a brow ridge. Thick webbed forepaws. **It never holds a shell in its hand as a blade** (see audit). |
+| Distinctive anatomy (v2) | The shingle plates have fused into a **back carapace only** (no chest shell and no shoulder shells), with a ridge of frost crystals along its spine. The chest is bare pale fur. **No helmet**: the head is a bare otter head with brow meshes. The whiskers are reduced to **two short nubs**. **The tail is a broad scalloped fan-shell used as a shield**: rested on the ground in idle, swung forward to block. Thick webbed forepaws. **It never holds a shell in its hand as a blade** (see audit). |
 | Dominant colours | S `#CFE9F5` ice-white carapace · P `#3E4E63` slate fur · A `#1FA6C9` cyan seams |
 | Materials | Fur `FUR` r 0.75. Carapace `SHELL` r 0.2, clearcoat 1.0. Frost crystals `ICE` opacity 0.88, emissive A 0.3. Seams emissive A 0.4. Rim `#E8FBFF` 0.5. |
 | Face (v2) | Family class E1 (round) with a calm lidCoverage of 0.3. Iris `#1F5FA6`, round pupil 0.35, 1 highlight. Brows: `brow ×2` meshes (there is no helmet ridge). Mouth: `jaw` plus the mouth atlas. Two short frost-tinted whisker nubs. |
@@ -1176,7 +1176,7 @@ Reading guide:
 | wing blade ×2 | extrude X_samara span 0.65 chord 0.18, depth 0.015 + 4 vein tubes r0.004 | wrist nut | S, veins P− | flap, fx_wings |
 | streamer ×2 | extrude X_strip 0.40×0.05, depth 0.005 | torso rear @ (±0.03,0,−0.30) | P | wave |
 
-#### c21 · Samaraptor
+#### c21 · Samarch
 | Field | Value |
 |---|---|
 | Family / stage / types | f07 · stage 3 · gale / verdant (from c20 at Lv 30, v2) |
@@ -1288,7 +1288,7 @@ Reading guide:
 | lasso arm ×2 | chain 6 × capsule r0.05→0.015, total 0.55 | body base @ (±0.18,0.05,0.06) | P | twirl |
 | ring ×16 | instanced flat torus R0.045 r0.01 | arm segments | A | glow (chase) |
 
-#### c24 · Venomantle
+#### c24 · Drapetide
 | Field | Value |
 |---|---|
 | Family / stage / types | f08 · stage 3 · toxin / water (from c23 at Lv 34, v2) |
@@ -1590,10 +1590,10 @@ Family note: every f09 clip is evaluated at **12 fps stepped interpolation** (ho
 | c18 | Borealoop | 80 | 60 | 80 | 115 | 110 | 75 | 520 | 231 | 45 | — | — | medium |
 | c19 | Gustling | 40 | 50 | 35 | 40 | 35 | 85 | 285 | 57 | 190 | 14 | — | fast |
 | c20 | Whirlseed (v2) | **60** | 75 | 45 | 55 | 45 | 115 | 395 | 131 | 90 | — | 30 | fast |
-| c21 | Samaraptor (v2) | **80** | 100 | **70** | 75 | **75** | 105 | 505 | 224 | 45 | — | — | fast |
+| c21 | Samarch (v2) | **80** | 100 | **70** | 75 | **75** | 105 | 505 | 224 | 45 | — | — | fast |
 | c22 | Ringdrip | 48 | 45 | 45 | 60 | 55 | 47 | 300 | 60 | 190 | 18 | — | medium |
 | c23 | Brineloop | 65 | 55 | 70 | 80 | 75 | 60 | 405 | 135 | 90 | — | 34 | medium |
-| c24 | Venomantle | 85 | 70 | 80 | 105 | 95 | 70 | 505 | 224 | 45 | — | — | medium |
+| c24 | Drapetide | 85 | 70 | 80 | 105 | 95 | 70 | 505 | 224 | 45 | — | — | medium |
 | c25 | Snipling | 40 | 60 | 40 | 60 | 45 | 70 | 315 | 63 | 190 | 24 | — | slow |
 | c26 | Marionyx | 55 | 85 | 55 | 80 | 60 | 90 | 425 | 141 | 90 | — | 40 | slow |
 | c27 | Emberfold | 70 | 95 | 65 | 120 | 80 | 100 | 530 | 235 | 45 | — | — | slow |

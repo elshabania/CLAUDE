@@ -48,7 +48,7 @@ export const c02: SpeciesVisual = {
     { name: 'jaw', parent: 'head', prim: { t: 'sphere', r: [0.095, 0.035, 0.11], half: true }, at: [0, -0.07, 0.07], rot: [180, 180, 0], slot: 'W', anim: ['jaw'] },
     { name: 'mouth', parent: 'snout', prim: { t: 'mouth', r: 0.05, w: 1.7 }, at: [0, -0.03, 0.085], rot: [15, 0, 0] },
     { name: 'eye', parent: 'head', mirror: true, prim: { t: 'eye', r: 0.064 }, at: [0.085, 0.035, 0.125], rot: [0, 28, 0], scale: [1.25, 1, 1] },
-    { name: 'brow', parent: 'head', mirror: true, prim: { t: 'capsule', r: 0.017, len: 0.05 }, at: [0.03, 0.098, 0.138], rot: [10, 30, -98], slot: '#163F54' },
+    { name: 'brow', parent: 'head', mirror: true, prim: { t: 'capsule', r: 0.017, len: 0.05 }, at: [0.03, 0.092, 0.112], rot: [25, 30, -98], slot: '#163F54' },
     // three swept-back head spines, yellow tips
     { name: 'spineC', parent: 'head', prim: { t: 'cone', r: 0.035, h: 0.24 }, at: [0, 0.1, -0.06], rot: [-62, 0, 0] },
     { name: 'spineCtip', parent: 'spineC', prim: { t: 'cone', r: 0.015, h: 0.08 }, at: [0, 0.16, 0], slot: 'A', emissive: 0.5 },
