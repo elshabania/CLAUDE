@@ -447,6 +447,7 @@ export class Music {
 
   constructor(core: Core) {
     this.core = core;
+    if (import.meta.env?.DEV) (globalThis as Record<string, unknown>).__wildchordMusic = this; // dev inspection hook
   }
 
   private play(key: string, def: SongDef, fade: number) {

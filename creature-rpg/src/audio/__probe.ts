@@ -37,6 +37,32 @@ export async function probe(which: string) {
     for (const f of [220, 440, 660, 880]) { p.triggerAttackRelease(f, 0.3, Tone.now() + 0.05); out['pl' + f] = await sample(600); }
     (out as any).mel = JSON.stringify(genMelody(SONGS.hearth).slice(0, 4)) as any;
   }
+  if (which.startsWith('dbg:')) {
+    E.setZoneMusic(which.slice(4));
+    await new Promise((r) => setTimeout(r, 2500));
+    const m = (globalThis as any).__wildchordMusic;
+    const song = m.current;
+    const probeNode = async (name: string, node: any) => {
+      if (!node) return;
+      const a = new Tone.Analyser('waveform', 1024);
+      node.connect(a);
+      let max = 0;
+      const end = performance.now() + 3000;
+      while (performance.now() < end) { await new Promise((r) => setTimeout(r, 15)); const arr = a.getValue() as Float32Array; for (const v of arr) max = Math.max(max, Math.abs(v)); }
+      out[name] = +max.toFixed(3);
+    };
+    await probeNode('lead', song.lead?.nodes[0]);
+    await probeNode('pad', song.pad?.nodes[song.pad.nodes.length - 1]);
+    await probeNode('bus', song.bus);
+    await probeNode('filter', song.filter);
+    await probeNode('out', song.out);
+    out.outDb = song.out.volume.value;
+    out.musicIn = m.core.musicIn.volume.value;
+    out.musicBus = m.core.musicBus.volume.value;
+    out.master = m.core.master.volume.value;
+    await probeNode('musicIn', m.core.musicIn);
+    await probeNode('dest', Tone.getDestination());
+  }
   if (which.startsWith('long:')) {
     const [, z, lead] = which.split(':');
     if (lead) (SONGS as any)[z].lead = lead;
