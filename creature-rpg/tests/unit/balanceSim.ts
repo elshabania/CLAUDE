@@ -78,14 +78,14 @@ export const PATH: Step[] = [
   { kind: 'trainer', id: 't_admin_brann_1' },
   // ch5 (route_3 silenced until the Fen stone is restored after Vey 1)
   { kind: 'silence', zone: 'route_3', on: true },
-  { kind: 'wild', table: 'route_3', zone: 'route_3', n: 2, catchOne: true },
+  { kind: 'wild', table: 'route_3', zone: 'route_3', n: Number(process.env.LATE_WILD ?? 2), catchOne: true },
   { kind: 'trainer', id: 't_still_05' },
   { kind: 'trainer', id: 't_admin_vey_1' },
   { kind: 'silence', zone: 'route_3', on: false },
   { kind: 'zoneTrainers', zone: 'route_3' },
   { kind: 'trainer', id: 't_rival_3' },
   // ch6
-  { kind: 'wild', table: 'lake', zone: 'lake', n: 2, catchOne: false },
+  { kind: 'wild', table: 'lake', zone: 'lake', n: Number(process.env.LATE_WILD ?? 2), catchOne: false },
   { kind: 'zoneTrainers', zone: 'lake' },
   { kind: 'trainer', id: 't_hall3_01' }, { kind: 'trainer', id: 't_hall3_02' },
   { kind: 'trainer', id: 't_cantor_3' },
@@ -93,23 +93,23 @@ export const PATH: Step[] = [
   { kind: 'trainer', id: 't_hall4_01' }, { kind: 'trainer', id: 't_hall4_02' },
   { kind: 'trainer', id: 't_cantor_4' },
   // ch8
-  { kind: 'wild', table: 'route_4', zone: 'route_4', n: 2, catchOne: false },
+  { kind: 'wild', table: 'route_4', zone: 'route_4', n: Number(process.env.LATE_WILD ?? 2), catchOne: false },
   { kind: 'zoneTrainers', zone: 'route_4' },
   { kind: 'trainer', id: 't_still_06' }, { kind: 'trainer', id: 't_still_07' },
   { kind: 'trainer', id: 't_admin_vey_2' },
   { kind: 'trainer', id: 't_rival_4' },
   // ch9
-  { kind: 'wild', table: 'volcano', zone: 'volcano', n: 2, catchOne: false },
+  { kind: 'wild', table: 'volcano', zone: 'volcano', n: Number(process.env.LATE_WILD ?? 2), catchOne: false },
   { kind: 'zoneTrainers', zone: 'volcano' },
   { kind: 'trainer', id: 't_hall5_01' }, { kind: 'trainer', id: 't_hall5_02' },
   { kind: 'trainer', id: 't_cantor_5' },
   // ch10 (route_5 silenced until the Nullbell breaks at Odile)
   { kind: 'silence', zone: 'route_5', on: true },
-  { kind: 'wild', table: 'route_5', zone: 'route_5', n: 2, catchOne: false },
+  { kind: 'wild', table: 'route_5', zone: 'route_5', n: Number(process.env.LATE_WILD ?? 2), catchOne: false },
   { kind: 'zoneTrainers', zone: 'route_5' },
   { kind: 'trainer', id: 't_rival_5' },
   // ch11
-  { kind: 'wild', table: 'snowpeak', zone: 'snowpeak', n: 2, catchOne: false },
+  { kind: 'wild', table: 'snowpeak', zone: 'snowpeak', n: Number(process.env.LATE_WILD ?? 2), catchOne: false },
   { kind: 'zoneTrainers', zone: 'snowpeak' },
   { kind: 'trainer', id: 't_hall6_01' }, { kind: 'trainer', id: 't_hall6_02' },
   { kind: 'trainer', id: 't_cantor_6' },
@@ -151,7 +151,7 @@ function mirror(s: BattleState, pSwitches: number, pSwitchedLast: boolean, foeRe
   return { ...s, player: s.foe, foe: s.player, ai: 'hard', aiItems: [], aiSwitches: pSwitches, aiSwitchedLastTurn: pSwitchedLast, aiItemUsed: true, revealedPlayerMoves: foeRevealed, rngAI };
 }
 
-export function runBattle(setup: BattleSetup, seed: number, opts: { salves?: string[]; trainer?: TrainerDef; starter?: string } = {}): RunResult {
+export function runBattle(setup: BattleSetup, seed: number, opts: { salves?: string[]; trainer?: TrainerDef; starter?: string; log?: (events: unknown[]) => void } = {}): RunResult {
   let s = createBattle(c, setup, seed);
   s = openingEvents(c, s).state;
   let pRng = seedRng((seed * 2654435761) >>> 0);
@@ -183,6 +183,7 @@ export function runBattle(setup: BattleSetup, seed: number, opts: { salves?: str
     if (pa.kind === 'switch') pSwitches++;
     pSwitchedLast = pa.kind === 'switch';
     const r = resolveTurn(c, { ...s, rngAI: ai.rngAI }, pa, ai.action);
+    opts.log?.(r.events);
     for (const e of r.events) if (e.t === 'moveUsed' && e.side === 'foe' && e.move !== 'm000' && !foeRevealed.includes(e.move)) foeRevealed.push(e.move);
     s = r.state;
     // Odile-style phase change (replicates src/battle/battleStore.ts command())
@@ -378,6 +379,9 @@ export function simulateCampaign(starter: string, seeds: number, hooks: Campaign
   let trainerBattles = 0;
   const storyIdx = (i: number) => PATH.slice(i + 1).filter((st) => st.kind === 'trainer' && STORY_BY_ID[st.id]).map((st) => (st as { id: string }).id).slice(0, 3);
 
+  let step = 0;
+  // Route / hall trainers: the player spends one salve of the current shop tier per battle (systems §12.5 buys ≈3 per chapter).
+  const routeSalves = () => (process.env.NO_ROUTE_SALVE ? [] : salveBudget(storyIdx(step - 1)[0] ?? 't_champion').slice(0, 1));
   const fightTrainer = (id: string) => {
     const t = TRAINERS[id];
     if (!t) { errors.push(`missing trainer ${id}`); return; }
@@ -414,7 +418,7 @@ export function simulateCampaign(starter: string, seeds: number, hooks: Campaign
     }
     // non-story trainer: a player retries until they win (≤ 10 attempts); XP from the winning run
     for (let k = 0; k < 10; k++) {
-      const r = runBattle(trainerSetup(t, party, starter, attuned), hashString(`${starter}:${id}:p${k}`), { salves: [], trainer: t, starter });
+      const r = runBattle(trainerSetup(t, party, starter, attuned), hashString(`${starter}:${id}:p${k}`), { salves: routeSalves(), trainer: t, starter });
       if (r.outcome === 'win' || k === 9) {
         if (r.outcome !== 'win') progressionLosses.push(id);
         party = afterBattle(r.state);
@@ -425,6 +429,7 @@ export function simulateCampaign(starter: string, seeds: number, hooks: Campaign
   };
 
   PATH.forEach((st, i) => {
+    step = i;
     if (st.kind === 'silence') { if (st.on) silenced.add(st.zone); else silenced.delete(st.zone); return; }
     if (st.kind === 'trainer') return fightTrainer(st.id);
     if (st.kind === 'zoneTrainers') {

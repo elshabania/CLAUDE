@@ -50,7 +50,7 @@ function makeLead(kind: LeadKind, dest: Tone.InputNode, send: Tone.InputNode, ec
       const s = new Tone.FMSynth({
         harmonicity: 3.01, modulationIndex: 8, oscillator: { type: 'sine' }, modulation: { type: 'sine' },
         envelope: { attack: 0.005, decay: 0.6, sustain: 0.2, release: kind === 'glass' ? 0.9 : 0.15 },
-        modulationEnvelope: { attack: 0.005, decay: 0.4, sustain: 0.15, release: 0.4 }, volume: -15 + db,
+        modulationEnvelope: { attack: 0.005, decay: 0.4, sustain: 0.15, release: 0.4 }, volume: -10 + db,
       });
       route(s, kind === 'glass' ? 0.4 : 0);
       return inst([s, ...extra], (m, d, t, v) => s.triggerAttackRelease(mtof(one(m)), d, t, v));
@@ -61,7 +61,7 @@ function makeLead(kind: LeadKind, dest: Tone.InputNode, send: Tone.InputNode, ec
       const s = new Tone.MonoSynth({
         oscillator: { type: 'sawtooth' }, filter: { type: 'lowpass', Q: 2, rolloff: -24 },
         filterEnvelope: { baseFrequency: 900, octaves: 1, attack: 0.04, decay: 0.3, sustain: 0.7, release: 0.3 },
-        envelope: { attack: 0.04, decay: 0.2, sustain: 0.7, release: 0.25 }, portamento: 0.02, volume: -16 + db,
+        envelope: { attack: 0.04, decay: 0.2, sustain: 0.7, release: 0.25 }, portamento: 0.02, volume: -12 + db,
       });
       s.connect(vib);
       route(vib, 0.2);
@@ -71,7 +71,7 @@ function makeLead(kind: LeadKind, dest: Tone.InputNode, send: Tone.InputNode, ec
       const s = new Tone.MonoSynth({
         oscillator: { type: 'sawtooth' }, filter: { type: 'lowpass', Q: 4, rolloff: -24 },
         filterEnvelope: { baseFrequency: 260, octaves: 3.5, attack: 0.03, decay: 0.25, sustain: 0.3, release: 0.3 },
-        envelope: { attack: 0.01, decay: 0.2, sustain: 0.6, release: 0.2 }, volume: -17 + db,
+        envelope: { attack: 0.01, decay: 0.2, sustain: 0.6, release: 0.2 }, volume: -13 + db,
       });
       route(s, 0.15);
       return inst([s, ...extra], (m, d, t, v) => s.triggerAttackRelease(mtof(one(m)), d, t, v));
@@ -79,21 +79,21 @@ function makeLead(kind: LeadKind, dest: Tone.InputNode, send: Tone.InputNode, ec
     case 'brass': {
       const s = new Tone.FMSynth({
         harmonicity: 1, modulationIndex: 3.5, oscillator: { type: 'sine' }, modulation: { type: 'triangle' },
-        envelope: { attack: 0.05, decay: 0.2, sustain: 0.7, release: 0.4 }, modulationEnvelope: { attack: 0.08, decay: 0.3, sustain: 0.5, release: 0.3 }, volume: -16 + db,
+        envelope: { attack: 0.05, decay: 0.2, sustain: 0.7, release: 0.4 }, modulationEnvelope: { attack: 0.08, decay: 0.3, sustain: 0.5, release: 0.3 }, volume: -12 + db,
       });
       route(s, 0.3);
       return inst([s, ...extra], (m, d, t, v) => s.triggerAttackRelease(mtof(one(m)), d, t, v));
     }
     case 'pluck':
     case 'mute': {
-      const s = kind === 'pluck' ? pluckSynth({ decay: 0.7, volume: -9 + db }) : pluckSynth({ decay: 0.2, bright: 1.8, base: 380, volume: -4 + db });
+      const s = kind === 'pluck' ? pluckSynth({ decay: 0.7, volume: -5 + db }) : pluckSynth({ decay: 0.2, bright: 1.8, base: 380, volume: 0 + db });
       route(s, kind === 'pluck' ? 0.25 : 0);
       return inst([s, ...extra], (m, d, t) => s.triggerAttackRelease(mtof(one(m)), d, t));
     }
     case 'bell': {
       const s = new Tone.FMSynth({
         harmonicity: 5.07, modulationIndex: 10, oscillator: { type: 'sine' }, modulation: { type: 'sine' },
-        envelope: { attack: 0.001, decay: 1.2, sustain: 0, release: 1.2 }, modulationEnvelope: { attack: 0.001, decay: 0.5, sustain: 0, release: 0.5 }, volume: -18 + db,
+        envelope: { attack: 0.001, decay: 1.2, sustain: 0, release: 1.2 }, modulationEnvelope: { attack: 0.001, decay: 0.5, sustain: 0, release: 0.5 }, volume: -14 + db,
       });
       route(s, 0.4);
       return inst([s, ...extra], (m, d, t, v) => s.triggerAttackRelease(mtof(one(m)), d, t, v));
@@ -123,7 +123,7 @@ function makePad(kind: PadKind, dest: Tone.InputNode, send: Tone.InputNode, batt
     modulationEnvelope: { attack: 0.5, decay: 0.3, sustain: 1, release: 1.5 },
   });
   poly.maxPolyphony = 12;
-  poly.volume.value = kind === 'full' ? -19 : -22;
+  poly.volume.value = kind === 'full' ? -16 : -18;
   const nodes: Node[] = [poly];
   let head: Tone.ToneAudioNode = poly;
   if (kind === 'chorus' || kind === 'shimmer' || kind === 'warm' || kind === 'full') {
@@ -160,7 +160,7 @@ function makeKit(d: SongDef, dest: Tone.InputNode, send: Tone.InputNode): Kit {
     const kind = p.kick ?? 'soft';
     const s = new Tone.MembraneSynth({
       pitchDecay: kind === 'taiko' ? 0.08 : kind === 'log' ? 0.02 : 0.04, octaves: kind === 'log' ? 1.5 : kind === 'taiko' ? 2.5 : 3.5,
-      envelope: { attack: 0.001, decay: kind === 'taiko' ? 0.7 : kind === 'sub' ? 0.5 : 0.3, sustain: 0, release: 0.1 }, volume: kind === 'log' ? -10 : -7,
+      envelope: { attack: 0.001, decay: kind === 'taiko' ? 0.7 : kind === 'sub' ? 0.5 : 0.3, sustain: 0, release: 0.1 }, volume: kind === 'log' ? -11 : -10,
     }).connect(dest);
     const f = kind === 'taiko' ? 52 : kind === 'sub' ? 41 : kind === 'log' ? 110 : 55;
     k.kick = inst([s], (_m, dd, t, v) => s.triggerAttackRelease(f, dd, t, v));
@@ -254,7 +254,7 @@ class Song {
       const s = new Tone.MonoSynth({
         oscillator: { type: wave }, filter: { type: 'lowpass', Q: 1 },
         filterEnvelope: { baseFrequency: 160, octaves: 2.6, attack: 0.005, decay: 0.2, sustain: 0.35, release: 0.3 },
-        envelope: { attack: 0.008, decay: 0.25, sustain: 0.6, release: 0.2 }, portamento: 0.03, volume: wave === 'triangle' ? -9 : -19,
+        envelope: { attack: 0.008, decay: 0.25, sustain: 0.6, release: 0.2 }, portamento: 0.03, volume: wave === 'triangle' ? -14 : -21,
       }).connect(this.bassFilter);
       this.bass = inst([s, this.bassFilter], (m, d, t, v) => s.triggerAttackRelease(mtof(one(m)), d, t, v));
     }
