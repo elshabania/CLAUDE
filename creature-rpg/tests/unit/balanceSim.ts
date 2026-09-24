@@ -3,7 +3,7 @@
 import { CONTENT } from '../../src/data/index';
 import { TRAINERS, ENCOUNTERS, type TrainerDef } from '../../src/data/registry';
 import { ZONES } from '../../src/data/zones';
-import { createBattle, openingEvents, resolveTurn, applyReplace, act, aiReplacement, playerPartyAfter } from '../../src/sim/battle/engine';
+import { createBattle, openingEvents, resolveTurn, applyReplace, act, aiReplacement, playerPartyAfter, matchup } from '../../src/sim/battle/engine';
 import { chooseAiAction } from '../../src/sim/battle/ai';
 import type { Action, BattleSetup, BattleState } from '../../src/sim/battle/types';
 import { addXp, createInstance, evolve, evolutionTarget, healFull, learnMove, knows } from '../../src/sim/progression';
@@ -179,6 +179,23 @@ export function runBattle(setup: BattleSetup, seed: number, opts: { salves?: str
       pa = { kind: 'item', item: salves.pop()!, target: idx };
       salvesPerKin[idx] = (salvesPerKin[idx] ?? 0) + 1;
       salvesUsed++;
+    }
+    // Human-style retreat (the AI's own voluntary switch needs best score < 25, so it almost never fires): when the
+    // foe out-types the active kin (matchup < 0) and a healthy bench kin is at least one effectiveness step
+    // better and not itself out-typed, switch (same ≤ 2 voluntary switches, not twice in a row).
+    if (!process.env.NO_HUMAN_SWITCH && pa.kind === 'move' && pSwitches < 2 && !pSwitchedLast && me.inst.hp * 4 > me.stats.hp && act(s, 'foe').inst.hp * 4 > act(s, 'foe').stats.hp) {
+      const ms = mirror(s, pSwitches, pSwitchedLast, foeRevealed, pRng);
+      const cur = matchup(c, ms, me);
+      if (cur < 0) {
+        let best = -1;
+        let bestM = Math.max(0, cur + 4) - 1;
+        s.player.team.forEach((m, i) => {
+          if (i === idx || m.inst.hp * 2 < m.stats.hp) return;
+          const mm = matchup(c, ms, m);
+          if (mm > bestM) { bestM = mm; best = i; }
+        });
+        if (best >= 0) pa = { kind: 'switch', to: best };
+      }
     }
     if (pa.kind === 'switch') pSwitches++;
     pSwitchedLast = pa.kind === 'switch';

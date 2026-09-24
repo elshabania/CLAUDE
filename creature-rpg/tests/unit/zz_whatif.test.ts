@@ -22,6 +22,7 @@ it('whatif', () => {
     if (!targets.includes(id)) return;
     const row = [`${st} ${id} party ${party.map((m) => m.species + '@' + m.level).join(' ')}`];
     for (const v of variants) {
+      if (v.nosw) process.env.NO_HUMAN_SWITCH = '1'; else delete process.env.NO_HUMAN_SWITCH;
       const pp = v.shift ? levelShift(party, v.shift) : party;
       const r = storyWinRate(TRAINERS[id], pp, st, att, seeds, (t: any) => {
         if (v.items) t.items = v.items;
@@ -32,6 +33,7 @@ it('whatif', () => {
         if (v.species) t.team.forEach((m: any, i: number) => (m.species = v.species[i] ?? m.species));
         return t;
       });
+      delete process.env.NO_HUMAN_SWITCH;
       row.push(`  ${v.name}: ${r.winPct.toFixed(0)}%`);
     }
     out.push(row.join('\n'));

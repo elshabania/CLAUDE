@@ -35,6 +35,9 @@ export async function probe(which: string) {
     await sample(1800);
     const p = pluckSynth({ decay: 0.7, volume: -9 }).toDestination();
     for (const f of [220, 440, 660, 880]) { p.triggerAttackRelease(f, 0.3, Tone.now() + 0.05); out['pl' + f] = await sample(600); }
+    for (const f of [784, 1175, 1568]) { p.triggerAttackRelease(f, 2.3, Tone.now() + 0.05); out['long' + f] = await sample(2600); }
+    const p2 = pluckSynth({ decay: 0.7, volume: -9 }).toDestination();
+    for (const f of [784, 784, 1175]) { p2.triggerAttackRelease(f, 0.5, Tone.now() + 0.05); out['p2_' + f + Math.random().toFixed(2)] = await sample(400); }
     (out as any).mel = JSON.stringify(genMelody(SONGS.hearth).slice(0, 4)) as any;
   }
   if (which.startsWith('dbg:')) {

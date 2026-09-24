@@ -195,7 +195,7 @@ export function createCries(core: Core) {
     if (plan.type === 'verdant') {
       const n = new Tone.Noise('white');
       const hp = new Tone.Filter({ type: 'highpass', frequency: 3000 });
-      const e2 = new Tone.AmplitudeEnvelope({ attack: 0.001, decay: 0.03, sustain: 0, release: 0.02 }).connect(fxIn);
+      const e2 = new Tone.AmplitudeEnvelope({ attack: 0.001, decay: 0.03, sustain: 0.001, release: 0.02 }).connect(fxIn);
       n.chain(hp, e2);
       nodes.push(n, hp, e2);
       n.start(t).stop(t + 0.08);

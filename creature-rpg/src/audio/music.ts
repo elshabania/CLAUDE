@@ -93,7 +93,7 @@ function makeLead(kind: LeadKind, dest: Tone.InputNode, send: Tone.InputNode, ec
     case 'bell': {
       const s = new Tone.FMSynth({
         harmonicity: 5.07, modulationIndex: 10, oscillator: { type: 'sine' }, modulation: { type: 'sine' },
-        envelope: { attack: 0.001, decay: 1.2, sustain: 0, release: 1.2 }, modulationEnvelope: { attack: 0.001, decay: 0.5, sustain: 0, release: 0.5 }, volume: -14 + db,
+        envelope: { attack: 0.001, decay: 1.2, sustain: 0.001, release: 1.2 }, modulationEnvelope: { attack: 0.001, decay: 0.5, sustain: 0.001, release: 0.5 }, volume: -14 + db,
       });
       route(s, 0.4);
       return inst([s, ...extra], (m, d, t, v) => s.triggerAttackRelease(mtof(one(m)), d, t, v));
@@ -160,23 +160,23 @@ function makeKit(d: SongDef, dest: Tone.InputNode, send: Tone.InputNode): Kit {
     const kind = p.kick ?? 'soft';
     const s = new Tone.MembraneSynth({
       pitchDecay: kind === 'taiko' ? 0.08 : kind === 'log' ? 0.02 : 0.04, octaves: kind === 'log' ? 1.5 : kind === 'taiko' ? 2.5 : 3.5,
-      envelope: { attack: 0.001, decay: kind === 'taiko' ? 0.7 : kind === 'sub' ? 0.5 : 0.3, sustain: 0, release: 0.1 }, volume: kind === 'log' ? -11 : -10,
+      envelope: { attack: 0.001, decay: kind === 'taiko' ? 0.7 : kind === 'sub' ? 0.5 : 0.3, sustain: 0.001, release: 0.1 }, volume: kind === 'log' ? -11 : -10,
     }).connect(dest);
     const f = kind === 'taiko' ? 52 : kind === 'sub' ? 41 : kind === 'log' ? 110 : 55;
     k.kick = inst([s], (_m, dd, t, v) => s.triggerAttackRelease(f, dd, t, v));
   }
   if (p.t) {
-    const s = new Tone.MembraneSynth({ pitchDecay: 0.03, octaves: 2, envelope: { attack: 0.001, decay: 0.3, sustain: 0, release: 0.1 }, volume: -12 }).connect(dest);
+    const s = new Tone.MembraneSynth({ pitchDecay: 0.03, octaves: 2, envelope: { attack: 0.001, decay: 0.3, sustain: 0.001, release: 0.1 }, volume: -12 }).connect(dest);
     k.tom = inst([s], (m, dd, t, v) => s.triggerAttackRelease(one(m), dd, t, v));
   }
   if (p.s || d.battle) {
     const f = new Tone.Filter({ type: 'bandpass', frequency: 2200, Q: 0.8 }).connect(dest);
-    const s = new Tone.NoiseSynth({ noise: { type: 'pink' }, envelope: { attack: 0.002, decay: 0.13, sustain: 0, release: 0.05 }, volume: d.battle ? -14 : -18 }).connect(f);
+    const s = new Tone.NoiseSynth({ noise: { type: 'pink' }, envelope: { attack: 0.002, decay: 0.13, sustain: 0.001, release: 0.05 }, volume: d.battle ? -14 : -18 }).connect(f);
     k.snare = inst([s, f], (_m, dd, t, v) => s.triggerAttackRelease(dd, t, v));
   }
   if (p.h || d.battle) {
     const f = new Tone.Filter({ type: 'highpass', frequency: 7000 }).connect(dest);
-    const s = new Tone.NoiseSynth({ noise: { type: 'white' }, envelope: { attack: 0.001, decay: 0.035, sustain: 0, release: 0.02 }, volume: -26 }).connect(f);
+    const s = new Tone.NoiseSynth({ noise: { type: 'white' }, envelope: { attack: 0.001, decay: 0.035, sustain: 0.001, release: 0.02 }, volume: -26 }).connect(f);
     k.hat = inst([s, f], (_m, dd, t, v) => s.triggerAttackRelease(dd, t, v));
   }
   if (p.m) {
@@ -189,7 +189,7 @@ function makeKit(d: SongDef, dest: Tone.InputNode, send: Tone.InputNode): Kit {
   }
   if (p.c || p.rand) {
     const echo = p.rand === 'drip' ? new Tone.FeedbackDelay({ delayTime: 0.33, feedback: 0.4, wet: 0.4 }).connect(dest) : null;
-    const s = new Tone.Synth({ oscillator: { type: p.rand === 'frog' ? 'triangle' : 'sine' }, envelope: { attack: 0.001, decay: p.rand === 'drip' ? 0.09 : 0.035, sustain: 0, release: 0.03 }, volume: p.rand === 'drip' ? -20 : -24 });
+    const s = new Tone.Synth({ oscillator: { type: p.rand === 'frog' ? 'triangle' : 'sine' }, envelope: { attack: 0.001, decay: p.rand === 'drip' ? 0.09 : 0.035, sustain: 0.001, release: 0.03 }, volume: p.rand === 'drip' ? -20 : -24 });
     s.connect(echo ?? dest);
     k.click = inst(echo ? [s, echo] : [s], (m, dd, t, v) => s.triggerAttackRelease(one(m), dd, t, v));
   }
@@ -538,7 +538,7 @@ export class Music {
     const padFilter = new Tone.Filter({ type: 'lowpass', frequency: 4000 });
     pad.connect(padFilter);
     const pluck = pluckSynth({ decay: 0.8, volume: -10 });
-    const bowl = new Tone.PolySynth(Tone.Synth, { oscillator: { type: 'sine' }, envelope: { attack: 0.004, decay: 2.8, sustain: 0, release: 2 } });
+    const bowl = new Tone.PolySynth(Tone.Synth, { oscillator: { type: 'sine' }, envelope: { attack: 0.004, decay: 2.8, sustain: 0.001, release: 2 } });
     bowl.maxPolyphony = 24;
     bowl.volume.value = -16;
     const sendG = new Tone.Gain(0.35).connect(verb);

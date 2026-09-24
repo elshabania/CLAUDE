@@ -104,10 +104,14 @@ export function pluckSynth(opts: { decay?: number; bright?: number; base?: numbe
     oscillator: { type: 'sawtooth' },
     filter: { type: 'lowpass', Q: 1.5, rolloff: -24 },
     filterEnvelope: { baseFrequency: opts.base ?? 520, octaves: opts.bright ?? 2.8, attack: 0.001, decay: decay * 0.35, sustain: 0.04, release: 0.2 },
-    envelope: { attack: 0.002, decay, sustain: 0, release: decay * 0.4 },
+    envelope: { attack: 0.002, decay, sustain: 0.001, release: decay * 0.4 },
     volume: opts.volume ?? -10,
   });
 }
+
+// Note: envelopes use sustain 0.001 rather than 0 throughout the audio code. With sustain exactly 0,
+// Tone schedules an oscillator stop at attack+decay, and a retrigger inside that window is often cut
+// off (verified in headless Chromium: repeated plucks/kicks went silent).
 
 /** Keeps trigger times strictly increasing per instrument (Tone sources reject equal start times). */
 export function monotonic() {

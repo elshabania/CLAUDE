@@ -37,13 +37,13 @@ export function createSfx(core: Core) {
     pluck: wire(pluckSynth({ decay: 0.5, volume: -10 }), true),
     noise: [0, 1].map(() => {
       const f = wire(new Tone.Filter({ type: 'bandpass', frequency: 1500, Q: 1 }));
-      const s = new Tone.NoiseSynth({ noise: { type: 'white' }, envelope: { attack: 0.003, decay: 0.2, sustain: 0, release: 0.05 }, volume: -10 }).connect(f);
+      const s = new Tone.NoiseSynth({ noise: { type: 'white' }, envelope: { attack: 0.003, decay: 0.2, sustain: 0.001, release: 0.05 }, volume: -10 }).connect(f);
       return { s, f };
     }),
-    memb: wire(new Tone.MembraneSynth({ pitchDecay: 0.04, octaves: 3, envelope: { attack: 0.001, decay: 0.25, sustain: 0, release: 0.08 }, volume: -8 })),
+    memb: wire(new Tone.MembraneSynth({ pitchDecay: 0.04, octaves: 3, envelope: { attack: 0.001, decay: 0.25, sustain: 0.001, release: 0.08 }, volume: -8 })),
     poly: wire(new Tone.PolySynth(Tone.Synth, { oscillator: { type: 'triangle' }, envelope: { attack: 0.01, decay: 0.3, sustain: 0.3, release: 0.8 } }), true),
     swell: wire(new Tone.PolySynth(Tone.AMSynth, { oscillator: { type: 'triangle' }, envelope: { attack: 0.35, decay: 0.2, sustain: 0.7, release: 0.5 } }), true),
-    bowl: wire(new Tone.PolySynth(Tone.Synth, { oscillator: { type: 'sine' }, envelope: { attack: 0.003, decay: 2.2, sustain: 0, release: 1.6 } }), true),
+    bowl: wire(new Tone.PolySynth(Tone.Synth, { oscillator: { type: 'sine' }, envelope: { attack: 0.003, decay: 2.2, sustain: 0.001, release: 1.6 } }), true),
   };
   pool.poly.maxPolyphony = 10;
   pool.poly.volume.value = -16;
