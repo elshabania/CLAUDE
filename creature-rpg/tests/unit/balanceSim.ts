@@ -215,15 +215,28 @@ function moveValue(inst: CreatureInstance, id: string): number {
   return ((mv.power ?? 0) * (hits && hits.kind === 'hits' ? hits.count : 1) * ((mv.accuracy ?? 100) / 100) * stab * recoil * stat) / Math.max(stats.atk, stats.spa);
 }
 
-/** A sensible player: learn into a free slot, else replace the weakest move if the new one is better. */
+/** A sensible player: learn into a free slot; otherwise replace a redundant move (a status move, or the weakest
+ * of two damaging moves that share a type, or the old move of the new move's type) when the new one is better.
+ * A player keeps type coverage: the only move of a damaging type is dropped only for a clearly stronger move. */
 export function offerMove(inst: CreatureInstance, move: string): CreatureInstance {
   if (knows(inst, move)) return inst;
   if (inst.moves.length < 4) return learnMove(c, inst, move);
   const vals = inst.moves.map((m) => moveValue(inst, m.id));
-  // keep at least one move of each distinct damaging type when possible: bias against dropping the only STAB move
-  let worst = 0;
+  const newVal = moveValue(inst, move);
+  const typeOf = (id: string) => (c.moves[id].category === 'status' ? null : c.moves[id].type);
+  const count = (t: string) => inst.moves.filter((m) => typeOf(m.id) === t).length;
+  const nt = typeOf(move);
+  let worst = -1;
+  for (let i = 0; i < 4; i++) {
+    const t = typeOf(inst.moves[i].id);
+    const redundant = t === null || count(t) >= 2 || (nt !== null && t === nt);
+    if (redundant && (worst < 0 || vals[i] < vals[worst])) worst = i;
+  }
+  if (worst >= 0) return newVal > vals[worst] ? learnMove(c, inst, move, worst) : inst;
+  // four different damaging types: drop the weakest only for a clearly stronger move
+  worst = 0;
   for (let i = 1; i < 4; i++) if (vals[i] < vals[worst]) worst = i;
-  if (moveValue(inst, move) > vals[worst]) return learnMove(c, inst, move, worst);
+  if (newVal > vals[worst] * 1.5) return learnMove(c, inst, move, worst);
   return inst;
 }
 
