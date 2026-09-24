@@ -534,3 +534,330 @@ Columns: id | name | type | cat | power | acc | charges | pri | target | effects
 - Per type: 10 moves (3–4 physical, 3–4 special, 2–3 status); power tiers 40 → 60–75 → 80–95 → 100–110 in every type.
 - Priority: m013, m023, m053, m063, m083 (+1), m045 (+3). Healing: m014, m037, m068, m094 (+ drain m036). Recoil (no multi-turn moves exist in v1): m008, m030, m040, m100. Weather: m009, m017, m057, m087, m067 (clear). Status infliction: burn m006, paralysis m024, sleep m034, poison m073, frostbite m054, dizzy m084, sapped m033. Self boosts: m003, m026, m043, m095. Foe drops: m064 (atk), m074 (def), m085 (spa), m093 (acc), m044 (spe). Cleanse: m098.
 - No two-turn charge moves, no forced-switch moves, no trapping — deliberate simplification of the state machine (see Unresolved questions).
+
+---
+
+## 10. Passive traits
+
+Each species has exactly one trait (no hidden/alternate traits in v1). The Creature Art Director proposes a trait per species; the final species→trait assignment is reconciled against this canonical list in `creatures.json` (reference-validated). Traits not in this list are not implementable in v1.
+
+| id | Trigger | Exact effect |
+|---|---|---|
+| `tr_last_stand` | currentHp ≤ floor(maxHp/3) | Moves of the user's **primary** type ×3/2 (damage step 8). Suggested: all starter-line stages. |
+| `tr_resonant` | move type = zone attunedType | Resonance ×3/2 instead of ×6/5. |
+| `tr_static_hide` | hit by a physical move | `rng.chance(30)` → attacker paralysis (normal eligibility rules). |
+| `tr_ember_hide` | hit by a physical move | 30% → attacker burn. |
+| `tr_toxic_skin` | hit by a physical move | 30% → attacker poison. |
+| `tr_frost_hide` | hit by a physical move | 30% → attacker frostbite. |
+| `tr_thorned` | hit by a physical move | attacker loses floor(attackerMaxHp/8) (min 1) after the hit. |
+| `tr_menace` | on entry | foe atk −1 (blocked by `tr_clear_mind`). |
+| `tr_clear_mind` | foe-caused stat drop | prevented ("mind stays clear"); self-inflicted changes still apply. |
+| `tr_sturdy_core` | at full HP, a single hit would reduce HP to 0 | HP set to 1 instead. Per hit (a second hit of m035 can KO). |
+| `tr_keen_focus` | always | crit stage +1. |
+| `tr_small_strikes` | move base power ≤ 60 | power ×3/2 (floored) before the base formula. |
+| `tr_reckless` | move has recoil (m000 excluded) | power ×6/5 before the base formula. |
+| `tr_regrowth` | end-of-turn step 5 | heal floor(maxHp/16) if not full and not fainted. |
+| `tr_charge_sink` | targeted by an electric move | move has no effect; if damaging, user heals floor(maxHp/4). Immune to paralysis. |
+| `tr_tide_sink` | targeted by a water move | move has no effect; if damaging, heal floor(maxHp/4). |
+| `tr_flame_sink` | targeted by a fire move | move has no effect; sets `absorbedFlame` (own fire moves ×3/2 while on field). Immune to burn. |
+| `tr_rain_glide` | rain | effSpe ×2. |
+| `tr_sun_bask` | sunlight | effSpe ×2. |
+| `tr_snow_coat` | snow | def ×3/2 (stacks with the frost-type snow bonus). |
+| `tr_fog_veil` | fog | foe moves targeting it: accuracy ×4/5. |
+| `tr_shed_status` | end-of-turn step 5 | `rng.chance(30)` → cure own major status. |
+| `tr_early_riser` | asleep | sleep counter decrements by 2. |
+| `tr_adaptive` | STAB | STAB ×2 instead of ×3/2. |
+| `tr_thick_fur` | hit by fire or frost move | damage ×1/2 (step 8). |
+| `tr_quick_feet` | has a major status | effSpe ×3/2; ignores paralysis speed halving. |
+
+Suggested defaults (for reconciliation, not binding): f01 `tr_last_stand`→st3 `tr_static_hide`; f02 `tr_last_stand`→st3 `tr_reckless`; f03 `tr_last_stand`→st3 `tr_rain_glide`; f04 `tr_regrowth`; f05 `tr_sturdy_core`; f06 `tr_snow_coat`; f07 `tr_keen_focus`; f08 `tr_toxic_skin`; f09 `tr_fog_veil`; f10 `tr_resonant`. The trait choice must be one of the 26 ids; balance gate: no stage-1 creature may have `tr_adaptive`.
+
+---
+
+## 11. Learnsets
+
+Rule: one learnset table **per family**, shared by all three stages (a creature learns by its current level regardless of stage). Evolution moves (8.3) are learned on evolving. Lv 1 moves are known on creation; starters are created at Lv 5 knowing the two Lv 1 moves. Every family has, by Lv 25, at least two STAB damaging moves (one ≥ 65 power), one coverage type hitting at least one of its weaknesses, and one status/utility move.
+
+Format: `Lv: move` (★ = evolution move).
+
+| Family | Learnset |
+|---|---|
+| **f01 electric** | 1: m021, 1: m022, 7: m062, 10: m024, 13: m063, ★16: m025, 20: m026, 24: m027, 28: m065, 32: m028, ★34: m055, 38: m029, 43: m030, 48: m070 |
+| **f02 fire** | 1: m002, 1: m001, 7: m041, 10: m006, 13: m044, ★16: m004, 20: m005, 24: m003, 28: m038, 32: m007, ★34: m048, 38: m009, 42: m008, 47: m010 |
+| **f03 water** | 1: m012, 1: m011, 7: m013, 10: m015, 13: m052, ★16: m016, 20: m014, 24: m056, 28: m019, 32: m017, ★34: m047, 38: m018, 42: m058, 47: m020 |
+| **f04 verdant** | 1: m031, 1: m032, 5: m033, 9: m071, 12: m034, ★16: m035, 19: m036, 23: m075, 27: m037, ★32: m047, 35: m038, 39: m039, 44: m040, 48: m078 |
+| **f05 stone** | 1: m041, 1: m043, 6: m042, 10: m044, 14: m021, 18: m046, ★20: m045, 24: m027, 28: m047, 32: m048, ★36: m004, 40: m050, 45: m049, 50: m030 |
+| **f06 frost** | 1: m051, 1: m052, 6: m053, 10: m015, 14: m054, 18: m056, ★22: m055, 26: m057, 30: m065, 34: m058, ★38: m019, 42: m059, 47: m060 |
+| **f07 gale** | 1: m062, 1: m061, 5: m064, 9: m063, 13: m081, ★14: m066, 18: m065, 22: m068, 26: m086, ★30: m069, 34: m067, 38: m097, 43: m088, 48: m070 |
+| **f08 toxin** | 1: m071, 1: m072, 6: m073, 10: m082, 14: m075, ★18: m076, 22: m074, 26: m077, 30: m033, ★34: m036, 38: m078, 42: m088, 46: m079, 50: m080 |
+| **f09 shade** | 1: m081, 1: m082, 6: m085, 10: m083, 14: m084, 18: m072, 21: m086, ★24: m087, 28: m088, 32: m076, 36: m056, ★40: m089, 44: m058, 48: m090 |
+| **f10 lumen** | 1: m091, 1: m092, 6: m093, 10: m094, 14: m061, 18: m096, 22: m095, ★26: m097, 30: m065, 34: m098, 38: m099, 42: m005, ★(st3): m100, 46: m007 |
+
+### 11.1 Coverage check (weakness → learnset answer)
+| Family | Weak to | Coverage types in learnset | Example Lv 30 set |
+|---|---|---|---|
+| f01 electric | fire, stone, shade | gale (vs fire, shade), frost (vs stone, st3) | m025, m027, m065, m026 |
+| f02 fire | water, stone, gale | stone (vs gale), verdant (vs water, stone) | m004, m005, m038, m044 |
+| f03 water | electric, verdant, toxin | frost (vs verdant), stone (vs electric, st3) | m016, m019, m056, m014 |
+| f04 verdant | fire, frost, toxin | stone (vs fire, frost), toxin | m036, m035, m075, m037 |
+| f05 stone | water, verdant, frost | electric (vs water), fire (vs verdant, frost, st3) | m047, m027, m045, m046 |
+| f06 frost | fire, stone, lumen | water (vs fire, stone), gale | m056, m055, m065, m015 |
+| f07 gale | electric, frost | shade, lumen (vs frost) | m069, m065, m086, m068 |
+| f08 toxin | water, gale, lumen | verdant (vs water), shade (vs lumen) | m076, m077, m074, m033 |
+| f09 shade | gale, lumen | toxin (vs lumen), frost (vs gale, Lv 36) | m088, m086, m084, m072 |
+| f10 lumen | verdant, toxin, shade | gale (vs verdant, toxin, shade), fire (vs verdant, Lv 42) | m096, m097, m065, m094 |
+
+### 11.2 Disc coverage (`discCoverage` per family, in addition to the species' own types)
+f01: gale, frost, lumen · f02: stone, verdant, shade · f03: frost, stone, gale · f04: toxin, stone, lumen · f05: electric, fire, frost · f06: water, gale, stone · f07: shade, lumen, electric · f08: shade, verdant, water · f09: frost, toxin, electric · f10: gale, fire, water.
+
+---
+
+## 12. Items and economy
+
+Sell value = floor(price/2) unless stated. "Not sold" items appear only as pickups/rewards (World Designer places). Items cannot be used by the player in trainer battles more than once per turn (one action per turn anyway).
+
+### 12.1 Consumables
+| id | Effect | Price | First sold |
+|---|---|---|---|
+| `i_salve_1` | restore 20 HP | 200 | town_1 |
+| `i_salve_2` | restore 60 HP | 500 | after trial_1 |
+| `i_salve_3` | restore 150 HP | 1000 | after trial_3 |
+| `i_salve_4` | restore all HP | 2000 | after trial_5 |
+| `i_cure_burn` / `i_cure_poison` / `i_cure_para` / `i_cure_sleep` / `i_cure_frost` | cure that status | 150 each | town_1 |
+| `i_cure_all` | cure any major status and dizzy | 450 | after trial_2 |
+| `i_revive_1` | revive fainted creature at floor(maxHp/2) | 1200 | after trial_2 |
+| `i_revive_2` | revive at full HP | not sold (sell 1000) | — |
+| `i_charge_1` | +10 charges to one move | 600 | after trial_2 |
+| `i_charge_2` | all moves of one creature to full charges | not sold (sell 800) | — |
+| `i_repel_1` | wild creatures do not initiate contact for 200 m walked (they still roam; player can still touch them to battle) | 300 | after trial_1 |
+| `i_repel_2` | same, 400 m | 500 | after trial_3 |
+| `i_escape` | outside battle, in cave/forest/volcano/snowpeak/lake areas and interiors: return to last healing center | 400 | town_1 |
+| `i_evo_prism` | f10 stage 2 → stage 3 (8.3) | 3000 (town_3 only) | one guaranteed pickup (World Designer) |
+| `i_orb_1..4` | capture devices (7.1) | 200 / 600 / 1200 / 2500 | 7.1 |
+
+Battle usage: HP/cure/revive items target a party member (revive only fainted; others only non-fainted); use consumes the player's action. Out of battle all except orbs/escape are usable from the Bag.
+
+### 12.2 Teaching discs (reusable, cannot be sold)
+| id | Move | Suggested source (World Designer places) | Price if sold in shop |
+|---|---|---|---|
+| i_disc_01 | m005 Heat Ribbon | shop town_2 | 2000 |
+| i_disc_02 | m019 Deluge Beam | trial_3 reward | — |
+| i_disc_03 | m025 Arc Lash | shop town_1 (after trial_1) | 1500 |
+| i_disc_04 | m036 Draining Bloom | forest secret | — |
+| i_disc_05 | m044 Rock Tumble | trial_1 reward | — |
+| i_disc_06 | m055 Sleet Spray | shop town_2 | 2000 |
+| i_disc_07 | m065 Razor Draft | route gale-field-action secret | — |
+| i_disc_08 | m075 Sludge Lob | shop town_2 | 2000 |
+| i_disc_09 | m088 Umbral Pulse | antagonist admin 2 reward | — |
+| i_disc_10 | m096 Prism Ray | trial_2 reward | — |
+| i_disc_11 | m045 Bulwark (**universal**) | shop town_1 | 1500 |
+| i_disc_12 | m024 Buzz Field | shop town_2 | 1500 |
+| i_disc_13 | m048 Quake Stomp | trial_4 reward | — |
+| i_disc_14 | m058 Rime Beam | shop town_3 | 3000 |
+| i_disc_15 | m028 Stormcoil Bolt | trial_5 reward | — |
+| i_disc_16 | m007 Kiln Blast | shop town_3 | 3000 |
+| i_disc_17 | m086 Night Rake | cave secret | — |
+| i_disc_18 | m094 Radiant Mend | trial_6 reward | — |
+
+### 12.3 Key items (functional ids; names by Creative Director)
+`i_mark_1`..`i_mark_6` (trial emblems; each unlocks one field-action category per creative_direction.md), `i_key_disc_case` (holds discs; given with first disc), `i_key_journal` (quest log), `i_key_map` (fast-travel map). Key items cannot be sold, dropped or used up.
+
+### 12.4 Money sources
+- Starting money 1000. Wild battles give no money.
+- Trainer payout on victory = `classBase × (highest level in the trainer's team)`.
+
+| Trainer class | classBase |
+|---|---|
+| youth / novice | 16 |
+| regular route trainer | 24 |
+| veteran | 36 |
+| faction grunt | 20 |
+| faction admin / boss | 60 |
+| rival | 40 |
+| trial leader | 100 |
+| champion | 200 |
+
+- Wipe penalty: see 15.1. Money is capped at 999,999 and never negative.
+
+### 12.5 Income vs spending per chapter (estimate; excludes pickups and quest rewards)
+Trainer mix per chapter matches section 13 (counts are the World Designer's target; they may vary ±20% without breaking the budget).
+
+| Chapter | Est. hours | Trainers (class×count @ max lvl) | Income | Typical purchases | Spend | Balance after |
+|---|---|---|---|---|---|---|
+| C1 start → trial_1 | 1.2 | youth×5 @8, rival @5, leader @14 | 2,240 | 5 orb_1, 4 salve_1 | 1,800 | 1,440 (from 1,000 start) |
+| C2 → trial_2 | 1.2 | youth×4 @14, regular×4 @16, rival @17, leader @20 | 5,112 | 5 orb_1, 2 orb_2, 3 salve_2, 2 cures | 4,000 | 2,552 |
+| C3 → trial_3 | 1.3 | regular×4 @21, grunt×3 @21, admin @22, leader @26 | 7,196 | 4 orb_2, 3 salve_2, 1 revive, 1 disc | 7,100 | 2,648 |
+| C4 → trial_4 | 1.3 | regular×6 @27, veteran×3 @28, rival @29, leader @32 | 11,272 | 3 orb_3, 4 salve_3, 1 disc | 10,100 | 3,820 |
+| C5 → trial_5 | 1.3 | regular×5 @33, grunt×3 @33, admin @34, leader @38 | 11,780 | 3 orb_3, 3 salve_3, 2 revive, 2 repel_2 | 10,000 | 5,600 |
+| C6 → trial_6 | 1.3 | veteran×5 @39, grunt×3 @39, rival @40, boss @42, leader @43 | 17,780 | 3 orb_4, 4 salve_3, 2 revive, 1 disc | 16,900 | 6,480 |
+| C7 → champion | 1.0 | veteran×6 @46, rival @47, champion @50 | 21,816 (11,816 before champion) | 6 salve_4, 3 revive | 15,600 | 12,696 |
+
+Conclusions: purchases fit income at every chapter with no extra battles; healing centers are free, so purchases are convenience, not survival. Even a player who buys nothing beyond orbs finishes every chapter with a positive balance; the free orb rule (15.3) covers a player who overspends.
+
+---
+
+## 13. AI
+
+### 13.1 Information rule (all levels)
+The AI function signature is `chooseAction(view: AIView, rngAI) → Action`. `AIView` contains: the AI's own full team state; the player's **active** creature's species, types, level, currentHp/maxHp, status, volatiles, stat stages and trait (visible); weather, turns remaining, attunedType, turn number; the player's moves **revealed** so far this battle (used at least once); the count of the player's non-fainted creatures. It contains **no** field for the player's pending command, the player's unrevealed moves, the player's bench identities, potentials or temperament. The AI's choice is computed before the player's command is read and uses only `rngAI`, so the player's input cannot influence it. For damage estimates the AI assumes the player creature has potential 8 in every stat and `tm_steady`.
+
+### 13.2 Move scoring (used by all levels)
+`est(move)` = damage formula with random R = 92, no crit, known weather/Resonance/STAB/effectiveness/burn/traits. `pct = min(100, floor(100 × est / targetCurrentHp))`.
+| Move kind | Score |
+|---|---|
+| Damaging | `pct × acc / 100` (acc "—" = 100); +40 if est ≥ targetCurrentHp; +20 more if also priority > 0; −floor(50 × recoilHp / userCurrentHp) for recoil; effectiveness 0 → score 0 |
+| Status infliction (burn/poison/paralysis/sleep/frostbite) | 45 if target has no major status, is not immune, and target HP > 40%; else 0 |
+| dizzy / sap | 35 if target lacks it (sap: not verdant); else 0 |
+| Self boost | 35 if every boosted stat stage < +2 and user HP ≥ 60%; else 5 |
+| Foe drop | 30 if relevant foe stage > −2; else 0 |
+| Heal | 90 if user HP ≤ 40%; 40 if ≤ 60%; else 0 |
+| Weather | 35 if not active and it boosts one of the user's types or its trait; else 0 |
+| Clearing Wind | 30 if the foe has any positive stage or the current weather boosts the foe's type; else 0 |
+| Bulwark | 10; 25 if foe is burned/poisoned/frostbitten/sapped or user has `tr_regrowth`; 0 if used last turn |
+| Cleanse | 50 if user has a major status or any stage ≤ −2; else 0 |
+| m000 | only option when forced |
+
+### 13.3 Difficulty levels
+| Level | Used by | Move choice | Switching | Items | Replacement | Team potentials |
+|---|---|---|---|---|---|---|
+| **Easy** | all wild creatures | uniform random among moves with score > 0 (if none, uniform among usable moves) | never | never | n/a | random 0–15 |
+| **Normal** | route trainers, grunts, rival R1–R2 | highest score; with `rngAI.chance(25)` instead pick uniformly among moves scoring ≥ 60% of the max | never voluntarily | holds 0–1 `i_salve_*` (trainer data); uses it when own HP ≤ 20% and `rngAI.chance(50)`, once per battle | next party slot | 6 all stats, `tm_steady` |
+| **Hard** | trial leaders, admins/boss, rival R3–R5, champion | highest score; ties → `rngAI` uniform; +30 to priority moves if the AI estimates it will be KO'd before acting (player effSpe > AI effSpe and a revealed player move's est ≥ AI HP) | see 13.4 | holds up to 2 heal items + 1 `i_cure_all`; heals when HP ≤ 25% and no move scores KO; uses cure_all on sleep/paralysis/frostbite if it is the last creature | best matchup (13.4) | 12 (leaders, admins, rival), 15 (champion); temperaments data-defined |
+
+### 13.4 Hard AI switching and matchup
+`matchup(c) = max over c's damaging moves of effectiveness vs player's active types (as ×4 integer) − max over player's revealed damaging moves' types (if none revealed: player's own types, as STAB proxies) of effectiveness vs c's types`.
+Voluntary switch at command time iff all hold: best move score < 25; active HP > 25%; a benched non-fainted creature has `matchup ≥ matchup(active) + 4` (i.e. one full effectiveness step better); fewer than 2 voluntary switches so far this battle; the AI did not switch last turn. Picks the highest matchup (ties: party order). Replacement after a faint: highest matchup, ties party order.
+
+---
+
+## 14. Difficulty progression
+
+### 14.1 Major battles
+| Battle | Team size | Opponent levels | Recommended player ace | AI |
+|---|---|---|---|---|
+| Rival R1 (town_1, start) | 1 | 5 (starter strong vs player's) | 5 | Normal |
+| trial_1 leader | 2 | 12, 14 | 13 | Hard |
+| Rival R2 (before trial_2) | 2 | 15, 17 | 17 | Normal |
+| trial_2 leader | 3 | 17, 18, 20 | 19 | Hard |
+| Admin A1 (C3) | 2 | 20, 22 | 21 | Hard |
+| trial_3 leader | 3 | 23, 24, 26 | 25 | Hard |
+| Rival R3 (before trial_4) | 3 | 26, 27, 29 | 28 | Hard |
+| trial_4 leader | 4 | 29, 30, 30, 32 | 31 | Hard |
+| Admin A2 (C5) | 3 | 32, 33, 34 | 33 | Hard |
+| trial_5 leader | 4 | 35, 36, 36, 38 | 37 | Hard |
+| Rival R4 (before trial_6) | 4 | 37, 38, 39, 40 | 39 | Hard |
+| Faction boss (C6) | 4 | 39, 40, 41, 42 | 41 | Hard |
+| trial_6 leader | 5 | 40, 41, 41, 42, 43 | 42 | Hard |
+| Rival R5 (before champion) | 5 | 44, 45, 45, 46, 47 | 46 | Hard |
+| champion | 6 | 46, 47, 47, 48, 48, 50 | 48 | Hard |
+
+Rules: the rival's starter is always the one strong against the player's (fire vs electric pick, water vs fire, electric vs water) and evolves at the same levels; rival teams grow by adding creatures from families the World Designer makes available by that chapter. Leaders' teams center on one type (Creative/World own which), with at least one creature whose second type or coverage covers the most likely player counter. Route trainers: team size 1–3, levels within the chapter's band below.
+
+### 14.2 Chapter bands and expected player curve (estimates, not measured)
+| Chapter | Cumulative est. hours | Wild levels (guidance to World Designer) | Route trainer levels | Expected ace at chapter end | Expected party average |
+|---|---|---|---|---|---|
+| C1 | 1.2 | 3–8 | 5–9 | 13 | 10 |
+| C2 | 2.4 | 9–15 | 11–16 | 19 | 16 |
+| C3 | 3.7 | 14–21 | 17–22 | 25 | 22 |
+| C4 | 5.0 | 20–27 | 23–28 | 31 | 28 |
+| C5 | 6.3 | 26–33 | 29–34 | 37 | 34 |
+| C6 | 7.6 | 31–38 | 35–40 | 42 | 39 |
+| C7 | 8.6 | 38–44 | 42–46 | 48 | 45 |
+
+Estimated total main story ≈ 8.6 h (range 8–10 h depending on exploration); to be validated by playtest. Leaders are tuned so a player at "recommended ace" with party average as above wins in 1–2 attempts; no level requirement is ever enforced. The S factor in XP (8.1) gives under-levelled members up to ×1.5 and over-levelled down to ×0.5, compressing the party toward the curve.
+
+---
+
+## 15. Anti-softlock and recovery
+
+1. **Party wipe / trainer loss**: battle ends; screen fades; the player respawns at the last healing center visited (or the town_1 home before any center) with the entire party healed (HP, status, charges). Money penalty = `min(floor(money/4), 100 + 150 × marksOwned)`. All other progress kept: story flags, captures, XP/levels gained during the lost battle, items (consumed items stay consumed). The winning trainer is **not** marked defeated and can be re-challenged immediately; rival/admin/leader story battles re-trigger at the same place. Wild-battle wipes use the same rule.
+2. **No usable moves**: if all four moves have 0 charges, Fight shows only m000 *Scramble*. Charges are fully restored at healing centers (free) and after a wipe.
+3. **Out of capture devices / money**: when the player owns 0 capture devices of every tier **and** has money < 200, talking to any healing-center attendant gives 5 `i_orb_1` (repeatable every time both conditions hold). The starter gift includes 5 `i_orb_1` + 3 `i_salve_1`.
+4. **Field actions**: performable by any party member of the right type, including fainted ones; cost nothing (5.5). The World Designer must guarantee each mandatory field-action type is obtainable before its gate (Creative/World own the list).
+5. **Evolution cancelled**: evolution stays available from the party menu (8.3).
+6. **Missed/forgotten moves**: free Recall at every healing center (8.4). Discs are reusable (8.5).
+7. **Full storage**: explicit release prompt (7.4); the game never silently discards a creature.
+8. **Endless battles**: from turn 50, *Weariness*: both actives lose floor(maxHp/16) at end-of-turn step 6 ("growing weary"). Guarantees termination against stall loops (heals/Bulwark).
+9. **Party integrity**: cannot deposit or release the last party creature; cannot deposit the last non-fainted creature while outside a healing center; the party menu cannot reorder a fainted creature into slot 1 during battle.
+10. **Trainer battles cannot be fled**; wild battles always offer Run and, after a faint, "Flee" that always succeeds.
+11. **Saves**: battle state is never saved; saving is disabled in battle and during capture/evolution scenes. Loading after a crash mid-battle restores the pre-battle committed state (the wild creature/trainer is still there).
+12. **Money never negative**; prices never exceed the maximum affordable only if the item is optional (no mandatory purchases exist anywhere in the story).
+13. **Level gating**: no mandatory area requires a minimum level; only story flags gate progress.
+
+---
+
+## 16. Worked example — one full turn
+
+Setup (placeholder base stats; real ones come from creatures.md): Rival R2 on a route whose `attunedType = electric`, ambient weather **rain**.
+- Player: c02 (f01 stage 2, pure electric for this example), Lv 18, bases hp 55 / atk 60 / def 50 / spa 80 / spd 55 / spe 95, potential 10 all, temperament `tm_spa_atk`. Stats: core(hp) = floor(120×18/100) = 21 → maxHp 21+18+10 = **49**; atk (core 12+5)×9/10 = **25**; def **24**; spa (core 30+5)×11/10 = **38**; spd **26**; spe **41**.
+- Rival: c08 (f03 stage 2, water), Lv 17, bases 70 / 80 / 70 / 55 / 60 / 65, potential 12, `tm_steady`. Stats: maxHp **52**, atk **34**, def **30**, spa **25**, spd **27**, spe **29**. Status: **burn** (from an earlier turn). HP 52/52.
+
+1. **Command phase.** AI (Normal) scores with the AIView. Riptide Bite m016 (physical): base = floor(floor(8×70×34/24)/50)+2 = 17 → rain ×3/2 = 25 → R92 → 23 → STAB 34 → ×1 → burn ×1/2 = 17 → pct 34 → score 34. Bubble Lance m015 (special): base = floor(floor(8×65×25/26)/50)+2 = 12 → 18 → 16 → 24 → pct 48 → score 48. `rngAI.int(1,100)` = 71 > 25 → pick the best: **m015**. Player then selects **m025 Arc Lash**.
+2. Phases A–C: nothing.
+3. Ordering: both priority 0; effSpe 41 vs 29 → player first. No tie roll.
+4. **Player Arc Lash** (special, 65, acc 100): stage 0 → hit = 100 → no roll. Crit: `rng.int(1,24)` = 9 → no. Base: floor(2×18/5)+2 = 9; floor(9×65×38/27) = 823; floor(823/50)+2 = **18**. Weather (electric, rain): 18. Resonance (electric zone): ×6/5 → **21**. Crit: 21. Random `rng.int(85,100)` = 85 → floor(21×85/100) = **17**. STAB ×3/2 → **25**. Type electric→water ×2 → **50**. Burn n/a. Rival HP 52 → **2**. Secondary paralysis 10%: `rng.int(1,100)` = 57 → no.
+5. **Rival Bubble Lance** (special, 65, acc 100): no acc roll. Crit roll 17 → no. Base: floor(2×17/5)+2 = 8; floor(8×65×25/26) = 500; 500/50+2 = **12**. Rain water ×3/2 → **18**. Resonance: no (water ≠ electric). Random 88 → **15**. STAB → **22**. Type water→electric ×1 → 22. Burn does not affect special. Player HP 49 → **27**. Secondary spe −1 20%: roll 14 ≤ 20 → player spe stage −1.
+6. **End of turn**: (1) ambient weather, no counter. (3) Burn: rival loses floor(52/16) = 3 → HP 2 → **0**, faints. (7) clear flinch/shield; turn = 2. (8) faint check: rival c08 fainted.
+7. **Faint resolution**: XP to c02 (participant): Y = floor(400/3) = 133 (BST 400); floor(133×17/7) = 323; T = 3/2; S = (2×17+10)/(17+18+10) = 44/45 → XP = floor(323×3×44/(2×45)) = **473**. Non-participant party members receive 236. Rival still has one creature: AI (Normal) sends next party slot. Player's active is alive → no player prompt. Rival's remaining creature enters; turn 2 command phase begins. On final victory: payout 40 × 17 = **680**.
+
+## 17. Worked example — capture
+See 7.5 (Lv 18, 36% HP, `i_orb_2`, a = 102, threshold 48287, 2 shakes then escape). Continuing that battle: next turn the player uses m034 Drowse Pollen (hits), target asleep → S10 = 20 → a = floor(125×90×15×20×20/330000) = 204 → threshold = floor(65536 × cbrt(0.8)) = 60836; rolls 3114, 47770, 22058 all < 60836 → **caught** after 3 shakes; party has 6 → sent to storage box 1.
+
+---
+
+## 18. Data contracts (for content JSON / zod schemas)
+- `types.json`: `{ ids: TypeId[10], matrix: Record<TypeId, Record<TypeId, 0|1|2|4>> }` (k/2 encoding).
+- `moves.json`: `{ id, name, type, category: "physical"|"special"|"status", power|null, accuracy|null, charges|null, priority, target: "foe"|"self"|"field", effects: Effect[], anim: AnimId }`.
+- `traits.json`: `{ id, name, description }` — behavior implemented in code keyed by id.
+- `species` fields owned here: `catchRate`, `xpYield` (derived, validated), `growth`, `learnset: {level, move}[]` (per family), `evolution: {toSpecies, level?|item?, move?}`, `discCoverage` (per family), `trait`.
+- `items.json`: `{ id, kind: "heal"|"cure"|"revive"|"charge"|"repel"|"escape"|"orb"|"disc"|"key"|"evo", price|null, sell|null, params }`.
+- `trainers.json`: `{ id, class, ai: "normal"|"hard", potential, team: {species, level, moves?, temperament?}[], items: ItemId[] }`.
+- Validation: every move id referenced by learnsets/discs/trainers exists; every family learnset reaches ≥ 4 damaging-or-utility moves by Lv 10; disc moves exist; effects reference valid statuses/weathers.
+
+---
+
+## 19. Acceptance criteria
+1. Type table test: 100 cells equal section 1.2; derived counts equal 1.5; dual-type products produce only {0, ¼, ½, 1, 2, 4}.
+2. Stat test vectors: the section 16 stats (49/25/24/38/26/41 and 52/34/30/25/27/29) reproduce exactly.
+3. Damage test vectors: Arc Lash = 50 and Bubble Lance = 22 with the given rolls; AI scores 34 and 48.
+4. Capture test vectors: a = 68/102/136/204 for the four devices (7.5); SHAKE_TABLE monotonic, SHAKE_TABLE[254] < 65536; Monte-Carlo (100k seeded trials) of shake procedure within ±1% of a/255 for a ∈ {10, 102, 200}.
+5. XP test vector: 473 (section 16). Curve tables in 8.2 reproduce.
+6. Determinism: identical seed + commands ⇒ identical event logs (1,000 random battles); rendering/audio never call battle RNG (lint rule or injected-RNG test).
+7. AI isolation: `AIView` type has no pending-player-action field; property test: for fixed state and seed, AI action is identical for all 4 possible player move choices.
+8. Turn order: priority beats speed; speed tie distribution ≈ 50/50 over 10k seeds; flinch only when attacker moved first.
+9. Status tests: each immunity in 4.1; sleep lasts 1–3 action attempts; paralysis lock rate ≈ 25%; burn/poison/frostbite tick amounts; dizzy self-hit ≈ 33%.
+10. Weather: move weather lasts exactly 5 end-of-turns then reverts to ambient; duplicate weather fails.
+11. Move data: ≥ 100 moves + m000, every type exactly 10, every move has a valid anim id from 9.1, each learnset move exists.
+12. Every family has ≥ 4 known moves by Lv 13 and a coverage move against at least one weakness by Lv 30 (automated check against 11.1).
+13. Economy simulation (script over section 12.5 inputs) keeps balance ≥ 0 at every chapter end.
+14. Softlock tests: wipe → respawn with penalty formula; 0 orbs + <200 money → attendant gives 5 orbs; all-charges-empty → m000; storage full → mandatory release prompt; turn 50+ weariness ends a Bulwark/heal stall within 32 turns.
+
+## 20. Dependencies
+- **creatures.md** (Creature Art Director): base stats per species (within 2.1 bands), final types (stage 2/3 secondaries), trait proposals, BST → derived catchRate/xpYield. The worked example uses placeholder stats.
+- **creative_direction.md**: final names for moves, items, traits, temperaments, capture devices, statuses, Resonance; per-zone attuned type semantics and any Resonance↔weather interaction; field-action list per trial; type colors for VFX.
+- **world.md**: zone `attunedType`, ambient weather states and probabilities, trainer counts per chapter (12.5 assumptions), placement of discs/`i_evo_prism`/shops/healing centers, encounter levels consistent with 14.2, availability of families per chapter (rival team composition, coverage).
+- **rendering_and_architecture.md**: implementation of the 16 anim ids with type tint, `impactMs` sync, reduced-motion variants.
+- **qa_plan.md**: test vectors in section 19.
+
+## 21. Risks
+| Risk | Impact | Mitigation |
+|---|---|---|
+| Base stats outside bands skew damage pacing | fights too long/short | zod range checks; BST bands enforced; damage sanity (Lv 50 neutral 90-power STAB ≈ 38% of HP) |
+| Shared XP makes the party over-level | trivial leaders | S factor down to ×1/2; leaders tuned at "expected ace"; playtest to adjust T/S |
+| Slow-growth families (f05, f09, f10) lag | player benches them | S factor catch-up; evolution moves; can move f10 to medium if playtest shows lag |
+| Electric has only 2 strengths | starter f01 feels weak | best speed, priority m023, Overclock, gale/frost coverage by Lv 28–34 |
+| Stone immunity to toxin + gale immunity to stone confuses players | misplays | battle UI shows "no effect" text + encyclopedia matrix page |
+| Fog accuracy + Dazzle Flash stacking feels unfair | frustration | only one accuracy-drop move; no evasion boosts exist; fog ×9/10 only |
+| Weather reverting to ambient surprises players | confusion | HUD weather icon shows "ambient" vs "N turns" |
+| AI scoring too predictable/too random | boring or unfair | 25% imperfection for Normal; hard AI deterministic but information-limited |
+| Integer floors produce 1-point discrepancies across implementations | failing tests | all steps specified integer; test vectors in section 19 |
+
+## 22. Unresolved questions
+1. Final names for all *italic* working names (Creative Director) — ids are stable.
+2. Should `sunlight` be an overworld weather state (e.g. volcano "heat") or only move-set? Systems supports both.
+3. Resonance ↔ weather coupling (e.g. attuned zones shifting ambient weather odds) — Creative Director / World Designer.
+4. Two-turn moves, forced-switch moves, trapping, held items and a player-selectable difficulty setting were deliberately excluded from v1; revisit after the core slice (phase 3) if scope allows.
+5. Whether f10 stage 3 should require `i_evo_prism` at all (Lv 44 fallback exists) — depends on World Designer placing the guaranteed prism before Lv 44 is typical.
+6. Trainer counts per chapter (12.5) are assumptions; World Designer's final counts must be fed into the economy/XP simulation.
+7. Whether captured creatures should retain the device tier as cosmetic data (encyclopedia flavor) — no gameplay effect proposed.
+8. Creature Art Director may propose traits outside the canonical 26; each needs a systems review before being added.
