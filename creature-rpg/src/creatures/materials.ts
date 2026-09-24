@@ -37,7 +37,7 @@ export function injectRim(mat: THREE.Material, rimColor: THREE.Color, rimStrengt
         `#include <emissivemap_fragment>
         {
           vec3 vd = normalize(vViewPosition);
-          float fr = pow(1.0 - clamp(dot(normalize(normal), -vd), 0.0, 1.0), 2.5);
+          float fr = pow(1.0 - clamp(dot(normalize(normal), vd), 0.0, 1.0), 2.5);
           totalEmissiveRadiance += uRimColor * fr * uRimStrength * (0.6 + uRimLocal);
         }`,
       );

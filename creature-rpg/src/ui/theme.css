@@ -1,0 +1,12 @@
+:root {
+  --ink: #1e2433; --night: #232b3d; --night-2: #2f3a52; --parchment: #f3ead7; --parchment-2: #e3d5b8;
+  --brass: #c8963e; --brass-hi: #e8c27a; --resonance: #2fa39a; --alert: #e0604f; --mist: #9aa5b8; --text: #f7f3ea;
+  --font-display: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", "URW Palladio L", Georgia, serif;
+  --font-ui: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans", "Helvetica Neue", Arial, sans-serif;
+  --font-num: ui-monospace, "SF Mono", "Cascadia Mono", Consolas, "Liberation Mono", "DejaVu Sans Mono", monospace;
+  --ui-scale: 1;
+}
+* { box-sizing: border-box; }
+html, body, #root { margin: 0; height: 100%; width: 100%; overflow: hidden; background: #0f1320; color: var(--text); font-family: var(--font-ui); font-size: calc(16px * var(--ui-scale)); }
+body { overscroll-behavior: none; touch-action: none; -webkit-user-select: none; user-select: none; }
+.boot { position: fixed; inset: 0; display: grid; place-items: center; font-family: var(--font-display); font-size: 28px; color: var(--brass-hi); background: #0f1320; }

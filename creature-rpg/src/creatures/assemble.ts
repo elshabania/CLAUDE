@@ -253,7 +253,8 @@ export function assemble(v: SpeciesVisual, opts: BuildOpts): CreatureModel {
     if (pd.scale) node.scale.set(...pd.scale);
     parent.add(node);
     parts[name] = node;
-    tags.set(name, pd.anim ?? []);
+    const sideTags = (pd.anim ?? []).map((t) => (side === '_R' && t.startsWith('gait:') ? t.replace(/L$/, 'R') : t));
+    tags.set(name, sideTags);
     for (const t of pd.anim ?? []) if (t.startsWith('fx:')) anchors[t.slice(3)] = node;
     const color = colorOf(v, pd.slot);
     if (pd.chain) {
@@ -270,7 +271,7 @@ export function assemble(v: SpeciesVisual, opts: BuildOpts): CreatureModel {
         if (ch.bend && i > 0) seg.rotation.set(ch.bend[0] * DEG, ch.bend[1] * DEG * sx, ch.bend[2] * DEG * sx);
         prev.add(seg);
         parts[seg.name] = seg;
-        tags.set(seg.name, [...(pd.anim ?? []).filter((x) => !x.startsWith('fx:')), `chain:${i}:${ch.n}`]);
+        tags.set(seg.name, [...sideTags.filter((x) => !x.startsWith('fx:')), `chain:${i}:${ch.n}`]);
         const [rad, cap] = segs('capsule', opts.lod, opts.quality);
         const g = capsule(r, Math.max(0.001, segLen - r), rad, cap, r2);
         g.translate(0, -r * 0.6, 0);
