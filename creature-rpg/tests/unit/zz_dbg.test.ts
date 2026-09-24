@@ -15,7 +15,7 @@ it('dbg', () => {
   }
   for (const [f, list] of Object.entries<any>(patch.learn ?? {})) c.families.learnsets[f] = list;
   let done = false;
-  simulateCampaign(st, 14, { onStory: (id, party, att) => {
+  simulateCampaign(st, Number(process.env.SEEDS ?? 12), { onStory: (id, party, att) => {
     if (id !== target || done) return; done = true;
     for (const m of party) process.stdout.write(`P ${m.species}@${m.level} ${JSON.stringify(computeStats(c, m))} ${m.moves.map((x) => x.id + ':' + c.moves[x.id].name).join(',')}\n`);
     const t = TRAINERS[id];

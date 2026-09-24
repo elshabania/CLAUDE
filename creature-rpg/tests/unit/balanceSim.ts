@@ -3,13 +3,13 @@
 import { CONTENT } from '../../src/data/index';
 import { TRAINERS, ENCOUNTERS, type TrainerDef } from '../../src/data/registry';
 import { ZONES } from '../../src/data/zones';
-import { createBattle, openingEvents, resolveTurn, applyReplace, act, aiReplacement, playerPartyAfter, effectiveness, typesOf } from '../../src/sim/battle/engine';
+import { createBattle, openingEvents, resolveTurn, applyReplace, act, aiReplacement, playerPartyAfter, effectiveness, typesOf, effSpe } from '../../src/sim/battle/engine';
 import { chooseAiAction } from '../../src/sim/battle/ai';
 import type { Action, BattleSetup, BattleState } from '../../src/sim/battle/types';
 import { addXp, createInstance, evolve, evolutionTarget, healFull, learnMove, knows } from '../../src/sim/progression';
 import { computeStats, xpForLevel } from '../../src/sim/stats';
 import { Rng, seedRng, hashString } from '../../src/sim/rng';
-import { resolveRivalSpecies, rollEncounter } from '../../src/sim/world';
+import { resolveRivalSpecies, rollEncounter, leftoverStarter, rivalStarter } from '../../src/sim/world';
 import type { Content } from '../../src/sim/content';
 import { canLearnDisc } from '../../src/sim/game';
 import type { CreatureInstance, TypeId } from '../../src/sim/types';
@@ -53,7 +53,8 @@ type Step =
   | { kind: 'trainer'; id: string }
   | { kind: 'zoneTrainers'; zone: string } // all optional trainers of a zone
   | { kind: 'silence'; zone: string; on: boolean }
-  | { kind: 'disc'; ids: string[] }; // Etudes the player obtains here (trial rewards, systems §12.5 purchases)
+  | { kind: 'disc'; ids: string[] } // Etudes the player obtains here (trial rewards, systems §12.5 purchases)
+  | { kind: 'gift'; which: 'leftover' | 'rival_line'; level: number; always: boolean }; // world.md §2.6 Triad gifts
 
 export const PATH: Step[] = [
   { kind: 'trainer', id: 't_rival_1' },
@@ -106,6 +107,8 @@ export const PATH: Step[] = [
   { kind: 'trainer', id: 't_still_06' }, { kind: 'trainer', id: 't_still_07' },
   { kind: 'trainer', id: 't_admin_vey_2' },
   { kind: 'disc', ids: ['i_disc_09'] }, // Vey 2 drop
+  // q_foster_leftover (world.md §2.6): the leftover starter joins at Lv 25. q_second_clutch requires it in the troupe.
+  { kind: 'gift', which: 'leftover', level: 25, always: true },
   { kind: 'trainer', id: 't_rival_4' },
   // ch9 (systems §12.5 buys i_disc_08)
   { kind: 'disc', ids: ['i_disc_08'] },
@@ -114,6 +117,8 @@ export const PATH: Step[] = [
   { kind: 'trainer', id: 't_hall5_01' }, { kind: 'trainer', id: 't_hall5_02' },
   { kind: 'trainer', id: 't_cantor_5' },
   { kind: 'disc', ids: ['i_disc_16'] }, // trial_5 reward
+  // q_second_clutch: the rival's line at Lv 30; taken only if it is not the weakest option
+  { kind: 'gift', which: 'rival_line', level: 30, always: false },
   // ch10 (route_5 silenced until the Nullbell breaks at Odile)
   { kind: 'silence', zone: 'route_5', on: true },
   { kind: 'wild', table: 'route_5', zone: 'route_5', n: 2, catchOne: false },
@@ -177,7 +182,29 @@ export function runBattle(setup: BattleSetup, seed: number, opts: { salves?: str
   while (!s.outcome) {
     if (s.turn > TURN_LIMIT) return { outcome: 'timeout', turns: s.turn - 1, state: s, salvesUsed };
     if (act(s, 'player').inst.hp <= 0) {
-      const to = aiReplacement(c, mirror(s, pSwitches, pSwitchedLast, foeRevealed, pRng));
+      let to = aiReplacement(c, mirror(s, pSwitches, pSwitchedLast, foeRevealed, pRng));
+      // a player finishing off a nearly beaten foe (≤ 25% HP) sends the fastest kin that outspeeds it, else the one
+      // that best resists its revealed moves (the mirrored AI's matchup pick often sends a slow kin into a KO)
+      const foe = act(s, 'foe');
+      if (foe.inst.hp * 4 <= foe.stats.hp) {
+        let best = -1;
+        s.player.team.forEach((m, i) => {
+          if (m.inst.hp <= 0 || effSpe(c, s, m) <= effSpe(c, s, foe)) return;
+          if (best < 0 || effSpe(c, s, m) > effSpe(c, s, s.player.team[best])) best = i;
+        });
+        if (best < 0) {
+          // nobody outspeeds it: send the kin that best resists what it has shown (it survives a hit, then finishes)
+          const rev = foeRevealed.map((id) => c.moves[id]).filter((m) => m.category !== 'status').map((m) => m.type);
+          const thr = rev.length ? rev : typesOf(c, foe);
+          let bestT = Infinity;
+          s.player.team.forEach((m, i) => {
+            if (m.inst.hp <= 0) return;
+            const t = Math.max(...thr.map((ty) => effectiveness(c, ty, typesOf(c, m))));
+            if (t < bestT || (t === bestT && m.inst.hp > s.player.team[best].inst.hp)) { bestT = t; best = i; }
+          });
+        }
+        if (best >= 0) to = best;
+      }
       s = applyReplace(c, s, { kind: 'switch', to }).state;
       continue;
     }
@@ -493,6 +520,24 @@ export function simulateCampaign(starter: string, seeds: number, hooks: Campaign
 
   PATH.forEach((st, i) => {
     step = i;
+    if (st.kind === 'gift') {
+      if (process.env.NO_GIFTS) return;
+      const sp = st.which === 'leftover' ? leftoverStarter(starter) : rivalStarter(starter);
+      let gift = createInstance(c, rng, sp, st.level, { potential: 10, temperament: 'tm_steady' }); // as G.giveKin
+      for (let g = 0; g < 3; g++) {
+        const to = evolutionTarget(c, gift);
+        if (!to) break;
+        const e = evolve(c, gift, to);
+        gift = e.inst;
+        if (e.pending) gift = offerMove(gift, e.pending);
+      }
+      let weakest = -1;
+      party.forEach((m, k) => { if (!m.bond && (weakest < 0 || m.level < party[weakest].level)) weakest = k; });
+      if (party.length < 6) party = [...party, gift];
+      else if (weakest >= 0 && (st.always || gift.level >= party[weakest].level)) party = party.map((m, k) => (k === weakest ? gift : m));
+      party = teachDiscs(orderParty(party), discs);
+      return;
+    }
     if (st.kind === 'disc') { discs.push(...st.ids); party = teachDiscs(party, discs); return; }
     if (st.kind === 'silence') { if (st.on) silenced.add(st.zone); else silenced.delete(st.zone); return; }
     if (st.kind === 'trainer') return fightTrainer(st.id);
