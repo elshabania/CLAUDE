@@ -308,7 +308,7 @@ export function afterBattle(s: BattleState): CreatureInstance[] {
 export function orderParty(party: CreatureInstance[]): CreatureInstance[] {
   const max = Math.max(...party.map((m) => m.level));
   const starter = party.findIndex((m) => m.bond);
-  let lead = starter >= 0 && party[starter].level >= max - 2 ? starter : party.findIndex((m) => m.level === max);
+  let lead = starter >= 0 && party[starter].level >= max - Number(process.env.LEAD_GAP ?? 2) ? starter : party.findIndex((m) => m.level === max);
   if (lead < 0) lead = 0;
   return [party[lead], ...party.filter((_, i) => i !== lead)];
 }
