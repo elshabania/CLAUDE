@@ -134,16 +134,16 @@
     "move": "m011"
    },
    {
-    "level": 7,
-    "move": "m013"
+    "level": 6,
+    "move": "m052"
    },
    {
-    "level": 10,
+    "level": 8,
     "move": "m015"
    },
    {
     "level": 13,
-    "move": "m052"
+    "move": "m013"
    },
    {
     "evo": true,
