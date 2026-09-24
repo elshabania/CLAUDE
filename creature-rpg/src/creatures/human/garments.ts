@@ -297,19 +297,10 @@ export function buildOutfit(d: HumanData, s: BodyShape, L: ResolvedLook, lod: nu
     cut: (o) => (R.torso[o] || R.head[o] ? Math.max(neckY - 0.04 - y(o), y(o) - (neckY + 0.045)) : BIG),
     offset: (o) => 0.032 + 0.018 * sstep(neckY - 0.02, neckY + 0.045, y(o)) + (noise(o, 80) - 0.5) * 0.012,
   });
-  const strap = (name: string, fromL: boolean, color: string, width: number, off: number) => {
-    const sh = J[fromL ? 'upperArm.L' : 'upperArm.R'].clone().add(new THREE.Vector3(fromL ? -0.05 : 0.05, 0.05, 0));
-    const hp = J.hips.clone().add(new THREE.Vector3(fromL ? -0.16 : 0.16, -0.02, 0));
-    const dir = hp.clone().sub(sh);
-    const nrm = new THREE.Vector3().crossVectors(dir, new THREE.Vector3(0, 0, 1)).normalize();
-    layers.push({
-      name, smooth: 12, kind: 2, pattern: 0, color: C(color), color2: shade(color, 1.3), hides: false,
-      cut: (o) => (R.torso[o] || (isArm(o) && R.armPos[o] < 0.15) ? Math.abs((x(o) - sh.x) * nrm.x + (y(o) - sh.y) * nrm.y) - width : BIG),
-      offset: () => off,
-    });
-  };
-  if (ex.has('satchel')) strap('strap', true, '#6B4128', 0.018, W.outer === 'none' ? 0.02 : 0.046);
-  if (ex.has('sash')) strap('sash', false, L.accent, 0.035, W.outer === 'none' ? 0.02 : 0.044);
+  // cross-body straps / sashes: clean ribbons laid over the torso surface (built after the layers, see strapRibbon)
+  const straps: { fromL: boolean; color: string; width: number; off: number }[] = [];
+  if (ex.has('satchel')) straps.push({ fromL: true, color: '#6B4128', width: 0.032, off: W.outer === 'none' ? 0.016 : 0.034 });
+  if (ex.has('sash')) straps.push({ fromL: false, color: L.accent, width: 0.06, off: W.outer === 'none' ? 0.018 : 0.034 });
   if (ex.has('scarf')) layers.push({
     name: 'scarfWrap', kind: 3, pattern: 0, color: C(L.accent), color2: shade(L.accent, 0.8), hides: false,
     cut: (o) => (R.torso[o] || R.head[o] ? Math.max(neckY - 0.045 - y(o), y(o) - (neckY + 0.06)) : BIG),
@@ -471,6 +462,8 @@ export function buildOutfit(d: HumanData, s: BodyShape, L: ResolvedLook, lod: nu
     });
     for (const v of ltris) cloth.idx.push(base + v);
   });
+
+  for (const st of straps) strapRibbon(cloth, d, s, R, st.fromL, C(st.color), st.width, st.off);
 
   // ------------------------------------------------------------------ rigid accessories
   const bi = d.boneIndex;
@@ -687,6 +680,66 @@ export function buildOutfit(d: HumanData, s: BodyShape, L: ResolvedLook, lod: nu
     return Uint16Array.from(out);
   };
   return { meshes, props, hideBody, handProps };
+}
+
+// ------------------------------------------------------------------ straps
+/** Ribbon from one shoulder, diagonally across the chest and back, to the opposite hip. Samples the body surface
+ *  (front- and back-most vertices around the diagonal) and offsets it clear of the clothing; skinned per sample. */
+function strapRibbon(cloth: GBuilder, d: HumanData, s: BodyShape, R: Regions, fromL: boolean, color: THREE.Color, width: number, off: number) {
+  const J = R.J;
+  const sgn = fromL ? 1 : -1;
+  const sh = J[fromL ? 'clavicle.L' : 'clavicle.R'].clone().lerp(J[fromL ? 'upperArm.L' : 'upperArm.R'], 0.55);
+  const hp = J.hips.clone().add(new THREE.Vector3(-sgn * 0.15, -0.03, 0));
+  const P = s.pos, N = s.nrm;
+  const surf = (x: number, y: number, front: boolean) => {
+    let best = -1, bz = front ? -1e9 : 1e9;
+    for (let o = 0; o < 13378; o++) {
+      if (!R.torso[o] && Number.isNaN(R.armPos[o])) continue;
+      if (Math.abs(P[o * 3] - x) > 0.018 || Math.abs(P[o * 3 + 1] - y) > 0.018) continue;
+      const zz = P[o * 3 + 2];
+      if (front ? zz > bz : zz < bz) { bz = zz; best = o; }
+    }
+    return best;
+  };
+  const dark = color.clone().multiplyScalar(0.7);
+  for (const front of [true, false]) {
+    const n = 14;
+    const pts: { p: THREE.Vector3; n: THREE.Vector3; o: number }[] = [];
+    for (let i = 0; i <= n; i++) {
+      const t = i / n;
+      const x = THREE.MathUtils.lerp(sh.x, hp.x, t), y = THREE.MathUtils.lerp(sh.y + 0.03, hp.y, t);
+      const o = surf(x, y, front);
+      if (o < 0) continue;
+      const nn = new THREE.Vector3(N[o * 3], N[o * 3 + 1], N[o * 3 + 2]);
+      const extra = 0.012 * Math.sin(t * Math.PI);
+      pts.push({ p: new THREE.Vector3(x, y, P[o * 3 + 2]).addScaledVector(nn, off + extra), n: nn, o });
+    }
+    // over the shoulder: connect front and back tops
+    if (pts.length < 3) continue;
+    for (let it = 0; it < 2; it++) for (let i = 1; i < pts.length - 1; i++) pts[i].p.lerp(pts[i - 1].p.clone().add(pts[i + 1].p).multiplyScalar(0.5), 0.5);
+    const base = cloth.count;
+    for (let i = 0; i < pts.length; i++) {
+      const a = pts[Math.max(0, i - 1)].p, b = pts[Math.min(pts.length - 1, i + 1)].p;
+      const T = b.clone().sub(a).normalize();
+      const side = new THREE.Vector3().crossVectors(T, pts[i].n).normalize();
+      const nn = new THREE.Vector3().crossVectors(side, T).normalize();
+      const o = pts[i].o;
+      const bones: number[] = [], ws: number[] = [];
+      for (let k = 0; k < 4; k++) { bones.push(d.skinIdx[o * 4 + k]); ws.push(d.skinW[o * 4 + k] / 255); }
+      for (const [u, v] of [[-1, 0], [1, 0], [1, -1], [-1, -1]] as const) {
+        const q = pts[i].p.clone().addScaledVector(side, (u * width) / 2).addScaledVector(nn, v * 0.004);
+        const vn = v === 0 ? nn : nn.clone().negate();
+        cloth.vert(q, vn, bones, ws, color, dark, [2, -1, 4, 0]);
+      }
+    }
+    for (let i = 0; i < pts.length - 1; i++) {
+      const a = base + i * 4, b = a + 4;
+      cloth.idx.push(a, a + 1, b, a + 1, b + 1, b); // outer face
+      cloth.idx.push(a + 3, b + 3, a + 2, a + 2, b + 3, b + 2); // inner face
+      cloth.idx.push(a + 1, a + 2, b + 1, a + 2, b + 2, b + 1); // edge
+      cloth.idx.push(a, b, a + 3, a + 3, b, b + 3); // edge
+    }
+  }
 }
 
 // ------------------------------------------------------------------ shoes
