@@ -31,7 +31,7 @@ Conventions used everywhere below:
 | **shade** | 1 | 1 | **2** | 1 | 1 | 1 | 1 | ½ | ½ | **2** |
 | **lumen** | 1 | 1 | ½ | 1 | 1 | **2** | 1 | **2** | **2** | ½ |
 
-Data encoding: store as integers ×2 (`0,1,2,4`) so dual-type products stay integral: `eff4 = e1 * e2` in units of 1/4 (0, 1, 2, 4, 8, 16) → multiplier = eff4/4 for single... see 1.4.
+Data encoding: `types.json` stores each cell as integer k ∈ {0, 1, 2, 4} meaning k/2 (0, ½, 1, 2). See 1.4 for the integer dual-type product.
 
 ### 1.3 Row rationale
 | Attacker | Strong (2) because | Weak (½ / 0) because |
@@ -288,7 +288,7 @@ else: threshold = SHAKE_TABLE[a] where SHAKE_TABLE[a] = floor(65536 * cbrt(a/255
 Overall catch probability ≈ a/255. Capture is impossible in trainer battles: the device is deflected, **not consumed**, turn not spent.
 
 ### 7.3 Presentation steps (renderer/state machine)
-1. Throw (projectile_arc, 600 ms) → 2. Flash and target absorbed (400 ms) → 3. Device drops (300 ms) → 4. Shakes: one per passed check (700 ms each, with tick sound) → 5a. Success: seal flash + chime (600 ms), "caught" banner, encyclopedia registered → 5b. Failure: device bursts at shake (passed+1), creature re-appears (500 ms), battle continues to end-of-turn skipping... (failure consumes the device and the turn; end-of-turn runs normally).
+1. Throw (projectile_arc, 600 ms) → 2. Flash and target absorbed (400 ms) → 3. Device drops (300 ms) → 4. Shakes: one per passed check (700 ms each, with tick sound) → 5a. Success: seal flash + chime (600 ms), "caught" banner, encyclopedia registered → 5b. Failure: device bursts at shake (passed+1), creature re-appears (500 ms). Failure consumes the device and the player's action; the turn continues (foe moves, end-of-turn runs normally).
 Reduced-motion setting: steps 1–4 shortened to 150 ms each, shake count still displayed as text ("1… 2…").
 
 ### 7.4 Placement after capture
@@ -302,7 +302,7 @@ Wild stage-2 creature, Lv 18, maxHp M = 55, currentHp H = 20, catchRate C = 90, 
 - threshold = floor(65536 × cbrt(102/255)) = floor(65536 × 0.73681) = **48287**
 - Rolls (example): 12050 < 48287 pass (shake 1), 40111 pass (shake 2), 51930 ≥ 48287 fail → device bursts after 2 shakes; device consumed; turn continues.
 - Same target with other devices: `i_orb_1` a = 68 (26.7%), `i_orb_3` a = 136 (53.3%), `i_orb_4` a = 204 (80.0%). With sleep and `i_orb_2`: a = 204 (80%).
-- Early-game check: Lv 5 stage-1 (C = 190, M = 20, H = 20 full HP), `i_orb_1`: (60−40)=20 → a = floor(20×190×10×10×25/(60×2000)) = floor(79.2) = 79 → 31%; at 1/4 HP (H = 5): 50×190×25×100/120000 = 197 → 77%.
+- Early-game check: Lv 5 stage-1 (C = 190, M = 20, H = 20 full HP), `i_orb_1`, B20 = 30: 3M−2H = 20 → a = floor(20×190×10×10×30 / (60×10×10×20)) = floor(95.0) = 95 → ≈37% at full HP; at H = 5: 3M−2H = 50 → a = 237 → ≈93%. Early catches are reliable after one or two hits.
 
 ---
 
