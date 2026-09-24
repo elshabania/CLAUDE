@@ -831,6 +831,8 @@ Assumptions: the Creative Director's 12 chapters; trainer counts as listed (Worl
 | 11 | snowpeak | 9 (trial_6, Odile) | 17,532 | 3,375 | 2 Crown, 2 salve_4, 2 revive | 11,400 | 22,689 |
 | 12 | league | 4 (R6, champion) | 15,232 (5,232 before the champion) | 0 | 5 salve_4, 3 revive, 2 cure_all | 14,500 | 23,421 |
 
+D30 note: the story-level cuts (14.2) lower payouts by 1,140 in total (R1 −80, R2 −80, trial_3 −100, trial_4 −200, R5 −120, trial_6 −400, R6 −160); the table above is not re-derived, and every chapter still ends positive.
+
 Conclusions:
 - Every chapter ends with a positive balance and no extra battles.
 - Pre-champion funds are 22,689 + 5,232 = 27,921, which covers the ch12 purchases.
@@ -864,7 +866,7 @@ The AI function signature is `chooseAction(view: AIView, rngAI) → Action`, whe
 |---|---|---|---|---|---|---|
 | **Easy** | all wild creatures | uniform random among moves with score > 0 (if none, uniform among usable moves) | never | never | n/a | random 0–15 |
 | **Normal** | route trainers, hall juniors, grunts, rival R1–R2 | highest score; with `rngAI.chance(25)` instead pick uniformly among moves scoring ≥ 60% of the max | never voluntarily | holds 0–1 `i_salve_*` (trainer data); uses it when own HP ≤ 20% and `rngAI.chance(50)`, once per battle | next party slot | 6 all stats, `tm_steady` (rival always 12) |
-| **Hard** | Cantors, admins, Odile, rival R3–R6, champion | highest score; ties → `rngAI` uniform; +30 to priority moves if the AI estimates it will be KO'd before acting (player effSpe > AI effSpe and a revealed player move's est ≥ AI HP) | see 13.4 | holds up to 2 heal items + 1 `i_cure_all`; heals when HP ≤ 25% and no move scores KO; uses cure_all on sleep/paralysis/frostbite if it is the last creature | best matchup (13.4) | 12 (Cantors, admins, rival), 13 (Odile), 15 (champion); temperaments data-defined |
+| **Hard** | Cantors, admins, Odile, rival R3–R6, champion | highest score; ties → `rngAI` uniform; +30 to priority moves if the AI estimates it will be KO'd before acting (player effSpe > AI effSpe and a revealed player move's est ≥ AI HP) | see 13.4 | holds up to 2 heal items + 1 `i_cure_all`, never of a tier above what the chapter's shop sells (12.1; D30); heals when HP ≤ 25% and no move scores KO; uses cure_all on sleep/paralysis/frostbite if it is the last creature | best matchup (13.4) | 12 (Cantors, admins, rival), 13 (Odile), 15 (champion); temperaments data-defined |
 
 ### 13.4 Hard AI switching and matchup
 `matchup(c) = max over c's damaging moves of effectiveness vs player's active types (as ×4 integer) − max over player's revealed damaging moves' types (if none revealed: player's own types, as STAB proxies) of effectiveness vs c's types`.
@@ -892,25 +894,27 @@ RS = the rival's starter line, which is strong against the player's (Water > Fir
 
 | # | Ch | Battle (trainer id) | Zone (attunedType) | Team: species Lv | AI | Recommended ace | Model party avg |
 |---|---|---|---|---|---|---|---|
-| 1 | 1 | Rival 1 `t_rival_1` | town_1 (null) | RS1 5 | Normal | 5 | 5 |
+| 1 | 1 | Rival 1 `t_rival_1` | town_1 (null) | RS1 3 (potential 6, no item) | Normal | 5 | 5 |
 | 2 | 2 | Cantor Wren Mossgrave `t_cantor_1` | trial_1 (verdant) | c10 10, c13 11, **c11 12** | Hard | 12 | 11 |
-| 3 | 3 | Rival 2 `t_rival_2` | route_2 (stone) | c20 14, **RS2 16** | Normal | 16 | 14 |
+| 3 | 3 | Rival 2 `t_rival_2` | route_2 (stone) | c20 12, **RS2 14** | Normal | 14 | 14 |
 | 4 | 3 | Cantor Dorran Shale `t_cantor_2` | trial_2 (stone) | c13 15, c22 16, **c14 17** | Hard | 17 | 14 |
 | 5 | 4 | Admin Brann 1 `t_admin_brann_1` | cave (electric) | c22 18, c25 19, **c23 20** | Hard | 20 | 19 |
 | 6 | 5 | Admin Vey 1 `t_admin_vey_1` | route_3 (null, silenced) | c25 21, c28 21, **c23 22** | Hard | 22 | 23 |
 | 7 | 5 | Rival 3 `t_rival_3` | route_3 (toxin, restored) | c20 21, c14 22, **RS2 23** | Hard | 23 | 24 |
-| 8 | 6 | Cantor Nerys Tidewell `t_cantor_3` | trial_3 (water) | c23 23, c17 23, c23 24, **c08 25** | Hard | 25 | 27 |
-| 9 | 7 | Cantor Tamsin Galloway `t_cantor_4` | trial_4 (gale) | c20 27, c14 28, c20 29, **c21 30** | Hard | 30 | 29 |
+| 8 | 6 | Cantor Nerys Tidewell `t_cantor_3` | trial_3 (water) | c23 22, c17 22, c23 23, **c08 24** | Hard | 24 | 27 |
+| 9 | 7 | Cantor Tamsin Galloway `t_cantor_4` | trial_4 (gale) | c20 25, c14 26, c20 27, **c21 28** | Hard | 28 | 29 |
 | 10 | 8 | Admin Vey 2 `t_admin_vey_2` | Stillhouse interior (null) | c26 31, c23 31, c29 32, **c26 33** | Hard | 33 | 33 |
 | 11 | 8 | Rival 4 `t_rival_4` (1v1; "tag-in" is narrative only) | route_4 (gale) | c21 31, c14 31, c26 32, **RS2 33** | Hard | 33 | 34 |
 | 12 | 9 | Cantor Bastian Coalridge `t_cantor_5` | trial_5 (fire) | c05 34, c14 35, c05 35, c15 36, **c06 37** | Hard | 37 | 37 |
-| 13 | 10 | Rival 5 `t_rival_5` | route_5 (null, silenced) | c21 38, c15 38, c18 38, c26 39, **RS3 40** | Hard | 40 | 40 |
-| 14 | 11 | Cantor Isaure Frostmere `t_cantor_6` | trial_6 (frost) | c17 41, c15 42, c09 43, c18 43, c24 44, **c18 45** | Hard | 45 | 45 |
+| 13 | 10 | Rival 5 `t_rival_5` | route_5 (null, silenced) | c21 35, c15 35, c18 35, c26 36, **RS3 37** | Hard | 37 | 40 |
+| 14 | 11 | Cantor Isaure Frostmere `t_cantor_6` | trial_6 (frost) | c17 37, c15 38, c09 39, c18 39, c24 40, **c18 41** | Hard | 41 | 45 |
 | 15 | 11 | Magister Odile `t_odile` (two phases, 14.3) | snowpeak summit (A null / B frost) | A: c24 42, c29 43, c26 44 · B: **c27 46** | Hard | 46 | 46 |
-| 16 | 12 | Rival 6 `t_rival_6` | league (null) | c21 45, c15 46, c18 46, c27 46, c12 47, **RS3 48** | Hard | 48 | 47 |
-| 17 | 12 | The Concordant Rhea `t_champion` | league (null) | c12 47, c24 47, c21 48, c15 48, c18 49, **c30 50** | Hard | 50 | 49 |
+| 16 | 12 | Rival 6 `t_rival_6` | league (null) | c21 43, c15 43, c18 43, c27 43, c12 43, **RS3 44** (no heal items) | Hard | 44 | 47 |
+| 17 | 12 | The Concordant Rhea `t_champion` | league (null) | c12 45, c24 45, c21 46, c15 46, c18 47, **c30 50** | Hard | 50 | 49 |
 
-Bold = ace (last out). Rival team growth follows creative_direction §2.2: R2 +f07, R3 +f05, R4 +f09, R5 +f06 with the starter at stage 3, R6 six kin. The rival always carries an answer to the typical counter of its starter: c15 (stone·electric) vs water, c14/c15 vs fire, c21 vs electric's stone foes. **Loss rule (D20):** R1 loss continues the story with the troupe healed. Every other story battle uses the wipe rule (15.1) and re-arms. Potentials: rival 12, Cantors and admins 12, Odile 13, Rhea 15.
+Bold = ace (last out). Rival team growth follows creative_direction §2.2: R2 +f07, R3 +f05, R4 +f09, R5 +f06 with the starter at stage 3, R6 six kin. The rival always carries an answer to the typical counter of its starter: c15 (stone·electric) vs water, c14/c15 vs fire, c21 vs electric's stone foes. **Loss rule (D20):** R1 loss continues the story with the troupe healed. Every other story battle uses the wipe rule (15.1) and re-arms. Potentials: rival 12 (R1: 6), Cantors and admins 12, Odile 13, Rhea 15.
+
+**D30 balance tuning pass** (design/reviews/balance_sim.md "Tuning pass"): the levels above are the tuned values (R1, R2, Cantor 3, Cantor 4, R5, Cantor 6, R6 and the champion's non-ace kin were lowered; aces of Cantors 1, 2, 5, the admins, Odile and the champion are unchanged). Story-trainer heal items follow the shop tier of their chapter (13.3): R1 and Cantor 1 none; R2 and Cantor 2 1× `i_salve_1`; Brann 1 and Vey 1 1× `i_salve_2`; R3 2× `i_salve_2`; Cantor 3 1× `i_salve_2`; Cantor 4, Vey 2, R4, Cantor 5, R5, Cantor 6 2× `i_salve_3`; R6 none; Odile and Rhea as 14.3. The "Model party avg" column is the unchanged XP model; the balance simulation measures the whole-troupe average 2–6 levels lower from ch5 (the strongest kin tracks the column; see 14.4).
 
 ### 14.3 Odile two-phase battle (D22)
 Trainer record `t_odile`:
@@ -949,7 +953,9 @@ A single "carry" lead ends ≈2–4 levels higher; the S factor pulls it back to
 | 11 | snowpeak | 60 m | 40–45 (stage-3 rares ≤ 46) | 41–44 | 47 |
 | 12 | league | 40 m | — | 45–47 | 50 |
 
-Total critical path ≈ 9 h 20 m (Creative Director estimate; not measured). No level requirement is ever enforced. QA `progression.json` takes `expectedPartyLevel[battleId]` = the "Model party avg" column in 14.2, and the wild-battle budget above.
+Total critical path ≈ 9 h 20 m (Creative Director estimate; not measured). No level requirement is ever enforced.
+
+**Measured (balance simulation, D30; mechanical only, not a playtest):** with T = 3/2 limited to `mandatory` trainers (8.1), the strongest kin tracks the "Model party avg" column (±3), but the six-kin troupe average runs about 2 levels below it by ch5 and 5–6 below by ch11–12 (≈ 43–44 before the champion), because benched kin earn 50% and slow families lag. The ch10–12 story teams were tuned to that measured curve (14.2); doubling the late wild budget (2 → 4 per chapter) was simulated and adds only ≈ 1 level, so the budget is unchanged. QA `progression.json` takes `expectedPartyLevel[battleId]` = the "Model party avg" column in 14.2, and the wild-battle budget above.
 
 ## 15. Anti-softlock and recovery
 

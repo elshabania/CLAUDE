@@ -109,7 +109,7 @@ for line in sec.splitlines():
     team = []
     if tid == 't_odile':
         t['phases'] = [
-            {'attuned': None, 'team': [{'species': 'c24', 'level': 44}, {'species': 'c29', 'level': 45}, {'species': 'c26', 'level': 45}]},  # D30: was 42/43/44
+            {'attuned': None, 'team': [{'species': 'c24', 'level': 42}, {'species': 'c29', 'level': 43}, {'species': 'c26', 'level': 44}]},
             {'attuned': 'frost', 'team': [{'species': 'c27', 'level': 46}]},
         ]
         team = t['phases'][0]['team'] + t['phases'][1]['team']

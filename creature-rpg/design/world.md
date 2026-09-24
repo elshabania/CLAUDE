@@ -409,17 +409,17 @@ Terrain maps to `TerrainSpec`. Wild regions are circles `{at, r}`. `maxWild` = 6
 
 ### 2.2 Cadence Halls and champion (order is enforced by the graph and by the door checks)
 
-The hall Tuner count includes the mandatory hall Tuners. Cantor teams are exactly systems v2 §14.2 (the ace is listed last).
+The hall Tuner count includes the mandatory hall Tuners. Cantor teams are exactly systems v2 §14.2 (the ace is listed last; levels as tuned by D30).
 
 | Venue | Cantor (`t_cantor_N`) | Type | Door opens when | Hall Tuners | Cantor team (levels) | Reward |
 |---|---|---|---|---|---|---|
 | trial_1 Rootloft | Wren Mossgrave | verdant | `flag_stillmark_first_seen` | 2 | 3: c10 10, c13 11, c11 12 | `i_keynote_1` → **Heave**; `i_disc_04` |
 | trial_2 Knell | Dorran Shale | stone | `flag_rival_2_done` | 2 | 3: c13 15, c22 16, c14 17 | `i_keynote_2` → **Seep**; `i_disc_05` |
-| trial_3 Mere | Nerys Tidewell | water | `flag_rival_3_done` | 2 (mandatory) | 4: c23 23, c17 23, c23 24, c08 25 | `i_keynote_3` → **Gust**; `i_disc_02` |
-| trial_4 Vane | Tamsin Galloway | gale | `flag_trial_3_cleared` | 2 | 4: c20 27, c14 28, c20 29, c21 30 | `i_keynote_4` → **Veil**; `i_disc_07` |
+| trial_3 Mere | Nerys Tidewell | water | `flag_rival_3_done` | 2 (mandatory) | 4: c23 22, c17 22, c23 23, c08 24 | `i_keynote_3` → **Gust**; `i_disc_02` |
+| trial_4 Vane | Tamsin Galloway | gale | `flag_trial_3_cleared` | 2 | 4: c20 25, c14 26, c20 27, c21 28 | `i_keynote_4` → **Veil**; `i_disc_07` |
 | trial_5 Forge | Bastian Coalridge | fire | `flag_rival_4_done` + vent cooled | 2 | 5: c05 34, c14 35, c05 35, c15 36, c06 37 | `i_keynote_5` → **Rime**; `i_disc_16` |
-| trial_6 Rime | Isaure Frostmere | frost | `flag_trial_5_cleared` | 2 | 6: c17 41, c15 42, c09 43, c18 43, c24 44, c18 45 | `i_keynote_6` → **Gleam**; `i_disc_14` |
-| champion | the Concordant, Rhea Rookwell | mixed, lumen ace | `flag_spire_open` ∧ `flag_rival_6_done` | — | 6: c12 47, c24 47, c21 48, c15 48, c18 49, c30 50 | `flag_champion_defeated` → `flag_game_cleared` |
+| trial_6 Rime | Isaure Frostmere | frost | `flag_trial_5_cleared` | 2 | 6: c17 37, c15 38, c09 39, c18 39, c24 40, c18 41 | `i_keynote_6` → **Gleam**; `i_disc_14` |
+| champion | the Concordant, Rhea Rookwell | mixed, lumen ace | `flag_spire_open` ∧ `flag_rival_6_done` | — | 6: c12 45, c24 45, c21 46, c15 46, c18 47, c30 50 | `flag_champion_defeated` → `flag_game_cleared` |
 
 ### 2.3 Resonance registers (D2, CD §6.2)
 
@@ -595,7 +595,7 @@ Register-unlock timing is given in §2.3. Starter-type secrets need the matching
 
 ### 2.9 Trainers
 
-**The 17 story battles** (`t_rival_1..6`, `t_cantor_1..6`, `t_admin_brann_1`, `t_admin_vey_1`, `t_admin_vey_2`, `t_odile`, `t_champion`) use **exactly the teams and levels of systems v2 §14.2**. RS = the rival's starter line (§2.6); stage 2 from rival 2 onward, stage 3 from rival 5 onward.
+**The 17 story battles** (`t_rival_1..6`, `t_cantor_1..6`, `t_admin_brann_1`, `t_admin_vey_1`, `t_admin_vey_2`, `t_odile`, `t_champion`) use **exactly the teams and levels of systems v2 §14.2** (levels as tuned by D30; story-trainer heal items and R1's potential are set in `scripts/build-world-content.py` `STORY_TUNING`). RS = the rival's starter line (§2.6); stage 2 from rival 2 onward, stage 3 from rival 5 onward.
 
 Other trainers follow the systems §14.1 legality rules and the §14.4 route-trainer bands. Optional trainers have ≤ 3 kin from ch5 onward (D23). Sight range is 8 m (0 = must talk). M = mandatory (story or path), O = optional.
 
@@ -668,9 +668,9 @@ Other trainers follow the systems §14.1 legality rules and the §14.4 route-tra
 | t_hall6_02 | trial_6 | (8,0) | hall_tuner | 3 | 41–42 | f06, f10 | M |
 | t_cantor_6 | trial_6 | (0,−20) | Isaure | 6 | 37, 38, 39, 39, 40, 41 | c17, c15, c09, c18, c24, c18 ace | M |
 | t_still_08 | snowpeak | (−10,−50) | stillmark_engineer | 3 | 42–43 | f08, f09, f06 | M |
-| t_odile | snowpeak | (0,−84) | Odile | 4 (phase A 3 + phase B 1; systems §14.3) | A: 44, 45, 45. B: 46 | A: c24, c29, c26; B: ace c27 Emberfold | M |
+| t_odile | snowpeak | (0,−84) | Odile | 4 (phase A 3 + phase B 1; systems §14.3) | A: 42, 43, 44. B: 46 | A: c24, c29, c26; B: ace c27 Emberfold | M |
 | t_rival_6 | league | (0,10) | Cass | 6 | 43, 43, 43, 43, 43, 44 | c21, c15, c18, c27, c12, RS3 ace | M |
-| t_champion | league | (0,−20) | Rhea | 6 | 44, 44, 45, 45, 46, 50 | c12, c24, c21, c15, c18, ace c30 Coronaleen | M |
+| t_champion | league | (0,−20) | Rhea | 6 | 45, 45, 46, 46, 47, 50 | c12, c24, c21, c15, c18, ace c30 Coronaleen | M |
 | t_rival_post | town_1 | (5,−35) | Cass | 6 | 55 | mixed | O (post-game) |
 
 **Totals:**

@@ -26,7 +26,7 @@ const S = (n: number, id: string, label: string, recAce: number, modelAvg: numbe
 });
 // qa_plan §7.2 item 7: ≥60 trial leaders/Odile/champion; ≥80 rival & antagonist before trial_3; ≥70 other.
 export const STORY: StoryInfo[] = [
-  S(1, 't_rival_1', 'Rival 1', 3, 5, 80, false), // D20: loss continues the story (non-blocking)
+  S(1, 't_rival_1', 'Rival 1', 5, 5, 80, false), // D20: loss continues the story (non-blocking)
   S(2, 't_cantor_1', 'Cantor 1 Wren', 12, 11, 60),
   S(3, 't_rival_2', 'Rival 2', 14, 14, 80),
   S(4, 't_cantor_2', 'Cantor 2 Dorran', 17, 14, 60),

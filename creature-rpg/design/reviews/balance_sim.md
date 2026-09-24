@@ -1,5 +1,7 @@
 # Campaign simulation — mechanical completability only; not a playtest
 
+> **Update (D30):** sections 1–6 record the original run. The tuning pass, its evidence and the current tables are in **section 7**.
+
 Owner: Systems Designer / QA. Date: 2026-09-24. Source: `tests/unit/balance.test.ts` + `tests/unit/balanceSim.ts` (run with `npx vitest run tests/unit/balance.test.ts`; about 25 s).
 
 **This is a headless simulation, not a playtest.** The real content JSON, the real battle engine (`src/sim/battle/engine.ts`) and the real AI (`src/sim/battle/ai.ts`) run with a scripted player. The numbers show whether a *plausible scripted troupe* can win each story battle. They are not a measure of difficulty for human players, pacing or fun (qa_plan §7.1). A human who switches smartly, over-levels or buys more items will do better. A human who does not understand type matchups will do worse.
@@ -103,7 +105,7 @@ Owner: Systems Designer / QA. Date: 2026-09-24. Source: `tests/unit/balance.test
 | F9 | **Engine deviates from §8.1 XP (engine bug, not content).** `awardXp` applies T = 3/2 to *every* trainer battle (`tn = s.kind === 'trainer' ? 3 : 1`). §8.1 limits ×3/2 to `mandatory: true` trainers, so the 33 optional route trainers overpay by 50%. The simulated levels above are therefore slightly **optimistic**: with the fix, F3–F6 get worse. | `src/sim/battle/engine.ts` `awardXp`. | major (code) |
 | F10 | **Odile phase B participation gap (code).** `battleStore.command()` swaps in c27 without marking participation, so the active player kin gets only 50% XP for the ace (non-participant). | `src/battle/battleStore.ts` phase change; replicated in the sim. | minor (code) |
 
-## 4. Recommended changes (not applied. Systems Designer / World Designer to decide, then re-run this sim)
+## 4. Recommended changes (original proposals. **Applied or superseded by the D30 tuning pass: see section 7**)
 
 No data edits were made. The trainers.json story teams match systems §14.2 exactly, and encounters.json matches world.md §4.3, so there was no *contradiction* to fix. These are rebalance proposals:
 
@@ -121,7 +123,8 @@ No data edits were made. The trainers.json story teams match systems §14.2 exac
 - No engine errors and no turn-limit stalls.
 - All 17 story battles are reached.
 - SIM-03 (strongest kin ≥ model avg − 2).
-- SIM-01 win-rate targets, except for an explicit `KNOWN_BELOW_TARGET` list of the 17 content findings above. Any *new* shortfall fails the test. A listed battle that starts passing prints a reminder to remove it.
+- SIM-01 win-rate targets, except for an explicit `KNOWN_BELOW_TARGET` list. That list originally held the 17 content findings above and has been **empty since the D30 tuning pass** (section 7). Any shortfall fails the test.
+- Since D30, the test runs 8 independent progressions per starter with 6 seeds per story battle. The tables show the mean and the per-path spread (section 7.5).
 
 The test prints the three tables on every run.
 
@@ -131,3 +134,137 @@ The test prints the three tables on every run.
 - Gifts (the leftover Lv 25 and rival line Lv 30) are not used. They would help F6.
 - Wild battles use day/clear tables. Trainer battles use clear weather.
 - None of these numbers are playtime or player-difficulty claims. Human route playtests (qa_plan M-50) remain required.
+
+
+---
+
+## 7. Tuning pass (Systems Designer, 2026-09-24; D30)
+
+**This is still a mechanical simulation and not a playtest.** The numbers show whether a scripted troupe can complete the campaign. They say nothing about fun, pacing or how hard it feels to a human. Human route playtests (qa_plan M-50) are still required.
+
+**Outcome.** All **48 blocking starter × story-battle pairs** meet the qa_plan §7.2 targets. `KNOWN_BELOW_TARGET` in `tests/unit/balance.test.ts` is **empty**. SIM-03 passes for the weakest of the 8 progressions. The balance test takes about 21 s (the full suite about 22 s).
+
+### 7.1 Stages (count of blocking pairs below target)
+| Stage | c01 | c04 | c07 | Total | Note |
+|---|---|---|---|---|---|
+| Original (sections 2–3) | 1 | 8 | 8 | 17 | The optional trainers paid ×3/2 XP (F9), so the levels were optimistic |
+| + F9 XP fix only (1 path, 40 seeds) | 6 | 8 | 8 | 22 | SIM-03 also failed: c01 top Lv 46 < 47 before the champion. The troupe average fell to 41–45 before the champion |
+| + content and policy changes below (8 paths × 6 seeds) | 0 | 0 | 0 | **0** | Final tables in 7.5 |
+
+### 7.2 Changes, in lever order (before → after)
+**Lever 1: engine XP (F9).** `src/sim/battle/engine.ts` `awardXp`: T = 3/2 only when the battle's `mandatory` flag is set. Before, T applied to every trainer battle. `BattleSetup.mandatory` and `BattleState.mandatory` are new optional fields in `src/sim/battle/types.ts`, and `src/state/game.ts` `buildBattleSetup` passes `t.mandatory`. The `battle-math` vectors did not need changes, because none of them assert trainer XP. F10 (Odile phase-B participation) lives in `src/battle/battleStore.ts`, which was out of scope for this pass. It is still open.
+
+**Lever 2: trainer data.** Levels are edited in the world.md §2.9 table (the generator's input) and mirrored in systems §14.2 and world.md §2.2. Items and R1's potential go in the new `STORY_TUNING` table in `scripts/build-world-content.py`. Regenerating the files was verified: `encounters.json` is byte-identical, and `trainers.json` equals the tested data. Payouts follow the §12.4 rule.
+
+| Trainer | Levels before → after | Items before → after | Other | Why (evidence) |
+|---|---|---|---|---|
+| R1 `t_rival_1` | RS1 5 → **3** | 1× salve_1 → **none** | potential 12 → **6** | F1. Before: 0/0/0%. RS1 Lv 3 + pot 6 + no item: c01 33, c04 50–70, c07 98 (what-if). Final: 25 / 81 / 98 (non-blocking; "loss-tolerant but winnable") |
+| Cantor 1 Wren | 10/11/12 (unchanged) | 2× salve_3 → **none** | — | F2. c11 must stay at Lv ≥ 12 (§14.1 legality: at most 4 below Lv 16), so it keeps Drowse Pollen. At 10/11/12, with 8 paths: none 78/85/67, 1× salve_1 65/83/42 |
+| R2 | 14/16 → **12/14** | 1× salve_1 | — | F3. At the original levels: 98/81/77; at −1: 96/79/85 (c04 on the ≥ 80 line) |
+| Cantor 2 Dorran | unchanged | 2× salve_3 → **1× salve_1** | — | F2 (shop tier) |
+| Brann 1 | unchanged | 2× salve_3 → **1× salve_2** | — | F2. The −1 level variant was not needed (98–100% at the original levels) |
+| Vey 1 | unchanged | 2× salve_3 → **1× salve_2** | — | F2 |
+| R3 | unchanged | 2× salve_3 → **2× salve_2** | — | F2 (salve_3 is not sold before trial_3) |
+| Cantor 3 Nerys | 23/23/24/25 → **22/22/23/24** | 2× salve_3 → **1× salve_2** | — | 4-path what-ifs: at the original levels with 2× salve_2, c01/c04/c07 won 100/71/56; at −1 with 1× salve_2, 100/92/71 |
+| Cantor 4 Tamsin | 27/28/29/30 → **25/26/27/28** | 2× salve_3 | — | F5. At the original levels: 60/90/67; at −1: 71/94/85 |
+| R5 | 38/38/38/39/40 → **35/35/35/36/37** | 2× salve_3 | — | F6. c07 at −2: 44%; at −3: 77–88%. RS3 c03 (electric·gale) is the water troupe's worst matchup |
+| Cantor 6 Isaure | 41–45 → **37/38/39/39/40/41** | 2× salve_3 | — | F6. 0–31% originally; at −3: 75/65/69; at −4: 85/71/67 |
+| Odile | **unchanged** (A 42/43/44, B 46) | unchanged | — | F7. Tested A 44/45/45 and A 46/47/47 + B 48: 96–100% in every case. Odile's difficulty does not depend on her levels (see 7.4) |
+| R6 | 45/46/46/46/47/48 → **43×5, RS3 44** | 2× salve_3 → **none** | — | F6. c07's result depends on RS3's level: RS3 46 → 14–29%, RS3 44 → 67–81%. Heals removed: +8 points for c07 |
+| Champion Rhea | 47/47/48/48/49/50 → **45/45/46/46/47/50** | unchanged (2× salve_4 + cure_all) | — | F6. 8-path what-ifs for c04: 56% at the original levels, 63% at −1, 73% at −2, 74% at −3. The final run gives 63% at −2, because the XP from the Odile fight differs from the what-if run. The −3 variant was rejected as too soft for the final battle. c30 stays 50: at Lv 48–49 its moveset swaps m100 for m099 and becomes harder, not easier |
+
+**Lever 3: starter viability (F4).** In the f03 water learnset (systems §11, regenerated via `scripts/extract-systems.py`), m052 Hoarbreath (frost, ×2 vs verdant) moves from Lv 13 to **6**, m015 Bubble Lance from 10 to **8**, and m013 Rushing Current from 7 to **13**. Before, the water line knew only water moves at Cantor 1: 0% there, and 0% even at +3 levels. With the change and the policy fixes, it reaches 67% (8 paths). A catch matters more than a move: with c19 Gustling (gale ×2 vs Lullstalk's toxin half) in the troupe, c07 won 83%; with c10 or c13, 0–3%. The catch heuristic change in 7.3 fixes the catch.
+
+**Lever 4: late XP / wild budget: not changed.** Doubling the ch5–12 wild budget from 2 to 4 per chapter raised the troupe average by only about 1 level and fixed no late battle. Late XP comes almost entirely from trainers. The measured curve is now written into systems §14.4, and the late story teams were tuned to it.
+
+### 7.3 Simulated-player policy (tests/unit/balanceSim.ts), each change with its measured effect
+The original policy's problems were these. It never learned an Etude, although systems §12.5 budgets their purchase. It dropped coverage moves: Belladrowse ended with 4 verdant moves, Tempestrel with 3 electric ones. Its greedy catch picked the water starter's own counter (c10). The AI's voluntary switch fires only when the best score is below 25, so it never retreated from a losing matchup. And it sent slow kin one by one into a foe at 9 HP.
+
+The ablations were run on the content just before the last two edits (champion kin 44/44/45/45/46, Odile phase A 44/45/45).
+
+| Change | Realism basis | Effect (ablation on the final content: pairs below target if removed) |
+|---|---|---|
+| Coverage-aware move replacement: drop a redundant move (a status move, a duplicate type, or the old move of the same type); drop a sole-type move only for a ×1.5 better one | Players keep type coverage | Not ablated separately. It fixed the mono-type movesets |
+| Etudes: trial rewards (i_disc_04/05/02/07/16/14), the Vey 2 drop (i_disc_09) and the §12.5 purchases (i_disc_03 in ch3, i_disc_06 in ch6, i_disc_08 in ch9); each reusable disc is offered to every compatible kin (§8.5) | §12.5 budgets these purchases; discs are reusable | Without them: 3 pairs fail (c01 Cantor 2 54, c04 Cantor 4 40, c07 Brann 65) |
+| Triad gifts (world.md §2.6): the leftover starter at Lv 25 after Vey 2 always replaces the weakest non-starter kin; the rival line at Lv 30 after trial_5 replaces it if it is at least as strong | Quest rewards; q_second_clutch needs the leftover in the troupe | Without them: c07 R6 falls to 46%. A rule that protected the leftover from the second swap was tried and was worse (c07 R6 48%) |
+| One salve of the current shop tier in each route, hall or grunt battle | §12.5 buys about 3 salves per chapter | Without it: no failures, but margins shrink (c04 Cantor 4 90 → 75, champion 81 → 71; c07 R5 88 → 77) |
+| Retreat in routine battles: switch out of a super-effective threat into a kin that resists it, at most 2 switches | Players protect their kin in wild and route fights | Without it: c07 Cantor 1 falls to 56%, because the water starter faints as lead in the forest and gets 0 XP. **Tried in story battles too and rejected:** no net gain there, with swings of ±50 points per battle |
+| Finisher: after a faint with the foe at ≤ 25% HP, send the fastest kin that outspeeds it, else the kin that best resists its revealed moves | The mirrored AI's matchup pick fed three slow kin in a row into a 9-HP Drapetide | c04 champion 44 → 65–75 |
+| Catch choice: the next story battle counts double, and kin that the coming teams hit super-effectively score −1 (was −0.5) | Players catch for the upcoming Cantor | c07 now catches c19 instead of c10 |
+| 8 progressions × 6 seeds (was 1 × 40) | One run is one player; a single catch changed the next three battles by 50+ points | The table now shows the per-path spread; SIM-03 uses the weakest path |
+
+Other policies were tried and not adopted. (a) A starter-lead gap of 5 instead of 2 made no difference. (b) Leading routine battles with the lowest-level kin lowered the troupe average. (c) The first, looser story-battle switch rule had mixed results.
+
+### 7.4 Remaining findings (not blocking; for design review)
+- **F7 still holds, and it is structural.** Odile is won 96–100%, right after Cantor 6 (67–85%). She has 4 kin against a 6-kin troupe, and her level changes had no measurable effect. Consider a 5th phase-A kin or a stronger phase B. Do not simply raise her levels.
+- **Thin margins:** c04 champion 63%, c07 Cantor 1 and Cantor 6 67%, c04 Cantor 6 71%, c01 Cantor 2 75%, c07 R6 81% (≥ 70). The per-path spread is wide: one c07 Cantor 6 path wins 17%.
+- **The late troupe average runs below the model** (43–44 before the champion, against 49). The top kin tracks the model because the lead kin carries the troupe. The model column in systems §14.2 was kept, and §14.4 now states the measured curve.
+- **Payouts** drop by 1,140 in total because they scale with the ace level (§12.4). This is noted under systems §12.5, and every chapter still ends positive.
+- **F10** (Odile phase-B participation, `src/battle/battleStore.ts`) is still open. It was out of scope for this pass.
+- **Difficulty curve against intent:** R1 is loss-tolerant but winnable (25–98%). The Cantors are challenging (67–100%; Cantor 6 is the hardest). The champion is the hardest *final* fight for the fire starter (63%), but for c01 and c07 it is easier than Cantor 6. A human playtest should decide whether the champion needs a stronger team, for example restoring 47/47/48/48/49.
+
+### 7.5 Final tables (8 progressions × 6 seeds per story battle; ✗ = below target; * = non-blocking)
+"Top" is the strongest kin's level on the weakest path. "Starter" is the mean level of the starter line. "Win % at +3 Lv" is the mean over the paths that were below target on their own.
+
+#### Starter c01 (electric); rival line f02
+| # | Battle | Party avg Lv | Model avg | Top (min over paths) / starter Lv | Foe ace Lv | Win % | Per-path win % | Target | Win % no attune | Win % at +3 Lv | Avg turns | Salves used |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 1 | Rival 1 | 5.0 | 5 | 5 / 5 | 3 | 25 ✗ | 17 / 0 / 17 / 17 / 33 / 33 / 50 / 33 | ≥80* | — | 100 | 4.1 | 1.0 |
+| 2 | Cantor 1 Wren | 11.3 | 11 | 12 / 12 | 12 | 81 | 83 / 83 / 100 / 67 / 100 / 67 / 67 / 83 | ≥60 | 81 | — | 17.7 | 1.6 |
+| 3 | Rival 2 | 13.9 | 14 | 15 / 14 | 14 | 100 | 100 / 100 / 100 / 100 / 100 / 100 / 100 / 100 | ≥80 | — | — | 8.1 | 0.7 |
+| 4 | Cantor 2 Dorran | 15.4 | 14 | 17 / 16 | 17 | 75 | 50 / 67 / 100 / 100 / 100 / 50 / 50 / 83 | ≥60 | 85 | 100 | 11.7 | 1.0 |
+| 5 | Admin Brann | 18.5 | 19 | 20 / 19 | 20 | 98 | 100 / 83 / 100 / 100 / 100 / 100 / 100 / 100 | ≥80 | — | — | 7.2 | 0.9 |
+| 6 | Admin Vey 1 | 20.0 | 23 | 21 / 21 | 22 | 98 | 100 / 100 / 100 / 100 / 100 / 100 / 83 / 100 | ≥80 | — | — | 11.4 | 1.2 |
+| 7 | Rival 3 | 21.7 | 24 | 23 / 22 | 23 | 98 | 100 / 100 / 100 / 83 / 100 / 100 / 100 / 100 | ≥80 | — | — | 10.8 | 1.1 |
+| 8 | Cantor 3 Nerys | 25.0 | 27 | 27 / 26 | 24 | 100 | 100 / 100 / 100 / 100 / 100 / 100 / 100 / 100 | ≥60 | 100 | — | 7.3 | 0.3 |
+| 9 | Cantor 4 Tamsin | 26.8 | 29 | 29 / 28 | 28 | 94 | 100 / 100 / 100 / 100 / 100 / 50 / 100 / 100 | ≥60 | 85 | 100 | 11.7 | 0.8 |
+| 10 | Admin Vey 2 | 30.3 | 33 | 33 / 32 | 33 | 100 | 100 / 100 / 100 / 100 / 100 / 100 / 100 / 100 | ≥70 | — | — | 5.4 | 0.2 |
+| 11 | Rival 4 | 30.5 | 34 | 35 / 32 | 33 | 96 | 100 / 100 / 67 / 100 / 100 / 100 / 100 / 100 | ≥70 | — | 100 | 7.8 | 0.4 |
+| 12 | Cantor 5 Bastian | 34.1 | 37 | 38 / 36 | 37 | 100 | 100 / 100 / 100 / 100 / 100 / 100 / 100 / 100 | ≥60 | 98 | — | 8.8 | 0.6 |
+| 13 | Rival 5 | 36.4 | 40 | 41 / 38 | 37 | 96 | 100 / 83 / 100 / 83 / 100 / 100 / 100 / 100 | ≥70 | — | — | 9.4 | 0.4 |
+| 14 | Cantor 6 Isaure | 40.3 | 45 | 46 / 41 | 41 | 85 | 100 / 67 / 100 / 67 / 100 / 67 / 100 / 83 | ≥60 | 85 | — | 10.3 | 0.8 |
+| 15 | Magister Odile | 42.0 | 46 | 48 / 43 | 46 | 98 | 83 / 100 / 100 / 100 / 100 / 100 / 100 / 100 | ≥60 | — | — | 6.4 | 0.8 |
+| 16 | Rival 6 | 42.7 | 47 | 49 / 44 | 44 | 100 | 100 / 100 / 100 / 100 / 100 / 100 / 100 / 100 | ≥70 | — | — | 9.6 | 0.2 |
+| 17 | Champion Rhea | 43.8 | 49 | 50 / 45 | 50 | 96 | 100 / 83 / 100 / 100 / 100 / 100 / 100 / 83 | ≥60 | — | — | 18.3 | 2.0 |
+
+#### Starter c04 (fire); rival line f03
+| # | Battle | Party avg Lv | Model avg | Top (min over paths) / starter Lv | Foe ace Lv | Win % | Per-path win % | Target | Win % no attune | Win % at +3 Lv | Avg turns | Salves used |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 1 | Rival 1 | 5.0 | 5 | 5 / 5 | 3 | 81 | 67 / 83 / 83 / 83 / 83 / 83 / 83 / 83 | ≥80* | — | 100 | 5.5 | 0.9 |
+| 2 | Cantor 1 Wren | 11.3 | 11 | 11 / 12 | 12 | 88 | 100 / 50 / 83 / 100 / 100 / 83 / 83 / 100 | ≥60 | 88 | 100 | 15.9 | 1.3 |
+| 3 | Rival 2 | 14.0 | 14 | 14 / 14 | 14 | 100 | 100 / 100 / 100 / 100 / 100 / 100 / 100 / 100 | ≥80 | — | — | 7.0 | 0.8 |
+| 4 | Cantor 2 Dorran | 15.6 | 14 | 16 / 16 | 17 | 100 | 100 / 100 / 100 / 100 / 100 / 100 / 100 / 100 | ≥60 | 100 | — | 7.7 | 0.6 |
+| 5 | Admin Brann | 18.8 | 19 | 20 / 18 | 20 | 100 | 100 / 100 / 100 / 100 / 100 / 100 / 100 / 100 | ≥80 | — | — | 8.8 | 0.6 |
+| 6 | Admin Vey 1 | 20.4 | 23 | 22 / 20 | 22 | 100 | 100 / 100 / 100 / 100 / 100 / 100 / 100 / 100 | ≥80 | — | — | 10.6 | 1.3 |
+| 7 | Rival 3 | 22.0 | 24 | 24 / 22 | 23 | 100 | 100 / 100 / 100 / 100 / 100 / 100 / 100 / 100 | ≥80 | — | — | 12.0 | 1.1 |
+| 8 | Cantor 3 Nerys | 25.2 | 27 | 27 / 25 | 24 | 100 | 100 / 100 / 100 / 100 / 100 / 100 / 100 / 100 | ≥60 | 98 | — | 12.3 | 0.8 |
+| 9 | Cantor 4 Tamsin | 27.0 | 29 | 30 / 26 | 28 | 90 | 100 / 100 / 83 / 33 / 100 / 100 / 100 / 100 | ≥60 | 98 | 100 | 11.3 | 0.8 |
+| 10 | Admin Vey 2 | 30.6 | 33 | 34 / 30 | 33 | 100 | 100 / 100 / 100 / 100 / 100 / 100 / 100 / 100 | ≥70 | — | — | 5.4 | 0.1 |
+| 11 | Rival 4 | 31.0 | 34 | 35 / 31 | 33 | 100 | 100 / 100 / 100 / 100 / 100 / 100 / 100 / 100 | ≥70 | — | — | 8.3 | 0.4 |
+| 12 | Cantor 5 Bastian | 34.4 | 37 | 40 / 33 | 37 | 100 | 100 / 100 / 100 / 100 / 100 / 100 / 100 / 100 | ≥60 | 100 | — | 9.2 | 0.7 |
+| 13 | Rival 5 | 36.8 | 40 | 44 / 35 | 37 | 94 | 100 / 67 / 100 / 100 / 100 / 100 / 100 / 83 | ≥70 | — | 100 | 11.3 | 0.7 |
+| 14 | Cantor 6 Isaure | 39.8 | 45 | 48 / 36 | 41 | 71 | 67 / 50 / 17 / 100 / 67 / 100 / 67 / 100 | ≥60 | 77 | 92 | 12.4 | 1.4 |
+| 15 | Magister Odile | 41.6 | 46 | 50 / 38 | 46 | 100 | 100 / 100 / 100 / 100 / 100 / 100 / 100 / 100 | ≥60 | — | — | 7.0 | 0.9 |
+| 16 | Rival 6 | 42.4 | 47 | 50 / 39 | 44 | 100 | 100 / 100 / 100 / 100 / 100 / 100 / 100 / 100 | ≥70 | — | — | 12.0 | 1.0 |
+| 17 | Champion Rhea | 43.6 | 49 | 51 / 40 | 50 | 63 | 50 / 33 / 50 / 100 / 17 / 100 / 50 / 100 | ≥60 | — | 93 | 18.7 | 1.7 |
+
+#### Starter c07 (water); rival line f01
+| # | Battle | Party avg Lv | Model avg | Top (min over paths) / starter Lv | Foe ace Lv | Win % | Per-path win % | Target | Win % no attune | Win % at +3 Lv | Avg turns | Salves used |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 1 | Rival 1 | 5.0 | 5 | 5 / 5 | 3 | 98 | 100 / 83 / 100 / 100 / 100 / 100 / 100 / 100 | ≥80* | — | — | 2.1 | 0.0 |
+| 2 | Cantor 1 Wren | 11.3 | 11 | 12 / 12 | 12 | 67 | 67 / 83 / 67 / 83 / 50 / 83 / 33 / 67 | ≥60 | 67 | 100 | 14.1 | 1.4 |
+| 3 | Rival 2 | 13.8 | 14 | 14 / 14 | 14 | 96 | 100 / 100 / 67 / 100 / 100 / 100 / 100 / 100 | ≥80 | — | 100 | 7.9 | 1.0 |
+| 4 | Cantor 2 Dorran | 15.2 | 14 | 16 / 16 | 17 | 100 | 100 / 100 / 100 / 100 / 100 / 100 / 100 / 100 | ≥60 | 100 | — | 7.0 | 0.4 |
+| 5 | Admin Brann | 18.5 | 19 | 20 / 20 | 20 | 98 | 100 / 100 / 100 / 100 / 83 / 100 / 100 / 100 | ≥80 | — | — | 11.9 | 1.6 |
+| 6 | Admin Vey 1 | 19.9 | 23 | 22 / 21 | 22 | 100 | 100 / 100 / 100 / 100 / 100 / 100 / 100 / 100 | ≥80 | — | — | 14.6 | 1.7 |
+| 7 | Rival 3 | 21.6 | 24 | 24 / 23 | 23 | 94 | 100 / 100 / 67 / 100 / 100 / 83 / 100 / 100 | ≥80 | — | 100 | 16.1 | 1.5 |
+| 8 | Cantor 3 Nerys | 24.5 | 27 | 27 / 26 | 24 | 79 | 83 / 83 / 67 / 100 / 83 / 67 / 50 / 100 | ≥60 | 88 | 100 | 27.7 | 1.4 |
+| 9 | Cantor 4 Tamsin | 26.3 | 29 | 30 / 28 | 28 | 94 | 83 / 83 / 83 / 100 / 100 / 100 / 100 / 100 | ≥60 | 94 | — | 12.5 | 0.9 |
+| 10 | Admin Vey 2 | 30.0 | 33 | 35 / 31 | 33 | 100 | 100 / 100 / 100 / 100 / 100 / 100 / 100 / 100 | ≥70 | — | — | 4.1 | 0.0 |
+| 11 | Rival 4 | 30.8 | 34 | 37 / 31 | 33 | 100 | 100 / 100 / 100 / 100 / 100 / 100 / 100 / 100 | ≥70 | — | — | 10.1 | 0.5 |
+| 12 | Cantor 5 Bastian | 34.3 | 37 | 41 / 35 | 37 | 100 | 100 / 100 / 100 / 100 / 100 / 100 / 100 / 100 | ≥60 | 100 | — | 9.1 | 0.6 |
+| 13 | Rival 5 | 37.0 | 40 | 44 / 37 | 37 | 88 | 83 / 67 / 83 / 83 / 100 / 100 / 100 / 83 | ≥70 | — | 100 | 12.4 | 1.5 |
+| 14 | Cantor 6 Isaure | 40.8 | 45 | 47 / 41 | 41 | 67 | 100 / 17 / 17 / 100 / 100 / 67 / 50 / 83 | ≥60 | 67 | 89 | 11.3 | 0.7 |
+| 15 | Magister Odile | 42.4 | 46 | 49 / 42 | 46 | 100 | 100 / 100 / 100 / 100 / 100 / 100 / 100 / 100 | ≥60 | — | — | 6.1 | 0.6 |
+| 16 | Rival 6 | 43.2 | 47 | 49 / 43 | 44 | 81 | 100 / 83 / 67 / 33 / 83 / 100 / 100 / 83 | ≥70 | — | 92 | 17.0 | 1.7 |
+| 17 | Champion Rhea | 44.2 | 49 | 49 / 44 | 50 | 94 | 83 / 100 / 100 / 67 / 100 / 100 / 100 / 100 | ≥60 | — | — | 20.2 | 2.7 |

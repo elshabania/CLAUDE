@@ -2389,15 +2389,15 @@
     "team": [
      {
       "species": "c24",
-      "level": 44
+      "level": 42
      },
      {
       "species": "c29",
-      "level": 45
+      "level": 43
      },
      {
       "species": "c26",
-      "level": 45
+      "level": 44
      }
     ]
    },
@@ -2414,15 +2414,15 @@
   "team": [
    {
     "species": "c24",
-    "level": 44
+    "level": 42
    },
    {
     "species": "c29",
-    "level": 45
+    "level": 43
    },
    {
     "species": "c26",
-    "level": 45
+    "level": 44
    },
    {
     "species": "c27",
@@ -2498,23 +2498,23 @@
   "team": [
    {
     "species": "c12",
-    "level": 44
+    "level": 45
    },
    {
     "species": "c24",
-    "level": 44
+    "level": 45
    },
    {
     "species": "c21",
-    "level": 45
+    "level": 46
    },
    {
     "species": "c15",
-    "level": 45
+    "level": 46
    },
    {
     "species": "c18",
-    "level": 46
+    "level": 47
    },
    {
     "species": "c30",
