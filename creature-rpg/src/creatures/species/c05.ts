@@ -14,7 +14,7 @@ const claws = (parent: string, n: number, r: number, z: number): PartDef[] => Ar
 export const c05: SpeciesVisual = {
   id: 'c05',
   H: 1.0,
-  colors: { P: '#33292E', S: '#CDBFAE', A: '#FF6A1A', W: '#6E5048', D: '#1C1416' },
+  colors: { P: '#2E282E', S: '#C4B8A8', A: '#FF6A1A', W: '#96664E', D: '#1C1416' },
   mat: 'SCALE',
   furLen: 0.016,
   fissureColor: 'A',
@@ -44,7 +44,9 @@ export const c05: SpeciesVisual = {
     { name: 'eye', parent: 'head', mirror: true, prim: { t: 'eye', r: 0.045 }, at: [0.068, 0.028, 0.095], rot: [0, 28, 0] },
     ...horns,
     // --- small ember-lit wings ---
-    ...dragonWing({ parent: 'torso', at: [0.1, 0.17, -0.1], rot: [0, 40, 64], w: 0.5, h: 0.36, bone: 'P', membrane: '#4A2218', vein: 'A', memGlow: 0.14, veinGlow: 1.1, boneR: 0.02 }),
+    ...dragonWing({ parent: 'torso', at: [0.1, 0.18, -0.1], rot: [-10, 30, 42], plane: [0, 0, 0], w: 0.62, h: 0.46, bone: 'P', membrane: '#4A2218', vein: 'A', memGlow: 0.2, veinGlow: 1.1, boneR: 0.02 }),
+    // --- dorsal spines down the back and tail ---
+    ...[[0.2, -0.1, 0.06], [0.08, -0.14, 0.055], [-0.05, -0.14, 0.05]].map(([y, z, h], i) => ({ name: `spine${i}`, parent: 'torso', prim: { t: 'cone', r: h * 0.45, h }, at: [0, y, z], rot: [-70, 0, 0], slot: '#1C1416', mat: 'SHELL' }) as PartDef),
     // --- arms ---
     { name: 'upperArm', parent: 'torso', mirror: true, prim: { t: 'capsule', r: 0.048, len: 0.1, r2: 0.04 }, at: [0.15, 0.11, 0.04], rot: [160, 0, 16], anim: ['armswing'] },
     { name: 'forearm', parent: 'upperArm', mirror: true, prim: { t: 'capsule', r: 0.04, len: 0.1, r2: 0.034 }, at: [0, 0.16, 0], rot: [-55, 0, 0] },
@@ -60,5 +62,6 @@ export const c05: SpeciesVisual = {
     { name: 'tail', parent: 'pelvis', prim: { t: 'none' }, chain: { n: 7, r0: 0.085, r1: 0.035, len: 0.72, bend: [7, 0, 0] }, at: [0, 0.0, -0.12], rot: [-118, 0, 0], anim: ['wave'] },
     { name: 'club', parent: 'tailTip', prim: { t: 'sphere', r: [0.06, 0.05, 0.075] }, at: [0, 0.035, 0], slot: '#3A3236', mat: 'STONE', fissure: 0.9, blend: 0.025 },
     { name: 'clubKnob', parent: 'club', mirror: true, prim: { t: 'cone', r: 0.03, h: 0.05 }, at: [0.04, 0.0, 0.0], rot: [0, 0, -80], slot: '#3A3236', mat: 'STONE', blend: 0.015 },
+    ...[1, 3, 5].map((i) => ({ name: `tailSpine${i}`, parent: `tail${i}`, prim: { t: 'cone', r: 0.024, h: 0.05 }, at: [0, 0.04, 0.065 - i * 0.005], rot: [60, 0, 0], slot: '#1C1416', mat: 'SHELL' }) as PartDef),
   ],
 };

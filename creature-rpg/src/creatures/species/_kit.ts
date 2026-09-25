@@ -89,14 +89,18 @@ export function wickHorn(side: 'L' | 'R', o: { parent: string; at: V3; rot: V3; 
  */
 export function dragonWing(o: {
   parent: string; at: V3; rot: V3; w: number; h: number; bone: Slot; membrane: Slot; vein: Slot; memGlow: number; veinGlow: number; boneR: number; lod0Veins?: boolean;
+  /** wing-plane orientation inside the flap node; default [90,0,0] = horizontal glide sheet, [0,0,0] = raised (plane faces forward) */
+  plane?: V3; opacity?: number;
 }): PartDef[] {
   const P = DRAGON_WING_PTS;
   const s = (p: [number, number] | number[]): V3 => [p[0] * o.w, p[1] * o.h, 0];
   const parts: PartDef[] = [
     { name: 'wing', parent: o.parent, mirror: true, prim: { t: 'none' }, at: o.at, rot: o.rot, anim: ['flap'] },
-    { name: 'wingPlane', parent: 'wing', mirror: true, prim: { t: 'none' }, rot: [90, 0, 0] },
-    { name: 'wingMem', parent: 'wingPlane', mirror: true, mirrorGeom: true, prim: { t: 'extrude', shape: 'X_dragonwing', w: o.w, h: o.h, depth: 0.006 }, slot: o.membrane, mat: 'MEMBRANE', emissive: o.memGlow, glowColor: o.vein, opacity: 0.97 },
+    { name: 'wingPlane', parent: 'wing', mirror: true, prim: { t: 'none' }, rot: o.plane ?? [90, 0, 0] },
+    { name: 'wingMem', parent: 'wingPlane', mirror: true, mirrorGeom: true, prim: { t: 'extrude', shape: 'X_dragonwing', w: o.w, h: o.h, depth: 0.006 }, slot: o.membrane, mat: 'MEMBRANE', emissive: o.memGlow, glowColor: o.vein, opacity: o.opacity ?? 0.97 },
     { name: 'wingArm', parent: 'wingPlane', mirror: true, mirrorGeom: true, prim: { t: 'tube', pts: [s(P.root), s(P.elbow), s(P.wrist)], r0: o.boneR, r1: o.boneR * 0.75 }, slot: o.bone, mat: 'SCALE' },
+    { name: 'wingWrist', parent: 'wingPlane', mirror: true, prim: { t: 'sphere', r: o.boneR * 1.35 }, at: [P.wrist[0] * o.w, P.wrist[1] * o.h, 0], slot: o.bone, mat: 'SCALE', blend: false },
+    { name: 'wingElbow', parent: 'wingPlane', mirror: true, prim: { t: 'sphere', r: o.boneR * 1.2 }, at: [P.elbow[0] * o.w, P.elbow[1] * o.h, 0], slot: o.bone, mat: 'SCALE', blend: false },
     { name: 'wingThumb', parent: 'wingPlane', mirror: true, prim: { t: 'cone', r: o.boneR * 0.8, h: o.boneR * 3.2 }, at: [P.wrist[0] * o.w, P.wrist[1] * o.h + o.boneR * 0.5, 0], rot: [0, 0, -30], slot: '#E9D9BC', mat: 'SHELL', lod: 0 },
   ];
   P.tips.forEach((t, i) => {
@@ -105,4 +109,25 @@ export function dragonWing(o: {
     parts.push({ name: `wingVein${i}`, parent: 'wingPlane', mirror: true, mirrorGeom: true, prim: { t: 'tube', pts: [[mid[0], mid[1] - o.h * 0.05, 0.004 * o.h], [(mid[0] + t[0] * o.w) / 2 - 0.03 * o.w, (mid[1] + t[1] * o.h) / 2 - 0.08 * o.h, 0.004 * o.h], [t[0] * o.w * 0.94 - 0.05 * o.w, t[1] * o.h * 0.94 - 0.06 * o.h, 0.004 * o.h]], r0: o.boneR * 0.18, r1: o.boneR * 0.08 }, slot: o.vein, emissive: o.veinGlow, mat: 'GLOW', lod: o.lod0Veins ? 0 : undefined });
   });
   return parts;
+}
+
+/** Euler XYZ (deg, yaw 0) that turns local +Y onto direction d. */
+export function alongY(d: V3): V3 {
+  const l = Math.hypot(d[0], d[1], d[2]) || 1;
+  const [x, y, z] = [d[0] / l, d[1] / l, d[2] / l];
+  return [Math.atan2(z, y) * D, 0, Math.asin(Math.max(-1, Math.min(1, -x))) * D];
+}
+
+/**
+ * Flowing ruff of tapered tufts: each tuft is a sculpted tapering capsule (ash base) with a thinner ember-dark tip
+ * continuing it. `list` = [x, y, z, dir, len, r] in the parent's frame (L side; mirrored when x != 0).
+ */
+export function tufts(name: string, parent: string, list: [number, number, number, V3, number, number][], base: Slot, tip: Slot, glow = 0.5): PartDef[] {
+  return list.flatMap(([x, y, z, dir, len, r], i): PartDef[] => {
+    const mirror = Math.abs(x) > 1e-4;
+    return [
+      { name: `${name}${i}`, parent, mirror, prim: { t: 'capsule', r, len, r2: r * 0.45 }, at: [x, y, z], rot: alongY(dir), slot: base, mat: 'FUR', fissure: glow * 0.4, fur: 1.4, blend: r * 0.9 },
+      { name: `${name}${i}t`, parent: `${name}${i}`, mirror, prim: { t: 'capsule', r: r * 0.45, len: len * 0.45, r2: r * 0.1 }, at: [0, len + r * 0.2, 0], rot: [10, 0, 0], slot: tip, mat: 'FUR', fissure: glow, fur: 1.2, blend: r * 0.3 },
+    ];
+  });
 }

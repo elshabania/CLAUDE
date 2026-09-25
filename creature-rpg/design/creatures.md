@@ -594,15 +594,15 @@ Reading guide:
 
 | Part (v3) | Primitive & dims (×H) | Parent @ offset · rot | Slot | Anim |
 |---|---|---|---|---|
-| chest / barrel / hips | sphere (0.21,0.25,0.25) / (0.19,0.19,0.30) / (0.16,0.17,0.18) | root @ (0,0.64,0.28) / (0,0.60,−0.05) / (0,0.59,−0.38) | P | br |
+| chest / barrel / hips (pass 2) | sphere (0.27,0.29,0.28) / (0.22,0.21,0.33) / (0.18,0.19,0.20) | root @ (0,0.60,0.24) / (0,0.56,−0.12) / (0,0.56,−0.46) | P | br |
 | throat plate / belly plate | sphere (0.14,0.18,0.12) / (0.14,0.12,0.33) | chest / barrel | W, fissure 1.0 / 0.45 | glow |
-| neck + throat | chain 4 × r0.115→0.085, total 0.44, bend −7; throat capsule r0.075 | chest @ (0,0.12,0.14) · pitch 28 | P / W fissure 1.0 | — |
+| neck + throat (pass 2) | chain 5 × r0.13→0.078, total 0.60, bend −5 (upright S); throat capsule r0.075, fissure 0.75 | chest @ (0,0.16,0.12) · pitch 22 | P / W | — |
 | head / snout / jaw | sphere (0.10,0.095,0.13) / capsule r0.07 len0.14 / capsule r0.055 len0.13 | neckTip | P / P / W fissure 1.0 | look, jaw |
 | brow ×2 | capsule r0.03, blend 0.018 (sculpted) | head | P | — |
 | eye ×2 | 3D eye r0.036 | head @ (±0.066,0.03,0.095) · yaw ±34 | E | lids |
-| horn ×2 | spiral 1.12 turns, radius 0.13→0.06, tube r0.056→0.018, 13 ridges, wick flame | head @ (±0.075,0.07,−0.05) | `#D5C3A3` → A | glow, fx_horns |
-| mane ×9 | fluffy `FUR` spheres along the neck, shoulders and head | chest / neck / head / barrel | S / S− glints 0.4–0.55 | — |
-| wing ×2 | `dragonWing` 1.05 × 0.70 (arm, thumb claw, 4 fingers, membrane, 4 glowing veins) | chest @ (±0.15,0.19,−0.04) · (0,±26,±40) | P / `#2E1410` / A | flap |
+| horn ×2 (pass 2) | spiral 1.18 turns, radius 0.16→0.07, tube r0.068→0.02, 15 ridges, wick flame | head @ (±0.075,0.07,−0.05) | `#D5C3A3` → A | glow, fx_horns |
+| ruff (pass 2) | smoky collar mass (4 fluffy spheres) + 17 tapered tufts per side/back (`tufts`: capsule r0.045–0.08 tapering, flowing down-back along the neck and over the shoulders), ash `#9C928A`/`#6E655F` bases with ember-rust tips `#8A3618`–`#A0461E` and ember glints | neck0–3, chest, head | S / S− / tips | — |
+| wing ×2 | `dragonWing` 1.20 × 0.80, **raised plane** (faces forward, leading edge on top): arm, elbow/wrist knuckles, thumb claw, 4 finger bones, translucent membrane `#4A1C12` (emissive 0.22) + 4 glowing veins; ≈ 4.2 m span | chest @ (±0.13,0.25,−0.10) · (−14,±24,±44) | P / membrane / A | flap |
 | legs ×4 | shoulder / thigh spheres; forearm capsule r0.075 len0.28; shin r0.075 len0.17 → metatarsal → foot; 3 cream claws each | chest / hips | P / `#E4D6BE` | gait |
 | dorsal spines | cones on the back and tail (LOD ≤ 1 on the tail) | barrel / hips / tail | `#1B1518` | — |
 | tail | chain 10 × r0.10→0.045, total 1.15, bend −3 | hips @ (0,0.02,−0.15) · pitch −100 | P | wave |

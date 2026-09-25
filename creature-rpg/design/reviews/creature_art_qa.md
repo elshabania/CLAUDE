@@ -93,3 +93,12 @@ Date: 2026-09-25. Evidence is in the session scratchpad `creatures2/`: `before_s
 | Names | GC-13 | "Smoulderam" has no near match. Fumaroar, Cindrake, Charwyrm and Blazeram were rejected (creatures.md §1.5). | pass, pending the R-14 trademark check |
 
 Resemblance within each family: f01 shares its ears, rims, freckles, membranes and bulb tail. f02 shares its wick horns, fleece mane, charcoal and ember palette, and basalt knob that grows into a club. Stage-3 grandeur is clear for c03 (a 2.6 m span) and c06 (1.9 m tall with a 4 m span). In the side silhouettes (`after_sil.png`), every one of c01–c06 is distinct from the rest of the roster.
+
+## c06 poster pass (fire line, pass 2)
+Evidence: `final_c06_az{0,35,90,160}.png`, `c_f02.png`, `c06_battle.png`.
+
+**c06 Smoulderam.** The earlier wings read as poles because the membranes lay horizontal and were seen edge-on. The wings are now raised bat-like membranes spanning about 4.2 m. Each has elbow and wrist knuckles, 4 finger bones and translucent ember-lit membranes, and together they frame the body from the front, the 3/4 view and behind. The white mane blobs are now a flowing smoky collar of tapered tufts with ember tips. The body is heavier: a deeper chest and shoulders, shorter and thicker legs, a longer upright neck with the head carried high, a longer snout with a nose ridge, jaw angles and brows, bigger ridged spiral horns and a larger club on the tail. Verdict: it works as a poster creature.
+
+**c04 and c05.** Both now read as young dragons: a longer snout, dorsal and tail spines, raised wing nubs and wings, cooler charcoal scales and contrasting belly plates. The fleece mane is kept.
+
+**Remaining issues.** The ruff tufts still look slightly faceted at close range in software GL. From the 3/4 front, the far wing is partly hidden behind the head.
