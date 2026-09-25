@@ -1,0 +1,36 @@
+{
+  "route_1_juno": {
+    "variants": [
+      {
+        "if": "flag_trial_1_cleared",
+        "lines": [
+          { "t": "Wind's turned. Smells like heather and rain from the north — that's Brackenridge weather. Take a coat." }
+        ]
+      },
+      {
+        "lines": [
+          { "t": "Best view on Thistledown Way, this. See that big dark crown on the horizon, north? That's the Great Hollow Tree in Murmurwood." },
+          { "t": "When the wind's right you can hear it hum from here. Today it's… humming wrong. Like it's got something stuck in its throat." },
+          { "t": "Gustlings love this hill. If your kin can fly, bring it up here on a breezy day. It'll never want to leave." }
+        ]
+      }
+    ]
+  },
+  "route_1_morrow": {
+    "variants": [
+      {
+        "if": "flag_trial_1_cleared",
+        "lines": [
+          { "t": "Still here. Still no bites. I've decided that's the fish being polite." }
+        ]
+      },
+      {
+        "lines": [
+          { "t": "Shh. The fish are listening. Or they were, before the stone went quiet. Now they're just sulking under the islet." },
+          { "t": "See that carved stone at the water's edge? Old boatmen's glyph. A kin with a water voice can sing up stepping-stones to the islet." },
+          { "t": "Don't dawdle out there, mind. They sink again after a minute. I've lost two hats that way." }
+        ]
+      }
+    ]
+  }
+}

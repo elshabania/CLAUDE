@@ -1,0 +1,74 @@
+{
+  "dlg_trial_2_attendant": {
+    "variants": [
+      {
+        "if": "flag_trial_2_cleared",
+        "lines": [
+          { "s": "Hall Attendant", "t": "The pillars hummed a full octave when you won. They haven't done that since Dorran's own trial. He pretends not to remember." }
+        ]
+      },
+      {
+        "if": "flag_t_hall2_01_won && flag_t_hall2_02_won",
+        "lines": [
+          { "s": "Hall Attendant", "t": "Both rows have sunk. The way to the dais is clear. Cantor Dorran is waiting — and he's a patient waiter." }
+        ]
+      },
+      {
+        "lines": [
+          { "s": "Hall Attendant", "t": "Welcome to Knell Hall. The pillars here are tuned stone. Out-sing a hall Tuner and their row sinks into the floor." },
+          { "s": "Hall Attendant", "t": "Two Tuners, two rows. Then Cantor Dorran Shale. His kin are stone, like the hall — verdant and water voices do well here." },
+          { "s": "Hall Attendant", "t": "And do mind the tuning plates. They're for looking at. Last week someone licked one." }
+        ]
+      }
+    ]
+  },
+  "dlg_t_cantor_2_pre": {
+    "variants": [
+      {
+        "lines": [
+          { "s": "Cantor Dorran", "t": "You came up the ridge road. I heard you from the heather. So did the stone." },
+          { "s": "Cantor Dorran", "t": "Stone keeps time better than any clock. Let's see if you do." }
+        ]
+      }
+    ]
+  },
+  "dlg_t_cantor_2_post": {
+    "variants": [
+      {
+        "lines": [
+          { "s": "Cantor Dorran", "t": "Steady hands. Steady head. You'd have made a fair quarryman." },
+          { "s": "Cantor Dorran", "t": "Keynote's yours. Tuned to toxin. Odd pairing, stone and rot — but rot's how stone becomes soil." },
+          { "s": "Cantor Dorran", "t": "And an Etude — Rock Tumble. Teach it to a kin that doesn't mind getting dusty." },
+          { "s": "Cantor Dorran", "t": "The coil crews went down the Undertone yesterday. Miners are not pleased. Neither's the mountain." }
+        ],
+        "actions": [
+          { "give": "i_disc_05", "n": 1 },
+          { "questDone": "q_main_ch03" },
+          { "quest": "q_main_ch04", "step": 1 }
+        ]
+      }
+    ]
+  },
+  "dlg_t_cantor_2_after": {
+    "variants": [
+      {
+        "if": "flag_cave_miners_saved",
+        "lines": [
+          { "s": "Cantor Dorran", "t": "Kett says you opened a Stillmark pen and walked his crew's kin home. Good. The mountain's humming easier." },
+          { "s": "Cantor Dorran", "t": "Sallowfen's past the up-shaft. Soft ground. Step like you're sorry." }
+        ]
+      },
+      {
+        "lines": [
+          { "s": "Cantor Dorran", "t": "The coil crews went down the Undertone yesterday. Miners are not pleased. Neither's the mountain." },
+          { "s": "Cantor Dorran", "t": "I've had the quarry lift unchained for you. West end of town. Take your stone kin — the lower galleries want shifting." }
+        ]
+      }
+    ]
+  },
+  "dlg_03_dorran_pre": { "variants": [{ "lines": [{ "s": "Cantor Dorran", "t": "Stone keeps time better than any clock. Let's see if you do." }] }] },
+  "dlg_03_dorran_win": { "variants": [{ "lines": [{ "s": "Cantor Dorran", "t": "Steady hands. Steady head. You'd have made a fair quarryman." }] }] },
+  "dlg_03_dorran_lose": { "variants": [{ "lines": [{ "s": "Cantor Dorran", "t": "Rushed it. Stone doesn't rush. Try again when you've counted to ten." }] }] },
+  "dlg_03_dorran_keynote": { "variants": [{ "lines": [{ "s": "Cantor Dorran", "t": "Keynote's yours. Tuned to toxin. Odd pairing, stone and rot — but rot's how stone becomes soil." }] }] },
+  "dlg_03_dorran_after": { "variants": [{ "lines": [{ "s": "Cantor Dorran", "t": "The coil crews went down the Undertone yesterday. Miners are not pleased. Neither's the mountain." }] }] }
+}

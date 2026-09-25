@@ -1,0 +1,182 @@
+{
+  "stillhouse_clerk": {
+    "variants": [
+      {
+        "if": "flag_leftover_rescued",
+        "lines": [
+          { "s": "Clerk Pomfrey", "t": "Coils off, pens open, Warden gone. I've filed it all under 'Miscellaneous'. It's a very large folder now." },
+          { "s": "Clerk Pomfrey", "t": "For what it's worth — the strays sang on their way out. I've never heard this building make a happy noise before." }
+        ]
+      },
+      {
+        "if": "flag_stillhouse_signed_in",
+        "lines": [
+          { "s": "Clerk Pomfrey", "t": "You're signed in. That makes you a visitor, not an intruder. The difference is mostly ink." }
+        ]
+      },
+      {
+        "lines": [
+          { "s": "Clerk Pomfrey", "t": "Visitors must sign in. …You haven't signed in." },
+          { "s": "Clerk Pomfrey", "t": "Name, purpose of visit, and whether you are, or have ever been, a loud stone. Take your time." }
+        ],
+        "choice": {
+          "options": [
+            { "label": "Sign in with my own name", "actions": [{ "set": "flag_stillhouse_signed_in" }] },
+            { "label": "Sign in as 'Cass Rookwell'", "actions": [{ "set": "flag_stillhouse_signed_in" }] },
+            { "label": "Purpose of visit: 'rescue'", "actions": [{ "set": "flag_stillhouse_signed_in" }] }
+          ]
+        }
+      }
+    ]
+  },
+  "stillhouse_cass_hall": {
+    "variants": [
+      {
+        "if": "flag_t_still_06_won && flag_t_still_07_won",
+        "lines": [
+          { "s": "Cass", "t": "Both wings, clear! Well. You cleared both wings. I cleared a biscuit tin. We each contributed." },
+          { "s": "Cass", "t": "The theatrical one's in the office up north. I can hear her doing vocal warm-ups. It's upsetting." }
+        ]
+      },
+      {
+        "lines": [
+          { "s": "Cass", "t": "Update on the right wing: there's an engineer. She asked me to sign in. I panicked and ran. Strategy!" },
+          { "s": "Cass", "t": "Left wing's a workshop, right wing's full of coils. The lost-noisy kin sound is coming from further north. Past the office." },
+          { "s": "Cass", "t": "You deal with the engineers, I'll… guard the door. From danger. And doormats." }
+        ]
+      }
+    ]
+  },
+  "stillhouse_vey_waiting": {
+    "variants": [
+      {
+        "if": "flag_t_still_06_won || flag_t_still_07_won",
+        "lines": [
+          { "s": "Warden Vey", "t": "*The hero, halfway through the second act.* Don't rush the ending, darling. One more of my engineers to go." }
+        ]
+      },
+      {
+        "lines": [
+          { "s": "Warden Vey", "t": "*Places, everyone.* Oh — it's the critic from the fen. How lovely. How *early*." },
+          { "s": "Warden Vey", "t": "No, no. The Warden doesn't go on before the chorus. My engineers are in the wings — west and east. Do meet them." },
+          { "s": "Warden Vey", "t": "Come back when the audience is warmed up. I'll be rehearsing my bow." }
+        ]
+      }
+    ]
+  },
+  "stillhouse_tibbet": {
+    "variants": [
+      {
+        "if": "flag_stillhouse_pens_open",
+        "lines": [
+          { "s": "Stillhand Tibbet", "t": "Empty pens. I scrubbed them anyway. Force of habit." },
+          { "s": "Stillhand Tibbet", "t": "Fed them twice daily, every one. I knew all their names. I'd made the names up, but still." }
+        ]
+      },
+      {
+        "if": "flag_admin_vey_2",
+        "lines": [
+          { "s": "Stillhand Tibbet", "t": "Warden's orders were 'hold until the network is stable'. The Warden's gone and the coils are cold. So." },
+          { "s": "Stillhand Tibbet", "t": "The gate's unlatched. Your friend's already in there, being loud at them. They seem to like it." }
+        ]
+      },
+      {
+        "lines": [
+          { "s": "Stillhand Tibbet", "t": "Pen duty. Very clean pens, for the record. Straw changed daily. Water from the good spring." },
+          { "s": "Pen tag", "t": "Stray, young, triad line — found route_1, day 1. Fed twice daily. Nervous." },
+          { "s": "Stillhand Tibbet", "t": "We only pen strays. When the network's stable, they go home. That was always the plan." },
+          { "s": "Stillhand Tibbet", "t": "Gate's locked on the Warden's say-so. And the Warden says a great deal." }
+        ]
+      }
+    ]
+  },
+  "stillhouse_cass_pen": {
+    "variants": [
+      {
+        "if": "flag_stillhouse_pens_open",
+        "lines": [
+          { "s": "Cass", "t": "Take the little one home to Oriel. I'll be out on the west trail, being mysterious. It's a whole look." },
+          { "s": "Cass", "t": "And {player}? Thanks. For letting me be here for this bit." }
+        ]
+      },
+      {
+        "lines": [
+          { "s": "Cass", "t": "{player}. Look at them all. Fed, brushed, tagged. It's the tidiest sad thing I've ever seen." },
+          { "s": "Pen tag", "t": "Stray, young, triad line — found route_1, day 1. Fed twice daily. Nervous." },
+          { "s": "Cass", "t": "Route_1. Day one. That's — that's ours. The one that bolted from the fosterage." },
+          { "s": "", "t": "A small {leftover} peeks out from behind the water trough, ears flat. Cass crouches and holds out a hand." },
+          { "s": "", "t": "It hesitates… then slips right past Cass, and presses its nose against your {starter}." },
+          { "s": "You", "t": "Hey. Hey, it's okay. We've been looking for you." },
+          { "s": "Cass", "t": "It won't come to me. It's going straight to your {starter}. …Figures. Family recognizes family." },
+          { "s": "", "t": "Somewhere below, a coil clunks and falls silent. One by one, the strays lift their heads — and start to hum." },
+          { "s": "Cass", "t": "Hear that? The coils are off. They can hear their stones again. They'll find their own way home now." },
+          { "s": "", "t": "The {leftover} climbs into your satchel, turns around twice, and refuses to discuss the matter further." },
+          { "s": "Oriel (Ledger)", "t": "You found it? Bring the little one home when you can. I'll put the kettle on — and, {player}, thank you." }
+        ],
+        "actions": [
+          { "set": "flag_stillhouse_pens_open" },
+          { "quest": "q_foster_leftover", "step": 1 },
+          { "quest": "q_main_ch08", "step": 4 }
+        ]
+      }
+    ]
+  },
+  "dlg_t_still_06_pre": {
+    "variants": [{ "lines": [{ "s": "Stillhand Bram", "t": "Visitors must sign in. …You haven't signed in." }] }]
+  },
+  "dlg_t_still_06_post": {
+    "variants": [{ "lines": [{ "s": "Stillhand Bram", "t": "Right. Fine. The pens are through there. They're very clean pens, for the record." }] }]
+  },
+  "dlg_t_still_06_after": {
+    "variants": [{ "lines": [{ "s": "Stillhand Bram", "t": "We only pen strays. When the network's stable, they go home. That was always the plan." }] }]
+  },
+  "dlg_t_still_07_pre": {
+    "variants": [
+      {
+        "lines": [
+          { "s": "Stillhand Sable", "t": "Is this about the coil? Everyone's always upset about the coil." },
+          { "s": "Stillhand Sable", "t": "Your friend in the scarf already came through. I asked them to sign in and they ran. Very fast. Very loudly." }
+        ]
+      }
+    ]
+  },
+  "dlg_t_still_07_post": {
+    "variants": [{ "lines": [{ "s": "Stillhand Sable", "t": "Well, that wasn't in the risk assessment." }] }]
+  },
+  "dlg_t_still_07_after": {
+    "variants": [{ "lines": [{ "s": "Stillhand Sable", "t": "We don't *take* kin. We collect strays. There's a difference. There's a form for it." }] }]
+  },
+  "dlg_t_admin_vey_2_pre": {
+    "variants": [
+      {
+        "lines": [
+          { "s": "Warden Vey", "t": "*Act three. The hero storms the theatre.* You're dripping on my floors." },
+          { "s": "Warden Vey", "t": "Do you know what this place is, darling? A sanctuary. Every stray the silence shook loose — safe, fed, *quiet*." },
+          { "s": "Warden Vey", "t": "And you want to throw open the doors and let them run toward the next loud stone. How very… improvised." }
+        ]
+      }
+    ]
+  },
+  "dlg_t_admin_vey_2_post": {
+    "variants": [
+      {
+        "lines": [
+          { "s": "Warden Vey", "t": "*Curtain.* …The Magister is already on Hoarcrown, darling. You're late to your own finale." },
+          { "s": "Warden Vey", "t": "Keep the Etude. Umbral Pulse. It never did go with my coat." },
+          { "s": "Warden Vey", "t": "The coils are yours to switch off. The pens too. *Exit, pursued by absolutely no one.*" }
+        ],
+        "actions": [{ "quest": "q_main_ch08", "step": 3 }]
+      }
+    ]
+  },
+  "dlg_08_still_01": { "variants": [{ "lines": [{ "s": "Stillhand", "t": "Visitors must sign in. …You haven't signed in." }] }] },
+  "dlg_08_still_02": { "variants": [{ "lines": [{ "s": "Stillhand", "t": "Right. Fine. The pens are through there. They're very clean pens, for the record." }] }] },
+  "dlg_08_still_03": { "variants": [{ "lines": [{ "s": "Stillhand", "t": "We only pen strays. When the network's stable, they go home. That was always the plan." }] }] },
+  "dlg_08_vey_pre": { "variants": [{ "lines": [{ "s": "Warden Vey", "t": "*Act three. The hero storms the theatre.* You're dripping on my floors." }] }] },
+  "dlg_08_vey_win": { "variants": [{ "lines": [{ "s": "Warden Vey", "t": "*Curtain.* …The Magister is already on Hoarcrown, darling. You're late to your own finale." }] }] },
+  "dlg_08_vey_lose": { "variants": [{ "lines": [{ "s": "Warden Vey", "t": "*Encore declined.* Out you go." }] }] },
+  "dlg_08_tag": { "variants": [{ "lines": [{ "s": "Pen tag", "t": "Stray, young, triad line — found route_1, day 1. Fed twice daily. Nervous." }] }] },
+  "dlg_08_arden_01": { "variants": [{ "lines": [{ "s": "You", "t": "Hey. Hey, it's okay. We've been looking for you." }] }] },
+  "dlg_08_cass_02": { "variants": [{ "lines": [{ "s": "Cass", "t": "It won't come to me. It's going straight to your {starter}. …Figures. Family recognizes family." }] }] },
+  "dlg_08_oriel_01": { "variants": [{ "lines": [{ "s": "Oriel (Ledger)", "t": "You found it? Bring the little one home when you can. I'll put the kettle on — and, {player}, thank you." }] }] }
+}

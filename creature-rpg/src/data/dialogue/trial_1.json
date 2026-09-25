@@ -1,0 +1,46 @@
+{
+  "trial_1_guide": {
+    "variants": [
+      {
+        "if": "flag_trial_1_cleared",
+        "lines": [
+          { "s": "Hall Guide Moss", "t": "The whole hall is humming for you. That's the vines saying well done. They're not good with words." }
+        ]
+      },
+      {
+        "lines": [
+          { "s": "Hall Guide Moss", "t": "Welcome to Rootloft Hall. The vine curtains open only for Tuners who out-sing the hall's two Tuners." },
+          { "s": "Hall Guide Moss", "t": "Beat one, and its curtain withers. Beat both, and Cantor Wren will hear you out." },
+          { "s": "Hall Guide Moss", "t": "Wren's kin are verdant, and so is this hall. Fire and gale voices fare well here. Just don't set the curtains alight." }
+        ]
+      }
+    ]
+  },
+  "trial_1_wren": {
+    "variants": [
+      {
+        "if": "!flag_trial_1_cleared",
+        "lines": [
+          { "s": "Cantor Wren", "t": "You listened under the noise. That's rarer than winning." },
+          { "s": "Cantor Wren", "t": "Take this Keynote. It's tuned to stone. Every hall teaches the note *after* its own. That's how a chord gets built." },
+          { "s": "Cantor Wren", "t": "And this Etude — Draining Bloom. A root that drinks as it strikes. Teach it to someone patient." }
+        ],
+        "actions": [
+          { "give": "i_keynote_1", "n": 1 },
+          { "give": "i_disc_04", "n": 1 },
+          { "set": "flag_trial_1_cleared" },
+          { "questDone": "q_main_ch02" }
+        ]
+      },
+      {
+        "lines": [
+          { "s": "Cantor Wren", "t": "Engineers in my wood with coils and clipboards. I've sent a complaint. In triplicate. They seemed pleased." },
+          { "s": "Cantor Wren", "t": "The wardens have lowered the canopy bridge for you. Brackenridge lies north. Listen for the stone under the heather." }
+        ]
+      }
+    ]
+  },
+  "dlg_02_wren_pre": { "variants": [{ "lines": [{ "s": "Cantor Wren", "t": "A forest isn't loud. It's *layered*. Show me you can hear the layers." }] }] },
+  "dlg_02_wren_win": { "variants": [{ "lines": [{ "s": "Cantor Wren", "t": "You listened under the noise. That's rarer than winning." }] }] },
+  "dlg_02_wren_lose": { "variants": [{ "lines": [{ "s": "Cantor Wren", "t": "Too much at once. Come back when you can hear one leaf at a time." }] }] }
+}

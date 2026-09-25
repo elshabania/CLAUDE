@@ -1,0 +1,175 @@
+{
+  "dlg_hk_league": {
+    "variants": [
+      {
+        "lines": [
+          { "t": "Welcome to Concord landing. Every Tuner who reaches the Spire sits by this fire first. Most of them shake a little." },
+          { "t": "Rest your troupe? Open the Fosterage ledger? Or just catching your breath?" }
+        ],
+        "choice": {
+          "options": [
+            { "label": "Rest my troupe", "actions": [{ "heal": true }] },
+            { "label": "Open the Fosterage ledger", "actions": [{ "ledger": true }] },
+            { "label": "Help a kin recall a move", "actions": [{ "recall": true }] },
+            { "label": "Just catching my breath", "actions": [] }
+          ]
+        }
+      }
+    ]
+  },
+  "dlg_ch_league": {
+    "variants": [
+      {
+        "lines": [
+          { "t": "Kiosk's open! Everything in Cantarra, at Spire prices. The view is included. The view is the expensive part." }
+        ],
+        "actions": [{ "shop": "shop_league" }]
+      }
+    ]
+  },
+  "dlg_league_doorwarden": {
+    "variants": [
+      {
+        "if": "flag_spire_open",
+        "lines": [
+          { "s": "Doorwarden Aurel", "t": "The door remembers your chord now. Walk on — the landing's yours, and so is whatever waits on it." }
+        ]
+      },
+      {
+        "if": "keynotes>=6",
+        "lines": [
+          { "s": "Doorwarden Aurel", "t": "Six sockets, shaped like tuning forks. Your Keynotes hum as you approach." },
+          { "s": "Doorwarden Aurel", "t": "Go on — seat them. One for each hall you out-sang." },
+          { "s": "Concord door", "t": "Root, stone, water, gale, fire, frost. Six notes ring out — and the stone door folds open like a hand." }
+        ],
+        "actions": [{ "set": "flag_spire_open" }]
+      },
+      {
+        "lines": [
+          { "s": "Doorwarden Aurel", "t": "Six sockets, and you're carrying fewer than six Keynotes. The door is very polite about it, but it won't budge." }
+        ]
+      }
+    ]
+  },
+  "dlg_league_cass": {
+    "variants": [
+      {
+        "if": "flag_rival_6_done",
+        "lines": [
+          { "s": "Cass", "t": "That was the best I've ever played. And you were better. Go on — she's waiting." }
+        ]
+      },
+      {
+        "if": "flag_spire_open",
+        "lines": [
+          { "s": "Cass", "t": "Took you long enough! I've been standing here being dramatic in the wind for ages." },
+          { "s": "Cass", "t": "No jokes this time. Just — play your best, okay? I want to lose to the *real* you. Or win. Winning's also fine." }
+        ],
+        "actions": [{ "battle": "t_rival_6" }]
+      },
+      {
+        "lines": [
+          { "s": "Cass", "t": "Door's still shut on your side! Seat your Keynotes, {player}. I'm not battling through a wall. I tried. It hurt." }
+        ]
+      }
+    ]
+  },
+  "dlg_league_rhea": {
+    "variants": [
+      {
+        "if": "flag_champion_defeated",
+        "lines": [
+          { "s": "Rhea Rookwell", "t": "There it is. That's a sound I've not heard in a long time. Sound the Great Chord, {player}." },
+          { "s": "Rhea Rookwell", "t": "And go and see Oriel. She came up the lift the moment the stones started singing. She hasn't stopped grinning." }
+        ]
+      },
+      {
+        "if": "flag_spire_open && flag_rival_6_done",
+        "lines": [
+          { "s": "Rhea Rookwell", "t": "So. You're the one who beat my kid on the landing. They're smiling about it, which is new." },
+          { "s": "Rhea Rookwell", "t": "I've watched my kid chase my shadow for two years. You're the first one who made them turn around." },
+          { "s": "Rhea Rookwell", "t": "Now — show me what *you* sound like." }
+        ],
+        "actions": [{ "battle": "t_champion" }]
+      },
+      {
+        "lines": [
+          { "s": "Rhea Rookwell", "t": "Not yet, {player}. Somebody in a very long scarf is waiting for you on the landing. Don't keep them." }
+        ]
+      }
+    ]
+  },
+  "dlg_league_oriel": {
+    "variants": [
+      {
+        "if": "!flag_credits_seen",
+        "lines": [
+          { "s": "Oriel", "t": "{player}. Look at you. Look at all of you. I came up the lift in my apron — I didn't even stop to take it off." },
+          { "s": "Cass", "t": "She cried in the lift. Twice. The liftkeeper offered her a hanky and she used his sleeve." },
+          { "s": "Oriel", "t": "Hush. Now then — the Great Chord. Six Keynotes, your troupe, and every stone listening. Go on." },
+          { "s": "The Great Chord", "t": "Six Keynotes ring. Your {starter} sings, your troupe joins in — and far below, every Chordstone in Cantarra answers." },
+          { "s": "Cass", "t": "…Okay. That was the best sound I've ever heard. Don't tell Mum I said it wasn't her." },
+          { "s": "Oriel", "t": "Odile left me a letter. We'll read it together at the workshop. I think she wants to help keep watch on the stones." },
+          { "s": "Larkhollow, some days later", "t": "At dawn, the Larkhollow Chordstone hums. Oriel stands beside it with her eyes closed, listening." },
+          { "s": "Oriel", "t": "There it is. Same song. New verse." }
+        ],
+        "actions": [
+          { "set": "flag_credits_seen" },
+          { "questDone": "q_main_ch12" },
+          { "ending": true }
+        ]
+      },
+      {
+        "lines": [
+          { "s": "Oriel", "t": "Everything hums again. Even my kettle, which is frankly unnecessary." },
+          { "s": "Oriel", "t": "Word is the Old Chord Shrine on Thistledown Way woke up too. It wants a Gleam, I'd wager. Go and have a look." }
+        ]
+      }
+    ]
+  },
+  "dlg_league_cass_final": {
+    "variants": [
+      {
+        "if": "flag_game_cleared && won:t_rival_post",
+        "lines": [
+          { "s": "Cass", "t": "Two losses at the top of the world. I'm framing both. Rematch again in a month? I'll bring snacks this time." }
+        ]
+      },
+      {
+        "if": "flag_game_cleared",
+        "lines": [
+          { "s": "Cass", "t": "So. Champion of Cantarra. Mum's thrilled. I'm thrilled! I'm also… a tiny bit itchy to battle you again." },
+          { "s": "Cass", "t": "No titles, no Spire, no pressure. Just my team at full strength. Level fifty-five. Every one of them mine." }
+        ],
+        "choice": {
+          "options": [
+            {
+              "label": "Let's play.",
+              "actions": [
+                { "quest": "q_side_rival_rematch", "step": 1 },
+                { "battle": "t_rival_post" },
+                { "give": "i_chime_crown", "n": 1 },
+                { "money": 1500 },
+                { "questDone": "q_side_rival_rematch" }
+              ]
+            },
+            { "label": "Another day.", "actions": [] }
+          ]
+        }
+      },
+      {
+        "lines": [
+          { "s": "Cass", "t": "Mum says you play like someone who listens first. I'm going to try that. Quietly. For about a minute." }
+        ]
+      }
+    ]
+  },
+  "dlg_12_door": { "variants": [{ "lines": [{ "s": "Concord door", "t": "Six sockets, shaped like tuning forks. Your Keynotes hum as you approach." }] }] },
+  "dlg_12_cass_pre": { "variants": [{ "lines": [{ "s": "Cass", "t": "No jokes this time. Just — play your best, okay? I want to lose to the *real* you. Or win. Winning's also fine." }] }] },
+  "dlg_12_cass_win": { "variants": [{ "lines": [{ "s": "Cass", "t": "That was the best I've ever played. And you were better. Go on — she's waiting." }] }] },
+  "dlg_12_cass_lose": { "variants": [{ "lines": [{ "s": "Cass", "t": "I… beat you? At the Spire? Okay. Heal up. Try again. I want you to see her." }] }] },
+  "dlg_12_rhea_pre": { "variants": [{ "lines": [{ "s": "Rhea Rookwell", "t": "I've watched my kid chase my shadow for two years. You're the first one who made them turn around. Now — show me what *you* sound like." }] }] },
+  "dlg_12_rhea_win": { "variants": [{ "lines": [{ "s": "Rhea Rookwell", "t": "There it is. That's a sound I've not heard in a long time. Sound the Great Chord, {player}." }] }] },
+  "dlg_12_rhea_lose": { "variants": [{ "lines": [{ "s": "Rhea Rookwell", "t": "Close. Very close. Rest, and come back — the Spire isn't going anywhere." }] }] },
+  "dlg_12_oriel_end": { "variants": [{ "lines": [{ "s": "Oriel", "t": "There it is. Same song. New verse." }] }] }
+}

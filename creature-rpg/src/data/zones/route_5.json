@@ -1,0 +1,118 @@
+{
+  "id": "route_5",
+  "name": "Gloamstair",
+  "biome": "tundra",
+  "attuned": "shade",
+  "music": "route_5",
+  "terrain": {
+    "seed": 505,
+    "size": [120, 220],
+    "base": 1,
+    "amp": 2.5,
+    "scale": 26,
+    "rim": 16,
+    "rimWidth": 12,
+    "hills": [
+      {"at": [0, -190], "r": 190, "h": 64},
+      {"at": [-40, -45], "r": 12, "h": 5},
+      {"at": [42, 60], "r": 14, "h": 5},
+      {"at": [-42, 80], "r": 12, "h": 4}
+    ],
+    "flats": [
+      {"at": [0, 40], "r": 5, "h": 16.7},
+      {"at": [0, 60], "r": 6, "h": 12.8},
+      {"at": [15, 70], "r": 3.5, "h": 10.8},
+      {"at": [-20, 30], "r": 3.5, "h": 17.2},
+      {"at": [20, -20], "r": 5, "h": 29.2},
+      {"at": [0, -67], "r": 7, "h": 43.1},
+      {"at": [0, -88], "r": 7, "h": 49.0},
+      {"at": [-35, -40], "r": 4, "h": 37.5},
+      {"at": [30, 20], "r": 4, "h": 19.1},
+      {"at": [-30, -60], "r": 3, "h": 40.7}
+    ]
+  },
+  "palette": {"ground": "#7A86A6", "ground2": "#9AA6C2", "path": "#B8B4C8", "cliff": "#4A4F6A", "accent": "#8C6A8A", "sky": "#3E4A7A", "fog": "#5A6490"},
+  "fogDensity": 0.01,
+  "weather": {"clear": 40, "snow": 40, "fog": 20},
+  "spawns": [
+    {"id": "from_town_3", "at": [0, 96], "yaw": 0},
+    {"id": "from_snowpeak", "at": [0, -96], "yaw": 180},
+    {"id": "sp_route_5_ws", "at": [0, 46], "yaw": 0}
+  ],
+  "exits": [
+    {"id": "to_town_3", "at": [0, 106], "r": 5, "to": "town_3", "spawn": "from_route_5", "label": "Galewick"},
+    {"id": "to_snowpeak", "at": [0, -106], "r": 5, "to": "snowpeak", "spawn": "from_route_5", "label": "Hoarcrown",
+      "gate": {"flag": "flag_odile_revealed", "message": "The stair-top gate is fastened with a brass Stillbell lock. The woman in the long coat beside it is watching you, patiently."}}
+  ],
+  "props": [
+    {"kind": "sign", "at": [5, 100], "yaw": 0, "label": "Gloamstair — the twilight stair. Hoarcrown at the top. The light doesn't change up here. You will get used to it. Probably."},
+    {"kind": "chordstone", "at": [0, 40], "color": "#8C8FA8", "label": "Frozen standing-stone Chordstone (silenced)"},
+    {"kind": "sign", "at": [4, 37], "yaw": 180, "label": "A brass Stillbell sits over the stone like a lid. A tag reads: 'Serviced. Do not ring.'"},
+    {"kind": "rock", "at": [-5, 82], "s": 1.6},
+    {"kind": "rock", "at": [5, 74], "s": 1.5},
+    {"kind": "lamp", "at": [-5, 64]},
+    {"kind": "rock", "at": [5, 52], "s": 1.6},
+    {"kind": "lamp", "at": [-5, 30]},
+    {"kind": "rock", "at": [5, 18], "s": 1.5},
+    {"kind": "lamp", "at": [-5, 6]},
+    {"kind": "rock", "at": [5, -8], "s": 1.6},
+    {"kind": "lamp", "at": [-5, -22]},
+    {"kind": "rock", "at": [5, -36], "s": 1.5},
+    {"kind": "lamp", "at": [-5, -50]},
+    {"kind": "rock", "at": [6, -56], "s": 1.6},
+    {"kind": "lamp", "at": [-6, -78]},
+    {"kind": "lamp", "at": [6, -78]},
+    {"kind": "icerock", "at": [-24, 48], "s": 1.3},
+    {"kind": "icerock", "at": [28, -4], "s": 1.2},
+    {"kind": "icerock", "at": [-14, -72], "s": 1.4},
+    {"kind": "icerock", "at": [22, -84], "s": 1.2},
+    {"kind": "boulder", "at": [-38, -36], "s": 1.3},
+    {"kind": "sign", "at": [34, 24], "yaw": 270, "label": "Old shrine-curtain. Pilgrims say dusk hangs here like washing. Something glints behind it."},
+    {"kind": "wall", "at": [-7, -100], "yaw": 90, "w": 3, "h": 4.5, "color": "#B08D57", "label": "Stair-top gate post"},
+    {"kind": "wall", "at": [7, -100], "yaw": 90, "w": 3, "h": 4.5, "color": "#B08D57", "label": "Stair-top gate post"},
+    {"kind": "sign", "at": [-5, -93], "yaw": 180, "label": "Hoarcrown. The mountain is listening. Please be brief."},
+    {"kind": "crate", "at": [-9, -86]},
+    {"kind": "crate", "at": [-9.8, -84.8], "s": 0.7},
+    {"kind": "sign", "at": [12, -66], "yaw": 270, "label": "Chalk doodle: two starters side by side, one wearing a tiny scarf. 'NEXT TIME: EVEN.'"}
+  ],
+  "scatter": [
+    {"kind": "snowpine", "density": 0.7, "minDist": 6},
+    {"kind": "icerock", "density": 0.35, "minDist": 7},
+    {"kind": "rock", "density": 0.6, "minDist": 4},
+    {"kind": "bush", "density": 0.6, "minDist": 3},
+    {"kind": "grass", "density": 6, "minDist": 1}
+  ],
+  "npcs": [
+    {"id": "npc_route_5_ilse", "at": [-9, 86], "yaw": 90, "look": "scholar", "name": "Cartographer Ilse", "dialogue": "route_5_ilse", "role": "villager"},
+    {"id": "npc_route_5_bellwatcher", "at": [-6, 42], "yaw": 90, "look": "villagerD", "name": "Old Harrow", "dialogue": "route_5_harrow", "role": "villager"},
+    {"id": "npc_odile_route_5", "at": [0, -88], "yaw": 180, "look": "odile", "name": "Magister Odile Graven", "dialogue": "route_5_odile", "role": "admin", "hideIf": "flag_odile_revealed"}
+  ],
+  "trainers": [
+    {"id": "t_r5_01", "at": [15, 70], "yaw": 270, "sight": 8},
+    {"id": "t_r5_02", "at": [-20, 30], "yaw": 90, "sight": 8},
+    {"id": "t_r5_03", "at": [20, -20], "yaw": 270, "sight": 8},
+    {"id": "t_rival_5", "at": [0, -70], "yaw": 180, "sight": 10, "hideIf": "flag_odile_revealed"}
+  ],
+  "nodes": [
+    {"id": "rn_route_5_01", "type": "stone", "at": [-35, -40], "yaw": 270, "kind": "boulder", "label": "Boulder-choked cave", "reward": {"item": "i_charge_2", "count": 1}},
+    {"id": "rn_route_5_02", "type": "shade", "at": [30, 20], "yaw": 270, "kind": "veil", "label": "Shrine-curtain of dusk", "reward": {"item": "i_salve_4", "count": 1}}
+  ],
+  "pickups": [
+    {"id": "pk_route_5_01", "at": [30, 60], "item": "i_salve_3", "count": 1},
+    {"id": "pk_route_5_02", "at": [-30, -60], "item": "i_evo_prism", "count": 1},
+    {"id": "pk_route_5_03", "at": [40, -70], "item": "i_charge_2", "count": 1, "hidden": true}
+  ],
+  "wildRegions": [
+    {"at": [8, 72], "r": 18},
+    {"at": [-20, -5], "r": 20},
+    {"at": [20, -50], "r": 18}
+  ],
+  "maxWild": 6,
+  "encounters": "route_5",
+  "battleStages": [
+    {"at": [0, 60], "yaw": 90},
+    {"at": [0, -65], "yaw": 90},
+    {"at": [20, -20], "yaw": 90}
+  ],
+  "waystone": [0, 40]
+}

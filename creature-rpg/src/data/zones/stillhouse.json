@@ -1,0 +1,125 @@
+{
+  "id": "stillhouse",
+  "name": "The Stillhouse",
+  "biome": "cave",
+  "attuned": null,
+  "music": "stillhouse",
+  "indoor": true,
+  "terrain": {
+    "seed": 808,
+    "size": [64, 48],
+    "base": 0,
+    "amp": 0.15,
+    "scale": 20,
+    "rim": 8,
+    "rimWidth": 4,
+    "flats": [
+      {"at": [0, 14], "r": 5},
+      {"at": [-16, 8], "r": 5},
+      {"at": [16, 8], "r": 5},
+      {"at": [0, 1], "r": 5}
+    ],
+    "paths": [
+      {"pts": [[0, 24], [0, 1], [0, -7]], "w": 3.5},
+      {"pts": [[0, 1], [-18, 1], [-18, 5]], "w": 2.5},
+      {"pts": [[0, 1], [18, 1], [18, 5]], "w": 2.5},
+      {"pts": [[-8, -9], [-24, -12], [-26, -15]], "w": 2.5}
+    ]
+  },
+  "palette": {"ground": "#5E5A55", "ground2": "#6B665E", "path": "#8C7A5E", "cliff": "#3A3E48", "accent": "#8C6A8A", "sky": "#2A2C33", "fog": "#34363E"},
+  "fogDensity": 0.014,
+  "weather": {"clear": 100},
+  "spawns": [
+    {"id": "from_route_4", "at": [0, 16], "yaw": 0},
+    {"id": "from_route_4_back", "at": [-22, -12], "yaw": 90}
+  ],
+  "exits": [
+    {"id": "to_route_4", "at": [0, 22], "r": 2.5, "to": "route_4", "spawn": "from_stillhouse", "label": "Highscar Rise"},
+    {"id": "x_stillhouse_back", "at": [-28.5, -15], "r": 1.8, "to": "route_4", "spawn": "from_stillhouse_back", "label": "Back door"}
+  ],
+  "props": [
+    {"kind": "wall", "at": [-30.5, 0], "yaw": 90, "w": 48, "h": 7, "color": "#3A3E48"},
+    {"kind": "wall", "at": [30.5, 0], "yaw": 90, "w": 48, "h": 7, "color": "#3A3E48"},
+    {"kind": "wall", "at": [0, -22.5], "w": 62, "h": 7, "color": "#3A3E48"},
+    {"kind": "wall", "at": [-17, 22.5], "w": 27, "h": 7, "color": "#3A3E48"},
+    {"kind": "wall", "at": [17, 22.5], "w": 27, "h": 7, "color": "#3A3E48"},
+    {"kind": "wall", "at": [-9, 13], "yaw": 90, "w": 18, "h": 5, "color": "#4A4F5C", "label": "West wing partition"},
+    {"kind": "wall", "at": [9, 13], "yaw": 90, "w": 18, "h": 5, "color": "#4A4F5C", "label": "East wing partition"},
+    {"kind": "wall", "at": [-19.5, -4], "w": 22, "h": 5, "color": "#4A4F5C"},
+    {"kind": "wall", "at": [19.5, -4], "w": 22, "h": 5, "color": "#4A4F5C"},
+
+    {"kind": "wall", "at": [-6, 18.5], "w": 3, "h": 1.1, "color": "#7A5A3A", "label": "Sign-in desk"},
+    {"kind": "sign", "at": [-3, 20], "yaw": 0, "label": "SURVEY GUILD DEPOT No. 3. All visitors MUST sign in. (This means you.)"},
+    {"kind": "sign", "at": [-8, 3], "yaw": 270, "label": "West wing — Workshop. Coil-rigs, calipers, felt baffles. Mind the tripods."},
+    {"kind": "sign", "at": [8, 3], "yaw": 90, "label": "East wing — Coil store. Charged lanterns. Do NOT lick."},
+    {"kind": "sign", "at": [4, -5], "yaw": 0, "label": "Warden's Office. Knock twice, then wait for applause."},
+    {"kind": "sign", "at": [-10.5, -12], "yaw": 180, "label": "STRAYS — received, fed, tagged. Held for safekeeping until the network is stable. Please do not tap the fence."},
+
+    {"kind": "wall", "at": [-24, 16], "w": 8, "h": 1.1, "color": "#7A5A3A", "label": "Workbench"},
+    {"kind": "wall", "at": [-24, 10], "w": 8, "h": 1.1, "color": "#7A5A3A", "label": "Workbench"},
+    {"kind": "crate", "at": [-27, 3]},
+    {"kind": "crate", "at": [-26, 4.2], "s": 0.7},
+    {"kind": "lamp", "at": [-14, 18]},
+    {"kind": "lamp", "at": [-27, 13]},
+
+    {"kind": "wall", "at": [24, 16], "yaw": 90, "w": 1.2, "h": 3, "color": "#B08D57", "label": "Coil rack"},
+    {"kind": "wall", "at": [27, 16], "yaw": 90, "w": 1.2, "h": 3, "color": "#B08D57", "label": "Coil rack"},
+    {"kind": "wall", "at": [24, 11], "yaw": 90, "w": 1.2, "h": 3, "color": "#B08D57", "label": "Coil rack"},
+    {"kind": "wall", "at": [27, 11], "yaw": 90, "w": 1.2, "h": 3, "color": "#B08D57", "label": "Coil rack"},
+    {"kind": "crystal", "at": [25.5, 6], "s": 0.8},
+    {"kind": "crate", "at": [26, 2]},
+    {"kind": "crate", "at": [27, 3], "s": 0.8},
+    {"kind": "lamp", "at": [14, 18]},
+    {"kind": "lamp", "at": [27, 7]},
+
+    {"kind": "wall", "at": [0, -10], "w": 5, "h": 1.1, "color": "#5C3A5E", "label": "Vey's desk (velvet-topped)"},
+    {"kind": "lamp", "at": [-4, -8]},
+    {"kind": "lamp", "at": [4, -8]},
+    {"kind": "wall", "at": [-6, -9], "yaw": 90, "w": 2, "h": 2.2, "color": "#8C6A8A", "label": "Dressing screen"},
+
+    {"kind": "wall", "at": [-4.5, -13.5], "w": 9, "h": 1.3, "color": "#8A6A4A", "label": "Strays pen"},
+    {"kind": "wall", "at": [7, -13.5], "w": 4, "h": 1.3, "color": "#8A6A4A", "label": "Strays pen"},
+    {"kind": "wall", "at": [-9, -18], "yaw": 90, "w": 9, "h": 1.3, "color": "#8A6A4A"},
+    {"kind": "wall", "at": [9, -18], "yaw": 90, "w": 9, "h": 1.3, "color": "#8A6A4A"},
+    {"kind": "wall", "at": [-4, -19], "w": 3, "h": 0.6, "color": "#6B7F99", "label": "Water trough"},
+    {"kind": "wall", "at": [4, -20], "w": 3, "h": 0.6, "color": "#C9B458", "label": "Feed trough"},
+    {"kind": "crate", "at": [6, -17]},
+    {"kind": "crate", "at": [-6, -16], "s": 0.8},
+
+    {"kind": "wall", "at": [-28, -18], "w": 3, "h": 2, "color": "#3A3E48"},
+    {"kind": "wall", "at": [-28, -12], "w": 3, "h": 2, "color": "#3A3E48"},
+    {"kind": "lamp", "at": [-20, -18]},
+    {"kind": "lamp", "at": [2.5, 20]},
+    {"kind": "lamp", "at": [-2.5, 20]},
+    {"kind": "lamp", "at": [15, -8]},
+    {"kind": "lamp", "at": [-15, -8]}
+  ],
+  "scatter": [],
+  "npcs": [
+    {"id": "npc_stillhouse_clerk", "at": [-6, 17], "yaw": 90, "look": "stillhand", "name": "Clerk Pomfrey", "dialogue": "stillhouse_clerk", "role": "villager"},
+    {"id": "npc_stillhouse_cass_hall", "at": [5, 15], "yaw": 270, "look": "cass", "name": "Cass", "dialogue": "stillhouse_cass_hall", "role": "rival", "showIf": "flag_stillhouse_found", "hideIf": "flag_admin_vey_2"},
+    {"id": "npc_stillhouse_vey_waiting", "at": [0, -7], "yaw": 180, "look": "vey", "name": "Warden Vey", "dialogue": "stillhouse_vey_waiting", "role": "admin", "hideIf": "(flag_t_still_06_won && flag_t_still_07_won) || flag_admin_vey_2"},
+    {"id": "npc_stillhouse_tibbet", "at": [6, -11], "yaw": 270, "look": "stillhand", "name": "Stillhand Tibbet", "dialogue": "stillhouse_tibbet", "role": "villager"},
+    {"id": "npc_stillhouse_cass_pen", "at": [-3, -11.5], "yaw": 180, "look": "cass", "name": "Cass", "dialogue": "stillhouse_cass_pen", "role": "rival", "showIf": "flag_admin_vey_2"}
+  ],
+  "trainers": [
+    {"id": "t_still_06", "at": [-18, 5], "yaw": 90, "sight": 6},
+    {"id": "t_still_07", "at": [18, 5], "yaw": 270, "sight": 6},
+    {"id": "t_admin_vey_2", "at": [0, -7], "yaw": 180, "sight": 0, "showIf": "flag_t_still_06_won && flag_t_still_07_won", "hideIf": "flag_admin_vey_2"}
+  ],
+  "nodes": [
+    {"id": "rn_stillhouse_01", "type": "toxin", "at": [-24, -15], "yaw": 270, "kind": "grate", "label": "Back-door drain grate", "opens": "x_stillhouse_back",
+      "blocker": {"at": [-28, -15], "w": 4, "d": 3, "yaw": 90}}
+  ],
+  "pickups": [
+    {"id": "pk_stillhouse_01", "at": [-27, 7], "item": "i_cure_all", "count": 1},
+    {"id": "pk_stillhouse_02", "at": [27, -1], "item": "i_charge_1", "count": 1, "hidden": true}
+  ],
+  "wildRegions": [],
+  "maxWild": 0,
+  "battleStages": [
+    {"at": [-16, 8], "yaw": 90},
+    {"at": [16, 8], "yaw": 90},
+    {"at": [0, 1], "yaw": 90}
+  ]
+}

@@ -1,0 +1,1467 @@
+{
+ "id": "snowpeak",
+ "name": "Hoarcrown",
+ "biome": "snow",
+ "attuned": "frost",
+ "music": "snowpeak",
+ "terrain": {
+  "seed": 606,
+  "size": [
+   210,
+   210
+  ],
+  "base": 2,
+  "amp": 3,
+  "scale": 30,
+  "rim": 20,
+  "rimWidth": 16,
+  "hills": [
+   {
+    "at": [
+     0,
+     -90
+    ],
+    "r": 80,
+    "h": 34
+   },
+   {
+    "at": [
+     -78,
+     18
+    ],
+    "r": 20,
+    "h": 8
+   },
+   {
+    "at": [
+     80,
+     -40
+    ],
+    "r": 20,
+    "h": 10
+   },
+   {
+    "at": [
+     76,
+     78
+    ],
+    "r": 14,
+    "h": 5
+   },
+   {
+    "at": [
+     -74,
+     80
+    ],
+    "r": 14,
+    "h": 4
+   },
+   {
+    "at": [
+     -22,
+     -40
+    ],
+    "r": 10,
+    "h": 3
+   },
+   {
+    "at": [
+     30,
+     -52
+    ],
+    "r": 10,
+    "h": 4
+   }
+  ],
+  "flats": [
+   {
+    "at": [
+     0,
+     92
+    ],
+    "r": 5,
+    "h": 2.2
+   },
+   {
+    "at": [
+     40,
+     57
+    ],
+    "r": 10,
+    "h": 1.9
+   },
+   {
+    "at": [
+     30,
+     70
+    ],
+    "r": 5,
+    "h": 2.1
+   },
+   {
+    "at": [
+     -30,
+     60
+    ],
+    "r": 7,
+    "h": 3.5
+   },
+   {
+    "at": [
+     -30,
+     75
+    ],
+    "r": 4,
+    "h": 2.3
+   },
+   {
+    "at": [
+     0,
+     49
+    ],
+    "r": 6,
+    "h": 5
+   },
+   {
+    "at": [
+     70,
+     48
+    ],
+    "r": 4,
+    "h": 2
+   },
+   {
+    "at": [
+     -60,
+     50
+    ],
+    "r": 3,
+    "h": 3.6
+   },
+   {
+    "at": [
+     0,
+     26
+    ],
+    "r": 5,
+    "h": 7.2
+   },
+   {
+    "at": [
+     -50,
+     -16
+    ],
+    "r": 13,
+    "h": 10.8
+   },
+   {
+    "at": [
+     40,
+     0
+    ],
+    "r": 7,
+    "h": 8.1
+   },
+   {
+    "at": [
+     -40,
+     10
+    ],
+    "r": 4,
+    "h": 7.6
+   },
+   {
+    "at": [
+     60,
+     0
+    ],
+    "r": 4,
+    "h": 6.1
+   },
+   {
+    "at": [
+     60,
+     -10
+    ],
+    "r": 3,
+    "h": 8.4
+   },
+   {
+    "at": [
+     -10,
+     -50
+    ],
+    "r": 4,
+    "h": 28
+   },
+   {
+    "at": [
+     0,
+     -57
+    ],
+    "r": 4.5,
+    "h": 30.1
+   },
+   {
+    "at": [
+     -70,
+     -70
+    ],
+    "r": 4,
+    "h": 16.2
+   },
+   {
+    "at": [
+     0,
+     -86
+    ],
+    "r": 14,
+    "h": 35.8
+   }
+  ],
+  "paths": [
+   {
+    "pts": [
+     [
+      0,
+      104
+     ],
+     [
+      0,
+      84
+     ],
+     [
+      6,
+      70
+     ],
+     [
+      20,
+      66
+     ],
+     [
+      36,
+      64
+     ]
+    ],
+    "w": 5
+   },
+   {
+    "pts": [
+     [
+      6,
+      70
+     ],
+     [
+      3,
+      62
+     ]
+    ],
+    "w": 4.5
+   },
+   {
+    "pts": [
+     [
+      20,
+      66
+     ],
+     [
+      30,
+      72
+     ]
+    ],
+    "w": 3.5
+   }
+  ]
+ },
+ "palette": {
+  "ground": "#E8EEF2",
+  "ground2": "#CBD8E0",
+  "path": "#A9B4BC",
+  "cliff": "#7F8C99",
+  "accent": "#7FD3E6",
+  "sky": "#C9DCEB",
+  "fog": "#DCE7EF"
+ },
+ "fogDensity": 0.007,
+ "weather": {
+  "clear": 35,
+  "snow": 45,
+  "fog": 20
+ },
+ "spawns": [
+  {
+   "id": "from_route_5",
+   "at": [
+    0,
+    93
+   ],
+   "yaw": 0
+  },
+  {
+   "id": "sp_snowpeak_n",
+   "at": [
+    0,
+    -92
+   ],
+   "yaw": 180
+  },
+  {
+   "id": "sp_snowpeak_hall",
+   "at": [
+    -50,
+    -9
+   ],
+   "yaw": 180
+  },
+  {
+   "id": "sp_snowpeak_hearth",
+   "at": [
+    40,
+    64
+   ],
+   "yaw": 0
+  },
+  {
+   "id": "sp_snowpeak_ws",
+   "at": [
+    30,
+    76
+   ],
+   "yaw": 0
+  }
+ ],
+ "exits": [
+  {
+   "id": "to_route_5",
+   "at": [
+    0,
+    101
+   ],
+   "r": 5,
+   "to": "route_5",
+   "spawn": "from_snowpeak",
+   "label": "Gloamstair"
+  },
+  {
+   "id": "x_snowpeak_n",
+   "at": [
+    0,
+    -101
+   ],
+   "r": 4,
+   "to": "league",
+   "spawn": "sp_league_s",
+   "label": "Concord Spire",
+   "gate": {
+    "flag": "flag_nullbell_broken && keynotes>=6",
+    "message": "The lift stones lie silent. They wake for six Keynotes — and a summit free to sing."
+   }
+  },
+  {
+   "id": "x_snowpeak_hall",
+   "at": [
+    -50,
+    -15.1
+   ],
+   "r": 2.5,
+   "to": "trial_6",
+   "spawn": "sp_trial_6_door",
+   "label": "Rime Hall"
+  }
+ ],
+ "props": [
+  {
+   "kind": "wall",
+   "at": [
+    -8.8,
+    39.4
+   ],
+   "w": 10.6,
+   "h": 8.5,
+   "color": "#CFE6F0",
+   "label": "Frozen cliff"
+  },
+  {
+   "kind": "wall",
+   "at": [
+    -19.2,
+    40.6
+   ],
+   "w": 10.6,
+   "h": 7,
+   "color": "#B7D3E2"
+  },
+  {
+   "kind": "wall",
+   "at": [
+    -29.6,
+    39.4
+   ],
+   "w": 10.6,
+   "h": 8.5,
+   "color": "#B7D3E2"
+  },
+  {
+   "kind": "wall",
+   "at": [
+    -40,
+    40.6
+   ],
+   "w": 10.6,
+   "h": 7,
+   "color": "#CFE6F0"
+  },
+  {
+   "kind": "wall",
+   "at": [
+    -50.4,
+    39.4
+   ],
+   "w": 10.6,
+   "h": 8.5,
+   "color": "#B7D3E2"
+  },
+  {
+   "kind": "wall",
+   "at": [
+    -60.8,
+    40.6
+   ],
+   "w": 10.6,
+   "h": 7,
+   "color": "#B7D3E2"
+  },
+  {
+   "kind": "wall",
+   "at": [
+    -71.2,
+    39.4
+   ],
+   "w": 10.6,
+   "h": 8.5,
+   "color": "#CFE6F0"
+  },
+  {
+   "kind": "wall",
+   "at": [
+    -81.6,
+    40.6
+   ],
+   "w": 10.6,
+   "h": 7,
+   "color": "#B7D3E2"
+  },
+  {
+   "kind": "wall",
+   "at": [
+    -92,
+    39.4
+   ],
+   "w": 10.6,
+   "h": 8.5,
+   "color": "#B7D3E2"
+  },
+  {
+   "kind": "wall",
+   "at": [
+    -102.4,
+    40.6
+   ],
+   "w": 10.6,
+   "h": 7,
+   "color": "#CFE6F0"
+  },
+  {
+   "kind": "wall",
+   "at": [
+    8.8,
+    39.4
+   ],
+   "w": 10.6,
+   "h": 8.5,
+   "color": "#CFE6F0",
+   "label": "Frozen cliff"
+  },
+  {
+   "kind": "wall",
+   "at": [
+    19.2,
+    40.6
+   ],
+   "w": 10.6,
+   "h": 7,
+   "color": "#B7D3E2"
+  },
+  {
+   "kind": "wall",
+   "at": [
+    29.6,
+    39.4
+   ],
+   "w": 10.6,
+   "h": 8.5,
+   "color": "#B7D3E2"
+  },
+  {
+   "kind": "wall",
+   "at": [
+    40,
+    40.6
+   ],
+   "w": 10.6,
+   "h": 7,
+   "color": "#CFE6F0"
+  },
+  {
+   "kind": "wall",
+   "at": [
+    50.4,
+    39.4
+   ],
+   "w": 10.6,
+   "h": 8.5,
+   "color": "#B7D3E2"
+  },
+  {
+   "kind": "wall",
+   "at": [
+    60.8,
+    40.6
+   ],
+   "w": 10.6,
+   "h": 7,
+   "color": "#B7D3E2"
+  },
+  {
+   "kind": "wall",
+   "at": [
+    71.2,
+    39.4
+   ],
+   "w": 10.6,
+   "h": 8.5,
+   "color": "#CFE6F0"
+  },
+  {
+   "kind": "wall",
+   "at": [
+    81.6,
+    40.6
+   ],
+   "w": 10.6,
+   "h": 7,
+   "color": "#B7D3E2"
+  },
+  {
+   "kind": "wall",
+   "at": [
+    92,
+    39.4
+   ],
+   "w": 10.6,
+   "h": 8.5,
+   "color": "#B7D3E2"
+  },
+  {
+   "kind": "wall",
+   "at": [
+    102.4,
+    40.6
+   ],
+   "w": 10.6,
+   "h": 7,
+   "color": "#CFE6F0"
+  },
+  {
+   "kind": "wall",
+   "at": [
+    -7.5,
+    -62.6
+   ],
+   "w": 10.6,
+   "h": 5.5,
+   "color": "#C3D8E4",
+   "label": "Rime ridge"
+  },
+  {
+   "kind": "wall",
+   "at": [
+    -17.9,
+    -61.4
+   ],
+   "w": 10.6,
+   "h": 4.5,
+   "color": "#C3D8E4"
+  },
+  {
+   "kind": "wall",
+   "at": [
+    -28.3,
+    -62.6
+   ],
+   "w": 10.6,
+   "h": 5.5,
+   "color": "#C3D8E4"
+  },
+  {
+   "kind": "wall",
+   "at": [
+    -38.7,
+    -61.4
+   ],
+   "w": 10.6,
+   "h": 4.5,
+   "color": "#C3D8E4"
+  },
+  {
+   "kind": "wall",
+   "at": [
+    -49.1,
+    -62.6
+   ],
+   "w": 10.6,
+   "h": 5.5,
+   "color": "#C3D8E4"
+  },
+  {
+   "kind": "wall",
+   "at": [
+    -59.5,
+    -61.4
+   ],
+   "w": 10.6,
+   "h": 4.5,
+   "color": "#C3D8E4"
+  },
+  {
+   "kind": "wall",
+   "at": [
+    -69.9,
+    -62.6
+   ],
+   "w": 10.6,
+   "h": 5.5,
+   "color": "#C3D8E4"
+  },
+  {
+   "kind": "wall",
+   "at": [
+    -80.3,
+    -61.4
+   ],
+   "w": 10.6,
+   "h": 4.5,
+   "color": "#C3D8E4"
+  },
+  {
+   "kind": "wall",
+   "at": [
+    -90.7,
+    -62.6
+   ],
+   "w": 10.6,
+   "h": 5.5,
+   "color": "#C3D8E4"
+  },
+  {
+   "kind": "wall",
+   "at": [
+    -101.1,
+    -61.4
+   ],
+   "w": 10.6,
+   "h": 4.5,
+   "color": "#C3D8E4"
+  },
+  {
+   "kind": "wall",
+   "at": [
+    7.5,
+    -62.6
+   ],
+   "w": 10.6,
+   "h": 5.5,
+   "color": "#C3D8E4",
+   "label": "Rime ridge"
+  },
+  {
+   "kind": "wall",
+   "at": [
+    17.9,
+    -61.4
+   ],
+   "w": 10.6,
+   "h": 4.5,
+   "color": "#C3D8E4"
+  },
+  {
+   "kind": "wall",
+   "at": [
+    28.3,
+    -62.6
+   ],
+   "w": 10.6,
+   "h": 5.5,
+   "color": "#C3D8E4"
+  },
+  {
+   "kind": "wall",
+   "at": [
+    38.7,
+    -61.4
+   ],
+   "w": 10.6,
+   "h": 4.5,
+   "color": "#C3D8E4"
+  },
+  {
+   "kind": "wall",
+   "at": [
+    49.1,
+    -62.6
+   ],
+   "w": 10.6,
+   "h": 5.5,
+   "color": "#C3D8E4"
+  },
+  {
+   "kind": "wall",
+   "at": [
+    59.5,
+    -61.4
+   ],
+   "w": 10.6,
+   "h": 4.5,
+   "color": "#C3D8E4"
+  },
+  {
+   "kind": "wall",
+   "at": [
+    69.9,
+    -62.6
+   ],
+   "w": 10.6,
+   "h": 5.5,
+   "color": "#C3D8E4"
+  },
+  {
+   "kind": "wall",
+   "at": [
+    80.3,
+    -61.4
+   ],
+   "w": 10.6,
+   "h": 4.5,
+   "color": "#C3D8E4"
+  },
+  {
+   "kind": "wall",
+   "at": [
+    90.7,
+    -62.6
+   ],
+   "w": 10.6,
+   "h": 5.5,
+   "color": "#C3D8E4"
+  },
+  {
+   "kind": "wall",
+   "at": [
+    101.1,
+    -61.4
+   ],
+   "w": 10.6,
+   "h": 4.5,
+   "color": "#C3D8E4"
+  },
+  {
+   "kind": "wall",
+   "at": [
+    0,
+    -62
+   ],
+   "w": 4.8,
+   "h": 2.2,
+   "color": "#4A4F5C",
+   "label": "Stillmark survey barrier",
+   "hideIf": "flag_admin_brann_2"
+  },
+  {
+   "kind": "hearth",
+   "at": [
+    40,
+    54
+   ],
+   "yaw": 180,
+   "label": "Hoarcrown Lodge Hearthrest"
+  },
+  {
+   "kind": "stall",
+   "at": [
+    48,
+    59
+   ],
+   "yaw": 180,
+   "color": "#4C6A85"
+  },
+  {
+   "kind": "chordstone",
+   "at": [
+    30,
+    70
+   ],
+   "color": "#BFE3F0",
+   "label": "Lodge-side Chordstone"
+  },
+  {
+   "kind": "sign",
+   "at": [
+    5,
+    88
+   ],
+   "yaw": 0,
+   "label": "Hoarcrown — the lodge is east. The falls above only freeze for a frost voice."
+  },
+  {
+   "kind": "sign",
+   "at": [
+    -5,
+    50
+   ],
+   "yaw": 180,
+   "label": "Hoarcrown Falls. Do not climb. Honestly. It is water."
+  },
+  {
+   "kind": "hall_rime",
+   "at": [
+    -50,
+    -22.5
+   ],
+   "yaw": 180,
+   "label": "Rime Hall"
+  },
+  {
+   "kind": "sign",
+   "at": [
+    -44,
+    -12
+   ],
+   "yaw": 180,
+   "label": "Rime Hall — Cantor Isaure Frostmere. Knock softly; the ceiling is icicles."
+  },
+  {
+   "kind": "sign",
+   "at": [
+    5,
+    -56
+   ],
+   "yaw": 180,
+   "label": "SURVEY AREA — AUTHORISED STILLHANDS ONLY. (Form 12-B available on request.)"
+  },
+  {
+   "kind": "chordstone",
+   "at": [
+    0,
+    -88
+   ],
+   "color": "#DDEFF7",
+   "label": "Summit Chordstone ring"
+  },
+  {
+   "kind": "wall",
+   "at": [
+    0,
+    -88
+   ],
+   "w": 3.2,
+   "h": 4.6,
+   "color": "#B08D57",
+   "label": "The Great Stillbell",
+   "hideIf": "flag_nullbell_broken"
+  },
+  {
+   "kind": "crystal",
+   "at": [
+    -2.5,
+    -85
+   ],
+   "s": 0.8,
+   "showIf": "flag_nullbell_broken",
+   "label": "Bell shard"
+  },
+  {
+   "kind": "crystal",
+   "at": [
+    2.8,
+    -90
+   ],
+   "s": 0.7,
+   "showIf": "flag_nullbell_broken",
+   "label": "Bell shard"
+  },
+  {
+   "kind": "tent",
+   "at": [
+    -12,
+    -80
+   ],
+   "yaw": 90,
+   "color": "#4A4F5C"
+  },
+  {
+   "kind": "crate",
+   "at": [
+    -11,
+    -76
+   ]
+  },
+  {
+   "kind": "crate",
+   "at": [
+    -10,
+    -75
+   ],
+   "s": 0.7
+  },
+  {
+   "kind": "lamp",
+   "at": [
+    -4,
+    -96
+   ]
+  },
+  {
+   "kind": "lamp",
+   "at": [
+    4,
+    -96
+   ]
+  },
+  {
+   "kind": "sign",
+   "at": [
+    7,
+    -94
+   ],
+   "yaw": 180,
+   "label": "Resonance lift — Concord Spire. Wakes for six Keynotes and a singing summit."
+  },
+  {
+   "kind": "lamp",
+   "at": [
+    4,
+    24
+   ]
+  },
+  {
+   "kind": "lamp",
+   "at": [
+    -4,
+    24
+   ]
+  },
+  {
+   "kind": "lamp",
+   "at": [
+    4,
+    88
+   ]
+  },
+  {
+   "kind": "lamp",
+   "at": [
+    34,
+    60
+   ]
+  },
+  {
+   "kind": "lamp",
+   "at": [
+    -54,
+    -8
+   ]
+  },
+  {
+   "kind": "lamp",
+   "at": [
+    -46,
+    -8
+   ]
+  },
+  {
+   "kind": "tent",
+   "at": [
+    -24,
+    58
+   ],
+   "yaw": 45,
+   "color": "#C4553A"
+  },
+  {
+   "kind": "crate",
+   "at": [
+    52,
+    52
+   ]
+  },
+  {
+   "kind": "crate",
+   "at": [
+    53,
+    53.2
+   ],
+   "s": 0.7
+  },
+  {
+   "kind": "icerock",
+   "at": [
+    7.8,
+    -86.4
+   ],
+   "s": 1.1
+  },
+  {
+   "kind": "icerock",
+   "at": [
+    4.4,
+    -81.3
+   ],
+   "s": 1.1
+  },
+  {
+   "kind": "icerock",
+   "at": [
+    -6.7,
+    -83.6
+   ],
+   "s": 1.1
+  },
+  {
+   "kind": "icerock",
+   "at": [
+    -7.8,
+    -89.6
+   ],
+   "s": 1.1
+  },
+  {
+   "kind": "icerock",
+   "at": [
+    -4.4,
+    -94.7
+   ],
+   "s": 1.1
+  },
+  {
+   "kind": "icerock",
+   "at": [
+    6.7,
+    -92.4
+   ],
+   "s": 1.1
+  },
+  {
+   "kind": "icerock",
+   "at": [
+    -40,
+    30
+   ],
+   "s": 1.2
+  },
+  {
+   "kind": "icerock",
+   "at": [
+    45,
+    25
+   ],
+   "s": 1.2
+  },
+  {
+   "kind": "icerock",
+   "at": [
+    -70,
+    -40
+   ],
+   "s": 1.2
+  },
+  {
+   "kind": "icerock",
+   "at": [
+    70,
+    -65
+   ],
+   "s": 1.2
+  },
+  {
+   "kind": "icerock",
+   "at": [
+    -25,
+    -30
+   ],
+   "s": 1.2
+  },
+  {
+   "kind": "icerock",
+   "at": [
+    25,
+    -30
+   ],
+   "s": 1.2
+  },
+  {
+   "kind": "icerock",
+   "at": [
+    -85,
+    60
+   ],
+   "s": 1.2
+  },
+  {
+   "kind": "icerock",
+   "at": [
+    85,
+    20
+   ],
+   "s": 1.2
+  },
+  {
+   "kind": "icerock",
+   "at": [
+    50,
+    85
+   ],
+   "s": 1.2
+  },
+  {
+   "kind": "icerock",
+   "at": [
+    -50,
+    88
+   ],
+   "s": 1.2
+  }
+ ],
+ "scatter": [
+  {
+   "kind": "snowpine",
+   "density": 0.9,
+   "minDist": 5
+  },
+  {
+   "kind": "icerock",
+   "density": 0.45,
+   "minDist": 5
+  },
+  {
+   "kind": "rock",
+   "density": 0.3,
+   "minDist": 4
+  },
+  {
+   "kind": "boulder",
+   "density": 0.1,
+   "minDist": 9
+  },
+  {
+   "kind": "crystal",
+   "density": 0.08,
+   "minDist": 8
+  },
+  {
+   "kind": "grass",
+   "density": 3,
+   "minDist": 1.2
+  }
+ ],
+ "npcs": [
+  {
+   "id": "npc_hk_snowpeak",
+   "at": [
+    36,
+    58.5
+   ],
+   "yaw": 180,
+   "look": "hearth3",
+   "name": "Linna",
+   "dialogue": "dlg_hk_snowpeak",
+   "role": "hearth"
+  },
+  {
+   "id": "npc_ch_snowpeak",
+   "at": [
+    48,
+    61
+   ],
+   "yaw": 180,
+   "look": "chandler",
+   "name": "Lodge Chandler Birk",
+   "dialogue": "dlg_ch_snowpeak",
+   "role": "shop",
+   "shop": "shop_snowpeak"
+  },
+  {
+   "id": "npc_steward_4",
+   "at": [
+    8,
+    46
+   ],
+   "yaw": 270,
+   "look": "steward",
+   "name": "Steward Sefa",
+   "dialogue": "dlg_steward_snowpeak",
+   "role": "steward"
+  },
+  {
+   "id": "npc_snowpeak_ansel",
+   "at": [
+    -6,
+    84
+   ],
+   "yaw": 90,
+   "look": "hiker",
+   "name": "Mountain Guide Ansel",
+   "dialogue": "dlg_snowpeak_ansel",
+   "role": "villager"
+  },
+  {
+   "id": "npc_snowpeak_brigid",
+   "at": [
+    20,
+    30
+   ],
+   "yaw": 270,
+   "look": "climber",
+   "name": "Ice-cutter Brigid",
+   "dialogue": "dlg_snowpeak_brigid",
+   "role": "villager"
+  },
+  {
+   "id": "npc_brann",
+   "at": [
+    0,
+    -58.6
+   ],
+   "yaw": 180,
+   "look": "brann",
+   "name": "Warden Brann",
+   "dialogue": "dlg_snowpeak_brann",
+   "role": "admin",
+   "hideIf": "flag_admin_brann_2"
+  },
+  {
+   "id": "npc_brann_aside",
+   "at": [
+    6,
+    -59
+   ],
+   "yaw": 270,
+   "look": "brann",
+   "name": "Brann",
+   "dialogue": "dlg_snowpeak_brann",
+   "role": "admin",
+   "showIf": "flag_admin_brann_2"
+  },
+  {
+   "id": "npc_odile",
+   "at": [
+    0,
+    -79
+   ],
+   "yaw": 180,
+   "look": "odile",
+   "name": "Magister Odile",
+   "dialogue": "dlg_snowpeak_odile",
+   "role": "admin",
+   "hideIf": "flag_odile_farewell"
+  },
+  {
+   "id": "npc_cass_summit",
+   "at": [
+    7,
+    -77
+   ],
+   "yaw": 225,
+   "look": "cass",
+   "name": "Cass",
+   "dialogue": "dlg_snowpeak_cass",
+   "role": "rival",
+   "showIf": "flag_nullbell_broken",
+   "hideIf": "flag_champion_defeated"
+  }
+ ],
+ "trainers": [
+  {
+   "id": "t_sp_01",
+   "at": [
+    -30,
+    75
+   ],
+   "yaw": 90,
+   "sight": 8
+  },
+  {
+   "id": "t_sp_02",
+   "at": [
+    -40,
+    10
+   ],
+   "yaw": 90,
+   "sight": 8
+  },
+  {
+   "id": "t_sp_03",
+   "at": [
+    60,
+    0
+   ],
+   "yaw": 270,
+   "sight": 8
+  },
+  {
+   "id": "t_still_08",
+   "at": [
+    -10,
+    -50
+   ],
+   "yaw": 90,
+   "sight": 8
+  }
+ ],
+ "nodes": [
+  {
+   "id": "rn_snowpeak_01",
+   "type": "frost",
+   "at": [
+    0,
+    42.5
+   ],
+   "yaw": 180,
+   "kind": "falls",
+   "label": "Hoarcrown Falls",
+   "mandatory": true,
+   "sets": "flag_snowpeak_ascended",
+   "blocker": {
+    "at": [
+     0,
+     40
+    ],
+    "w": 7.2,
+    "d": 2.2,
+    "yaw": 0
+   }
+  },
+  {
+   "id": "rn_snowpeak_02",
+   "type": "fire",
+   "at": [
+    70,
+    48
+   ],
+   "yaw": 0,
+   "kind": "thorn",
+   "label": "Ice plug",
+   "reward": {
+    "item": "i_chime_crown",
+    "count": 1
+   }
+  },
+  {
+   "id": "rn_snowpeak_03",
+   "type": "lumen",
+   "at": [
+    -70,
+    -70
+   ],
+   "yaw": 90,
+   "kind": "beacon",
+   "label": "Old aurora beacon",
+   "reward": {
+    "item": "i_disc_10",
+    "count": 1
+   }
+  }
+ ],
+ "pickups": [
+  {
+   "id": "pk_snowpeak_01",
+   "at": [
+    -60,
+    50
+   ],
+   "item": "i_salve_4",
+   "count": 1
+  },
+  {
+   "id": "pk_snowpeak_02",
+   "at": [
+    60,
+    -10
+   ],
+   "item": "i_revive_2",
+   "count": 1
+  },
+  {
+   "id": "pk_snowpeak_03",
+   "at": [
+    -20,
+    70
+   ],
+   "item": "money",
+   "money": 2000,
+   "hidden": true
+  }
+ ],
+ "wildRegions": [
+  {
+   "at": [
+    -40,
+    70
+   ],
+   "r": 22
+  },
+  {
+   "at": [
+    50,
+    -10
+   ],
+   "r": 20
+  },
+  {
+   "at": [
+    -60,
+    20
+   ],
+   "r": 18
+  }
+ ],
+ "maxWild": 6,
+ "encounters": "snowpeak",
+ "battleStages": [
+  {
+   "at": [
+    -30,
+    60
+   ],
+   "yaw": 90
+  },
+  {
+   "at": [
+    40,
+    0
+   ],
+   "yaw": 90
+  },
+  {
+   "at": [
+    0,
+    -80
+   ],
+   "yaw": 90
+  }
+ ],
+ "hearthSpawn": "sp_snowpeak_hearth",
+ "waystone": [
+  30,
+  70
+ ]
+}

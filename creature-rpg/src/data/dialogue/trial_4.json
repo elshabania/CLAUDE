@@ -1,0 +1,191 @@
+{
+ "trial_4_attendant": {
+  "variants": [
+   {
+    "if": "flag_trial_4_cleared",
+    "lines": [
+     {
+      "t": "The vanes are spinning for you. Tamsin rarely lets them do that. Mostly she argues with them."
+     }
+    ]
+   },
+   {
+    "lines": [
+     {
+      "t": "Welcome to Vane Hall! Those pale walls are gale curtains — wind held tight by the hall's vanes."
+     },
+     {
+      "t": "Out-argue a hall Tuner and their vane swings round. Down drops the curtain. Two Tuners, two curtains."
+     },
+     {
+      "t": "Tamsin's kin ride the wind. Electric, stone and frost voices hold their ground best in here."
+     }
+    ]
+   }
+  ]
+ },
+ "dlg_t_hall4_01_pre": {
+  "variants": [
+   {
+    "lines": [
+     {
+      "s": "Pell",
+      "t": "This vane's mine. Blow me over and it swings your way."
+     }
+    ]
+   }
+  ]
+ },
+ "dlg_t_hall4_01_after": {
+  "variants": [
+   {
+    "lines": [
+     {
+      "s": "Pell",
+      "t": "Curtain's down. Feel that draught? That's the hall approving. Grudgingly."
+     }
+    ]
+   }
+  ]
+ },
+ "dlg_t_hall4_02_pre": {
+  "variants": [
+   {
+    "lines": [
+     {
+      "s": "Bram",
+      "t": "Last curtain before the Cantor. The wind's on my side. Usually. It's fickle."
+     }
+    ]
+   }
+  ]
+ },
+ "dlg_t_hall4_02_after": {
+  "variants": [
+   {
+    "lines": [
+     {
+      "s": "Bram",
+      "t": "Tamsin's on her kite-deck. If she starts arguing with you, that means she likes you."
+     }
+    ]
+   }
+  ]
+ },
+ "dlg_t_cantor_4_pre": {
+  "variants": [
+   {
+    "lines": [
+     {
+      "s": "Cantor Tamsin",
+      "t": "In Galewick we don't fight the wind. We argue with it, politely, until it agrees."
+     }
+    ]
+   }
+  ]
+ },
+ "dlg_t_cantor_4_post": {
+  "variants": [
+   {
+    "lines": [
+     {
+      "s": "Cantor Tamsin",
+      "t": "Ha! You argued and won. The wind respects that."
+     },
+     {
+      "s": "Cantor Tamsin",
+      "t": "Keynote for shade. Where there's wind, there's a shadow running from it."
+     },
+     {
+      "s": "Cantor Tamsin",
+      "t": "And an Etude — Razor Draft. Wind with an edge. Point it at problems, not people."
+     },
+     {
+      "s": "Cantor Tamsin",
+      "t": "That foreman's work order? I read the signature. 'O. Graven, Magister.' Odile Graven."
+     },
+     {
+      "s": "Cantor Tamsin",
+      "t": "Ysolde went pale when I said the name. There's a letter waiting for you at the Hearthrest. From Larkhollow."
+     }
+    ],
+    "actions": [
+     {
+      "give": "i_disc_07",
+      "n": 1
+     },
+     {
+      "money": 875
+     },
+     {
+      "questDone": "q_main_ch07"
+     }
+    ]
+   }
+  ]
+ },
+ "dlg_t_cantor_4_after": {
+  "variants": [
+   {
+    "lines": [
+     {
+      "s": "Cantor Tamsin",
+      "t": "Highscar Rise is west of town. Updrafts all the way up — they only lift for a gale voice singing Gust."
+     },
+     {
+      "s": "Cantor Tamsin",
+      "t": "The ear-muff crew went that way too. Follow the wind, find the shadow."
+     }
+    ]
+   }
+  ]
+ },
+ "dlg_07_tamsin_pre": {
+  "variants": [
+   {
+    "lines": [
+     {
+      "s": "Cantor Tamsin",
+      "t": "In Galewick we don't fight the wind. We argue with it, politely, until it agrees."
+     }
+    ]
+   }
+  ]
+ },
+ "dlg_07_tamsin_win": {
+  "variants": [
+   {
+    "lines": [
+     {
+      "s": "Cantor Tamsin",
+      "t": "Ha! You argued and won. The wind respects that."
+     }
+    ]
+   }
+  ]
+ },
+ "dlg_07_tamsin_lose": {
+  "variants": [
+   {
+    "lines": [
+     {
+      "s": "Cantor Tamsin",
+      "t": "Blown clean off your feet. Tie yourself down and come back."
+     }
+    ]
+   }
+  ]
+ },
+ "dlg_07_tamsin_keynote": {
+  "variants": [
+   {
+    "lines": [
+     {
+      "s": "Cantor Tamsin",
+      "t": "Keynote for shade. Where there's wind, there's a shadow running from it."
+     }
+    ]
+   }
+  ]
+ }
+}

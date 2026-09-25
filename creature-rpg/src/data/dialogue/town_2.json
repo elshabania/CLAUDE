@@ -1,0 +1,253 @@
+{
+  "dlg_town_2_tobin": {
+    "variants": [
+      {
+        "lines": [
+          { "s": "Tobin", "t": "Easy now. Bowl's warm, troupe's warmer. What can Knellstone's Hearthrest do for you?" }
+        ],
+        "choice": {
+          "options": [
+            { "label": "Rest my troupe", "actions": [{ "heal": true }] },
+            { "label": "Open the Fosterage ledger", "actions": [{ "fosterage": true }] },
+            { "label": "Help a kin recall a move", "actions": [{ "recall": true }] },
+            { "label": "Just warming my hands", "actions": [] }
+          ]
+        }
+      }
+    ]
+  },
+  "dlg_00_tobin_01": {
+    "variants": [{ "lines": [{ "s": "Tobin", "t": "Easy now. Bowl's warm, troupe's warmer. Off you go." }], "actions": [{ "heal": true }] }]
+  },
+  "dlg_town_2_garrow": {
+    "variants": [
+      {
+        "lines": [{ "s": "Garrow", "t": "Buy something or admire the dust. Both are free until you touch." }],
+        "actions": [{ "shop": "shop_town_2" }]
+      }
+    ]
+  },
+  "dlg_00_garrow_01": {
+    "variants": [{ "lines": [{ "s": "Garrow", "t": "Buy something or admire the dust. Both are free until you touch." }], "actions": [{ "shop": "shop_town_2" }] }]
+  },
+  "dlg_town_2_marra": {
+    "variants": [
+      {
+        "if": "flag_q_kinsong",
+        "lines": [
+          { "s": "Marra Aske", "t": "How's the songbook? Every verse you sing, I copy into the master Kinsong. In very small handwriting." },
+          { "s": "Marra Aske", "t": "Ten verses sung and I'll have something useful for you. If I'm not here, try Galewick — I follow the migrations." }
+        ]
+      },
+      {
+        "if": "flag_rival_2_done",
+        "lines": [
+          { "s": "Marra Aske", "t": "You're the one from Larkhollow! I'm compiling the Kinsong — every verse in Cantarra." },
+          { "s": "Marra Aske", "t": "Show me what you've heard and I'll pay in useful things. Chimes, mostly. Chimes are always useful." }
+        ],
+        "choice": {
+          "options": [
+            { "label": "Count me in.", "actions": [{ "set": "flag_q_kinsong" }, { "quest": "q_side_kinsong_survey", "step": 1 }] },
+            { "label": "Maybe later.", "actions": [] }
+          ]
+        }
+      },
+      {
+        "lines": [
+          { "s": "Marra Aske", "t": "Shh — I'm listening to the tea. Knellstone water hums a quarter-tone flat. I'm writing a paper." },
+          { "s": "Marra Aske", "t": "Somebody's making an enormous racket up on the ridge road. If that's your friend, come back when it's over." }
+        ]
+      }
+    ]
+  },
+  "dlg_town_2_bellwright": {
+    "variants": [
+      {
+        "if": "flag_q_bells_done",
+        "lines": [
+          { "s": "Old Hesketh", "t": "Hear the noon peal? Three bells, one chord. I cried a bit. Don't tell the quarry, they think I'm made of granite." }
+        ]
+      },
+      {
+        "if": "flag_q_bells && (node:rn_town_2_02 || flag_q_bell_1) && (node:rn_town_2_03 || flag_q_bell_2) && (node:rn_town_2_04 || flag_q_bell_3)",
+        "lines": [
+          { "s": "Old Hesketh", "t": "East, Crane and Quarry — all three ringing true! Whatever those ear-muffed folk did to them, it's undone." },
+          { "s": "Old Hesketh", "t": "Bellwright's fee, paid backwards for once. And a couple of cure-alls — ringing in your ears is a real hazard." }
+        ],
+        "actions": [
+          { "money": 750 },
+          { "give": "i_cure_all", "n": 2 },
+          { "set": "flag_q_bells_done" },
+          { "questDone": "q_side_offkey_bells" }
+        ]
+      },
+      {
+        "if": "flag_q_bells && has:i_q_clapper && !(node:rn_town_2_02 || flag_q_bell_1)",
+        "lines": [
+          { "s": "Old Hesketh", "t": "A proper bronze clapper! Hand it here. That goes in the East Bell — hear it? Ding. Correct ding." }
+        ],
+        "actions": [{ "give": "i_q_clapper", "n": -1 }, { "set": "flag_q_bell_1" }]
+      },
+      {
+        "if": "flag_q_bells && has:i_q_clapper && !(node:rn_town_2_03 || flag_q_bell_2)",
+        "lines": [
+          { "s": "Old Hesketh", "t": "Another clapper — lovely weight on it. Into the Crane Bell she goes. Dong. That's a happy dong." }
+        ],
+        "actions": [{ "give": "i_q_clapper", "n": -1 }, { "set": "flag_q_bell_2" }]
+      },
+      {
+        "if": "flag_q_bells && has:i_q_clapper && !(node:rn_town_2_04 || flag_q_bell_3)",
+        "lines": [
+          { "s": "Old Hesketh", "t": "The last clapper! The Quarry Bell's been sulking for a week. There. Bong. Talk to me again, I'm overcome." }
+        ],
+        "actions": [{ "give": "i_q_clapper", "n": -1 }, { "set": "flag_q_bell_3" }]
+      },
+      {
+        "if": "flag_q_bells",
+        "lines": [
+          { "s": "Old Hesketh", "t": "Three bells: the East Bell by the Hall steps, the Crane Bell by the quarry, the Quarry Bell out west." },
+          { "s": "Old Hesketh", "t": "An electric kin can Spark a bell back into tune. Or bring me clappers — the old ones rolled off down Brackenridge." }
+        ]
+      },
+      {
+        "if": "flag_rival_2_done",
+        "lines": [
+          { "s": "Old Hesketh", "t": "Sixty years I've tuned Knellstone's bells. Then fellows in brass ear-muffs 'measured' them, and now they're off-key." },
+          { "s": "Old Hesketh", "t": "Clappers knocked loose, tone gone sour. Would you help an old bellwright set them right?" }
+        ],
+        "choice": {
+          "options": [
+            { "label": "I'll retune them.", "actions": [{ "set": "flag_q_bells" }, { "quest": "q_side_offkey_bells", "step": 1 }] },
+            { "label": "Not right now.", "actions": [] }
+          ]
+        }
+      },
+      {
+        "lines": [
+          { "s": "Old Hesketh", "t": "Hear that? Neither do I. Three bells gone flat as a mill-pond. Somebody's been fiddling." },
+          { "s": "Old Hesketh", "t": "Hall's shut while Dorran walks the ridge. Once the town's back to its racket, come see me." }
+        ]
+      }
+    ]
+  },
+  "dlg_town_2_gossip": {
+    "variants": [
+      {
+        "if": "flag_cave_miners_saved",
+        "lines": [
+          { "s": "Quarrywife Brisk", "t": "The miners came up singing! My Dunn's got his Rollith back, fat as a pudding. You did that, I hear." },
+          { "s": "Quarrywife Brisk", "t": "Say what you like about those surveyors, they feed a stray well. Still. Nobody asked them to." }
+        ]
+      },
+      {
+        "if": "flag_trial_2_cleared",
+        "lines": [
+          { "s": "Quarrywife Brisk", "t": "Those ear-muffed surveyors packed their tripods and went down the Undertone. With coils. Lots of coils." },
+          { "s": "Quarrywife Brisk", "t": "The miners' kin started wandering off the same day. I'm not saying it's connected. I'm saying it loudly, though." }
+        ]
+      },
+      {
+        "lines": [
+          { "s": "Quarrywife Brisk", "t": "There's surveyors in brass ear-muffs measuring the bell towers. Say the stones need *servicing*." },
+          { "s": "Quarrywife Brisk", "t": "Never knew stone needed servicing. My sister Nell over in Galewick says they're everywhere. She'd know. She knows everything." }
+        ]
+      }
+    ]
+  },
+  "dlg_town_2_child": {
+    "variants": [
+      {
+        "if": "flag_trial_2_cleared",
+        "lines": [
+          { "t": "You beat Cantor Dorran?! Did he do the face? The face where he's pleased but only his eyebrows know?" }
+        ]
+      },
+      {
+        "lines": [
+          { "t": "See that Rollith? It rolls the quarry spoil downhill for the miners. Then it rolls back up to do it again. Forever. It LOVES it." },
+          { "t": "And the Cairnback pulls the ore cart. Yesterday the cart won. Nobody's allowed to talk about it." }
+        ]
+      }
+    ]
+  },
+  "dlg_town_2_crane": {
+    "variants": [
+      {
+        "if": "node:rn_town_2_01",
+        "lines": [
+          { "s": "Crane Hand", "t": "Listen to her hum! Crane lift's running sweet since you Sparked the lode. Found that Silver Chime up top, then?" }
+        ]
+      },
+      {
+        "lines": [
+          { "s": "Crane Hand", "t": "Crane lift's lode went flat the day the hum dropped. Brass needs a buzz to turn, see." },
+          { "s": "Crane Hand", "t": "A Spark from an electric kin would wake it. Somebody left a Silver Chime on the top platform, if you're curious." }
+        ]
+      }
+    ]
+  },
+  "dlg_town_2_liftkeeper": {
+    "variants": [
+      {
+        "if": "flag_cave_miners_saved",
+        "lines": [
+          { "s": "Lift Keeper", "t": "Kett's crew came up with every one of their kin. First smile I've seen on a miner since the hum stopped." },
+          { "s": "Lift Keeper", "t": "The up-shaft past the lower galleries comes out in Sallowfen. Wet feet guaranteed." }
+        ]
+      },
+      {
+        "if": "flag_trial_2_cleared",
+        "lines": [
+          { "s": "Lift Keeper", "t": "Dorran's Keynote on your belt? Then the chain's off. Down you go — Foreman Kett's camp is just inside." },
+          { "s": "Lift Keeper", "t": "Miners say their kin have gone wandering below since the hum dropped. If you see a round one called Pebbles, she bites." }
+        ]
+      },
+      {
+        "lines": [
+          { "s": "Lift Keeper", "t": "Lift's chained, I'm afraid. Knell Hall's orders: Keynote holders only below. The Undertone doesn't forgive beginners." },
+          { "s": "Lift Keeper", "t": "Win Cantor Dorran's Keynote and I'll let you down myself. With a lantern. I'm not a monster." }
+        ]
+      }
+    ]
+  },
+  "dlg_town_2_surveyor": {
+    "variants": [
+      {
+        "if": "flag_rival_2_done",
+        "lines": [
+          { "s": "Survey Engineer", "t": "Bell tower three is a quarter-tone flat. We'll be servicing it. And the stone under it. Routine." },
+          { "s": "Survey Engineer", "t": "The Magister says unregulated stones are how people get hurt. She's usually right about hazards." }
+        ]
+      },
+      {
+        "lines": [
+          { "s": "Survey Engineer", "t": "Licensed survey. Please step back from the equipment." },
+          { "s": "Survey Engineer", "t": "We don't *take* kin. We collect strays. There's a difference. There's a form for it." }
+        ]
+      }
+    ]
+  },
+  "dlg_town_2_hallfan": {
+    "variants": [
+      {
+        "if": "flag_trial_2_cleared",
+        "lines": [
+          { "s": "Hall Hopeful", "t": "You did it! Did he tell you you'd have made a fair quarryman? He only says that to people he likes." }
+        ]
+      },
+      {
+        "if": "flag_rival_2_done",
+        "lines": [
+          { "s": "Hall Hopeful", "t": "Cantor Dorran's back from his walk — the Hall's open! I'm going in. Tomorrow. Probably." },
+          { "s": "Hall Hopeful", "t": "Tip: the pillars inside are tuned. Beat a hall Tuner and a row sinks. Stone keeps time, he says." }
+        ]
+      },
+      {
+        "lines": [
+          { "s": "Hall Hopeful", "t": "Hall's shut. Cantor Dorran walks the ridge road every morning to 'listen to the heather'." },
+          { "s": "Hall Hopeful", "t": "He'll be back once somebody's made enough noise up there to bring him down. That's how it usually goes." }
+        ]
+      }
+    ]
+  }
+}

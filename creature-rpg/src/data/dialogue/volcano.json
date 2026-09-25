@@ -1,0 +1,238 @@
+{
+  "dlg_hk_volcano": {
+    "variants": [
+      {
+        "if": "flag_trial_5_cleared && flag_leftover_obtained && !flag_triad_complete && !flag_second_clutch_letter",
+        "lines": [
+          {
+            "t": "Post came up with the ash cart. Letter for you — from Larkhollow. Smells of varnish and kettle."
+          },
+          {
+            "s": "Oriel's letter",
+            "t": "\"A wild young one of Cass's line has been hanging round the fosterage. Won't let anyone near it. Not even me, and I have biscuits.\""
+          },
+          {
+            "s": "Oriel's letter",
+            "t": "\"Bring your {starter} and the {leftover} home to the green stone, {player}. I think the three of them want to be in the same chord.\""
+          }
+        ],
+        "actions": [
+          {
+            "set": "flag_second_clutch_letter"
+          },
+          {
+            "quest": "q_second_clutch",
+            "step": 1
+          }
+        ]
+      },
+      {
+        "if": "flag_q_courier_parcel && !flag_q_courier_reply",
+        "lines": [
+          {
+            "t": "A parcel from Galewick? For me? …New tongs. Proper ones. Someone in that market remembers I used to be a smith."
+          },
+          {
+            "t": "Take this reply back with you. Tell them the old horseshoe hand's doing fine. Fewer burns these days."
+          }
+        ],
+        "actions": [
+          {
+            "set": "flag_q_courier_reply"
+          },
+          {
+            "quest": "q_side_market_courier",
+            "step": 2
+          }
+        ]
+      },
+      {
+        "lines": [
+          {
+            "t": "Used to forge horseshoes. Now I mend kin. Better job. Fewer burns."
+          },
+          {
+            "t": "Rest your troupe? Open the Fosterage ledger? Or are you just warming your hands?"
+          }
+        ],
+        "choice": {
+          "options": [
+            {
+              "label": "Rest my troupe",
+              "actions": [
+                {
+                  "heal": true
+                }
+              ]
+            },
+            {
+              "label": "Open the Fosterage ledger",
+              "actions": [
+                {
+                  "ledger": true
+                }
+              ]
+            },
+            {
+              "label": "Help a kin recall a move",
+              "actions": [
+                {
+                  "recall": true
+                }
+              ]
+            },
+            {
+              "label": "Just warming my hands",
+              "actions": []
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "dlg_ch_volcano": {
+    "variants": [
+      {
+        "lines": [
+          {
+            "t": "Salves, cures, a very good burn cream. Everything up here is fireproof except the prices."
+          }
+        ],
+        "actions": [
+          {
+            "shop": "shop_volcano"
+          }
+        ]
+      }
+    ]
+  },
+  "dlg_forge_steward": {
+    "variants": [
+      {
+        "if": "flag_trial_5_cleared",
+        "lines": [
+          {
+            "t": "Bastian's still grinning. You must've bent without breaking. He likes that more than winning."
+          }
+        ]
+      },
+      {
+        "if": "flag_volcano_vent_cooled || node:rn_volcano_01",
+        "lines": [
+          {
+            "t": "Vent's cool, door's open. Bastian's inside. He'll tell you heat is honest. He always does."
+          }
+        ],
+        "actions": [
+          {
+            "set": "flag_volcano_vent_cooled"
+          }
+        ]
+      },
+      {
+        "lines": [
+          {
+            "t": "Vent's overheated. A water kin could cool it — or wait, I'll open the side sluice for you. Give me a moment."
+          }
+        ],
+        "choice": {
+          "options": [
+            {
+              "label": "Please open the sluice",
+              "actions": [
+                {
+                  "steward": "rn_volcano_01"
+                },
+                {
+                  "set": "flag_volcano_vent_cooled"
+                }
+              ]
+            },
+            {
+              "label": "I'll cool it myself",
+              "actions": []
+            }
+          ]
+        },
+        "if": "flag_rival_4_done"
+      },
+      {
+        "lines": [
+          {
+            "t": "Hall's shut till the vent's sorted, and the vent's shut till I've a reason. Bastian's orders: 'Nobody sweats in my hall uninvited.'"
+          }
+        ]
+      }
+    ]
+  },
+  "dlg_volcano_pell": {
+    "variants": [
+      {
+        "if": "flag_nullbell_broken",
+        "lines": [
+          {
+            "t": "The stones are loud again. Funny — I don't mind it. Loud's how you know they're still there."
+          },
+          {
+            "t": "Somebody left flowers at the plaque last week. Mountain lilies. Only one person I know climbs this far with lilies."
+          }
+        ]
+      },
+      {
+        "lines": [
+          {
+            "s": "Memorial plaque",
+            "t": "\"For the herd of the Ash Flats, who ran toward the loudest stone.\""
+          },
+          {
+            "t": "I carved that. Took me a whole winter. The stone on the Flats sang so hard that morning the ground shook, and the herd bolted the wrong way."
+          },
+          {
+            "t": "There was a Chordwright's girl up here that day. Saw all of it. I never saw anyone go so quiet, so young."
+          },
+          {
+            "t": "Mind the lava. It's railed, but it's still lava."
+          }
+        ]
+      }
+    ]
+  },
+  "dlg_volcano_railwright": {
+    "variants": [
+      {
+        "lines": [
+          {
+            "t": "Every lava channel on Cindral has a rail. Every rail on Cindral is mine. You are welcome."
+          },
+          {
+            "t": "Don't lean on them after noon, though. Or sit on them. Or lick them. You'd be amazed."
+          }
+        ]
+      }
+    ]
+  },
+  "dlg_09_plaque": {
+    "variants": [
+      {
+        "lines": [
+          {
+            "s": "Memorial plaque",
+            "t": "For the herd of the Ash Flats, who ran toward the loudest stone."
+          }
+        ]
+      }
+    ]
+  },
+  "dlg_09_hallsteward_01": {
+    "variants": [
+      {
+        "lines": [
+          {
+            "s": "Hall steward Corran",
+            "t": "Vent's overheated. A water kin could cool it — or wait, I'll open the side sluice for you. Give me a moment."
+          }
+        ]
+      }
+    ]
+  }
+}

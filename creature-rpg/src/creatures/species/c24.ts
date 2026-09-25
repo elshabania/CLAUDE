@@ -1,0 +1,120 @@
+// c24 Venomantle — f08 stage 3, toxin/water. Tall hooded tripod octopus: 3 support arms + 3 display arms joined by a
+// dark cloak web whose inner face carries blue-and-gold rings (design/creatures.md §4 c24). Always SIX arms, never eight.
+//
+// The web panels are planar wedges: the three display arms radiate from one point behind the head in a fan plane, so the
+// wedge between two neighbouring arms is exactly flat and can be an extruded outline (S24_web, registered below) that
+// lines up with the arms without per-frame rebuilding. The fan (arms + panels) moves as one unit.
+import * as THREE from 'three';
+import type { PartDef, SpeciesVisual, V3 } from '../assemble';
+import { SHAPES } from '../primitives';
+
+// isoceles wedge: apex at origin, corners at (±0.5, 1), scalloped concave outer edge (web between arm tips)
+if (!SHAPES.S24_web) {
+  SHAPES.S24_web = () => {
+    const s = new THREE.Shape();
+    s.moveTo(0, 0);
+    s.lineTo(0.5, 1);
+    const n = 30;
+    for (let i = 1; i < n; i++) {
+      const x = 0.5 - i / n;
+      const y = 1 - 0.14 * (1 - (2 * x) ** 2) - 0.06 * Math.abs(Math.sin(3 * Math.PI * (x + 0.5)));
+      s.lineTo(x, y);
+    }
+    s.lineTo(-0.5, 1);
+    s.closePath();
+    return s;
+  };
+}
+
+const GOLD = '#F0C040';
+const DEG = Math.PI / 180;
+
+// display fan: three arms radiate in 3D from one apex behind the head. L and R rise up-and-out (the raised display),
+// B sweeps back and down like a cape train. Each web panel is the (planar) wedge between two arms.
+const ARM_LEN = 0.95;
+const PANEL_LEN = 0.84;
+const norm = (v: V3): V3 => {
+  const l = Math.hypot(v[0], v[1], v[2]);
+  return [v[0] / l, v[1] / l, v[2] / l];
+};
+const DIRS: Record<string, V3> = {
+  dispL: norm([Math.sin(46 * DEG) * Math.cos(14 * DEG), Math.cos(46 * DEG) * Math.cos(14 * DEG), -Math.sin(14 * DEG)]),
+  dispR: norm([-Math.sin(46 * DEG) * Math.cos(14 * DEG), Math.cos(46 * DEG) * Math.cos(14 * DEG), -Math.sin(14 * DEG)]),
+  dispB: norm([0, -0.3, -0.95]),
+};
+/** XYZ Euler (deg) of the rotation whose columns are the given orthonormal axes. */
+function eulerOf(x: V3, y: V3, z: V3): V3 {
+  const m = new THREE.Matrix4().makeBasis(new THREE.Vector3(...x), new THREE.Vector3(...y), new THREE.Vector3(...z));
+  const e = new THREE.Euler().setFromRotationMatrix(m, 'XYZ');
+  return [e.x / DEG, e.y / DEG, e.z / DEG];
+}
+const cross = (a: V3, b: V3): V3 => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+
+const fan: PartDef[] = [];
+for (const [id, hook] of [['dispL', [0, 0.02, 0.12]], ['dispR', [0, 0.02, 0.12]], ['dispB', [0, 0.12, 0]]] as [string, V3][]) {
+  const d = DIRS[id];
+  const p = (t: number, k = 0): V3 => [d[0] * t * ARM_LEN + hook[0] * k, d[1] * t * ARM_LEN + hook[1] * k, d[2] * t * ARM_LEN + hook[2] * k];
+  // slight hook at the tip so the arm reads as a limb, not a strut
+  fan.push({ name: id, parent: 'fan', prim: { t: 'tube', pts: [p(0.02), p(0.35), p(0.7, 0.1), p(0.92, 0.4), p(1.0, 1)], r0: 0.07, r1: 0.022 }, slot: 'P' });
+}
+const PANELS: [string, string, string][] = [['webT', 'dispL', 'dispR'], ['webL', 'dispB', 'dispL'], ['webR', 'dispR', 'dispB']];
+for (const [id, a, b] of PANELS) {
+  const d1 = DIRS[a], d2 = DIRS[b];
+  const cosT = d1[0] * d2[0] + d1[1] * d2[1] + d1[2] * d2[2];
+  const half = Math.acos(cosT) / 2;
+  const X = norm([d1[0] - d2[0], d1[1] - d2[1], d1[2] - d2[2]]);
+  const Y = norm([d1[0] + d2[0], d1[1] + d2[1], d1[2] + d2[2]]);
+  const Z = cross(X, Y);
+  const wid = 2 * PANEL_LEN * Math.sin(half);
+  const hgt = PANEL_LEN * Math.cos(half);
+  fan.push({ name: id, parent: 'fan', prim: { t: 'extrude', shape: 'S24_web', w: wid, h: hgt, depth: 0.012 }, rot: eulerOf(X, Y, Z), slot: 'D', mat: 'MEMBRANE', opacity: 0.95 });
+  // ring pattern on the web: blue outer rings, gold centre rings (both faces: rings sit on each side)
+  const pts: [number, number, number, string][] = [[-0.24, 0.66, 0.08, 'A'], [0.24, 0.66, 0.08, 'A'], [0, 0.56, 0.065, GOLD], [0, 0.82, 0.055, GOLD]];
+  pts.forEach(([u, v, R, col], i) => {
+    fan.push({ name: `${id}Ring${i}`, parent: id, prim: { t: 'torus', R, r: R * 0.2 }, at: [u * wid, v * hgt, 0.01], slot: col, mat: 'GLOW', emissive: 1.0, anim: ['glow'] });
+  });
+}
+// two rings on each raised display arm (front face)
+for (const id of ['dispL', 'dispR']) {
+  const d = DIRS[id];
+  for (const [k, t] of [[1, 0.45], [2, 0.7]] as [number, number][]) {
+    fan.push({ name: `${id}Ring${k}`, parent: 'fan', prim: { t: 'torus', R: 0.042 - k * 0.006, r: 0.01 }, at: [d[0] * t * ARM_LEN, d[1] * t * ARM_LEN, d[2] * t * ARM_LEN + 0.06], rot: [0, 0, 0], slot: k === 1 ? GOLD : 'A', mat: 'GLOW', emissive: 1.0, anim: ['glow'] });
+  }
+}
+
+// tripod support arms: two front, one back (keeps the face clear); rotating single-arm step
+const legs: PartDef[] = [];
+for (const [id, yaw, gait] of [['supFL', 55, 'A'], ['supFR', -55, 'B'], ['supB', 180, 'C']] as [string, number, string][]) {
+  const yr = yaw * DEG;
+  legs.push({ name: id + 'Root', parent: 'head', prim: { t: 'none' }, at: [Math.sin(yr) * 0.13, -0.13, Math.cos(yr) * 0.12], rot: [0, yaw, 0] });
+  legs.push({ name: id, parent: id + 'Root', prim: { t: 'none' }, chain: { n: 5, r0: 0.085, r1: 0.032, len: 1.02, bend: [-7, 0, 0] }, rot: [163, 0, 0], anim: ['gait:' + gait] });
+}
+
+// peaked hood (L_bulb drawn to a point so the hood reads at 20 px)
+const HOOD: [number, number][] = [[0, 0], [0.82, 0.05], [1, 0.3], [0.85, 0.58], [0.5, 0.82], [0.18, 0.96], [0, 1]];
+
+export const c24: SpeciesVisual = {
+  id: 'c24',
+  H: 1.8,
+  colors: { P: '#5A2A6E', A: '#3FA0FF', S: GOLD, D: '#2A1830' },
+  mat: 'SKIN_WET',
+  rim: '#C79BFF',
+  rimStrength: 0.35,
+  eye: { shape: 'almond', iris: GOLD, irisRatio: 0.72, pupil: 'h-bar', pupilRatio: 0.55, highlights: 1, lid: 0.4, lidAngle: -12 },
+  mouth: { style: 'none' },
+  rig: { type: 'RADIAL', gaitHz: 0.9, stride: 12, bounce: 0.02, breath: 0.025, breathHz: 0.4, attack: 'rear', special: 'cast', faint: 'collapse', lean: 4 },
+  parts: [
+    { name: 'head', prim: { t: 'sphere', r: [0.24, 0.2, 0.24] }, at: [0, 1.0, 0], anim: ['br', 'look'] },
+    { name: 'hood', parent: 'head', prim: { t: 'lathe', profile: HOOD, h: 0.54, rmax: 0.205 }, at: [0, 0.1, -0.05], rot: [-20, 0, 0], anim: ['br', 'fx:core'] },
+    { name: 'hoodSpot', parent: 'hood', mirror: true, prim: { t: 'torus', R: 0.035, r: 0.009 }, at: [0.12, 0.18, 0.13], rot: [-10, 42, 0], slot: 'A', mat: 'GLOW', emissive: 0.8, anim: ['glow'] },
+    // hooded eyes with heavy lid caps
+    { name: 'eye', parent: 'head', mirror: true, prim: { t: 'eye', r: 0.08 }, at: [0.118, 0.025, 0.19], rot: [-4, 33, 0] },
+    { name: 'lid', parent: 'head', mirror: true, prim: { t: 'sphere', r: [0.095, 0.035, 0.075], half: true }, at: [0.12, 0.085, 0.165], rot: [22, 33, 12], slot: 'P' },
+    { name: 'siphon', parent: 'head', prim: { t: 'lathe', profile: 'L_crater', h: 0.1, rmax: 0.05 }, at: [0, -0.12, 0.17], rot: [120, 0, 0], slot: 'P+', anim: ['fx:siphon'] },
+    { name: 'mantleSkirt', parent: 'head', prim: { t: 'sphere', r: [0.22, 0.1, 0.22] }, at: [0, -0.12, 0], slot: 'P' },
+    // display fan behind the head (arms + web as one unit)
+    { name: 'fan', parent: 'head', prim: { t: 'none' }, at: [0, 0.1, -0.17], anim: ['sway', 'fx:web'] },
+    ...fan,
+    ...legs,
+  ],
+};

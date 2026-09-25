@@ -9,6 +9,10 @@ const nextConfig = {
     return [
       { source: "/abu-dhabi-streets", destination: "/abu-dhabi-streets/index.html" },
       { source: "/abu-dhabi-streets/", destination: "/abu-dhabi-streets/index.html" },
+      // Wildchord (creature-rpg/) is built into public/play by the prebuild script.
+      // It is built with base "/play/" so assets resolve from both /play and /play/.
+      { source: "/play", destination: "/play/index.html" },
+      { source: "/play/", destination: "/play/index.html" },
     ];
   },
 };

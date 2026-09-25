@@ -1,0 +1,138 @@
+{
+  "id": "route_1",
+  "name": "Thistledown Way",
+  "biome": "meadow",
+  "attuned": "lumen",
+  "music": "route_1",
+  "terrain": {
+    "seed": 101,
+    "size": [110, 200],
+    "base": 2,
+    "amp": 3.2,
+    "scale": 26,
+    "rim": 14,
+    "rimWidth": 14,
+    "hills": [
+      {"at": [28, 30], "r": 16, "h": 9},
+      {"at": [-34, 12], "r": 12, "h": 4},
+      {"at": [32, -38], "r": 11, "h": 4},
+      {"at": [-38, 70], "r": 12, "h": 4},
+      {"at": [36, 72], "r": 10, "h": 3}
+    ],
+    "flats": [
+      {"at": [15, -10], "r": 7},
+      {"at": [0, 50], "r": 8},
+      {"at": [-5, -15], "r": 7},
+      {"at": [10, -60], "r": 7},
+      {"at": [-10, 70], "r": 5},
+      {"at": [-10, 40], "r": 4},
+      {"at": [15, 0], "r": 4},
+      {"at": [-20, -40], "r": 4},
+      {"at": [35, -61], "r": 7},
+      {"at": [-17, -51], "r": 4},
+      {"at": [20, 50], "r": 3},
+      {"at": [-30, 10], "r": 3}
+    ],
+    "paths": [
+      {"pts": [[0, 100], [0, 80], [-6, 60], [-4, 35], [4, 15], [8, -5], [0, -30], [-6, -55], [0, -80], [0, -100]], "w": 5},
+      {"pts": [[8, -5], [15, -5]], "w": 3.5},
+      {"pts": [[-5, -60], [12, -64], [28, -62]], "w": 3.5},
+      {"pts": [[-6, 64], [-10, 67]], "w": 3},
+      {"pts": [[-1, -40], [-17, -51]], "w": 3}
+    ],
+    "water": [
+      {"at": [-52, -16], "r": 3.2, "depth": 0.5, "level": 1.6},
+      {"at": [-46.5, -18], "r": 3.2, "depth": 0.5, "level": 1.6},
+      {"at": [-41, -20], "r": 3.2, "depth": 0.5, "level": 1.6},
+      {"at": [-37.5, -24], "r": 3.2, "depth": 0.5, "level": 1.6},
+      {"at": [-35, -29], "r": 3.2, "depth": 0.5, "level": 1.6},
+      {"at": [-33.5, -34.5], "r": 3.2, "depth": 0.5, "level": 1.6},
+      {"at": [-23.5, -46.0], "r": 4.6, "depth": 1.3, "level": 1.6},
+      {"at": [-26.75, -40.37], "r": 4.6, "depth": 1.3, "level": 1.6},
+      {"at": [-33.25, -40.37], "r": 4.6, "depth": 1.3, "level": 1.6},
+      {"at": [-36.5, -46.0], "r": 4.6, "depth": 1.3, "level": 1.6},
+      {"at": [-33.25, -51.63], "r": 4.6, "depth": 1.3, "level": 1.6},
+      {"at": [-26.75, -51.63], "r": 4.6, "depth": 1.3, "level": 1.6}
+    ]
+  },
+  "palette": {"ground": "#8DB25A", "ground2": "#A7C46A", "path": "#C9B07A", "cliff": "#8A8174", "accent": "#F2E3A0", "sky": "#BFD9EE", "fog": "#CFE3F0"},
+  "fogDensity": 0.006,
+  "weather": {"clear": 80, "rain": 20},
+  "spawns": [
+    {"id": "sp_route_1_s", "at": [0, 82], "yaw": 0},
+    {"id": "sp_route_1_n", "at": [0, -82], "yaw": 180},
+    {"id": "sp_route_1_ws", "at": [15, -6], "yaw": 0}
+  ],
+  "exits": [
+    {"id": "x_route_1_s", "at": [0, 96], "r": 5, "to": "town_1", "spawn": "sp_town_1_n", "label": "Larkhollow"},
+    {"id": "x_route_1_n", "at": [0, -96], "r": 5, "to": "forest", "spawn": "sp_forest_s", "label": "Murmurwood"}
+  ],
+  "props": [
+    {"kind": "chordstone", "at": [15, -10], "color": "#F5E6A8", "label": "Thistledown Chordstone"},
+    {"kind": "sign", "at": [18, -7], "yaw": 180, "label": "Chalk doodle of a grinning kin: 'CASS WAS HERE (first)'"},
+    {"kind": "sign", "at": [5, 88], "yaw": 0, "label": "Thistledown Way — north to Murmurwood"},
+    {"kind": "sign", "at": [-5, -88], "yaw": 180, "label": "South: Larkhollow"},
+    {"kind": "wall", "at": [-17, 72], "w": 10, "h": 1.3, "color": "#6E8F45", "label": "Stile"},
+    {"kind": "wall", "at": [-6.5, 74.5], "yaw": 90, "w": 4, "h": 1.3, "color": "#6E8F45"},
+    {"kind": "fence", "at": [-9.5, 72]},
+    {"kind": "wall", "at": [-24, 22], "yaw": 100, "w": 14, "h": 1.3, "color": "#6E8F45"},
+    {"kind": "wall", "at": [14, 62], "yaw": 80, "w": 16, "h": 1.3, "color": "#6E8F45"},
+    {"kind": "wall", "at": [24, -28], "yaw": 20, "w": 12, "h": 1.3, "color": "#6E8F45"},
+    {"kind": "wall", "at": [-40, 60], "yaw": 20, "w": 10, "h": 1.2, "color": "#9C9384"},
+    {"kind": "wall", "at": [40, -18], "yaw": 345, "w": 12, "h": 1.2, "color": "#9C9384"},
+    {"kind": "wall", "at": [35, -65], "w": 8, "h": 2.4, "color": "#CFC7B2", "label": "Old Chord Shrine"},
+    {"kind": "wall", "at": [30.5, -61], "yaw": 90, "w": 5, "h": 1.6, "color": "#CFC7B2"},
+    {"kind": "wall", "at": [39.5, -60], "yaw": 90, "w": 4, "h": 1.0, "color": "#CFC7B2"},
+    {"kind": "boulder", "at": [41, -64], "s": 0.8},
+    {"kind": "rock", "at": [29, -56]},
+    {"kind": "sign", "at": [21, 36], "yaw": 90, "label": "Kite Hill"},
+    {"kind": "crate", "at": [30, -54]},
+    {"kind": "lamp", "at": [4, 80]},
+    {"kind": "lamp", "at": [-4, -80]}
+  ],
+  "scatter": [
+    {"kind": "tree", "density": 0.9, "minDist": 5},
+    {"kind": "blossom", "density": 0.25, "minDist": 6},
+    {"kind": "bush", "density": 1.2, "minDist": 2.5},
+    {"kind": "grass", "density": 14, "minDist": 0.9},
+    {"kind": "flowers", "density": 6, "minDist": 1},
+    {"kind": "rock", "density": 0.4, "minDist": 4},
+    {"kind": "reeds", "density": 3, "minDist": 0.8, "avoidPaths": true}
+  ],
+  "npcs": [
+    {"id": "npc_route_1_juno", "at": [26, 31], "yaw": 0, "look": "climber", "name": "Juno", "dialogue": "route_1_juno", "role": "villager"},
+    {"id": "npc_route_1_morrow", "at": [-15, -52], "yaw": 270, "look": "angler", "name": "Morrow", "dialogue": "route_1_morrow", "role": "villager"}
+  ],
+  "trainers": [
+    {"id": "t_r1_01", "at": [-10, 40], "yaw": 90, "sight": 8},
+    {"id": "t_r1_02", "at": [15, 0], "yaw": 270, "sight": 8},
+    {"id": "t_r1_03", "at": [-20, -40], "yaw": 90, "sight": 8}
+  ],
+  "nodes": [
+    {"id": "rn_route_1_01", "type": "water", "at": [-17.5, -48], "yaw": 270, "kind": "current", "reward": {"item": "i_salve_2", "count": 2}},
+    {"id": "rn_route_1_02", "type": "lumen", "at": [35, -61], "yaw": 180, "kind": "beacon", "showIf": "flag_game_cleared", "reward": {"item": "i_chime_crown", "count": 2}}
+  ],
+  "pickups": [
+    {"id": "pk_route_1_01", "at": [20, 50], "item": "i_chime_reed", "count": 3},
+    {"id": "pk_route_1_02", "at": [-30, 10], "item": "i_cure_poison", "count": 1},
+    {"id": "pk_route_1_03", "at": [-15, 60], "item": "money", "money": 200, "hidden": true},
+    {"id": "pk_route_1_04", "at": [-38, -20], "item": "i_q_windchime", "count": 1, "showIf": "flag_q_chime_started"}
+  ],
+  "statics": [
+    {"id": "st_route_1_dozebud", "species": "c10", "lv": 4, "at": [-10, 70], "yaw": 180, "hideIf": "flag_capture_tutorial"}
+  ],
+  "wildRegions": [
+    {"at": [-25, 50], "r": 16},
+    {"at": [25, 12], "r": 18},
+    {"at": [-22, -26], "r": 16},
+    {"at": [20, -72], "r": 14}
+  ],
+  "maxWild": 6,
+  "encounters": "route_1",
+  "battleStages": [
+    {"at": [0, 50], "yaw": 90},
+    {"at": [-5, -15], "yaw": 90},
+    {"at": [10, -60], "yaw": 90}
+  ],
+  "waystone": [15, -10]
+}

@@ -1,0 +1,92 @@
+{
+ "format": "crpg-save",
+ "schemaVersion": 1,
+ "gameVersion": "0.9.0",
+ "savedAt": "2026-09-24T12:00:00.000Z",
+ "checksum": "1208064a",
+ "payload": {
+  "player": {
+   "name": "Rowan",
+   "pronoun": "they",
+   "look": {
+    "build": 0,
+    "skin": 1,
+    "hair": 2
+   },
+   "money": 1500,
+   "playtimeSec": 3600,
+   "starter": "c04"
+  },
+  "clockMinutes": 600,
+  "rngState": [
+   5,
+   6,
+   7,
+   8
+  ],
+  "zone": {
+   "id": "route_1",
+   "spawn": "from_town_1"
+  },
+  "lastHeal": {
+   "zone": "town_1",
+   "spawn": "hearth"
+  },
+  "party": [
+   "u1"
+  ],
+  "storage": [],
+  "instances": {
+   "u1": {
+    "uid": "u1",
+    "species": "c04",
+    "level": 9,
+    "xp": 729,
+    "potential": {
+     "hp": 10,
+     "atk": 10,
+     "def": 10,
+     "spa": 10,
+     "spd": 10,
+     "spe": 10
+    },
+    "temperament": "tm_steady",
+    "moves": [
+     {
+      "id": "m002",
+      "charges": 30
+     },
+     {
+      "id": "m001",
+      "charges": 25
+     }
+    ],
+    "hp": 30,
+    "status": null,
+    "bond": true
+   }
+  },
+  "inventory": {
+   "i_chime_reed": 3
+  },
+  "flags": {
+   "flag_game_started": true,
+   "flag_starter_chosen": true
+  },
+  "quests": {},
+  "seen": [
+   "c04",
+   "c10"
+  ],
+  "caught": [
+   "c04"
+  ],
+  "nodes": [],
+  "defeatedTrainers": [],
+  "stats": {
+   "battles": 3,
+   "captures": 0,
+   "steps": 900
+  }
+ }
+}

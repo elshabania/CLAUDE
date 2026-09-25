@@ -1,0 +1,255 @@
+{
+  "dlg_cave_foreman": {
+    "variants": [
+      {
+        "if": "node:rn_cave_01 && !flag_cave_heave_gate",
+        "lines": [
+          { "s": "Foreman Kett", "t": "Was that the boulder at the lower passage? Felt it in my teeth! The lower galleries are open, then." },
+          { "s": "Foreman Kett", "t": "Go careful. The coil crew's down there, and whatever they're doing, the stone doesn't like it." }
+        ],
+        "actions": [{ "set": "flag_cave_heave_gate" }]
+      },
+      {
+        "if": "flag_cave_miners_saved && !flag_kett_thanks",
+        "lines": [
+          { "s": "Foreman Kett", "t": "That's my Pebbles! Look at her, fat as a cushion. At least they fed her. Strange lot." },
+          { "s": "Foreman Kett", "t": "Every one of the crew's kin, home and grumbling. The Miners' Guild pays its debts — take these, and no arguing." }
+        ],
+        "actions": [
+          { "money": 500 },
+          { "give": "i_chime_brass", "n": 3 },
+          { "set": "flag_kett_thanks" }
+        ]
+      },
+      {
+        "if": "flag_q_samples_done",
+        "lines": [
+          { "s": "Foreman Kett", "t": "The assayer says those samples ring true — the stone's healthy under all that coil-rot. Best news this month." }
+        ]
+      },
+      {
+        "if": "flag_q_samples && flag_q_sample_1 && flag_q_sample_2 && flag_q_sample_3 && flag_q_sample_4",
+        "lines": [
+          { "s": "Foreman Kett", "t": "Four samples, four clean notes. Now I can prove to the Guild the Undertone's still singing underneath." },
+          { "s": "Foreman Kett", "t": "Silver Chimes from the Guild store, and your fee. You've earned the both of them." }
+        ],
+        "actions": [
+          { "give": "i_chime_silver", "n": 3 },
+          { "money": 1000 },
+          { "set": "flag_q_samples_done" },
+          { "questDone": "q_side_miners_samples" }
+        ]
+      },
+      {
+        "if": "flag_q_samples && has:i_q_crystal_sample && !flag_q_sample_1",
+        "lines": [{ "s": "Foreman Kett", "t": "A sample! Let me tap it — ting. Clean. That's one. Three more, hiding where the crystal grows thickest." }],
+        "actions": [{ "give": "i_q_crystal_sample", "n": -1 }, { "set": "flag_q_sample_1" }]
+      },
+      {
+        "if": "flag_q_samples && has:i_q_crystal_sample && !flag_q_sample_2",
+        "lines": [{ "s": "Foreman Kett", "t": "Number two. Ting! Lovely. You've an eye for a glint, you have." }],
+        "actions": [{ "give": "i_q_crystal_sample", "n": -1 }, { "set": "flag_q_sample_2" }]
+      },
+      {
+        "if": "flag_q_samples && has:i_q_crystal_sample && !flag_q_sample_3",
+        "lines": [{ "s": "Foreman Kett", "t": "Three! Ting. One more and the Guild can stop worrying. Well — worry less. They're the Guild." }],
+        "actions": [{ "give": "i_q_crystal_sample", "n": -1 }, { "set": "flag_q_sample_3" }]
+      },
+      {
+        "if": "flag_q_samples && has:i_q_crystal_sample && !flag_q_sample_4",
+        "lines": [{ "s": "Foreman Kett", "t": "The fourth! Ting — oh, that's a sweet one. Talk to me again, I need a moment with it." }],
+        "actions": [{ "give": "i_q_crystal_sample", "n": -1 }, { "set": "flag_q_sample_4" }]
+      },
+      {
+        "if": "flag_q_samples",
+        "lines": [
+          { "s": "Foreman Kett", "t": "Four samples: two in the upper galleries — far north-east and down the south tunnels — and two below." },
+          { "s": "Foreman Kett", "t": "Below, try the south-west crystal hollow and the deep north drift. They glint when you're close. Bring them one at a time." }
+        ]
+      },
+      {
+        "if": "flag_cave_miners_saved",
+        "lines": [
+          { "s": "Foreman Kett", "t": "Pebbles hasn't left my boot since you brought her up. The crew's calling you 'the Tuner who knocked'." }
+        ],
+        "choice": {
+          "options": [
+            { "label": "Need anything else?", "actions": [{ "set": "flag_q_samples" }, { "quest": "q_side_miners_samples", "step": 1 }] },
+            { "label": "Glad she's home.", "actions": [] }
+          ]
+        }
+      },
+      {
+        "lines": [
+          { "s": "Foreman Kett", "t": "Our kin've gone wandering since the hum dropped. Can't find their way up. Lower galleries are boulder-blocked." },
+          { "s": "Foreman Kett", "t": "And while you're poking about — the Guild wants crystal samples, four of 'em, to prove the stone's still sound." }
+        ],
+        "choice": {
+          "options": [
+            { "label": "I'll find your samples.", "actions": [{ "set": "flag_q_samples" }, { "quest": "q_side_miners_samples", "step": 1 }] },
+            { "label": "Kin first, crystals later.", "actions": [] }
+          ]
+        }
+      }
+    ]
+  },
+  "dlg_cave_miner_1": {
+    "variants": [
+      {
+        "if": "flag_cave_miners_saved",
+        "lines": [{ "s": "Miner Dunn", "t": "My Rollith's back! Rolled straight into my shins. Best bruise I've ever had." }]
+      },
+      {
+        "if": "flag_cave_heave_gate",
+        "lines": [
+          { "s": "Miner Dunn", "t": "You got past the boulder? Then you've seen the coil crew. Big fellow in charge — ex-quarry, by the look of his hands." },
+          { "s": "Miner Dunn", "t": "They've a siphon clamped on the lower stone, north-west. That's where the hum went. I'd bet my lamp on it." }
+        ]
+      },
+      {
+        "lines": [
+          { "s": "Miner Dunn", "t": "My Rollith's never wandered in her life. The hum stopped, and off she went, like she'd lost the way home." },
+          { "s": "Miner Dunn", "t": "Engineers went down past the passage before the boulder settled. Funny timing, that." }
+        ]
+      }
+    ]
+  },
+  "dlg_cave_miner_2": {
+    "variants": [
+      {
+        "if": "flag_cave_miners_saved",
+        "lines": [{ "s": "Miner Ivo", "t": "Kin all home, stone humming again. I might even go back to complaining about normal things. Like my knees." }]
+      },
+      {
+        "lines": [
+          { "s": "Miner Ivo", "t": "See the old brass lift by the east gallery? Hasn't run since the hum dropped. Needs a buzz in its lode." },
+          { "s": "Miner Ivo", "t": "Spark it with an electric kin and it'll carry you to the upper ledge. Somebody stashed Chimes up there. Wasn't me." }
+        ]
+      }
+    ]
+  },
+  "dlg_cave_miner_3": {
+    "variants": [
+      {
+        "if": "flag_cave_miners_saved",
+        "lines": [
+          { "s": "Miner Aggie", "t": "A crate down there says 'Strays — to the Stillhouse'. So where's the Stillhouse, and what else is in it?" },
+          { "s": "Miner Aggie", "t": "If a Larkhollow kin went missing, I'd start asking that question very loudly." }
+        ]
+      },
+      {
+        "lines": [
+          { "s": "Miner Aggie", "t": "Forty years underground. You learn the stone's voice like your mother's. And right now it's whispering." },
+          { "s": "Miner Aggie", "t": "There's a cracked wall at the south end, too. Daylight behind it — the old tunnel to Brackenridge. A stone kin could shove it." }
+        ]
+      }
+    ]
+  },
+  "dlg_cave_steward": {
+    "variants": [
+      {
+        "if": "node:rn_cave_01",
+        "lines": [
+          { "s": "Steward Orrin", "t": "There. It'll stay open for good. Catch a stone friend when you can — the wild's full of them." },
+          { "s": "Steward Orrin", "t": "Lower galleries are west. Mind the coil crew. They'll ask you to keep two metres back. Politely. Repeatedly." }
+        ],
+        "actions": [{ "set": "flag_cave_heave_gate" }]
+      },
+      {
+        "if": "!has:i_keynote_1",
+        "lines": [
+          { "s": "Steward Orrin", "t": "Stone glyph. It won't answer until you carry a Keynote tuned to stone. Rootloft's Cantor gives those out." }
+        ]
+      },
+      {
+        "lines": [
+          { "s": "Steward Orrin", "t": "Stone glyph. Needs a stone voice to shift it. I can lend you one if you're short." },
+          { "s": "Steward Orrin", "t": "That glyph wants a stone voice. Not carrying one? I'll lend you mine — just this once." }
+        ],
+        "choice": {
+          "options": [
+            { "label": "Please lend a hand", "actions": [{ "steward": "rn_cave_01" }, { "set": "flag_cave_heave_gate" }] },
+            { "label": "I'll try it myself", "actions": [] }
+          ]
+        }
+      }
+    ]
+  },
+  "dlg_t_still_03_pre": {
+    "variants": [
+      {
+        "lines": [{ "s": "Survey Engineer Ula", "t": "Coil crew seven. Please keep a two-metre clearance from live equipment." }],
+        "actions": [{ "set": "flag_cave_heave_gate" }]
+      }
+    ]
+  },
+  "dlg_t_still_03_post": {
+    "variants": [{ "lines": [{ "s": "Survey Engineer Ula", "t": "Right. I'll… log that as a delay." }] }]
+  },
+  "dlg_t_still_03_after": {
+    "variants": [{ "lines": [{ "s": "Survey Engineer Ula", "t": "We don't *take* kin. We collect strays. There's a difference. There's a form for it." }] }]
+  },
+  "dlg_t_still_04_pre": {
+    "variants": [
+      {
+        "lines": [{ "s": "Survey Engineer Wyn", "t": "Is this about the coil? Everyone's always upset about the coil." }],
+        "actions": [{ "set": "flag_cave_heave_gate" }]
+      }
+    ]
+  },
+  "dlg_t_still_04_post": {
+    "variants": [{ "lines": [{ "s": "Survey Engineer Wyn", "t": "Well, that wasn't in the risk assessment. The Warden's just past the pen. He'll want a word. Several." }] }]
+  },
+  "dlg_t_still_04_after": {
+    "variants": [{ "lines": [{ "s": "Survey Engineer Wyn", "t": "Honestly? I joined for the helmet. It's very warm." }] }]
+  },
+  "dlg_t_admin_brann_1_pre": {
+    "variants": [
+      {
+        "lines": [
+          { "s": "Warden Brann", "t": "Coil's three-quarters full and here comes a kid with a troupe. Course you do." },
+          { "s": "Warden Brann", "t": "It's a job, kid. Quiet pays better than rock. Now move, or I'll move you." }
+        ],
+        "actions": [{ "set": "flag_cave_heave_gate" }]
+      }
+    ]
+  },
+  "dlg_t_admin_brann_1_post": {
+    "variants": [
+      {
+        "lines": [
+          { "s": "Warden Brann", "t": "…Magister won't like this. Neither do I, much." },
+          { "s": "", "t": "Behind Brann, a neat fenced pen. A dozen miners' kin blink out at you — clean, fed, and very lost." },
+          { "s": "Warden Brann", "t": "We didn't take 'em. They wandered in lost. We fed 'em. Paperwork says 'hold for safekeeping'." },
+          { "s": "", "t": "A crate by the pen is stencilled: STRAYS — TO THE STILLHOUSE." },
+          { "s": "Warden Brann", "t": "Take the miners' lot back up. The rest go to the Stillhouse. That's procedure. …I don't write procedure." },
+          { "s": "", "t": "Brann unhooks the pen gate and looks away. The miners' kin trot past you toward the upper galleries, humming." }
+        ],
+        "actions": [
+          { "questDone": "q_main_ch04" },
+          { "quest": "q_main_ch05", "step": 1 }
+        ]
+      }
+    ]
+  },
+  "dlg_t_admin_brann_1_after": {
+    "variants": [
+      {
+        "lines": [
+          { "s": "Warden Brann", "t": "Up-shaft's unlocked. Comes out in Sallowfen. Vey's lot are out there fitting a bell. You'll hear Vey before you see her." },
+          { "s": "Warden Brann", "t": "And kid — the Stillhouse isn't a place you find by asking. Keep your ears open." }
+        ]
+      }
+    ]
+  },
+  "dlg_04_miner_01": { "variants": [{ "lines": [{ "s": "Foreman Kett", "t": "Our kin've gone wandering since the hum dropped. Can't find their way up. Lower galleries are boulder-blocked." }] }] },
+  "dlg_04_steward_01": { "variants": [{ "lines": [{ "s": "Steward Orrin", "t": "Stone glyph. Needs a stone voice to shift it. I can lend you one if you're short." }] }] },
+  "dlg_04_still_01": { "variants": [{ "lines": [{ "s": "Stillhand", "t": "Coil crew seven. Please keep a two-metre clearance from live equipment." }] }] },
+  "dlg_04_still_02": { "variants": [{ "lines": [{ "s": "Stillhand", "t": "Right. I'll… log that as a delay." }] }] },
+  "dlg_04_brann_pre": { "variants": [{ "lines": [{ "s": "Warden Brann", "t": "It's a job, kid. Quiet pays better than rock. Now move, or I'll move you." }] }] },
+  "dlg_04_brann_win": { "variants": [{ "lines": [{ "s": "Warden Brann", "t": "…Magister won't like this. Neither do I, much." }] }] },
+  "dlg_04_brann_lose": { "variants": [{ "lines": [{ "s": "Warden Brann", "t": "Go home. Get warm. Leave the stone to people who know what they're doing." }] }] },
+  "dlg_04_brann_pen": { "variants": [{ "lines": [{ "s": "Warden Brann", "t": "We didn't take 'em. They wandered in lost. We fed 'em. Paperwork says 'hold for safekeeping'." }] }] },
+  "dlg_04_brann_after": { "variants": [{ "lines": [{ "s": "Warden Brann", "t": "Take the miners' lot back up. The rest go to the Stillhouse. That's procedure. …I don't write procedure." }] }] },
+  "dlg_04_miner_02": { "variants": [{ "lines": [{ "s": "Foreman Kett", "t": "That's my Pebbles! Look at her, fat as a cushion. At least they fed her. Strange lot." }] }] }
+}

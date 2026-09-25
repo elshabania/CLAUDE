@@ -1,0 +1,135 @@
+import { create } from 'zustand';
+
+export type QualityProfile = 'high' | 'balanced' | 'mobile';
+
+export interface Settings {
+  quality: QualityProfile;
+  qualityAuto: boolean;
+  master: number;
+  music: number;
+  sfx: number;
+  muted: boolean;
+  textSize: 100 | 125 | 150;
+  textSpeed: 'slow' | 'normal' | 'instant';
+  reducedMotion: boolean;
+  cameraSensitivity: number;
+  invertY: boolean;
+  showPerf: boolean;
+  subtitles: boolean;
+}
+
+const KEY = 'crpg:settings';
+
+/** True when WebGL runs on a CPU rasteriser (SwiftShader, llvmpipe…): those get the Mobile profile (rendering §6.1). */
+export function softwareRenderer(): boolean {
+  if (typeof document === 'undefined') return false;
+  try {
+    const gl = document.createElement('canvas').getContext('webgl2') as WebGL2RenderingContext | null;
+    if (!gl) return false;
+    const ext = gl.getExtension('WEBGL_debug_renderer_info');
+    const name = String(ext ? gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER));
+    gl.getExtension('WEBGL_lose_context')?.loseContext();
+    return /swiftshader|llvmpipe|softpipe|software/i.test(name);
+  } catch {
+    return false;
+  }
+}
+
+export function detectQuality(): QualityProfile {
+  if (typeof navigator === 'undefined') return 'balanced';
+  if (softwareRenderer()) return 'mobile';
+  const touch = typeof window !== 'undefined' && ('ontouchstart' in window || navigator.maxTouchPoints > 0);
+  const small = typeof window !== 'undefined' && Math.min(window.innerWidth, window.innerHeight) < 600;
+  if (touch && small) return 'mobile';
+  const cores = navigator.hardwareConcurrency ?? 4;
+  const mem = (navigator as any).deviceMemory ?? 8;
+  if (cores >= 8 && mem >= 8 && !touch) return 'high';
+  return 'balanced';
+}
+
+function defaults(): Settings {
+  const prefersReduced = typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+  return {
+    quality: detectQuality(),
+    qualityAuto: true,
+    master: 0.8,
+    music: 0.6,
+    sfx: 0.8,
+    muted: false,
+    textSize: 100,
+    textSpeed: 'normal',
+    reducedMotion: !!prefersReduced,
+    cameraSensitivity: 1,
+    invertY: false,
+    showPerf: false,
+    subtitles: true,
+  };
+}
+
+function load(): Settings {
+  const d = defaults();
+  try {
+    const raw = localStorage.getItem(KEY);
+    if (!raw) return d;
+    const env = JSON.parse(raw);
+    if (env?.v !== 1) return d;
+    const s = { ...d, ...env.settings } as Settings;
+    if (s.qualityAuto) s.quality = d.quality;
+    return s;
+  } catch {
+    return d;
+  }
+}
+
+interface SettingsState extends Settings {
+  set: (patch: Partial<Settings>) => void;
+}
+
+let timer: ReturnType<typeof setTimeout> | undefined;
+export const useSettings = create<SettingsState>((set, get) => ({
+  ...load(),
+  set: (patch) => {
+    set(patch);
+    clearTimeout(timer);
+    timer = setTimeout(() => {
+      try {
+        const { set: _s, ...rest } = get();
+        localStorage.setItem(KEY, JSON.stringify({ v: 1, settings: rest }));
+      } catch {
+        /* storage unavailable: settings stay in memory */
+      }
+    }, 300);
+  },
+}));
+
+export interface QualityParams {
+  dpr: number;
+  shadows: boolean;
+  shadowSize: number;
+  vegetation: number;   // density multiplier
+  drawDistance: number;
+  particles: number;
+  bloom: boolean;
+  ao: boolean;
+  dof: boolean;
+  antialias: boolean;
+  maxWild: number;
+  faceTex: number;
+  water: 'full' | 'simple';
+  /** procedural PBR texture-array resolution (px per layer side) */
+  surfaceRes: number;
+  /** GPU grass blades (tufts) around the camera and the radius they cover (m) */
+  grass: { count: number; radius: number };
+  /** post stack: full = SMAA + N8AO + bloom + grade + vignette; light = N8AO (half-res, low) + bloom; none */
+  post: 'full' | 'light' | 'none';
+  /** cheap surface shaders (single projection, no anti-tiling sample) */
+  cheapSurfaces: boolean;
+  /** image-based lighting from HDRIs (PMREM); off = hemisphere light only, no HDRI download */
+  ibl: boolean;
+}
+
+export const QUALITY: Record<QualityProfile, QualityParams> = {
+  high: { dpr: 2, shadows: true, shadowSize: 2048, vegetation: 1, drawDistance: 220, particles: 1, bloom: true, ao: true, dof: true, antialias: true, maxWild: 6, faceTex: 256, water: 'full', surfaceRes: 512, grass: { count: 84000, radius: 34 }, post: 'full', cheapSurfaces: false, ibl: true },
+  balanced: { dpr: 1.5, shadows: true, shadowSize: 1024, vegetation: 0.65, drawDistance: 160, particles: 0.6, bloom: true, ao: false, dof: false, antialias: true, maxWild: 6, faceTex: 256, water: 'full', surfaceRes: 512, grass: { count: 36000, radius: 26 }, post: 'light', cheapSurfaces: false, ibl: true },
+  mobile: { dpr: 1.25, shadows: false, shadowSize: 512, vegetation: 0.35, drawDistance: 110, particles: 0.35, bloom: false, ao: false, dof: false, antialias: false, maxWild: 6, faceTex: 128, water: 'simple', surfaceRes: 256, grass: { count: 9000, radius: 16 }, post: 'none', cheapSurfaces: true, ibl: false },
+};

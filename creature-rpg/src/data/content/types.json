@@ -1,0 +1,136 @@
+{
+ "ids": [
+  "fire",
+  "water",
+  "electric",
+  "verdant",
+  "stone",
+  "frost",
+  "gale",
+  "toxin",
+  "shade",
+  "lumen"
+ ],
+ "matrix": {
+  "fire": {
+   "fire": 1,
+   "water": 1,
+   "electric": 4,
+   "verdant": 4,
+   "stone": 1,
+   "frost": 4,
+   "gale": 2,
+   "toxin": 2,
+   "shade": 2,
+   "lumen": 2
+  },
+  "water": {
+   "fire": 4,
+   "water": 1,
+   "electric": 2,
+   "verdant": 1,
+   "stone": 4,
+   "frost": 1,
+   "gale": 2,
+   "toxin": 4,
+   "shade": 2,
+   "lumen": 2
+  },
+  "electric": {
+   "fire": 1,
+   "water": 4,
+   "electric": 1,
+   "verdant": 2,
+   "stone": 1,
+   "frost": 2,
+   "gale": 4,
+   "toxin": 2,
+   "shade": 2,
+   "lumen": 2
+  },
+  "verdant": {
+   "fire": 2,
+   "water": 4,
+   "electric": 2,
+   "verdant": 1,
+   "stone": 4,
+   "frost": 2,
+   "gale": 1,
+   "toxin": 1,
+   "shade": 2,
+   "lumen": 4
+  },
+  "stone": {
+   "fire": 4,
+   "water": 2,
+   "electric": 4,
+   "verdant": 1,
+   "stone": 1,
+   "frost": 4,
+   "gale": 0,
+   "toxin": 2,
+   "shade": 2,
+   "lumen": 1
+  },
+  "frost": {
+   "fire": 1,
+   "water": 1,
+   "electric": 2,
+   "verdant": 4,
+   "stone": 4,
+   "frost": 1,
+   "gale": 4,
+   "toxin": 2,
+   "shade": 2,
+   "lumen": 2
+  },
+  "gale": {
+   "fire": 4,
+   "water": 2,
+   "electric": 1,
+   "verdant": 2,
+   "stone": 2,
+   "frost": 1,
+   "gale": 1,
+   "toxin": 4,
+   "shade": 4,
+   "lumen": 2
+  },
+  "toxin": {
+   "fire": 2,
+   "water": 4,
+   "electric": 2,
+   "verdant": 4,
+   "stone": 0,
+   "frost": 2,
+   "gale": 2,
+   "toxin": 1,
+   "shade": 1,
+   "lumen": 4
+  },
+  "shade": {
+   "fire": 2,
+   "water": 2,
+   "electric": 4,
+   "verdant": 2,
+   "stone": 2,
+   "frost": 2,
+   "gale": 2,
+   "toxin": 1,
+   "shade": 1,
+   "lumen": 4
+  },
+  "lumen": {
+   "fire": 2,
+   "water": 2,
+   "electric": 1,
+   "verdant": 2,
+   "stone": 2,
+   "frost": 4,
+   "gale": 2,
+   "toxin": 4,
+   "shade": 4,
+   "lumen": 1
+  }
+ }
+}

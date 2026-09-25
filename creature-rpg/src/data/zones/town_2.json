@@ -1,0 +1,1069 @@
+{
+  "id": "town_2",
+  "name": "Knellstone",
+  "biome": "town",
+  "attuned": null,
+  "music": "town_2",
+  "terrain": {
+    "seed": 212,
+    "size": [
+      170,
+      170
+    ],
+    "base": 1,
+    "amp": 1.2,
+    "scale": 30,
+    "rim": 20,
+    "rimWidth": 14,
+    "hills": [
+      {
+        "at": [
+          0,
+          -100
+        ],
+        "r": 72,
+        "h": 26
+      },
+      {
+        "at": [
+          -70,
+          -60
+        ],
+        "r": 30,
+        "h": 12
+      },
+      {
+        "at": [
+          70,
+          -10
+        ],
+        "r": 18,
+        "h": 6
+      },
+      {
+        "at": [
+          -62,
+          -2
+        ],
+        "r": 10,
+        "h": -2
+      }
+    ],
+    "flats": [
+      {
+        "at": [
+          0,
+          12
+        ],
+        "r": 10,
+        "h": 3.38
+      },
+      {
+        "at": [
+          20,
+          14
+        ],
+        "r": 7,
+        "h": 2.66
+      },
+      {
+        "at": [
+          21,
+          23
+        ],
+        "r": 5,
+        "h": 2.1
+      },
+      {
+        "at": [
+          -30,
+          8
+        ],
+        "r": 6,
+        "h": 3.13
+      },
+      {
+        "at": [
+          -30,
+          16
+        ],
+        "r": 4,
+        "h": 2.44
+      },
+      {
+        "at": [
+          0,
+          -64
+        ],
+        "r": 11,
+        "h": 21.52
+      },
+      {
+        "at": [
+          0,
+          -50
+        ],
+        "r": 6,
+        "h": 17.56
+      },
+      {
+        "at": [
+          -40,
+          30
+        ],
+        "r": 8,
+        "h": 1.67
+      },
+      {
+        "at": [
+          0,
+          -40
+        ],
+        "r": 8,
+        "h": 14.24
+      },
+      {
+        "at": [
+          45,
+          -30
+        ],
+        "r": 6,
+        "h": 7.9
+      },
+      {
+        "at": [
+          -66,
+          0
+        ],
+        "r": 8,
+        "h": 1.67
+      },
+      {
+        "at": [
+          40,
+          -68
+        ],
+        "r": 6,
+        "h": 16.79
+      },
+      {
+        "at": [
+          -10,
+          -33
+        ],
+        "r": 5,
+        "h": 11.95
+      },
+      {
+        "at": [
+          30,
+          -23
+        ],
+        "r": 5,
+        "h": 8.14
+      },
+      {
+        "at": [
+          -45,
+          -38
+        ],
+        "r": 5,
+        "h": 13.22
+      },
+      {
+        "at": [
+          -45,
+          -10
+        ],
+        "r": 4,
+        "h": 5.19
+      },
+      {
+        "at": [
+          30,
+          45
+        ],
+        "r": 5,
+        "h": 1.59
+      },
+      {
+        "at": [
+          -25,
+          45
+        ],
+        "r": 5,
+        "h": 0.71
+      },
+      {
+        "at": [
+          45,
+          10
+        ],
+        "r": 5,
+        "h": 3.33
+      },
+      {
+        "at": [
+          -50,
+          18
+        ],
+        "r": 5,
+        "h": 2.26
+      },
+      {
+        "at": [
+          28,
+          -45
+        ],
+        "r": 5,
+        "h": 13.62
+      },
+      {
+        "at": [
+          -28,
+          -18
+        ],
+        "r": 5,
+        "h": 7.73
+      },
+      {
+        "at": [
+          55,
+          32
+        ],
+        "r": 5,
+        "h": 1.55
+      },
+      {
+        "at": [
+          -15,
+          -52
+        ],
+        "r": 5,
+        "h": 17.52
+      },
+      {
+        "at": [
+          22,
+          -60
+        ],
+        "r": 5,
+        "h": 18.26
+      },
+      {
+        "at": [
+          -50,
+          30
+        ],
+        "r": 2,
+        "h": 1.9
+      },
+      {
+        "at": [
+          8,
+          30
+        ],
+        "r": 4,
+        "h": 2.01
+      }
+    ],
+    "paths": [
+      {
+        "pts": [
+          [
+            0,
+            85
+          ],
+          [
+            0,
+            67
+          ],
+          [
+            0,
+            46
+          ]
+        ],
+        "w": 6
+      }
+    ]
+  },
+  "palette": {
+    "ground": "#9C9580",
+    "ground2": "#B3AA92",
+    "path": "#CFC5AE",
+    "cliff": "#8E8676",
+    "accent": "#D08C3A",
+    "sky": "#E4C7A2",
+    "fog": "#D8C3A6"
+  },
+  "fogDensity": 0.005,
+  "weather": {
+    "clear": 100
+  },
+  "spawns": [
+    {
+      "id": "sp_town_2_s",
+      "at": [
+        0,
+        67
+      ],
+      "yaw": 0
+    },
+    {
+      "id": "sp_town_2_w",
+      "at": [
+        -67,
+        0
+      ],
+      "yaw": 90
+    },
+    {
+      "id": "sp_town_2_n",
+      "at": [
+        40,
+        -67
+      ],
+      "yaw": 180
+    },
+    {
+      "id": "sp_town_2_hall",
+      "at": [
+        0,
+        -49
+      ],
+      "yaw": 180
+    },
+    {
+      "id": "sp_town_2_hearth",
+      "at": [
+        20,
+        26
+      ],
+      "yaw": 0
+    },
+    {
+      "id": "sp_town_2_ws",
+      "at": [
+        0,
+        16
+      ],
+      "yaw": 0
+    }
+  ],
+  "exits": [
+    {
+      "id": "x_town_2_s",
+      "at": [
+        0,
+        81
+      ],
+      "r": 5,
+      "to": "route_2",
+      "spawn": "sp_route_2_n",
+      "label": "Brackenridge Pass"
+    },
+    {
+      "id": "x_town_2_w",
+      "at": [
+        -81,
+        0
+      ],
+      "r": 5,
+      "to": "cave",
+      "spawn": "sp_cave_e",
+      "label": "The Undertone",
+      "gate": {
+        "flag": "flag_trial_2_cleared",
+        "message": "The quarry lift is chained. A tag reads: 'Lower galleries — Keynote holders only. By order of the Knell Hall.'"
+      }
+    },
+    {
+      "id": "x_town_2_n",
+      "at": [
+        40,
+        -81
+      ],
+      "r": 5,
+      "to": "lake",
+      "spawn": "sp_lake_s",
+      "label": "Sillowmere (old lake road)",
+      "gate": {
+        "register": "rn_lake_02",
+        "message": "A rockfall buries the old lake road. It sounds hollow — as if it could be shifted from the other side."
+      }
+    },
+    {
+      "id": "x_town_2_hall",
+      "at": [
+        0,
+        -56
+      ],
+      "r": 2.5,
+      "to": "trial_2",
+      "spawn": "sp_trial_2_door",
+      "label": "Knell Hall",
+      "gate": {
+        "flag": "flag_rival_2_done",
+        "message": "The Hall door is shut. A slate says: 'Challengers — the Cantor is out walking the ridge road. Back soon.'"
+      }
+    }
+  ],
+  "props": [
+    {
+      "kind": "hall_stone",
+      "at": [
+        0,
+        -64
+      ],
+      "yaw": 180,
+      "color": "#D6B25E",
+      "label": "Knell Hall"
+    },
+    {
+      "kind": "chordstone",
+      "at": [
+        0,
+        12
+      ],
+      "color": "#D08C3A",
+      "label": "Knellstone Chordstone"
+    },
+    {
+      "kind": "hearth",
+      "at": [
+        20,
+        14
+      ],
+      "yaw": 180,
+      "label": "Knellstone Hearthrest"
+    },
+    {
+      "kind": "stall",
+      "at": [
+        25,
+        21.5
+      ],
+      "yaw": 180,
+      "color": "#3D7E8C",
+      "label": "Chandlery"
+    },
+    {
+      "kind": "house",
+      "at": [
+        -30,
+        8
+      ],
+      "yaw": 180,
+      "color": "#D9CBB0",
+      "roof": "#8C5A3C",
+      "w": 8,
+      "d": 6,
+      "label": "Aske's Tea House"
+    },
+    {
+      "kind": "stall",
+      "at": [
+        -25,
+        16
+      ],
+      "yaw": 180,
+      "color": "#E8C27A"
+    },
+    {
+      "kind": "house2",
+      "at": [
+        30,
+        45
+      ],
+      "yaw": 270,
+      "color": "#C2B8A3",
+      "roof": "#5B6770"
+    },
+    {
+      "kind": "house",
+      "at": [
+        -25,
+        45
+      ],
+      "yaw": 90,
+      "color": "#CFC5AE",
+      "roof": "#5B6770"
+    },
+    {
+      "kind": "house",
+      "at": [
+        45,
+        10
+      ],
+      "yaw": 270,
+      "color": "#C2B8A3",
+      "roof": "#6B5A4A"
+    },
+    {
+      "kind": "house2",
+      "at": [
+        -50,
+        18
+      ],
+      "yaw": 90,
+      "color": "#B9AF98",
+      "roof": "#5B6770"
+    },
+    {
+      "kind": "house",
+      "at": [
+        28,
+        -45
+      ],
+      "yaw": 270,
+      "color": "#C2B8A3",
+      "roof": "#5B6770"
+    },
+    {
+      "kind": "house2",
+      "at": [
+        -28,
+        -18
+      ],
+      "yaw": 90,
+      "color": "#CFC5AE",
+      "roof": "#6B5A4A"
+    },
+    {
+      "kind": "house",
+      "at": [
+        55,
+        32
+      ],
+      "yaw": 270,
+      "color": "#B9AF98",
+      "roof": "#5B6770"
+    },
+    {
+      "kind": "house",
+      "at": [
+        -15,
+        -52
+      ],
+      "yaw": 90,
+      "color": "#C2B8A3",
+      "roof": "#5B6770"
+    },
+    {
+      "kind": "house",
+      "at": [
+        22,
+        -60
+      ],
+      "yaw": 270,
+      "color": "#CFC5AE",
+      "roof": "#5B6770"
+    },
+    {
+      "kind": "hall_stone",
+      "at": [
+        -10,
+        -35
+      ],
+      "yaw": 180,
+      "s": 0.4,
+      "color": "#D08C3A",
+      "label": "East Bell (off-key)"
+    },
+    {
+      "kind": "hall_stone",
+      "at": [
+        30,
+        -25
+      ],
+      "yaw": 180,
+      "s": 0.4,
+      "color": "#D08C3A",
+      "label": "Crane Bell (off-key)"
+    },
+    {
+      "kind": "hall_stone",
+      "at": [
+        -45,
+        -40
+      ],
+      "yaw": 180,
+      "s": 0.4,
+      "color": "#D08C3A",
+      "label": "Quarry Bell (off-key)"
+    },
+    {
+      "kind": "wall",
+      "at": [
+        48,
+        -32
+      ],
+      "w": 0.9,
+      "h": 12,
+      "color": "#6B4A33",
+      "label": "Quarry crane"
+    },
+    {
+      "kind": "crate",
+      "at": [
+        50,
+        -29
+      ]
+    },
+    {
+      "kind": "crate",
+      "at": [
+        51,
+        -30
+      ]
+    },
+    {
+      "kind": "crate",
+      "at": [
+        42,
+        -34
+      ]
+    },
+    {
+      "kind": "wall",
+      "at": [
+        -84,
+        0
+      ],
+      "w": 10,
+      "h": 4.5,
+      "color": "#6B6258",
+      "yaw": 90,
+      "label": "Quarry lift gate",
+      "hideIf": "flag_trial_2_cleared"
+    },
+    {
+      "kind": "wall",
+      "at": [
+        -72,
+        -7
+      ],
+      "w": 2,
+      "h": 7,
+      "color": "#6B4A33"
+    },
+    {
+      "kind": "wall",
+      "at": [
+        -72,
+        7
+      ],
+      "w": 2,
+      "h": 7,
+      "color": "#6B4A33"
+    },
+    {
+      "kind": "sign",
+      "at": [
+        -64,
+        6
+      ],
+      "yaw": 90,
+      "label": "Quarry lift — to the Undertone"
+    },
+    {
+      "kind": "wall",
+      "at": [
+        40,
+        -84
+      ],
+      "w": 12,
+      "h": 6,
+      "color": "#8E8676",
+      "label": "Rockfall",
+      "hideIf": "node:rn_lake_02"
+    },
+    {
+      "kind": "lamp",
+      "at": [
+        -6,
+        18
+      ]
+    },
+    {
+      "kind": "lamp",
+      "at": [
+        6,
+        6
+      ]
+    },
+    {
+      "kind": "lamp",
+      "at": [
+        14,
+        22
+      ]
+    },
+    {
+      "kind": "lamp",
+      "at": [
+        -4,
+        50
+      ]
+    },
+    {
+      "kind": "lamp",
+      "at": [
+        4,
+        38
+      ]
+    },
+    {
+      "kind": "lamp",
+      "at": [
+        -6,
+        -46
+      ]
+    },
+    {
+      "kind": "lamp",
+      "at": [
+        6,
+        -46
+      ]
+    },
+    {
+      "kind": "lamp",
+      "at": [
+        -36,
+        14
+      ]
+    },
+    {
+      "kind": "lamp",
+      "at": [
+        -60,
+        -6
+      ]
+    },
+    {
+      "kind": "well",
+      "at": [
+        -8,
+        30
+      ]
+    },
+    {
+      "kind": "sign",
+      "at": [
+        5,
+        70
+      ],
+      "yaw": 0,
+      "label": "Knellstone"
+    },
+    {
+      "kind": "sign",
+      "at": [
+        5,
+        -44
+      ],
+      "yaw": 0,
+      "label": "Knell Hall — Cantor Dorran Shale"
+    },
+    {
+      "kind": "crate",
+      "at": [
+        -34,
+        12
+      ]
+    },
+    {
+      "kind": "crate",
+      "at": [
+        60,
+        -8
+      ]
+    },
+    {
+      "kind": "crate",
+      "at": [
+        62,
+        -10
+      ]
+    },
+    {
+      "kind": "wall",
+      "at": [
+        -20,
+        28
+      ],
+      "w": 14,
+      "h": 1.0,
+      "color": "#A89E88"
+    },
+    {
+      "kind": "wall",
+      "at": [
+        30,
+        -8
+      ],
+      "w": 16,
+      "h": 1.0,
+      "color": "#A89E88"
+    },
+    {
+      "kind": "wall",
+      "at": [
+        -28,
+        -30
+      ],
+      "w": 12,
+      "h": 1.0,
+      "color": "#A89E88"
+    }
+  ],
+  "scatter": [
+    {
+      "kind": "grass",
+      "density": 5,
+      "minDist": 1.2
+    },
+    {
+      "kind": "flowers",
+      "density": 1.5,
+      "minDist": 1.5
+    },
+    {
+      "kind": "bush",
+      "density": 0.6,
+      "minDist": 3
+    },
+    {
+      "kind": "rock",
+      "density": 0.6,
+      "minDist": 3
+    },
+    {
+      "kind": "boulder",
+      "density": 0.15,
+      "minDist": 8
+    },
+    {
+      "kind": "pine",
+      "density": 0.12,
+      "minDist": 9
+    }
+  ],
+  "npcs": [
+    {
+      "id": "npc_hk_tobin",
+      "at": [
+        17,
+        20
+      ],
+      "yaw": 180,
+      "look": "hearth2",
+      "name": "Tobin",
+      "dialogue": "dlg_town_2_tobin",
+      "role": "hearth"
+    },
+    {
+      "id": "npc_ch_garrow",
+      "at": [
+        25,
+        20
+      ],
+      "yaw": 180,
+      "look": "chandler2",
+      "name": "Garrow",
+      "dialogue": "dlg_town_2_garrow",
+      "role": "shop",
+      "shop": "shop_town_2"
+    },
+    {
+      "id": "npc_marra",
+      "at": [
+        -30,
+        15
+      ],
+      "yaw": 180,
+      "look": "marra",
+      "name": "Marra Aske",
+      "dialogue": "dlg_town_2_marra",
+      "role": "quest",
+      "hideIf": "flag_trial_3_cleared"
+    },
+    {
+      "id": "npc_bellwright",
+      "at": [
+        -45,
+        -10
+      ],
+      "yaw": 90,
+      "look": "villagerD",
+      "name": "Old Hesketh, Bellwright",
+      "dialogue": "dlg_town_2_bellwright",
+      "role": "quest"
+    },
+    {
+      "id": "npc_town_2_gossip",
+      "at": [
+        8,
+        30
+      ],
+      "yaw": 270,
+      "look": "villagerA",
+      "name": "Quarrywife Brisk",
+      "dialogue": "dlg_town_2_gossip",
+      "role": "villager"
+    },
+    {
+      "id": "npc_town_2_child",
+      "at": [
+        11,
+        32
+      ],
+      "yaw": 90,
+      "look": "villagerC",
+      "name": "Pell",
+      "dialogue": "dlg_town_2_child",
+      "role": "villager"
+    },
+    {
+      "id": "npc_town_2_quarryman",
+      "at": [
+        44,
+        -26
+      ],
+      "yaw": 270,
+      "look": "hiker",
+      "name": "Crane Hand",
+      "dialogue": "dlg_town_2_crane",
+      "role": "villager"
+    },
+    {
+      "id": "npc_town_2_gatekeeper",
+      "at": [
+        -62,
+        6
+      ],
+      "yaw": 90,
+      "look": "villagerB",
+      "name": "Lift Keeper",
+      "dialogue": "dlg_town_2_liftkeeper",
+      "role": "villager"
+    },
+    {
+      "id": "npc_town_2_surveyor",
+      "at": [
+        -4,
+        -28
+      ],
+      "yaw": 0,
+      "look": "stillhand",
+      "name": "Survey Engineer",
+      "dialogue": "dlg_town_2_surveyor",
+      "role": "villager",
+      "hideIf": "flag_trial_2_cleared"
+    },
+    {
+      "id": "npc_town_2_hallfan",
+      "at": [
+        6,
+        -48
+      ],
+      "yaw": 270,
+      "look": "youth",
+      "name": "Hall Hopeful",
+      "dialogue": "dlg_town_2_hallfan",
+      "role": "villager"
+    }
+  ],
+  "trainers": [],
+  "nodes": [
+    {
+      "id": "rn_town_2_01",
+      "type": "electric",
+      "at": [
+        45,
+        -30
+      ],
+      "yaw": 90,
+      "kind": "lode",
+      "reward": {
+        "item": "i_chime_silver",
+        "count": 1
+      }
+    },
+    {
+      "id": "rn_town_2_02",
+      "type": "electric",
+      "at": [
+        -10,
+        -31.5
+      ],
+      "yaw": 180,
+      "kind": "lode"
+    },
+    {
+      "id": "rn_town_2_03",
+      "type": "electric",
+      "at": [
+        30,
+        -21.5
+      ],
+      "yaw": 180,
+      "kind": "lode"
+    },
+    {
+      "id": "rn_town_2_04",
+      "type": "electric",
+      "at": [
+        -45,
+        -36.5
+      ],
+      "yaw": 180,
+      "kind": "lode"
+    }
+  ],
+  "pickups": [
+    {
+      "id": "pk_town_2_01",
+      "at": [
+        -50,
+        30
+      ],
+      "item": "i_cure_all",
+      "count": 1
+    },
+    {
+      "id": "pk_town_2_02",
+      "at": [
+        -30,
+        -40
+      ],
+      "item": "money",
+      "money": 800,
+      "hidden": true
+    }
+  ],
+  "wildRegions": [],
+  "maxWild": 0,
+  "battleStages": [
+    {
+      "at": [
+        -40,
+        30
+      ],
+      "yaw": 90
+    },
+    {
+      "at": [
+        0,
+        -40
+      ],
+      "yaw": 90
+    }
+  ],
+  "hearthSpawn": "sp_town_2_hearth",
+  "waystone": [
+    0,
+    12
+  ]
+}

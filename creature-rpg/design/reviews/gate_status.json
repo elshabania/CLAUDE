@@ -1,0 +1,211 @@
+{
+  "schemaVersion": 1,
+  "note": "Gate records per design/release_character_gate.md §3.6. Phase 0 entries review design documents, carry no automated report and never authorize a deployment.",
+  "entries": [
+    {
+      "target": "phase",
+      "phase": 0,
+      "decision": "fail",
+      "buildCommit": "2c7beb754fb6e344246f701ff444ea1b93b9c43c",
+      "workingTreeDirty": true,
+      "reviewedFilesSha256Prefix": {
+        "design/creative_direction.md": "aa18e6337c62c0de",
+        "design/creatures.md": "b653265fbbd3b20e",
+        "design/systems.md": "602efa419105954f",
+        "design/world.md": "2d1a77305907afb9",
+        "design/rendering_and_architecture.md": "27df012f27db1f81",
+        "design/qa_plan.md": "d6d9078e9ee0f25c",
+        "design/DECISIONS.md": "0855fb0d81789547",
+        "design/GAME_BIBLE.md": "34444f81ee576c64",
+        "design/BUILD_PLAN.md": "2b3f2ae0764ba6df",
+        "design/CONTENT_MANIFEST.md": "a835c8e6153c8cd9",
+        "src/data/content/species.json": "8c199957b434071c",
+        "src/data/content/traits.json": "99de53f745c95186",
+        "src/data/content/items.json": "9ace1e4ecc5482cd",
+        "src/data/content/moves.json": "4a9a395705ab6b71"
+      },
+      "date": "2026-09-24",
+      "reviewer": "release-character-agent",
+      "secondReviewer": null,
+      "orchestratorAck": null,
+      "automatedReport": null,
+      "manualReview": null,
+      "reviewEntryAnchor": "design/reviews/character_consistency.md#p0-design-v2",
+      "openFindings": [
+        {
+          "id": "F-0V-01",
+          "severity": "major",
+          "owner": "systems",
+          "summary": "Trait display names fail GC-13: Shed Skin (exact), Thick Coat, Static Hide, Clear Mind, Snow Coat"
+        }
+      ],
+      "conditions": [
+        {
+          "id": "C-1",
+          "finding": "C-1",
+          "severity": "minor",
+          "owner": "creature-art",
+          "fixBy": 1,
+          "summary": "Remove stale helmet sentence in creatures.md c09"
+        },
+        {
+          "id": "C-2",
+          "finding": "C-2",
+          "severity": "minor",
+          "owner": "cd+creature-art+systems+qa",
+          "fixBy": 1,
+          "summary": "Replace stale D29 names (Arden, Dorran Flint, Samaraptor, Venomantle) in docs and QA M-01"
+        },
+        {
+          "id": "C-3",
+          "finding": "C-3",
+          "severity": "minor",
+          "owner": "creature-art",
+          "fixBy": 1,
+          "summary": "c28 blurb uses 'trainers'"
+        },
+        {
+          "id": "C-4",
+          "finding": "C-4",
+          "severity": "minor",
+          "owner": "cd",
+          "fixBy": 2,
+          "summary": "Per-body-plan proportion bands"
+        },
+        {
+          "id": "C-5",
+          "finding": "C-5",
+          "severity": "minor",
+          "owner": "cd",
+          "fixBy": 3,
+          "summary": "Encounter text pool"
+        }
+      ],
+      "conditionsApplyAfter": "F-0V-01 fixed and re-checked",
+      "notRun": [
+        "gate:character (GC-00..GC-18) not implemented",
+        "render-stage checks (rubric, cover tests, silhouettes)",
+        "trademark/store name check (R-14)",
+        "second reviewer"
+      ],
+      "authorizesDeployment": false,
+      "supersedes": "design/reviews/character_consistency.md#p0-design-rereview",
+      "entryHash": "3f14f504f9eafa6d95568de6f097cea44c0adf6851a52050a054f01bb2edfeb0"
+    },
+    {
+      "target": "phase",
+      "phase": 0,
+      "decision": "fail",
+      "buildCommit": "1497ba1b9c4e3ff527506327103d255d8a5a0636",
+      "workingTreeDirty": false,
+      "reviewedFilesSha256Prefix": {
+        "src/data/content/traits.json": "a141c8a55b4abf03",
+        "src/data/content/species.json": "2d592ea5c9fea6c8",
+        "design/creatures.md": "1c1f36b0fc344a45",
+        "design/creative_direction.md": "810bfe1b2f5ea027",
+        "design/systems.md": "b1fcd4bb807dee5e",
+        "design/qa_plan.md": "77532c26377cfc54"
+      },
+      "date": "2026-09-24",
+      "reviewer": "release-character-agent",
+      "secondReviewer": null,
+      "orchestratorAck": null,
+      "automatedReport": null,
+      "manualReview": null,
+      "reviewEntryAnchor": "design/reviews/character_consistency.md#p0-design-v3",
+      "openFindings": [
+        {
+          "id": "F-0V-02",
+          "severity": "major",
+          "owner": "systems",
+          "summary": "tr_clear_mind display name 'Steadfast Tone' contains franchise ability name 'Steadfast' (JW 0.929); pre-screened replacements: Held Note, True Pitch, Fixed Key, Unbent"
+        }
+      ],
+      "conditions": [
+        {
+          "id": "C-4",
+          "finding": "F-0-10",
+          "severity": "minor",
+          "owner": "cd",
+          "fixBy": 2,
+          "summary": "Per-body-plan proportion bands"
+        },
+        {
+          "id": "C-5",
+          "finding": "F-0-21",
+          "severity": "minor",
+          "owner": "cd",
+          "fixBy": 3,
+          "summary": "Encounter-text pool (<50% 'A wild')"
+        }
+      ],
+      "closedSincePrevious": [
+        "F-0V-01 (4 of 5 names cleared; Clear Mind replacement re-failed as F-0V-02)",
+        "C-1",
+        "C-2",
+        "C-3"
+      ],
+      "renderNotes": [
+        "N-1 c25 Snipling hat-like ear silhouette (cover-test candidate)",
+        "N-2 c09 Floeguard reads yeti over otter (CC-16)"
+      ],
+      "notRun": [
+        "gate:character (GC-00..GC-18) not implemented",
+        "render-stage checks",
+        "trademark/store name check (R-14)",
+        "second reviewer"
+      ],
+      "authorizesDeployment": false,
+      "supersedes": "design/reviews/character_consistency.md#p0-design-v2",
+      "entryHash": "e5533b0dc6b2c31e75dfdd89724aa2f5e1c5bdaa27dbe485966717e485a0fd14"
+    },
+    {
+      "target": "phase",
+      "phase": 0,
+      "decision": "conditional_pass",
+      "buildCommit": "1497ba1b9c4e3ff527506327103d255d8a5a0636",
+      "workingTreeDirty": true,
+      "reviewedFilesSha256Prefix": {
+        "src/data/content/traits.json": "e0c553cd9e643411"
+      },
+      "date": "2026-09-24",
+      "reviewer": "release-character-agent",
+      "secondReviewer": null,
+      "orchestratorAck": null,
+      "automatedReport": null,
+      "manualReview": null,
+      "reviewEntryAnchor": "design/reviews/character_consistency.md#p0-design-v4",
+      "openFindings": [],
+      "conditions": [
+        {
+          "id": "C-4",
+          "finding": "F-0-10",
+          "severity": "minor",
+          "owner": "cd",
+          "fixBy": 2,
+          "summary": "Per-body-plan proportion bands"
+        },
+        {
+          "id": "C-5",
+          "finding": "F-0-21",
+          "severity": "minor",
+          "owner": "cd",
+          "fixBy": 3,
+          "summary": "Encounter-text pool (<50% 'A wild')"
+        }
+      ],
+      "closedSincePrevious": [
+        "F-0V-02 (tr_clear_mind -> 'Held Note')"
+      ],
+      "notRun": [
+        "gate:character (GC-00..GC-18) not implemented",
+        "render-stage checks",
+        "trademark/store name check (R-14)",
+        "second reviewer"
+      ],
+      "authorizesDeployment": false,
+      "supersedes": "design/reviews/character_consistency.md#p0-design-v3",
+      "entryHash": "53b1f25715eb2213f5708831605146dc1797da7e36147bcec05594ce209f57d8"
+    }
+  ]
+}

@@ -1,0 +1,506 @@
+{
+ "id": "trial_6",
+ "name": "Rime Hall",
+ "biome": "snow",
+ "attuned": "frost",
+ "music": "hall",
+ "indoor": true,
+ "terrain": {
+  "seed": 1606,
+  "size": [
+   50,
+   70
+  ],
+  "base": 0,
+  "amp": 0.2,
+  "scale": 20,
+  "rim": 8,
+  "rimWidth": 4,
+  "flats": [
+   {
+    "at": [
+     0,
+     16
+    ],
+    "r": 5
+   },
+   {
+    "at": [
+     0,
+     3
+    ],
+    "r": 5
+   },
+   {
+    "at": [
+     0,
+     -15
+    ],
+    "r": 6
+   },
+   {
+    "at": [
+     0,
+     24
+    ],
+    "r": 3
+   }
+  ],
+  "paths": [
+   {
+    "pts": [
+     [
+      0,
+      34
+     ],
+     [
+      0,
+      -26
+     ]
+    ],
+    "w": 4
+   }
+  ],
+  "water": [
+   {
+    "at": [
+     -15,
+     -12
+    ],
+    "r": 3,
+    "depth": 0.5,
+    "level": -0.1
+   },
+   {
+    "at": [
+     15,
+     -12
+    ],
+    "r": 3,
+    "depth": 0.5,
+    "level": -0.1
+   }
+  ]
+ },
+ "palette": {
+  "ground": "#DCE8EE",
+  "ground2": "#C3D6E0",
+  "path": "#9FC4D6",
+  "cliff": "#6E8494",
+  "accent": "#7FD3E6",
+  "sky": "#1C2A36",
+  "fog": "#2A3B48"
+ },
+ "fogDensity": 0.012,
+ "weather": {
+  "clear": 100
+ },
+ "spawns": [
+  {
+   "id": "sp_trial_6_door",
+   "at": [
+    0,
+    24
+   ],
+   "yaw": 0
+  }
+ ],
+ "exits": [
+  {
+   "id": "x_trial_6_door",
+   "at": [
+    0,
+    31
+   ],
+   "r": 2.5,
+   "to": "snowpeak",
+   "spawn": "sp_snowpeak_hall",
+   "label": "Hoarcrown"
+  }
+ ],
+ "props": [
+  {
+   "kind": "wall",
+   "at": [
+    -21.5,
+    0
+   ],
+   "yaw": 90,
+   "w": 64,
+   "h": 8,
+   "color": "#9FB6C4"
+  },
+  {
+   "kind": "wall",
+   "at": [
+    21.5,
+    0
+   ],
+   "yaw": 90,
+   "w": 64,
+   "h": 8,
+   "color": "#9FB6C4"
+  },
+  {
+   "kind": "wall",
+   "at": [
+    0,
+    -31.5
+   ],
+   "w": 44,
+   "h": 8,
+   "color": "#9FB6C4"
+  },
+  {
+   "kind": "wall",
+   "at": [
+    -12.5,
+    31.5
+   ],
+   "w": 18,
+   "h": 8,
+   "color": "#9FB6C4"
+  },
+  {
+   "kind": "wall",
+   "at": [
+    12.5,
+    31.5
+   ],
+   "w": 18,
+   "h": 8,
+   "color": "#9FB6C4"
+  },
+  {
+   "kind": "wall",
+   "at": [
+    0,
+    7.5
+   ],
+   "w": 42,
+   "h": 4.5,
+   "color": "#BFE3F0",
+   "hideIf": "flag_t_hall6_01_won",
+   "label": "Rime panel"
+  },
+  {
+   "kind": "wall",
+   "at": [
+    0,
+    -9
+   ],
+   "w": 42,
+   "h": 4.5,
+   "color": "#BFE3F0",
+   "hideIf": "flag_t_hall6_02_won",
+   "label": "Rime panel"
+  },
+  {
+   "kind": "wall",
+   "at": [
+    -14,
+    20
+   ],
+   "w": 1.4,
+   "h": 8,
+   "color": "#E4F1F7"
+  },
+  {
+   "kind": "wall",
+   "at": [
+    14,
+    20
+   ],
+   "w": 1.4,
+   "h": 8,
+   "color": "#E4F1F7"
+  },
+  {
+   "kind": "wall",
+   "at": [
+    -14,
+    -1
+   ],
+   "w": 1.4,
+   "h": 8,
+   "color": "#E4F1F7"
+  },
+  {
+   "kind": "wall",
+   "at": [
+    14,
+    -1
+   ],
+   "w": 1.4,
+   "h": 8,
+   "color": "#E4F1F7"
+  },
+  {
+   "kind": "wall",
+   "at": [
+    -14,
+    -20
+   ],
+   "w": 1.4,
+   "h": 8,
+   "color": "#E4F1F7"
+  },
+  {
+   "kind": "wall",
+   "at": [
+    14,
+    -20
+   ],
+   "w": 1.4,
+   "h": 8,
+   "color": "#E4F1F7"
+  },
+  {
+   "kind": "icerock",
+   "at": [
+    -10,
+    -27
+   ],
+   "s": 1.6
+  },
+  {
+   "kind": "icerock",
+   "at": [
+    10,
+    -27
+   ],
+   "s": 1.6
+  },
+  {
+   "kind": "crystal",
+   "at": [
+    -17,
+    26
+   ],
+   "s": 1.2
+  },
+  {
+   "kind": "crystal",
+   "at": [
+    17,
+    26
+   ],
+   "s": 1.2
+  },
+  {
+   "kind": "crystal",
+   "at": [
+    -18,
+    -26
+   ]
+  },
+  {
+   "kind": "crystal",
+   "at": [
+    18,
+    -26
+   ]
+  },
+  {
+   "kind": "lamp",
+   "at": [
+    -6,
+    -25
+   ]
+  },
+  {
+   "kind": "lamp",
+   "at": [
+    6,
+    -25
+   ]
+  },
+  {
+   "kind": "lamp",
+   "at": [
+    -4,
+    27
+   ]
+  },
+  {
+   "kind": "lamp",
+   "at": [
+    4,
+    27
+   ]
+  },
+  {
+   "kind": "lamp",
+   "at": [
+    -18,
+    12
+   ]
+  },
+  {
+   "kind": "lamp",
+   "at": [
+    18,
+    12
+   ]
+  },
+  {
+   "kind": "lamp",
+   "at": [
+    -18,
+    -4
+   ]
+  },
+  {
+   "kind": "lamp",
+   "at": [
+    18,
+    -4
+   ]
+  },
+  {
+   "kind": "sign",
+   "at": [
+    -3,
+    26
+   ],
+   "yaw": 0,
+   "label": "Rime Hall — Cantor Isaure Frostmere. Cold is patience made visible."
+  },
+  {
+   "kind": "sign",
+   "at": [
+    18,
+    9
+   ],
+   "yaw": 270,
+   "label": "Thaw lever — for Tuners without a fire voice. Pull, then wait. Patiently."
+  }
+ ],
+ "scatter": [
+  {
+   "kind": "icerock",
+   "density": 1.5,
+   "minDist": 3
+  },
+  {
+   "kind": "crystal",
+   "density": 0.8,
+   "minDist": 4
+  }
+ ],
+ "npcs": [
+  {
+   "id": "npc_trial_6_guide",
+   "at": [
+    8,
+    22
+   ],
+   "yaw": 270,
+   "look": "scholar",
+   "name": "Hall Guide Wynn",
+   "dialogue": "trial_6_guide",
+   "role": "villager"
+  },
+  {
+   "id": "npc_isaure",
+   "at": [
+    0,
+    -20
+   ],
+   "yaw": 180,
+   "look": "isaure",
+   "name": "Cantor Isaure",
+   "dialogue": "trial_6_isaure",
+   "role": "cantor",
+   "showIf": "flag_t_cantor_6_won"
+  }
+ ],
+ "trainers": [
+  {
+   "id": "t_hall6_01",
+   "at": [
+    -8,
+    12
+   ],
+   "yaw": 90,
+   "sight": 6
+  },
+  {
+   "id": "t_hall6_02",
+   "at": [
+    8,
+    0
+   ],
+   "yaw": 270,
+   "sight": 6
+  },
+  {
+   "id": "t_cantor_6",
+   "at": [
+    0,
+    -20
+   ],
+   "yaw": 180,
+   "sight": 0,
+   "hideIf": "flag_t_cantor_6_won"
+  }
+ ],
+ "nodes": [
+  {
+   "id": "rn_trial_6_01",
+   "type": "fire",
+   "at": [
+    -17,
+    1
+   ],
+   "yaw": 90,
+   "kind": "thorn",
+   "label": "Frozen alcove",
+   "reward": {
+    "item": "i_salve_3",
+    "count": 2
+   }
+  },
+  {
+   "id": "rn_trial_6_02",
+   "type": "frost",
+   "at": [
+    15,
+    -13
+   ],
+   "yaw": 270,
+   "kind": "falls",
+   "label": "Meltwater panel",
+   "reward": {
+    "item": "i_cure_frost",
+    "count": 3
+   }
+  }
+ ],
+ "pickups": [],
+ "wildRegions": [],
+ "maxWild": 0,
+ "battleStages": [
+  {
+   "at": [
+    0,
+    16
+   ],
+   "yaw": 90
+  },
+  {
+   "at": [
+    0,
+    3
+   ],
+   "yaw": 90
+  },
+  {
+   "at": [
+    0,
+    -14
+   ],
+   "yaw": 90
+  }
+ ]
+}

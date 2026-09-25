@@ -1,0 +1,1049 @@
+{
+  "id": "route_2",
+  "name": "Brackenridge Pass",
+  "biome": "ridge",
+  "attuned": "stone",
+  "music": "route_2",
+  "terrain": {
+    "seed": 202,
+    "size": [
+      120,
+      220
+    ],
+    "base": 2,
+    "amp": 3.5,
+    "scale": 28,
+    "rim": 18,
+    "rimWidth": 14,
+    "hills": [
+      {
+        "at": [
+          -38,
+          70
+        ],
+        "r": 16,
+        "h": 8
+      },
+      {
+        "at": [
+          34,
+          88
+        ],
+        "r": 14,
+        "h": 7
+      },
+      {
+        "at": [
+          12,
+          50
+        ],
+        "r": 8,
+        "h": 7
+      },
+      {
+        "at": [
+          38,
+          40
+        ],
+        "r": 9,
+        "h": 8
+      },
+      {
+        "at": [
+          40,
+          -18
+        ],
+        "r": 16,
+        "h": 12
+      },
+      {
+        "at": [
+          -40,
+          -12
+        ],
+        "r": 15,
+        "h": 10
+      },
+      {
+        "at": [
+          38,
+          -52
+        ],
+        "r": 13,
+        "h": 11
+      },
+      {
+        "at": [
+          -36,
+          -78
+        ],
+        "r": 15,
+        "h": 16
+      },
+      {
+        "at": [
+          36,
+          -86
+        ],
+        "r": 15,
+        "h": 18
+      },
+      {
+        "at": [
+          -40,
+          30
+        ],
+        "r": 10,
+        "h": 6
+      },
+      {
+        "at": [
+          -18,
+          20
+        ],
+        "r": 8,
+        "h": -3
+      },
+      {
+        "at": [
+          22,
+          20
+        ],
+        "r": 9,
+        "h": -3
+      },
+      {
+        "at": [
+          42,
+          20
+        ],
+        "r": 8,
+        "h": -3
+      }
+    ],
+    "flats": [
+      {
+        "at": [
+          -20,
+          -50
+        ],
+        "r": 7
+      },
+      {
+        "at": [
+          0,
+          60
+        ],
+        "r": 8
+      },
+      {
+        "at": [
+          -10,
+          -20
+        ],
+        "r": 7
+      },
+      {
+        "at": [
+          0,
+          -66
+        ],
+        "r": 8
+      },
+      {
+        "at": [
+          35,
+          65
+        ],
+        "r": 6
+      },
+      {
+        "at": [
+          10,
+          70
+        ],
+        "r": 3
+      },
+      {
+        "at": [
+          -25,
+          40
+        ],
+        "r": 3
+      },
+      {
+        "at": [
+          20,
+          0
+        ],
+        "r": 3
+      },
+      {
+        "at": [
+          -10,
+          -35
+        ],
+        "r": 3
+      },
+      {
+        "at": [
+          25,
+          40
+        ],
+        "r": 4
+      },
+      {
+        "at": [
+          -44,
+          20
+        ],
+        "r": 5
+      },
+      {
+        "at": [
+          0,
+          -80
+        ],
+        "r": 6
+      },
+      {
+        "at": [
+          17,
+          35
+        ],
+        "r": 3
+      }
+    ],
+    "paths": [
+      {
+        "pts": [
+          [
+            0,
+            110
+          ],
+          [
+            0,
+            92
+          ],
+          [
+            -4,
+            78
+          ],
+          [
+            -10,
+            62
+          ],
+          [
+            -8,
+            44
+          ],
+          [
+            0,
+            30
+          ],
+          [
+            0,
+            10
+          ],
+          [
+            6,
+            0
+          ],
+          [
+            2,
+            -14
+          ],
+          [
+            -6,
+            -28
+          ],
+          [
+            -10,
+            -40
+          ],
+          [
+            -8,
+            -52
+          ],
+          [
+            -2,
+            -62
+          ],
+          [
+            0,
+            -72
+          ],
+          [
+            0,
+            -92
+          ],
+          [
+            0,
+            -110
+          ]
+        ],
+        "w": 5
+      },
+      {
+        "pts": [
+          [
+            -8,
+            -46
+          ],
+          [
+            -20,
+            -50
+          ]
+        ],
+        "w": 4
+      },
+      {
+        "pts": [
+          [
+            -4,
+            72
+          ],
+          [
+            20,
+            52
+          ],
+          [
+            25,
+            40
+          ],
+          [
+            14,
+            30
+          ],
+          [
+            0,
+            26
+          ]
+        ],
+        "w": 4
+      },
+      {
+        "pts": [
+          [
+            -4,
+            74
+          ],
+          [
+            20,
+            70
+          ],
+          [
+            35,
+            65
+          ]
+        ],
+        "w": 4
+      },
+      {
+        "pts": [
+          [
+            -54,
+            20
+          ],
+          [
+            -44,
+            20
+          ],
+          [
+            -36,
+            10
+          ],
+          [
+            -15,
+            6
+          ],
+          [
+            4,
+            4
+          ]
+        ],
+        "w": 4
+      },
+      {
+        "pts": [
+          [
+            4,
+            -4
+          ],
+          [
+            20,
+            0
+          ],
+          [
+            35,
+            -10
+          ]
+        ],
+        "w": 4
+      },
+      {
+        "pts": [
+          [
+            -8,
+            -48
+          ],
+          [
+            8,
+            -46
+          ],
+          [
+            30,
+            -50
+          ]
+        ],
+        "w": 3.5
+      }
+    ],
+    "water": [
+      {
+        "at": [
+          -19,
+          20
+        ],
+        "r": 13,
+        "rz": 3.2,
+        "depth": 1.2,
+        "level": 0.6
+      },
+      {
+        "at": [
+          29,
+          20
+        ],
+        "r": 24,
+        "rz": 3.4,
+        "depth": 1.2,
+        "level": 0.6
+      }
+    ]
+  },
+  "palette": {
+    "ground": "#6F7F5A",
+    "ground2": "#8A6E4B",
+    "path": "#B9A27C",
+    "cliff": "#7D7468",
+    "accent": "#B5543C",
+    "sky": "#AEB9C4",
+    "fog": "#BCC4CB"
+  },
+  "fogDensity": 0.008,
+  "weather": {
+    "clear": 75,
+    "rain": 25
+  },
+  "spawns": [
+    {
+      "id": "sp_route_2_s",
+      "at": [
+        0,
+        92
+      ],
+      "yaw": 0
+    },
+    {
+      "id": "sp_route_2_n",
+      "at": [
+        0,
+        -92
+      ],
+      "yaw": 180
+    },
+    {
+      "id": "sp_route_2_w",
+      "at": [
+        -42,
+        20
+      ],
+      "yaw": 90
+    },
+    {
+      "id": "sp_route_2_ws",
+      "at": [
+        -20,
+        -46
+      ],
+      "yaw": 0
+    }
+  ],
+  "exits": [
+    {
+      "id": "x_route_2_s",
+      "at": [
+        0,
+        106
+      ],
+      "r": 5,
+      "to": "forest",
+      "spawn": "sp_forest_n",
+      "label": "Murmurwood"
+    },
+    {
+      "id": "x_route_2_n",
+      "at": [
+        0,
+        -106
+      ],
+      "r": 5,
+      "to": "town_2",
+      "spawn": "sp_town_2_s",
+      "label": "Knellstone"
+    },
+    {
+      "id": "x_route_2_w",
+      "at": [
+        -56,
+        20
+      ],
+      "r": 4,
+      "to": "cave",
+      "spawn": "sp_cave_s",
+      "label": "The Undertone (tunnel)",
+      "gate": {
+        "register": "rn_cave_03",
+        "message": "A cracked stone wall. Something rumbles behind it, but it will not budge from this side."
+      }
+    }
+  ],
+  "props": [
+    {
+      "kind": "chordstone",
+      "at": [
+        -20,
+        -50
+      ],
+      "color": "#C9A27A",
+      "label": "Brackenridge Cairn Chordstone"
+    },
+    {
+      "kind": "bridge",
+      "at": [
+        0,
+        20
+      ],
+      "yaw": 0,
+      "w": 3.4,
+      "d": 14,
+      "label": "Rope bridge"
+    },
+    {
+      "kind": "sign",
+      "at": [
+        5,
+        96
+      ],
+      "yaw": 0,
+      "label": "Brackenridge Pass — north to Knellstone"
+    },
+    {
+      "kind": "sign",
+      "at": [
+        4,
+        -96
+      ],
+      "yaw": 180,
+      "label": "South: Murmurwood"
+    },
+    {
+      "kind": "sign",
+      "at": [
+        -14,
+        -44
+      ],
+      "yaw": 90,
+      "label": "Ridge cairn"
+    },
+    {
+      "kind": "sign",
+      "at": [
+        4,
+        30
+      ],
+      "yaw": 0,
+      "label": "Creek gorge — mind the bridge"
+    },
+    {
+      "kind": "wall",
+      "at": [
+        -5,
+        -80
+      ],
+      "w": 1.6,
+      "h": 5.5,
+      "color": "#C2B8A3",
+      "label": "Knellstone arch"
+    },
+    {
+      "kind": "wall",
+      "at": [
+        5,
+        -80
+      ],
+      "w": 1.6,
+      "h": 5.5,
+      "color": "#C2B8A3"
+    },
+    {
+      "kind": "lamp",
+      "at": [
+        -7,
+        -78
+      ]
+    },
+    {
+      "kind": "lamp",
+      "at": [
+        7,
+        -78
+      ]
+    },
+    {
+      "kind": "wall",
+      "at": [
+        -25,
+        -54
+      ],
+      "w": 1.2,
+      "h": 1.6,
+      "color": "#9C9384"
+    },
+    {
+      "kind": "wall",
+      "at": [
+        -15,
+        -55
+      ],
+      "w": 1.2,
+      "h": 2.2,
+      "color": "#8A8174"
+    },
+    {
+      "kind": "wall",
+      "at": [
+        -26,
+        -45
+      ],
+      "w": 1.2,
+      "h": 1.2,
+      "color": "#9C9384"
+    },
+    {
+      "kind": "wall",
+      "at": [
+        -24,
+        86
+      ],
+      "w": 16,
+      "h": 1.2,
+      "color": "#8A8174",
+      "yaw": 90
+    },
+    {
+      "kind": "wall",
+      "at": [
+        20,
+        82
+      ],
+      "w": 18,
+      "h": 1.2,
+      "color": "#8A8174",
+      "yaw": 0
+    },
+    {
+      "kind": "wall",
+      "at": [
+        -26,
+        50
+      ],
+      "w": 12,
+      "h": 1.2,
+      "color": "#8A8174",
+      "yaw": 0
+    },
+    {
+      "kind": "wall",
+      "at": [
+        22,
+        -30
+      ],
+      "w": 14,
+      "h": 1.2,
+      "color": "#8A8174",
+      "yaw": 90
+    },
+    {
+      "kind": "wall",
+      "at": [
+        -28,
+        -30
+      ],
+      "w": 14,
+      "h": 1.2,
+      "color": "#8A8174",
+      "yaw": 0
+    },
+    {
+      "kind": "wall",
+      "at": [
+        16,
+        -68
+      ],
+      "w": 12,
+      "h": 1.2,
+      "color": "#8A8174",
+      "yaw": 90
+    },
+    {
+      "kind": "wall",
+      "at": [
+        -59,
+        20
+      ],
+      "w": 10,
+      "h": 5,
+      "color": "#6E665C",
+      "yaw": 90,
+      "label": "Cracked wall",
+      "hideIf": "node:rn_cave_03"
+    },
+    {
+      "kind": "stall",
+      "at": [
+        36,
+        63
+      ],
+      "color": "#D08C3A",
+      "yaw": 180,
+      "label": "Wick's Wagon"
+    },
+    {
+      "kind": "crate",
+      "at": [
+        39,
+        61
+      ]
+    },
+    {
+      "kind": "crate",
+      "at": [
+        33,
+        60
+      ]
+    },
+    {
+      "kind": "crate",
+      "at": [
+        28,
+        -46
+      ]
+    },
+    {
+      "kind": "lamp",
+      "at": [
+        -3,
+        24
+      ]
+    },
+    {
+      "kind": "lamp",
+      "at": [
+        3,
+        16
+      ]
+    },
+    {
+      "kind": "sign",
+      "at": [
+        -16,
+        -53
+      ],
+      "yaw": 90,
+      "label": "Chalk doodle of Cass's kin flexing on the cairn: 'CASS WAS HERE (again) (first)'"
+    }
+  ],
+  "scatter": [
+    {
+      "kind": "bush",
+      "density": 1.6,
+      "minDist": 2.5
+    },
+    {
+      "kind": "grass",
+      "density": 12,
+      "minDist": 0.9
+    },
+    {
+      "kind": "flowers",
+      "density": 3,
+      "minDist": 1.2
+    },
+    {
+      "kind": "rock",
+      "density": 0.8,
+      "minDist": 3
+    },
+    {
+      "kind": "boulder",
+      "density": 0.2,
+      "minDist": 8
+    },
+    {
+      "kind": "pine",
+      "density": 0.25,
+      "minDist": 7
+    },
+    {
+      "kind": "tree",
+      "density": 0.15,
+      "minDist": 8
+    },
+    {
+      "kind": "reeds",
+      "density": 3,
+      "minDist": 0.8,
+      "avoidPaths": true
+    }
+  ],
+  "npcs": [
+    {
+      "id": "npc_wick",
+      "at": [
+        36,
+        66
+      ],
+      "yaw": 180,
+      "look": "villagerB",
+      "name": "Wick",
+      "dialogue": "dlg_route_2_wick",
+      "role": "shop",
+      "shop": "shop_wick"
+    },
+    {
+      "id": "npc_route_2_carter",
+      "at": [
+        -6,
+        -84
+      ],
+      "yaw": 180,
+      "look": "villagerA",
+      "name": "Quarry Carter",
+      "dialogue": "dlg_route_2_carter",
+      "role": "villager"
+    },
+    {
+      "id": "npc_route_2_waller",
+      "at": [
+        17,
+        35
+      ],
+      "yaw": 45,
+      "look": "climber",
+      "name": "Drystone Waller Ebb",
+      "dialogue": "dlg_route_2_waller",
+      "role": "villager"
+    }
+  ],
+  "trainers": [
+    {
+      "id": "t_r2_01",
+      "at": [
+        10,
+        70
+      ],
+      "yaw": 270,
+      "sight": 8
+    },
+    {
+      "id": "t_r2_02",
+      "at": [
+        -25,
+        40
+      ],
+      "yaw": 90,
+      "sight": 8
+    },
+    {
+      "id": "t_r2_03",
+      "at": [
+        20,
+        0
+      ],
+      "yaw": 270,
+      "sight": 8
+    },
+    {
+      "id": "t_r2_04",
+      "at": [
+        -10,
+        -35
+      ],
+      "yaw": 90,
+      "sight": 8
+    },
+    {
+      "id": "t_rival_2",
+      "at": [
+        0,
+        -70
+      ],
+      "yaw": 180,
+      "sight": 10,
+      "hideIf": "flag_rival_2_done"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "rn_route_2_01",
+      "type": "stone",
+      "at": [
+        25,
+        40
+      ],
+      "yaw": 0,
+      "kind": "boulder",
+      "reward": {
+        "item": "i_salve_2",
+        "count": 1
+      },
+      "blocker": {
+        "at": [
+          24,
+          42
+        ],
+        "w": 10,
+        "d": 3,
+        "yaw": 0
+      }
+    },
+    {
+      "id": "rn_route_2_02",
+      "type": "gale",
+      "at": [
+        30,
+        -50
+      ],
+      "yaw": 270,
+      "kind": "vent",
+      "reward": {
+        "item": "i_charge_1",
+        "count": 1
+      }
+    }
+  ],
+  "pickups": [
+    {
+      "id": "pk_route_2_01",
+      "at": [
+        -30,
+        60
+      ],
+      "item": "i_salve_2",
+      "count": 1
+    },
+    {
+      "id": "pk_route_2_02",
+      "at": [
+        35,
+        -10
+      ],
+      "item": "i_chime_brass",
+      "count": 2
+    },
+    {
+      "id": "pk_route_2_03",
+      "at": [
+        0,
+        -20
+      ],
+      "item": "i_revive_1",
+      "count": 1,
+      "hidden": true
+    },
+    {
+      "id": "pk_route_2_04",
+      "at": [
+        40,
+        70
+      ],
+      "item": "i_q_clapper",
+      "count": 1,
+      "showIf": "flag_q_bells"
+    },
+    {
+      "id": "pk_route_2_05",
+      "at": [
+        -40,
+        0
+      ],
+      "item": "i_q_clapper",
+      "count": 1,
+      "showIf": "flag_q_bells"
+    },
+    {
+      "id": "pk_route_2_06",
+      "at": [
+        25,
+        -40
+      ],
+      "item": "i_q_clapper",
+      "count": 1,
+      "showIf": "flag_q_bells"
+    }
+  ],
+  "wildRegions": [
+    {
+      "at": [
+        -25,
+        70
+      ],
+      "r": 20
+    },
+    {
+      "at": [
+        25,
+        -5
+      ],
+      "r": 20
+    },
+    {
+      "at": [
+        0,
+        -55
+      ],
+      "r": 18
+    }
+  ],
+  "maxWild": 6,
+  "encounters": "route_2",
+  "battleStages": [
+    {
+      "at": [
+        0,
+        60
+      ],
+      "yaw": 90
+    },
+    {
+      "at": [
+        -10,
+        -20
+      ],
+      "yaw": 90
+    },
+    {
+      "at": [
+        0,
+        -65
+      ],
+      "yaw": 90
+    }
+  ],
+  "waystone": [
+    -20,
+    -50
+  ]
+}

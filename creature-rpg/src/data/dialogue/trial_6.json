@@ -1,0 +1,79 @@
+{
+  "trial_6_guide": {
+    "variants": [
+      {
+        "if": "flag_trial_6_cleared",
+        "lines": [
+          { "s": "Hall Guide Wynn", "t": "Six Keynotes! I'd applaud, but my mittens muffle it. Consider yourself applauded." }
+        ]
+      },
+      {
+        "lines": [
+          { "s": "Hall Guide Wynn", "t": "Welcome to Rime Hall. Mind your breath — it freezes, and Cantor Isaure collects the good ones." },
+          { "s": "Hall Guide Wynn", "t": "Two rime panels seal the hall. Out-sing a hall Tuner and their panel melts away." },
+          { "s": "Hall Guide Wynn", "t": "Isaure's kin are frost, and so is the hall. Fire, stone and steady nerves fare well. No fire voice? There's a thaw lever." }
+        ]
+      }
+    ]
+  },
+  "trial_6_isaure": {
+    "variants": [
+      {
+        "if": "!flag_isaure_disc",
+        "lines": [
+          { "s": "Cantor Isaure", "t": "Before you go — this Etude. Rime Beam. A patient light that waits for its moment, then freezes it." }
+        ],
+        "actions": [
+          { "give": "i_disc_14", "n": 1 },
+          { "set": "flag_isaure_disc" }
+        ]
+      },
+      {
+        "if": "flag_nullbell_broken",
+        "lines": [
+          { "s": "Cantor Isaure", "t": "The hall rang on its own this morning. Every icicle, one chord. I sat down on the floor and listened until my tea froze." }
+        ]
+      },
+      {
+        "lines": [
+          { "s": "Cantor Isaure", "t": "Odile climbed past my door at dawn with a bell on a sledge. I offered tea. She declined, politely. That worried me most." },
+          { "s": "Cantor Isaure", "t": "The summit path is north of the terraces. Go slowly. Cold is patient, and so is whatever waits at the top." }
+        ]
+      }
+    ]
+  },
+  "dlg_t_cantor_6_pre": {
+    "variants": [
+      { "lines": [{ "s": "Cantor Isaure", "t": "Cold is patience made visible. Let's see how patient you are." }] }
+    ]
+  },
+  "dlg_t_cantor_6_post": {
+    "variants": [
+      {
+        "lines": [
+          { "s": "Cantor Isaure", "t": "Unhurried and unbroken. The mountain approves." },
+          { "s": "Cantor Isaure", "t": "The last Keynote, tuned to light. Six notes. Go and make them a chord." },
+          { "s": "Cantor Isaure", "t": "And this Etude — Rime Beam. A patient light that waits for its moment, then freezes it." }
+        ],
+        "actions": [
+          { "give": "i_disc_14", "n": 1 },
+          { "set": "flag_isaure_disc" }
+        ]
+      }
+    ]
+  },
+  "dlg_t_hall6_01_after": {
+    "variants": [
+      { "lines": [{ "s": "Sable", "t": "My panel melted the moment you won. Took me three weeks to grow that panel. Worth it." }] }
+    ]
+  },
+  "dlg_t_hall6_02_after": {
+    "variants": [
+      { "lines": [{ "s": "Yarrow", "t": "Isaure doesn't hurry. Don't you hurry either. That's the whole trick, really." }] }
+    ]
+  },
+  "dlg_11_isaure_pre": { "variants": [{ "lines": [{ "s": "Cantor Isaure", "t": "Cold is patience made visible. Let's see how patient you are." }] }] },
+  "dlg_11_isaure_win": { "variants": [{ "lines": [{ "s": "Cantor Isaure", "t": "Unhurried and unbroken. The mountain approves." }] }] },
+  "dlg_11_isaure_lose": { "variants": [{ "lines": [{ "s": "Cantor Isaure", "t": "Impatience cracks first. Breathe, then return." }] }] },
+  "dlg_11_isaure_keynote": { "variants": [{ "lines": [{ "s": "Cantor Isaure", "t": "The last Keynote, tuned to light. Six notes. Go and make them a chord." }] }] }
+}

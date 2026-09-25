@@ -1,0 +1,462 @@
+{
+ "id": "trial_4",
+ "name": "Vane Hall",
+ "biome": "cliff",
+ "attuned": "gale",
+ "music": "trial",
+ "indoor": true,
+ "terrain": {
+  "seed": 4404,
+  "size": [
+   50,
+   70
+  ],
+  "base": 0.5,
+  "amp": 0.2,
+  "scale": 20,
+  "rim": 8,
+  "rimWidth": 4,
+  "flats": [
+   {
+    "at": [
+     0,
+     16
+    ],
+    "r": 5
+   },
+   {
+    "at": [
+     0,
+     3
+    ],
+    "r": 6
+   },
+   {
+    "at": [
+     0,
+     -15
+    ],
+    "r": 6
+   },
+   {
+    "at": [
+     0,
+     24
+    ],
+    "r": 3
+   }
+  ],
+  "paths": [
+   {
+    "pts": [
+     [
+      0,
+      34
+     ],
+     [
+      0,
+      -26
+     ]
+    ],
+    "w": 4
+   }
+  ]
+ },
+ "palette": {
+  "ground": "#C9D3D6",
+  "ground2": "#E2E8EA",
+  "path": "#C4553A",
+  "cliff": "#8FA3AB",
+  "accent": "#C4553A",
+  "sky": "#9FC2D0",
+  "fog": "#B7D0DA"
+ },
+ "fogDensity": 0.01,
+ "weather": {
+  "clear": 100
+ },
+ "spawns": [
+  {
+   "id": "sp_trial_4_door",
+   "at": [
+    0,
+    24
+   ],
+   "yaw": 0
+  }
+ ],
+ "exits": [
+  {
+   "id": "x_trial_4_door",
+   "at": [
+    0,
+    31
+   ],
+   "r": 2.5,
+   "to": "town_3",
+   "spawn": "sp_town_3_hall",
+   "label": "Galewick"
+  }
+ ],
+ "props": [
+  {
+   "kind": "wall",
+   "at": [
+    -21.5,
+    0
+   ],
+   "yaw": 90,
+   "w": 64,
+   "h": 8,
+   "color": "#DCE6EA"
+  },
+  {
+   "kind": "wall",
+   "at": [
+    21.5,
+    0
+   ],
+   "yaw": 90,
+   "w": 64,
+   "h": 8,
+   "color": "#DCE6EA"
+  },
+  {
+   "kind": "wall",
+   "at": [
+    0,
+    -31.5
+   ],
+   "w": 44,
+   "h": 8,
+   "color": "#DCE6EA"
+  },
+  {
+   "kind": "wall",
+   "at": [
+    -12.5,
+    31.5
+   ],
+   "w": 18,
+   "h": 8,
+   "color": "#DCE6EA"
+  },
+  {
+   "kind": "wall",
+   "at": [
+    12.5,
+    31.5
+   ],
+   "w": 18,
+   "h": 8,
+   "color": "#DCE6EA"
+  },
+  {
+   "kind": "wall",
+   "at": [
+    -14,
+    20
+   ],
+   "w": 1.4,
+   "h": 8,
+   "color": "#C4553A"
+  },
+  {
+   "kind": "wall",
+   "at": [
+    14,
+    20
+   ],
+   "w": 1.4,
+   "h": 8,
+   "color": "#C4553A"
+  },
+  {
+   "kind": "wall",
+   "at": [
+    -14,
+    -20
+   ],
+   "w": 1.4,
+   "h": 8,
+   "color": "#C4553A"
+  },
+  {
+   "kind": "wall",
+   "at": [
+    14,
+    -20
+   ],
+   "w": 1.4,
+   "h": 8,
+   "color": "#C4553A"
+  },
+  {
+   "kind": "lamp",
+   "at": [
+    -4,
+    27
+   ]
+  },
+  {
+   "kind": "lamp",
+   "at": [
+    4,
+    27
+   ]
+  },
+  {
+   "kind": "lamp",
+   "at": [
+    -6,
+    -25
+   ]
+  },
+  {
+   "kind": "lamp",
+   "at": [
+    6,
+    -25
+   ]
+  },
+  {
+   "kind": "lamp",
+   "at": [
+    -18,
+    12
+   ]
+  },
+  {
+   "kind": "lamp",
+   "at": [
+    18,
+    12
+   ]
+  },
+  {
+   "kind": "lamp",
+   "at": [
+    -18,
+    -6
+   ]
+  },
+  {
+   "kind": "lamp",
+   "at": [
+    18,
+    -6
+   ]
+  },
+  {
+   "kind": "wall",
+   "at": [
+    0,
+    6.5
+   ],
+   "w": 42,
+   "h": 3.5,
+   "color": "#BFD9E3",
+   "hideIf": "flag_t_hall4_01_won",
+   "label": "Gale curtain — a wall of wind the first vane holds shut"
+  },
+  {
+   "kind": "wall",
+   "at": [
+    0,
+    -8.5
+   ],
+   "w": 42,
+   "h": 3.5,
+   "color": "#A6C9D6",
+   "hideIf": "flag_t_hall4_02_won",
+   "label": "Gale curtain — held by the second vane"
+  },
+  {
+   "kind": "wall",
+   "at": [
+    0,
+    -27.5
+   ],
+   "w": 12,
+   "h": 1.4,
+   "color": "#C4553A",
+   "label": "Cantor's kite-deck"
+  },
+  {
+   "kind": "wall",
+   "at": [
+    -6,
+    14
+   ],
+   "w": 2.4,
+   "h": 0.3,
+   "color": "#8FB9A8",
+   "label": "Floor vent"
+  },
+  {
+   "kind": "wall",
+   "at": [
+    6,
+    -3
+   ],
+   "w": 2.4,
+   "h": 0.3,
+   "color": "#8FB9A8",
+   "label": "Floor vent"
+  },
+  {
+   "kind": "wall",
+   "at": [
+    0,
+    -12
+   ],
+   "w": 2.4,
+   "h": 0.3,
+   "color": "#8FB9A8",
+   "label": "Floor vent"
+  },
+  {
+   "kind": "lamp",
+   "at": [
+    -19,
+    6.5
+   ]
+  },
+  {
+   "kind": "lamp",
+   "at": [
+    19,
+    -8.5
+   ]
+  },
+  {
+   "kind": "sign",
+   "at": [
+    -3,
+    26
+   ],
+   "yaw": 0,
+   "label": "Vane Hall — Cantor Tamsin Galloway. Argue politely with the wind."
+  },
+  {
+   "kind": "windmill",
+   "at": [
+    -17,
+    24
+   ],
+   "s": 0.5
+  },
+  {
+   "kind": "windmill",
+   "at": [
+    17,
+    -26
+   ],
+   "s": 0.5
+  },
+  {
+   "kind": "crate",
+   "at": [
+    18,
+    27
+   ]
+  }
+ ],
+ "scatter": [
+  {
+   "kind": "grass",
+   "density": 4,
+   "minDist": 1.2
+  },
+  {
+   "kind": "flowers",
+   "density": 1.2,
+   "minDist": 1.5
+  }
+ ],
+ "npcs": [
+  {
+   "id": "npc_trial_4_attendant",
+   "at": [
+    8,
+    22
+   ],
+   "yaw": 270,
+   "look": "climber",
+   "name": "Vane-keeper Pim",
+   "dialogue": "trial_4_attendant",
+   "role": "villager"
+  }
+ ],
+ "trainers": [
+  {
+   "id": "t_hall4_01",
+   "at": [
+    -8,
+    10
+   ],
+   "yaw": 90,
+   "sight": 6
+  },
+  {
+   "id": "t_hall4_02",
+   "at": [
+    8,
+    0
+   ],
+   "yaw": 270,
+   "sight": 6
+  },
+  {
+   "id": "t_cantor_4",
+   "at": [
+    0,
+    -20
+   ],
+   "yaw": 180,
+   "sight": 0
+  }
+ ],
+ "nodes": [
+  {
+   "id": "rn_trial_4_01",
+   "type": "gale",
+   "at": [
+    -17,
+    -2
+   ],
+   "yaw": 90,
+   "kind": "vent",
+   "reward": {
+    "item": "i_salve_3",
+    "count": 2
+   }
+  }
+ ],
+ "pickups": [],
+ "wildRegions": [],
+ "maxWild": 0,
+ "battleStages": [
+  {
+   "at": [
+    0,
+    16
+   ],
+   "yaw": 90
+  },
+  {
+   "at": [
+    0,
+    3
+   ],
+   "yaw": 90
+  },
+  {
+   "at": [
+    0,
+    -14
+   ],
+   "yaw": 90
+  }
+ ]
+}

@@ -1,0 +1,1819 @@
+[
+ {
+  "id": "c01",
+  "name": "Fizzkit",
+  "family": "f01",
+  "stage": 1,
+  "types": [
+   "electric"
+  ],
+  "heightM": 0.35,
+  "bodyPlan": "round gliding critter (dormouse × sugar glider)",
+  "silhouette": "QS",
+  "base": {
+   "hp": 40,
+   "atk": 45,
+   "def": 38,
+   "spa": 62,
+   "spd": 45,
+   "spe": 80
+  },
+  "catchRate": 45,
+  "xpYield": 62,
+  "growth": "medium",
+  "trait": "tr_last_stand",
+  "temperament": "curious",
+  "attackStyle": "lunge",
+  "sideYaw": 0,
+  "blurb": "Curious, cuddly and a little mischievous. Puffs up its fur when happy, and its ear rims crackle when it is excited.",
+  "colors": [
+   "#C8BCDB",
+   "#3CB6FF",
+   "#F6EFE4"
+  ],
+  "cry": {
+   "voice": "fm",
+   "basePitchHz": 820,
+   "contour": [
+    [
+     0.0,
+     0.0
+    ],
+    [
+     0.4,
+     7.0
+    ],
+    [
+     0.7,
+     3.0
+    ],
+    [
+     1.0,
+     10.0
+    ]
+   ],
+   "durationMs": 320,
+   "harmonicity": 3.0,
+   "modIndex": 8.0
+  },
+  "evolvesTo": {
+   "species": "c02",
+   "level": 16,
+   "move": "m025"
+  }
+ },
+ {
+  "id": "c02",
+  "name": "Crackleap",
+  "family": "f01",
+  "stage": 2,
+  "types": [
+   "electric"
+  ],
+  "heightM": 0.9,
+  "bodyPlan": "upright glider-sprinter biped",
+  "silhouette": "BP",
+  "base": {
+   "hp": 55,
+   "atk": 58,
+   "def": 50,
+   "spa": 82,
+   "spd": 58,
+   "spe": 102
+  },
+  "catchRate": 45,
+  "xpYield": 135,
+  "growth": "medium",
+  "trait": "tr_last_stand",
+  "temperament": "curious",
+  "attackStyle": "spin",
+  "sideYaw": 0,
+  "blurb": "Show-off sprinter: restless, competitive, poses after every win.",
+  "colors": [
+   "#B4A6CE",
+   "#34A8FF",
+   "#F2E8D8"
+  ],
+  "cry": {
+   "voice": "fm",
+   "basePitchHz": 520,
+   "contour": [
+    [
+     0.0,
+     0.0
+    ],
+    [
+     0.4,
+     7.0
+    ],
+    [
+     0.7,
+     3.0
+    ],
+    [
+     1.0,
+     10.0
+    ]
+   ],
+   "durationMs": 480,
+   "harmonicity": 3.0,
+   "modIndex": 8.0
+  },
+  "evolvesTo": {
+   "species": "c03",
+   "level": 34,
+   "move": "m055"
+  },
+  "evolvesFrom": "c01"
+ },
+ {
+  "id": "c03",
+  "name": "Tempestrel",
+  "family": "f01",
+  "stage": 3,
+  "types": [
+   "electric",
+   "gale"
+  ],
+  "heightM": 1.6,
+  "bodyPlan": "storm glider on wrist-to-ankle membranes",
+  "silhouette": "WG",
+  "base": {
+   "hp": 70,
+   "atk": 72,
+   "def": 62,
+   "spa": 110,
+   "spd": 76,
+   "spe": 135
+  },
+  "catchRate": 45,
+  "xpYield": 233,
+  "growth": "medium",
+  "trait": "tr_static_hide",
+  "temperament": "territorial",
+  "attackStyle": "dive",
+  "sideYaw": 35,
+  "blurb": "Aloof and patient. Rides storms, and fiercely protects younger members of its line.",
+  "colors": [
+   "#7B70AF",
+   "#3BB8FF",
+   "#3A3470"
+  ],
+  "cry": {
+   "voice": "fm",
+   "basePitchHz": 300,
+   "contour": [
+    [
+     0.0,
+     0.0
+    ],
+    [
+     0.4,
+     7.0
+    ],
+    [
+     0.7,
+     3.0
+    ],
+    [
+     1.0,
+     10.0
+    ]
+   ],
+   "durationMs": 700,
+   "harmonicity": 3.0,
+   "modIndex": 8.0
+  },
+  "evolvesFrom": "c02"
+ },
+ {
+  "id": "c04",
+  "name": "Wickwool",
+  "family": "f02",
+  "stage": 1,
+  "types": [
+   "fire"
+  ],
+  "heightM": 0.45,
+  "bodyPlan": "woolly hatchling drake",
+  "silhouette": "QS",
+  "base": {
+   "hp": 55,
+   "atk": 65,
+   "def": 58,
+   "spa": 45,
+   "spd": 45,
+   "spe": 42
+  },
+  "catchRate": 45,
+  "xpYield": 62,
+  "growth": "medium",
+  "trait": "tr_last_stand",
+  "temperament": "curious",
+  "attackStyle": "lunge",
+  "sideYaw": 0,
+  "blurb": "Earnest and braver than its size. Head-butts new things to \"test\" them, and its wick flames flare when it is proud.",
+  "colors": [
+   "#3A3035",
+   "#EADFCD",
+   "#FF6A1A"
+  ],
+  "cry": {
+   "voice": "saw_formant",
+   "basePitchHz": 680,
+   "contour": [
+    [
+     0.0,
+     0.0
+    ],
+    [
+     0.2,
+     5.0
+    ],
+    [
+     0.6,
+     2.0
+    ],
+    [
+     1.0,
+     -4.0
+    ]
+   ],
+   "durationMs": 380,
+   "noiseMix": 0.2
+  },
+  "evolvesTo": {
+   "species": "c05",
+   "level": 16,
+   "move": "m004"
+  }
+ },
+ {
+  "id": "c05",
+  "name": "Kilnhorn",
+  "family": "f02",
+  "stage": 2,
+  "types": [
+   "fire"
+  ],
+  "heightM": 1.0,
+  "bodyPlan": "bipedal young drake",
+  "silhouette": "BP",
+  "base": {
+   "hp": 72,
+   "atk": 88,
+   "def": 72,
+   "spa": 58,
+   "spd": 60,
+   "spe": 55
+  },
+  "catchRate": 45,
+  "xpYield": 135,
+  "growth": "medium",
+  "trait": "tr_last_stand",
+  "temperament": "territorial",
+  "attackStyle": "rear",
+  "sideYaw": 0,
+  "blurb": "Proud and stubborn. Challenges rivals but is fiercely loyal.",
+  "colors": [
+   "#33292E",
+   "#CDBFAE",
+   "#FF6A1A"
+  ],
+  "cry": {
+   "voice": "saw_formant",
+   "basePitchHz": 420,
+   "contour": [
+    [
+     0.0,
+     0.0
+    ],
+    [
+     0.2,
+     5.0
+    ],
+    [
+     0.6,
+     2.0
+    ],
+    [
+     1.0,
+     -4.0
+    ]
+   ],
+   "durationMs": 560,
+   "noiseMix": 0.2
+  },
+  "evolvesTo": {
+   "species": "c06",
+   "level": 34,
+   "move": "m069"
+  },
+  "evolvesFrom": "c04"
+ },
+ {
+  "id": "c06",
+  "name": "Smoulderam",
+  "family": "f02",
+  "stage": 3,
+  "types": [
+   "fire",
+   "gale"
+  ],
+  "heightM": 1.9,
+  "bodyPlan": "winged ram-horned fire dragon",
+  "silhouette": "QL",
+  "base": {
+   "hp": 95,
+   "atk": 118,
+   "def": 100,
+   "spa": 70,
+   "spd": 80,
+   "spe": 62
+  },
+  "catchRate": 45,
+  "xpYield": 233,
+  "growth": "medium",
+  "trait": "tr_reckless",
+  "temperament": "wander",
+  "attackStyle": "rear",
+  "sideYaw": 0,
+  "blurb": "A calm, immovable hearth-guardian. Slow to anger; when roused it takes to the sky on smoke-hot updrafts.",
+  "colors": [
+   "#2B2428",
+   "#FF6A1A",
+   "#C4B9AB"
+  ],
+  "cry": {
+   "voice": "saw_formant",
+   "basePitchHz": 200,
+   "contour": [
+    [
+     0.0,
+     0.0
+    ],
+    [
+     0.2,
+     5.0
+    ],
+    [
+     0.6,
+     2.0
+    ],
+    [
+     1.0,
+     -4.0
+    ]
+   ],
+   "durationMs": 900,
+   "noiseMix": 0.2
+  },
+  "evolvesFrom": "c05"
+ },
+ {
+  "id": "c07",
+  "name": "Rippleback",
+  "family": "f03",
+  "stage": 1,
+  "types": [
+   "water"
+  ],
+  "heightM": 0.4,
+  "bodyPlan": "small quadruped otter",
+  "silhouette": "QS",
+  "base": {
+   "hp": 52,
+   "atk": 50,
+   "def": 55,
+   "spa": 55,
+   "spd": 58,
+   "spe": 40
+  },
+  "catchRate": 45,
+  "xpYield": 62,
+  "growth": "medium",
+  "trait": "tr_last_stand",
+  "temperament": "curious",
+  "attackStyle": "spin",
+  "sideYaw": 0,
+  "blurb": "Playful, sociable and a tool-user. Always carries a favourite pebble.",
+  "colors": [
+   "#5B4636",
+   "#3FA7B5",
+   "#F1E6D2"
+  ],
+  "cry": {
+   "voice": "am",
+   "basePitchHz": 760,
+   "contour": [
+    [
+     0.0,
+     2.0
+    ],
+    [
+     0.3,
+     -3.0
+    ],
+    [
+     0.6,
+     4.0
+    ],
+    [
+     1.0,
+     0.0
+    ]
+   ],
+   "durationMs": 300,
+   "vibrato": 5.0
+  },
+  "evolvesTo": {
+   "species": "c08",
+   "level": 16,
+   "move": "m016"
+  }
+ },
+ {
+  "id": "c08",
+  "name": "Tidesleek",
+  "family": "f03",
+  "stage": 2,
+  "types": [
+   "water"
+  ],
+  "heightM": 0.8,
+  "bodyPlan": "elongated serpentine swimmer",
+  "silhouette": "SR",
+  "base": {
+   "hp": 65,
+   "atk": 70,
+   "def": 62,
+   "spa": 72,
+   "spd": 66,
+   "spe": 70
+  },
+  "catchRate": 45,
+  "xpYield": 135,
+  "growth": "medium",
+  "trait": "tr_last_stand",
+  "temperament": "curious",
+  "attackStyle": "lunge",
+  "sideYaw": 0,
+  "blurb": "Sly, fast and a show-off. Hoards shiny things.",
+  "colors": [
+   "#2F5E7A",
+   "#8FD3D1",
+   "#E6EEF0"
+  ],
+  "cry": {
+   "voice": "am",
+   "basePitchHz": 460,
+   "contour": [
+    [
+     0.0,
+     2.0
+    ],
+    [
+     0.3,
+     -3.0
+    ],
+    [
+     0.6,
+     4.0
+    ],
+    [
+     1.0,
+     0.0
+    ]
+   ],
+   "durationMs": 480,
+   "vibrato": 5.0
+  },
+  "evolvesTo": {
+   "species": "c09",
+   "level": 34,
+   "move": "m047"
+  },
+  "evolvesFrom": "c07"
+ },
+ {
+  "id": "c09",
+  "name": "Floeguard",
+  "family": "f03",
+  "stage": 3,
+  "types": [
+   "water",
+   "frost"
+  ],
+  "heightM": 1.6,
+  "bodyPlan": "upright armoured biped",
+  "silhouette": "BP",
+  "base": {
+   "hp": 90,
+   "atk": 85,
+   "def": 112,
+   "spa": 88,
+   "spd": 95,
+   "spe": 55
+  },
+  "catchRate": 45,
+  "xpYield": 233,
+  "growth": "medium",
+  "trait": "tr_frost_hide",
+  "temperament": "territorial",
+  "attackStyle": "spin",
+  "sideYaw": 0,
+  "blurb": "Stoic, protective and patient. Moves last and stands its ground.",
+  "colors": [
+   "#CFE9F5",
+   "#3E4E63",
+   "#1FA6C9"
+  ],
+  "cry": {
+   "voice": "am",
+   "basePitchHz": 240,
+   "contour": [
+    [
+     0.0,
+     2.0
+    ],
+    [
+     0.3,
+     -3.0
+    ],
+    [
+     0.6,
+     4.0
+    ],
+    [
+     1.0,
+     0.0
+    ]
+   ],
+   "durationMs": 760,
+   "vibrato": 5.0
+  },
+  "evolvesFrom": "c08"
+ },
+ {
+  "id": "c10",
+  "name": "Dozebud",
+  "family": "f04",
+  "stage": 1,
+  "types": [
+   "verdant"
+  ],
+  "heightM": 0.35,
+  "bodyPlan": "curled ball (pod-hugger)",
+  "silhouette": "RB",
+  "base": {
+   "hp": 60,
+   "atk": 40,
+   "def": 50,
+   "spa": 45,
+   "spd": 60,
+   "spe": 35
+  },
+  "catchRate": 190,
+  "xpYield": 58,
+  "growth": "fast",
+  "trait": "tr_early_riser",
+  "temperament": "wander",
+  "attackStyle": "lunge",
+  "sideYaw": 0,
+  "blurb": "Sleepy, gentle and clingy. Never lets go of its pod.",
+  "colors": [
+   "#6E9444",
+   "#E3D2AC",
+   "#8A5A3B"
+  ],
+  "cry": {
+   "voice": "saw_formant",
+   "basePitchHz": 560,
+   "contour": [
+    [
+     0.0,
+     4.0
+    ],
+    [
+     0.5,
+     -2.0
+    ],
+    [
+     1.0,
+     -9.0
+    ]
+   ],
+   "durationMs": 600
+  },
+  "evolvesTo": {
+   "species": "c11",
+   "level": 16,
+   "move": "m035"
+  }
+ },
+ {
+  "id": "c11",
+  "name": "Lullstalk",
+  "family": "f04",
+  "stage": 2,
+  "types": [
+   "verdant",
+   "toxin"
+  ],
+  "heightM": 1.2,
+  "bodyPlan": "long-armed biped",
+  "silhouette": "BP",
+  "base": {
+   "hp": 80,
+   "atk": 60,
+   "def": 65,
+   "spa": 65,
+   "spd": 85,
+   "spe": 40
+  },
+  "catchRate": 90,
+  "xpYield": 131,
+  "growth": "fast",
+  "trait": "tr_toxic_skin",
+  "temperament": "wander",
+  "attackStyle": "slam",
+  "sideYaw": 0,
+  "blurb": "Languid and deceptively strategic. Waits, sways, then strikes mid-\"nod\".",
+  "colors": [
+   "#3A6128",
+   "#C98BDB",
+   "#9C8466"
+  ],
+  "cry": {
+   "voice": "saw_formant",
+   "basePitchHz": 340,
+   "contour": [
+    [
+     0.0,
+     4.0
+    ],
+    [
+     0.5,
+     -2.0
+    ],
+    [
+     1.0,
+     -9.0
+    ]
+   ],
+   "durationMs": 850
+  },
+  "evolvesTo": {
+   "species": "c12",
+   "level": 32,
+   "move": "m047"
+  },
+  "evolvesFrom": "c10"
+ },
+ {
+  "id": "c12",
+  "name": "Belladrowse",
+  "family": "f04",
+  "stage": 3,
+  "types": [
+   "verdant",
+   "toxin"
+  ],
+  "heightM": 2.2,
+  "bodyPlan": "canopy-backed knuckle-walker",
+  "silhouette": "QL",
+  "base": {
+   "hp": 110,
+   "atk": 95,
+   "def": 85,
+   "spa": 75,
+   "spd": 100,
+   "spe": 40
+  },
+  "catchRate": 45,
+  "xpYield": 224,
+  "growth": "fast",
+  "trait": "tr_regrowth",
+  "temperament": "wander",
+  "attackStyle": "slam",
+  "sideYaw": 0,
+  "blurb": "Serene and slow. A patient guardian that lets small creatures shelter in its canopy.",
+  "colors": [
+   "#22421F",
+   "#B36BD1",
+   "#6F5A48"
+  ],
+  "cry": {
+   "voice": "saw_formant",
+   "basePitchHz": 140,
+   "contour": [
+    [
+     0.0,
+     4.0
+    ],
+    [
+     0.5,
+     -2.0
+    ],
+    [
+     1.0,
+     -9.0
+    ]
+   ],
+   "durationMs": 1200
+  },
+  "evolvesFrom": "c11"
+ },
+ {
+  "id": "c13",
+  "name": "Rollith",
+  "family": "f05",
+  "stage": 1,
+  "types": [
+   "stone"
+  ],
+  "heightM": 0.3,
+  "bodyPlan": "rolling armoured ball",
+  "silhouette": "RB",
+  "base": {
+   "hp": 45,
+   "atk": 55,
+   "def": 85,
+   "spa": 30,
+   "spd": 45,
+   "spe": 40
+  },
+  "catchRate": 190,
+  "xpYield": 60,
+  "growth": "slow",
+  "trait": "tr_sturdy_core",
+  "temperament": "skittish",
+  "attackStyle": "spin",
+  "sideYaw": 0,
+  "blurb": "Timid. Rolls away when startled, but curious once calm.",
+  "colors": [
+   "#7F7466",
+   "#E0C7A8",
+   "#5E564D"
+  ],
+  "cry": {
+   "voice": "noise_formant",
+   "basePitchHz": 600,
+   "contour": [
+    [
+     0.0,
+     0.0
+    ],
+    [
+     0.3,
+     -2.0
+    ],
+    [
+     1.0,
+     -6.0
+    ]
+   ],
+   "durationMs": 280,
+   "noiseMix": 0.45
+  },
+  "evolvesTo": {
+   "species": "c14",
+   "level": 20,
+   "move": "m045"
+  }
+ },
+ {
+  "id": "c14",
+  "name": "Cairnback",
+  "family": "f05",
+  "stage": 2,
+  "types": [
+   "stone"
+  ],
+  "heightM": 0.9,
+  "bodyPlan": "domed quadruped, club tail",
+  "silhouette": "QL",
+  "base": {
+   "hp": 65,
+   "atk": 85,
+   "def": 115,
+   "spa": 40,
+   "spd": 60,
+   "spe": 45
+  },
+  "catchRate": 90,
+  "xpYield": 136,
+  "growth": "slow",
+  "trait": "tr_thorned",
+  "temperament": "territorial",
+  "attackStyle": "slam",
+  "sideYaw": 0,
+  "blurb": "Grumpy, territorial and dependable. It cannot roll any more and resents it.",
+  "colors": [
+   "#6C665B",
+   "#C4B454",
+   "#4A4038"
+  ],
+  "cry": {
+   "voice": "noise_formant",
+   "basePitchHz": 360,
+   "contour": [
+    [
+     0.0,
+     0.0
+    ],
+    [
+     0.3,
+     -2.0
+    ],
+    [
+     1.0,
+     -6.0
+    ]
+   ],
+   "durationMs": 450,
+   "noiseMix": 0.45
+  },
+  "evolvesTo": {
+   "species": "c15",
+   "level": 36,
+   "move": "m004"
+  },
+  "evolvesFrom": "c13"
+ },
+ {
+  "id": "c15",
+  "name": "Lodestodon",
+  "family": "f05",
+  "stage": 3,
+  "types": [
+   "stone",
+   "electric"
+  ],
+  "heightM": 1.9,
+  "bodyPlan": "colossal dome, orbiting stones",
+  "silhouette": "QL",
+  "base": {
+   "hp": 85,
+   "atk": 95,
+   "def": 135,
+   "spa": 80,
+   "spd": 75,
+   "spe": 35
+  },
+  "catchRate": 45,
+  "xpYield": 224,
+  "growth": "slow",
+  "trait": "tr_charge_sink",
+  "temperament": "territorial",
+  "attackStyle": "cast",
+  "sideYaw": 0,
+  "blurb": "Solemn and deliberate. It hums audibly, and compass needles swing near it.",
+  "colors": [
+   "#3F4550",
+   "#6FE3FF",
+   "#2A2A30"
+  ],
+  "cry": {
+   "voice": "noise_formant",
+   "basePitchHz": 150,
+   "contour": [
+    [
+     0.0,
+     0.0
+    ],
+    [
+     0.3,
+     -2.0
+    ],
+    [
+     1.0,
+     -6.0
+    ]
+   ],
+   "durationMs": 800,
+   "noiseMix": 0.45
+  },
+  "evolvesFrom": "c14"
+ },
+ {
+  "id": "c16",
+  "name": "Rimelet",
+  "family": "f06",
+  "stage": 1,
+  "types": [
+   "frost"
+  ],
+  "heightM": 0.25,
+  "bodyPlan": "sidewinding hatchling serpent",
+  "silhouette": "SR",
+  "base": {
+   "hp": 45,
+   "atk": 40,
+   "def": 55,
+   "spa": 65,
+   "spd": 60,
+   "spe": 45
+  },
+  "catchRate": 190,
+  "xpYield": 62,
+  "growth": "medium",
+  "trait": "tr_frost_hide",
+  "temperament": "skittish",
+  "attackStyle": "lunge",
+  "sideYaw": 0,
+  "blurb": "Shy and cold-loving. Clings to cold rock and hides under snow.",
+  "colors": [
+   "#EAF6FF",
+   "#5FB8D0",
+   "#B7A9F2"
+  ],
+  "cry": {
+   "voice": "fm",
+   "basePitchHz": 900,
+   "contour": [
+    [
+     0.0,
+     9.0
+    ],
+    [
+     0.5,
+     12.0
+    ],
+    [
+     1.0,
+     4.0
+    ]
+   ],
+   "durationMs": 400,
+   "harmonicity": 4.0,
+   "vibrato": 6.0
+  },
+  "evolvesTo": {
+   "species": "c17",
+   "level": 22,
+   "move": "m055"
+  }
+ },
+ {
+  "id": "c17",
+  "name": "Sleetribbon",
+  "family": "f06",
+  "stage": 2,
+  "types": [
+   "frost"
+  ],
+  "heightM": 0.7,
+  "bodyPlan": "sail-finned serpent",
+  "silhouette": "SR",
+  "base": {
+   "hp": 60,
+   "atk": 70,
+   "def": 60,
+   "spa": 85,
+   "spd": 65,
+   "spe": 80
+  },
+  "catchRate": 90,
+  "xpYield": 140,
+  "growth": "medium",
+  "trait": "tr_snow_coat",
+  "temperament": "territorial",
+  "attackStyle": "breath",
+  "sideYaw": 0,
+  "blurb": "Graceful, vain and territorial about untouched snow.",
+  "colors": [
+   "#8C8FE0",
+   "#E6F6FF",
+   "#D6F0FF"
+  ],
+  "cry": {
+   "voice": "fm",
+   "basePitchHz": 560,
+   "contour": [
+    [
+     0.0,
+     9.0
+    ],
+    [
+     0.5,
+     12.0
+    ],
+    [
+     1.0,
+     4.0
+    ]
+   ],
+   "durationMs": 600,
+   "harmonicity": 4.0,
+   "vibrato": 6.0
+  },
+  "evolvesTo": {
+   "species": "c18",
+   "level": 38,
+   "move": "m096"
+  },
+  "evolvesFrom": "c16"
+ },
+ {
+  "id": "c18",
+  "name": "Borealoop",
+  "family": "f06",
+  "stage": 3,
+  "types": [
+   "frost",
+   "lumen"
+  ],
+  "heightM": 1.8,
+  "bodyPlan": "floating ring-serpent",
+  "silhouette": "FL",
+  "base": {
+   "hp": 80,
+   "atk": 60,
+   "def": 80,
+   "spa": 115,
+   "spd": 110,
+   "spe": 75
+  },
+  "catchRate": 45,
+  "xpYield": 231,
+  "growth": "medium",
+  "trait": "tr_clear_mind",
+  "temperament": "wander",
+  "attackStyle": "spin",
+  "sideYaw": 40,
+  "blurb": "Distant and dreamlike. Appears to lost travellers and guides them down.",
+  "colors": [
+   "#1B2A4A",
+   "#47E6A8",
+   "#B266FF"
+  ],
+  "cry": {
+   "voice": "fm",
+   "basePitchHz": 330,
+   "contour": [
+    [
+     0.0,
+     9.0
+    ],
+    [
+     0.5,
+     12.0
+    ],
+    [
+     1.0,
+     4.0
+    ]
+   ],
+   "durationMs": 900,
+   "harmonicity": 4.0,
+   "vibrato": 6.0
+  },
+  "evolvesFrom": "c17"
+ },
+ {
+  "id": "c19",
+  "name": "Gustling",
+  "family": "f07",
+  "stage": 1,
+  "types": [
+   "gale"
+  ],
+  "heightM": 0.4,
+  "bodyPlan": "round hopping fledgling",
+  "silhouette": "RB",
+  "base": {
+   "hp": 40,
+   "atk": 50,
+   "def": 35,
+   "spa": 40,
+   "spd": 35,
+   "spe": 85
+  },
+  "catchRate": 190,
+  "xpYield": 57,
+  "growth": "fast",
+  "trait": "tr_small_strikes",
+  "temperament": "curious",
+  "attackStyle": "lunge",
+  "sideYaw": 0,
+  "blurb": "Bubbly, loud and fearless far beyond its ability.",
+  "colors": [
+   "#F4F1E8",
+   "#6AA3CC",
+   "#E07A5F"
+  ],
+  "cry": {
+   "voice": "fm",
+   "basePitchHz": 880,
+   "contour": [
+    [
+     0.0,
+     0.0
+    ],
+    [
+     0.25,
+     12.0
+    ],
+    [
+     0.5,
+     5.0
+    ],
+    [
+     1.0,
+     9.0
+    ]
+   ],
+   "durationMs": 280,
+   "harmonicity": 1.0,
+   "modIndex": 2.0
+  },
+  "evolvesTo": {
+   "species": "c20",
+   "level": 14,
+   "move": "m066"
+  }
+ },
+ {
+  "id": "c20",
+  "name": "Whirlseed",
+  "family": "f07",
+  "stage": 2,
+  "types": [
+   "gale",
+   "verdant"
+  ],
+  "heightM": 0.6,
+  "bodyPlan": "samara-winged swift",
+  "silhouette": "WG",
+  "base": {
+   "hp": 60,
+   "atk": 75,
+   "def": 45,
+   "spa": 55,
+   "spd": 45,
+   "spe": 115
+  },
+  "catchRate": 90,
+  "xpYield": 131,
+  "growth": "fast",
+  "trait": "tr_keen_focus",
+  "temperament": "skittish",
+  "attackStyle": "spin",
+  "sideYaw": 30,
+  "blurb": "Restless, playful and a prankster. Never lands for long.",
+  "colors": [
+   "#3F7FA6",
+   "#E2C585",
+   "#3D6B45"
+  ],
+  "cry": {
+   "voice": "fm",
+   "basePitchHz": 540,
+   "contour": [
+    [
+     0.0,
+     0.0
+    ],
+    [
+     0.25,
+     12.0
+    ],
+    [
+     0.5,
+     5.0
+    ],
+    [
+     1.0,
+     9.0
+    ]
+   ],
+   "durationMs": 420,
+   "harmonicity": 1.0,
+   "modIndex": 2.0
+  },
+  "evolvesTo": {
+   "species": "c21",
+   "level": 30,
+   "move": "m069"
+  },
+  "evolvesFrom": "c19"
+ },
+ {
+  "id": "c21",
+  "name": "Samarch",
+  "family": "f07",
+  "stage": 3,
+  "types": [
+   "gale",
+   "verdant"
+  ],
+  "heightM": 1.5,
+  "bodyPlan": "rotor-winged hover raptor",
+  "silhouette": "WG",
+  "base": {
+   "hp": 80,
+   "atk": 100,
+   "def": 70,
+   "spa": 75,
+   "spd": 75,
+   "spe": 105
+  },
+  "catchRate": 45,
+  "xpYield": 224,
+  "growth": "fast",
+  "trait": "tr_keen_focus",
+  "temperament": "territorial",
+  "attackStyle": "lunge",
+  "sideYaw": 0,
+  "blurb": "A proud hunter and protector of Gustling flocks.",
+  "colors": [
+   "#2F6A55",
+   "#D9B45A",
+   "#EFE6CF"
+  ],
+  "cry": {
+   "voice": "fm",
+   "basePitchHz": 320,
+   "contour": [
+    [
+     0.0,
+     0.0
+    ],
+    [
+     0.25,
+     12.0
+    ],
+    [
+     0.5,
+     5.0
+    ],
+    [
+     1.0,
+     9.0
+    ]
+   ],
+   "durationMs": 650,
+   "harmonicity": 1.0,
+   "modIndex": 2.0
+  },
+  "evolvesFrom": "c20"
+ },
+ {
+  "id": "c22",
+  "name": "Ringdrip",
+  "family": "f08",
+  "stage": 1,
+  "types": [
+   "toxin"
+  ],
+  "heightM": 0.3,
+  "bodyPlan": "six-armed land octopus",
+  "silhouette": "RD",
+  "base": {
+   "hp": 48,
+   "atk": 45,
+   "def": 45,
+   "spa": 60,
+   "spd": 55,
+   "spe": 47
+  },
+  "catchRate": 190,
+  "xpYield": 60,
+  "growth": "medium",
+  "trait": "tr_toxic_skin",
+  "temperament": "skittish",
+  "attackStyle": "lunge",
+  "sideYaw": 0,
+  "blurb": "Nervous: it flashes its rings when scared. A curious poker.",
+  "colors": [
+   "#E3C77A",
+   "#2E6BFF",
+   "#F6E8B5"
+  ],
+  "cry": {
+   "voice": "am",
+   "basePitchHz": 640,
+   "contour": [
+    [
+     0.0,
+     0.0
+    ],
+    [
+     0.3,
+     4.0
+    ],
+    [
+     0.6,
+     -4.0
+    ],
+    [
+     1.0,
+     2.0
+    ]
+   ],
+   "durationMs": 350,
+   "vibrato": 4.0
+  },
+  "evolvesTo": {
+   "species": "c23",
+   "level": 18,
+   "move": "m076"
+  }
+ },
+ {
+  "id": "c23",
+  "name": "Brineloop",
+  "family": "f08",
+  "stage": 2,
+  "types": [
+   "toxin",
+   "water"
+  ],
+  "heightM": 0.9,
+  "bodyPlan": "upright four-leg octopus",
+  "silhouette": "RD",
+  "base": {
+   "hp": 65,
+   "atk": 55,
+   "def": 70,
+   "spa": 80,
+   "spd": 75,
+   "spe": 60
+  },
+  "catchRate": 90,
+  "xpYield": 135,
+  "growth": "medium",
+  "trait": "tr_tide_sink",
+  "temperament": "curious",
+  "attackStyle": "cast",
+  "sideYaw": 0,
+  "blurb": "A cocky trickster that juggles water droplets.",
+  "colors": [
+   "#D6A865",
+   "#2458D6",
+   "#9FE3F0"
+  ],
+  "cry": {
+   "voice": "am",
+   "basePitchHz": 400,
+   "contour": [
+    [
+     0.0,
+     0.0
+    ],
+    [
+     0.3,
+     4.0
+    ],
+    [
+     0.6,
+     -4.0
+    ],
+    [
+     1.0,
+     2.0
+    ]
+   ],
+   "durationMs": 520,
+   "vibrato": 4.0
+  },
+  "evolvesTo": {
+   "species": "c24",
+   "level": 34,
+   "move": "m036"
+  },
+  "evolvesFrom": "c22"
+ },
+ {
+  "id": "c24",
+  "name": "Drapetide",
+  "family": "f08",
+  "stage": 3,
+  "types": [
+   "toxin",
+   "water"
+  ],
+  "heightM": 1.8,
+  "bodyPlan": "cloaked tripod octopus",
+  "silhouette": "RD",
+  "base": {
+   "hp": 85,
+   "atk": 70,
+   "def": 80,
+   "spa": 105,
+   "spd": 95,
+   "spe": 70
+  },
+  "catchRate": 45,
+  "xpYield": 224,
+  "growth": "medium",
+  "trait": "tr_menace",
+  "temperament": "territorial",
+  "attackStyle": "cast",
+  "sideYaw": 0,
+  "blurb": "Regal and menacing but honourable. Its intimidation display ends many fights before they start.",
+  "colors": [
+   "#5A2A6E",
+   "#3FA0FF",
+   "#F0C040"
+  ],
+  "cry": {
+   "voice": "am",
+   "basePitchHz": 200,
+   "contour": [
+    [
+     0.0,
+     0.0
+    ],
+    [
+     0.3,
+     4.0
+    ],
+    [
+     0.6,
+     -4.0
+    ],
+    [
+     1.0,
+     2.0
+    ]
+   ],
+   "durationMs": 800,
+   "vibrato": 4.0
+  },
+  "evolvesFrom": "c23"
+ },
+ {
+  "id": "c25",
+  "name": "Snipling",
+  "family": "f09",
+  "stage": 1,
+  "types": [
+   "shade"
+  ],
+  "heightM": 0.4,
+  "bodyPlan": "flat cut-out biped",
+  "silhouette": "FT",
+  "base": {
+   "hp": 40,
+   "atk": 60,
+   "def": 40,
+   "spa": 60,
+   "spd": 45,
+   "spe": 70
+  },
+  "catchRate": 190,
+  "xpYield": 63,
+  "growth": "slow",
+  "trait": "tr_fog_veil",
+  "temperament": "curious",
+  "attackStyle": "lunge",
+  "sideYaw": 45,
+  "blurb": "Mischievous. Mimics the poses of whoever faces it.",
+  "colors": [
+   "#1E1B24",
+   "#5B4F7A",
+   "#FFE9A8"
+  ],
+  "cry": {
+   "voice": "noise_formant",
+   "basePitchHz": 580,
+   "contour": [
+    [
+     0.0,
+     -3.0
+    ],
+    [
+     0.4,
+     6.0
+    ],
+    [
+     0.8,
+     -6.0
+    ],
+    [
+     1.0,
+     0.0
+    ]
+   ],
+   "durationMs": 320,
+   "noiseMix": 0.3
+  },
+  "evolvesTo": {
+   "species": "c26",
+   "level": 24,
+   "move": "m087"
+  }
+ },
+ {
+  "id": "c26",
+  "name": "Marionyx",
+  "family": "f09",
+  "stage": 2,
+  "types": [
+   "shade"
+  ],
+  "heightM": 1.1,
+  "bodyPlan": "suspended marionette",
+  "silhouette": "FL",
+  "base": {
+   "hp": 55,
+   "atk": 85,
+   "def": 55,
+   "spa": 80,
+   "spd": 60,
+   "spe": 90
+  },
+  "catchRate": 90,
+  "xpYield": 141,
+  "growth": "slow",
+  "trait": "tr_quick_feet",
+  "temperament": "curious",
+  "attackStyle": "slam",
+  "sideYaw": 30,
+  "blurb": "Theatrical and sardonic. Performs even when no one is watching.",
+  "colors": [
+   "#2A2433",
+   "#9EE7F2",
+   "#6A5C88"
+  ],
+  "cry": {
+   "voice": "noise_formant",
+   "basePitchHz": 380,
+   "contour": [
+    [
+     0.0,
+     -3.0
+    ],
+    [
+     0.4,
+     6.0
+    ],
+    [
+     0.8,
+     -6.0
+    ],
+    [
+     1.0,
+     0.0
+    ]
+   ],
+   "durationMs": 500,
+   "noiseMix": 0.3
+  },
+  "evolvesTo": {
+   "species": "c27",
+   "level": 40,
+   "move": "m089"
+  },
+  "evolvesFrom": "c25"
+ },
+ {
+  "id": "c27",
+  "name": "Emberfold",
+  "family": "f09",
+  "stage": 3,
+  "types": [
+   "shade",
+   "fire"
+  ],
+  "heightM": 2.0,
+  "bodyPlan": "folding-screen spectre",
+  "silhouette": "FT",
+  "base": {
+   "hp": 70,
+   "atk": 95,
+   "def": 65,
+   "spa": 120,
+   "spd": 80,
+   "spe": 100
+  },
+  "catchRate": 45,
+  "xpYield": 235,
+  "growth": "slow",
+  "trait": "tr_flame_sink",
+  "temperament": "territorial",
+  "attackStyle": "cast",
+  "sideYaw": 45,
+  "blurb": "Dramatic and vengeful toward intruders, and devoted to whoever it considers its audience.",
+  "colors": [
+   "#231A1A",
+   "#FF7A2E",
+   "#8A5A2B"
+  ],
+  "cry": {
+   "voice": "noise_formant",
+   "basePitchHz": 180,
+   "contour": [
+    [
+     0.0,
+     -3.0
+    ],
+    [
+     0.4,
+     6.0
+    ],
+    [
+     0.8,
+     -6.0
+    ],
+    [
+     1.0,
+     0.0
+    ]
+   ],
+   "durationMs": 760,
+   "noiseMix": 0.3
+  },
+  "evolvesFrom": "c26"
+ },
+ {
+  "id": "c28",
+  "name": "Dawnfry",
+  "family": "f10",
+  "stage": 1,
+  "types": [
+   "lumen"
+  ],
+  "heightM": 0.3,
+  "bodyPlan": "round floating fry",
+  "silhouette": "FL",
+  "base": {
+   "hp": 60,
+   "atk": 35,
+   "def": 50,
+   "spa": 65,
+   "spd": 65,
+   "spe": 45
+  },
+  "catchRate": 190,
+  "xpYield": 64,
+  "growth": "slow",
+  "trait": "tr_regrowth",
+  "temperament": "curious",
+  "attackStyle": "spin",
+  "sideYaw": 0,
+  "blurb": "Cheerful. Drawn to lanterns and to Tuners' lights.",
+  "colors": [
+   "#FFD6A0",
+   "#E0708F",
+   "#FFF4C2"
+  ],
+  "cry": {
+   "voice": "fm",
+   "basePitchHz": 700,
+   "contour": [
+    [
+     0.0,
+     0.0
+    ],
+    [
+     0.3,
+     5.0
+    ],
+    [
+     0.6,
+     7.0
+    ],
+    [
+     1.0,
+     12.0
+    ]
+   ],
+   "durationMs": 450,
+   "harmonicity": 2.0,
+   "modIndex": 3.0
+  },
+  "evolvesTo": {
+   "species": "c29",
+   "level": 26,
+   "move": "m097"
+  }
+ },
+ {
+  "id": "c29",
+  "name": "Lumarlin",
+  "family": "f10",
+  "stage": 2,
+  "types": [
+   "lumen"
+  ],
+  "heightM": 0.8,
+  "bodyPlan": "air-swimming marlin",
+  "silhouette": "FL",
+  "base": {
+   "hp": 65,
+   "atk": 90,
+   "def": 55,
+   "spa": 75,
+   "spd": 60,
+   "spe": 85
+  },
+  "catchRate": 90,
+  "xpYield": 143,
+  "growth": "slow",
+  "trait": "tr_keen_focus",
+  "temperament": "territorial",
+  "attackStyle": "lunge",
+  "sideYaw": 0,
+  "blurb": "Competitive, disciplined and an honourable duellist.",
+  "colors": [
+   "#F2F0FF",
+   "#8BA6E8",
+   "#FFD86B"
+  ],
+  "cry": {
+   "voice": "fm",
+   "basePitchHz": 440,
+   "contour": [
+    [
+     0.0,
+     0.0
+    ],
+    [
+     0.3,
+     5.0
+    ],
+    [
+     0.6,
+     7.0
+    ],
+    [
+     1.0,
+     12.0
+    ]
+   ],
+   "durationMs": 750,
+   "harmonicity": 2.0,
+   "modIndex": 3.0
+  },
+  "evolvesTo": {
+   "species": "c30",
+   "level": 44,
+   "move": "m088",
+   "item": "i_evo_prism"
+  },
+  "evolvesFrom": "c28"
+ },
+ {
+  "id": "c30",
+  "name": "Coronaleen",
+  "family": "f10",
+  "stage": 3,
+  "types": [
+   "lumen",
+   "shade"
+  ],
+  "heightM": 1.75,
+  "bodyPlan": "floating baleen whale",
+  "silhouette": "FL",
+  "base": {
+   "hp": 125,
+   "atk": 80,
+   "def": 90,
+   "spa": 110,
+   "spd": 90,
+   "spe": 40
+  },
+  "catchRate": 45,
+  "xpYield": 237,
+  "growth": "slow",
+  "trait": "tr_resonant",
+  "temperament": "wander",
+  "attackStyle": "breath",
+  "sideYaw": 0,
+  "blurb": "Ancient, gentle and solemn. Locals say eclipses happen when it passes overhead.",
+  "colors": [
+   "#231F3A",
+   "#FFE8A3",
+   "#C9C3E6"
+  ],
+  "cry": {
+   "voice": "fm",
+   "basePitchHz": 160,
+   "contour": [
+    [
+     0.0,
+     0.0
+    ],
+    [
+     0.3,
+     5.0
+    ],
+    [
+     0.6,
+     7.0
+    ],
+    [
+     1.0,
+     12.0
+    ]
+   ],
+   "durationMs": 1200,
+   "harmonicity": 2.0,
+   "modIndex": 3.0
+  },
+  "evolvesFrom": "c29"
+ }
+]

@@ -1,0 +1,132 @@
+[
+ {
+  "id": "tr_last_stand",
+  "name": "Final Verse",
+  "desc": "When its HP falls to a third or less, moves of its primary type hit 50% harder."
+ },
+ {
+  "id": "tr_resonant",
+  "name": "Deep Resonance",
+  "desc": "Moves matching the zone's attunement are boosted \u00d71.2 instead of \u00d71.1."
+ },
+ {
+  "id": "tr_static_hide",
+  "name": "Crackle Plating",
+  "desc": "Kin that strike it with contact moves may be Jolted (30%)."
+ },
+ {
+  "id": "tr_ember_hide",
+  "name": "Ember Hide",
+  "desc": "Kin that strike it with contact moves may be Scorched (30%)."
+ },
+ {
+  "id": "tr_toxic_skin",
+  "name": "Blight Skin",
+  "desc": "Kin that strike it with contact moves may be Blighted (30%)."
+ },
+ {
+  "id": "tr_frost_hide",
+  "name": "Rime Hide",
+  "desc": "Kin that strike it with contact moves may get Rimebite (30%)."
+ },
+ {
+  "id": "tr_thorned",
+  "name": "Thorned",
+  "desc": "Kin that strike it with contact moves lose 1/8 of their max HP."
+ },
+ {
+  "id": "tr_menace",
+  "name": "Looming",
+  "desc": "On entry, lowers the opposing kin's Attack by one stage."
+ },
+ {
+  "id": "tr_clear_mind",
+  "name": "Held Note",
+  "desc": "Its stats cannot be lowered by the opposing kin."
+ },
+ {
+  "id": "tr_sturdy_core",
+  "name": "Keystone Core",
+  "desc": "At full HP it survives any single hit with 1 HP."
+ },
+ {
+  "id": "tr_keen_focus",
+  "name": "Sharp Ear",
+  "desc": "Its critical-hit chance is raised one stage."
+ },
+ {
+  "id": "tr_small_strikes",
+  "name": "Quick Pecks",
+  "desc": "Moves of power 60 or less gain 50% power."
+ },
+ {
+  "id": "tr_reckless",
+  "name": "Headlong",
+  "desc": "Moves with recoil gain 20% power."
+ },
+ {
+  "id": "tr_regrowth",
+  "name": "Regrowth",
+  "desc": "Recovers 1/16 of its max HP at the end of each turn."
+ },
+ {
+  "id": "tr_charge_sink",
+  "name": "Lode Sink",
+  "desc": "Electric moves have no effect and heal it instead; cannot be Jolted."
+ },
+ {
+  "id": "tr_tide_sink",
+  "name": "Tide Sink",
+  "desc": "Water moves have no effect and heal it instead."
+ },
+ {
+  "id": "tr_flame_sink",
+  "name": "Kiln Heart",
+  "desc": "Fire moves have no effect and stoke its own fire moves \u00d71.5; cannot be Scorched."
+ },
+ {
+  "id": "tr_rain_glide",
+  "name": "Rain Glide",
+  "desc": "Speed doubles in rain."
+ },
+ {
+  "id": "tr_sun_bask",
+  "name": "Sun Bask",
+  "desc": "Speed doubles in sunlight."
+ },
+ {
+  "id": "tr_snow_coat",
+  "name": "Rimeguard",
+  "desc": "Physical Defense \u00d71.5 in snow."
+ },
+ {
+  "id": "tr_fog_veil",
+  "name": "Fog Veil",
+  "desc": "In fog, moves aimed at it are less accurate."
+ },
+ {
+  "id": "tr_shed_status",
+  "name": "Restless Molt",
+  "desc": "30% chance each turn to shake off a lingering condition."
+ },
+ {
+  "id": "tr_early_riser",
+  "name": "Light Sleeper",
+  "desc": "Wakes from Drowse twice as fast."
+ },
+ {
+  "id": "tr_adaptive",
+  "name": "Attuned Style",
+  "desc": "Its same-type bonus is \u00d72 instead of \u00d71.5."
+ },
+ {
+  "id": "tr_thick_fur",
+  "name": "Weatherwool",
+  "desc": "Takes half damage from fire and frost moves."
+ },
+ {
+  "id": "tr_quick_feet",
+  "name": "Frantic Stride",
+  "desc": "While afflicted by a condition, Speed \u00d71.5 and Jolt no longer slows it."
+ }
+]

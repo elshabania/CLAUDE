@@ -1,0 +1,22 @@
+{
+  "shop_town_1": { "name": "Larkhollow Chandlery", "items": [
+    { "id": "i_chime_reed" }, { "id": "i_chime_brass", "if": "flag_trial_1_cleared" }, { "id": "i_salve_1" }, { "id": "i_salve_2", "if": "flag_trial_1_cleared" },
+    { "id": "i_cure_burn" }, { "id": "i_cure_poison" }, { "id": "i_cure_para" }, { "id": "i_cure_sleep" }, { "id": "i_cure_frost" }, { "id": "i_thread" },
+    { "id": "i_hush_1", "if": "flag_trial_1_cleared" }, { "id": "i_disc_03", "if": "flag_trial_1_cleared" }, { "id": "i_disc_11" } ] },
+  "shop_town_2": { "name": "Knellstone Chandlery", "items": [
+    { "id": "i_chime_reed" }, { "id": "i_chime_brass" }, { "id": "i_chime_silver", "if": "flag_trial_3_cleared" }, { "id": "i_salve_1" }, { "id": "i_salve_2" },
+    { "id": "i_salve_3", "if": "flag_trial_3_cleared" }, { "id": "i_cure_all", "if": "flag_trial_2_cleared" }, { "id": "i_revive_1", "if": "flag_trial_2_cleared" },
+    { "id": "i_charge_1", "if": "flag_trial_2_cleared" }, { "id": "i_hush_1" }, { "id": "i_thread" },
+    { "id": "i_disc_01" }, { "id": "i_disc_06" }, { "id": "i_disc_08" }, { "id": "i_disc_12" } ] },
+  "shop_town_3": { "name": "Galewick Chandlery", "items": [
+    { "id": "i_chime_brass" }, { "id": "i_chime_silver" }, { "id": "i_chime_crown", "if": "flag_trial_5_cleared" }, { "id": "i_salve_2" }, { "id": "i_salve_3" },
+    { "id": "i_salve_4", "if": "flag_trial_5_cleared" }, { "id": "i_cure_all" }, { "id": "i_revive_1" }, { "id": "i_charge_1" }, { "id": "i_hush_2" },
+    { "id": "i_thread" }, { "id": "i_evo_prism" } ] },
+  "shop_wick": { "name": "Wick's Cart", "items": [
+    { "id": "i_chime_brass" }, { "id": "i_salve_2" }, { "id": "i_cure_all", "if": "keynotes>=2" }, { "id": "i_revive_1", "if": "keynotes>=3" },
+    { "id": "i_chime_silver", "if": "keynotes>=4" }, { "id": "i_salve_3", "if": "keynotes>=4" } ] },
+  "shop_lake": { "name": "Stilt-hamlet Stall", "items": [ { "id": "i_chime_brass" }, { "id": "i_salve_2" }, { "id": "i_salve_3" }, { "id": "i_cure_all" }, { "id": "i_revive_1" } ] },
+  "shop_volcano": { "name": "Forge Camp Stall", "items": [ { "id": "i_chime_silver" }, { "id": "i_salve_3" }, { "id": "i_cure_all" }, { "id": "i_revive_1" }, { "id": "i_charge_1" } ] },
+  "shop_snowpeak": { "name": "Hoarcrown Lodge", "items": [ { "id": "i_chime_silver" }, { "id": "i_chime_crown" }, { "id": "i_salve_3" }, { "id": "i_salve_4" }, { "id": "i_revive_1" }, { "id": "i_cure_all" } ] },
+  "shop_league": { "name": "Spire Provisioner", "items": [ { "id": "i_chime_crown" }, { "id": "i_salve_4" }, { "id": "i_revive_1" }, { "id": "i_cure_all" }, { "id": "i_charge_1" } ] }
+}

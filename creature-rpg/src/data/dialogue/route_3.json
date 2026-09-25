@@ -1,0 +1,174 @@
+{
+  "dlg_route_3_storyteller": {
+    "variants": [
+      {
+        "if": "flag_q_tales_done",
+        "lines": [
+          { "s": "Old Moth", "t": "Three curtains, three pages, one tale. Now it's yours to tell. Tell it badly at first — everyone does." }
+        ]
+      },
+      {
+        "if": "flag_q_tales && node:rn_route_3_02 && node:rn_cave_05 && node:rn_town_3_02",
+        "lines": [
+          { "s": "Old Moth", "t": "You passed all three curtains of dusk? Then you've read the whole tale: the kin who hid the last song in the shadows." },
+          { "s": "Old Moth", "t": "My grandmother told it to me under this very willow. Take these. A story that's finished ought to pay its listener." }
+        ],
+        "actions": [
+          { "money": 1000 },
+          { "give": "i_revive_2", "n": 1 },
+          { "set": "flag_q_tales_done" },
+          { "questDone": "q_side_veil_tales" }
+        ]
+      },
+      {
+        "if": "flag_q_tales",
+        "lines": [
+          { "s": "Old Moth", "t": "Three curtains of dusk. One hangs here in the fen, by the sinkhole west of my willow." },
+          { "s": "Old Moth", "t": "One in the Undertone, on the far west wall of the lower galleries. One in a Galewick cellar. Shade voices part them." }
+        ]
+      },
+      {
+        "if": "has:i_keynote_4",
+        "lines": [
+          { "s": "Old Moth", "t": "Ah — a Veil-tuned Keynote. Then you can part the curtains of dusk. Most folk walk straight past them." },
+          { "s": "Old Moth", "t": "Behind each hangs a page of an old tale. Bring me all three and I'll tell you how it ends. Well?" }
+        ],
+        "choice": {
+          "options": [
+            { "label": "Tell me where they hang.", "actions": [{ "set": "flag_q_tales" }, { "quest": "q_side_veil_tales", "step": 1 }] },
+            { "label": "Another time.", "actions": [] }
+          ]
+        }
+      },
+      {
+        "if": "flag_fen_stone_restored",
+        "lines": [
+          { "s": "Old Moth", "t": "Hear the frogs? They sing in thirds when the stone's awake. The fen had forgotten its own tune for a week." },
+          { "s": "Old Moth", "t": "There are curtains of dusk in this land, you know. Shadows you can walk behind. Come back when shade answers you." }
+        ]
+      },
+      {
+        "lines": [
+          { "s": "Old Moth", "t": "Sit, sit. The fog brings out the old stories. This one's about curtains of dusk — shadows that hide a door." },
+          { "s": "Old Moth", "t": "…But I can't tell it with that bell-fitting racket at the stone. Whispering woman, clipboards. Spoils the mood." }
+        ]
+      }
+    ]
+  },
+  "dlg_route_3_guide": {
+    "variants": [
+      {
+        "if": "flag_rival_3_done",
+        "lines": [
+          { "s": "Fen Guide", "t": "Your loud friend in the scarf went east grinning. Sillowmere's that way — the Mere Hall sits on piles in the middle." }
+        ]
+      },
+      {
+        "if": "flag_fen_stone_restored",
+        "lines": [
+          { "s": "Fen Guide", "t": "Hear that? The fen's got its voice back. You can feel it in the boardwalk — toxin kin fight with a spring in their step now." },
+          { "s": "Fen Guide", "t": "Some kid in a red scarf is waiting at the boardwalk end, east. Looked lost. Said they weren't. Looked more lost." }
+        ]
+      },
+      {
+        "if": "flag_admin_vey_1",
+        "lines": [
+          { "s": "Fen Guide", "t": "You saw off the whispering woman! The bell's off the stone, then. Go and give it a hum — any kin will do." }
+        ]
+      },
+      {
+        "lines": [
+          { "s": "Fen Guide", "t": "Keep to the boardwalks. The pools bubble violet, but it's only the fen breathing. Mostly." },
+          { "s": "Fen Guide", "t": "Engineers are at the half-sunk stone, fitting a brass bell over it. Since they came, even the frogs have gone quiet." }
+        ]
+      }
+    ]
+  },
+  "dlg_t_still_05_pre": {
+    "variants": [{ "lines": [{ "s": "Survey Engineer Elsie", "t": "You're standing in a marked service area. I'm obliged to remove you. Politely." }] }]
+  },
+  "dlg_t_still_05_post": {
+    "variants": [{ "lines": [{ "s": "Survey Engineer Elsie", "t": "I'll have to file an incident report. It's three pages. The Warden will want to read it aloud. With feeling." }] }]
+  },
+  "dlg_t_still_05_after": {
+    "variants": [{ "lines": [{ "s": "Survey Engineer Elsie", "t": "The Magister says unregulated stones are how people get hurt. She's usually right about hazards." }] }]
+  },
+  "dlg_t_admin_vey_1_pre": {
+    "variants": [
+      {
+        "lines": [
+          { "s": "Warden Vey", "t": "*Enter the hero, stage left, too loud as usual.*" },
+          { "s": "Warden Vey", "t": "This stone is being fitted for a Stillbell, darling. Do sit down." }
+        ]
+      }
+    ]
+  },
+  "dlg_t_admin_vey_1_post": {
+    "variants": [
+      {
+        "lines": [
+          { "s": "Warden Vey", "t": "*Exit, pursued by a Tuner.* How very dramatic of you." },
+          { "s": "Warden Vey", "t": "A Stillbell doesn't hurt a stone. It simply decides *when*. Isn't that what a conductor does?" },
+          { "s": "", "t": "Vey's crew unclamp the trial Stillbell and haul it off through the reeds. The half-sunk stone is left bare and silent." },
+          { "s": "", "t": "{starter} pads up to the stone and hums. For a moment, nothing. Then the stone answers, low and warm." },
+          { "s": "", "t": "Colour ripples out across Sallowfen. The frogs start up all at once, in thirds." }
+        ],
+        "actions": [
+          { "set": "flag_fen_stone_restored" },
+          { "quest": "q_main_ch05", "step": 2 }
+        ]
+      }
+    ]
+  },
+  "dlg_t_admin_vey_1_after": {
+    "variants": [
+      {
+        "if": "!flag_fen_stone_restored",
+        "lines": [
+          { "s": "Warden Vey", "t": "*Intermission.* Go on, then. Fix your little stone. I'll be reviewing you harshly." },
+          { "s": "", "t": "{starter} pads up to the half-sunk stone and hums. The stone answers, low and warm, and colour ripples across the fen." }
+        ],
+        "actions": [
+          { "set": "flag_fen_stone_restored" },
+          { "quest": "q_main_ch05", "step": 2 }
+        ]
+      },
+      {
+        "lines": [{ "s": "Warden Vey", "t": "A Stillbell doesn't hurt a stone. It simply decides *when*. Isn't that what a conductor does?" }]
+      }
+    ]
+  },
+  "dlg_t_rival_3_pre": {
+    "variants": [
+      {
+        "lines": [
+          { "s": "Cass", "t": "{player}! There you are. I was going to help with the stone. I got lost. The frogs all look the same." },
+          { "s": "Cass", "t": "Battle me so I feel competent." }
+        ]
+      }
+    ]
+  },
+  "dlg_t_rival_3_post": {
+    "variants": [
+      {
+        "lines": [
+          { "s": "Cass", "t": "You fixed a *stone*. I was busy losing to a frog. Don't tell anyone." },
+          { "s": "Cass", "t": "…Do you ever feel like everyone's already decided who you are?" },
+          { "s": "Cass", "t": "Never mind. Forget it. Sillowmere's east — race you. I'll lose that too, probably. Go on." }
+        ],
+        "actions": [
+          { "questDone": "q_main_ch05" },
+          { "quest": "q_main_ch06", "step": 1 }
+        ]
+      }
+    ]
+  },
+  "dlg_05_vey_pre": { "variants": [{ "lines": [{ "s": "Warden Vey", "t": "*Enter the hero, stage left, too loud as usual.* This stone is being fitted for a Stillbell, darling. Do sit down." }] }] },
+  "dlg_05_vey_win": { "variants": [{ "lines": [{ "s": "Warden Vey", "t": "*Exit, pursued by a Tuner.* How very dramatic of you." }] }] },
+  "dlg_05_vey_lose": { "variants": [{ "lines": [{ "s": "Warden Vey", "t": "*Blackout.* Go home, little critic." }] }] },
+  "dlg_05_vey_after": { "variants": [{ "lines": [{ "s": "Warden Vey", "t": "A Stillbell doesn't hurt a stone. It simply decides *when*. Isn't that what a conductor does?" }] }] },
+  "dlg_05_cass_pre": { "variants": [{ "lines": [{ "s": "Cass", "t": "I was going to help with the stone. I got lost. The frogs all look the same. Battle me so I feel competent." }] }] },
+  "dlg_05_cass_win": { "variants": [{ "lines": [{ "s": "Cass", "t": "You fixed a *stone*. I was busy losing to a frog. Don't tell anyone." }] }] },
+  "dlg_05_cass_lose": { "variants": [{ "lines": [{ "s": "Cass", "t": "Okay, that helped. I feel fully competent. Frogs, beware." }] }] },
+  "dlg_05_cass_after": { "variants": [{ "lines": [{ "s": "Cass", "t": "…Do you ever feel like everyone's already decided who you are?" }] }] }
+}

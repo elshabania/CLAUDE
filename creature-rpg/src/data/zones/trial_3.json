@@ -1,0 +1,463 @@
+{
+ "id": "trial_3",
+ "name": "Mere Hall",
+ "biome": "lake",
+ "attuned": "water",
+ "music": "trial",
+ "indoor": true,
+ "terrain": {
+  "seed": 3303,
+  "size": [
+   50,
+   70
+  ],
+  "base": 0.6,
+  "amp": 0.2,
+  "scale": 20,
+  "rim": 8,
+  "rimWidth": 4,
+  "flats": [
+   {
+    "at": [
+     0,
+     16
+    ],
+    "r": 5
+   },
+   {
+    "at": [
+     0,
+     3
+    ],
+    "r": 6
+   },
+   {
+    "at": [
+     0,
+     -15
+    ],
+    "r": 6
+   },
+   {
+    "at": [
+     0,
+     24
+    ],
+    "r": 3
+   }
+  ],
+  "paths": [
+   {
+    "pts": [
+     [
+      0,
+      34
+     ],
+     [
+      0,
+      -26
+     ]
+    ],
+    "w": 4
+   }
+  ],
+  "water": [
+   {
+    "at": [
+     -15,
+     -2
+    ],
+    "r": 4.5,
+    "depth": 1.2,
+    "level": 0.5
+   },
+   {
+    "at": [
+     15,
+     13
+    ],
+    "r": 4.5,
+    "depth": 1.2,
+    "level": 0.5
+   },
+   {
+    "at": [
+     15,
+     -14
+    ],
+    "r": 4,
+    "depth": 1.2,
+    "level": 0.5
+   },
+   {
+    "at": [
+     -15,
+     -18
+    ],
+    "r": 3.5,
+    "depth": 0.5,
+    "level": 0.5
+   }
+  ]
+ },
+ "palette": {
+  "ground": "#8FA7AE",
+  "ground2": "#A9C3C8",
+  "path": "#C9B58E",
+  "cliff": "#4E6A78",
+  "accent": "#A9D6E5",
+  "sky": "#1D3440",
+  "fog": "#27414E"
+ },
+ "fogDensity": 0.012,
+ "weather": {
+  "clear": 100
+ },
+ "spawns": [
+  {
+   "id": "sp_trial_3_door",
+   "at": [
+    0,
+    24
+   ],
+   "yaw": 0
+  }
+ ],
+ "exits": [
+  {
+   "id": "x_trial_3_door",
+   "at": [
+    0,
+    31
+   ],
+   "r": 2.5,
+   "to": "lake",
+   "spawn": "sp_lake_hall",
+   "label": "Sillowmere"
+  }
+ ],
+ "props": [
+  {
+   "kind": "wall",
+   "at": [
+    -21.5,
+    0
+   ],
+   "yaw": 90,
+   "w": 64,
+   "h": 8,
+   "color": "#6F8C99"
+  },
+  {
+   "kind": "wall",
+   "at": [
+    21.5,
+    0
+   ],
+   "yaw": 90,
+   "w": 64,
+   "h": 8,
+   "color": "#6F8C99"
+  },
+  {
+   "kind": "wall",
+   "at": [
+    0,
+    -31.5
+   ],
+   "w": 44,
+   "h": 8,
+   "color": "#6F8C99"
+  },
+  {
+   "kind": "wall",
+   "at": [
+    -12.5,
+    31.5
+   ],
+   "w": 18,
+   "h": 8,
+   "color": "#6F8C99"
+  },
+  {
+   "kind": "wall",
+   "at": [
+    12.5,
+    31.5
+   ],
+   "w": 18,
+   "h": 8,
+   "color": "#6F8C99"
+  },
+  {
+   "kind": "wall",
+   "at": [
+    -14,
+    20
+   ],
+   "w": 1.4,
+   "h": 8,
+   "color": "#8C6A44"
+  },
+  {
+   "kind": "wall",
+   "at": [
+    14,
+    20
+   ],
+   "w": 1.4,
+   "h": 8,
+   "color": "#8C6A44"
+  },
+  {
+   "kind": "wall",
+   "at": [
+    -14,
+    -20
+   ],
+   "w": 1.4,
+   "h": 8,
+   "color": "#8C6A44"
+  },
+  {
+   "kind": "wall",
+   "at": [
+    14,
+    -20
+   ],
+   "w": 1.4,
+   "h": 8,
+   "color": "#8C6A44"
+  },
+  {
+   "kind": "lamp",
+   "at": [
+    -4,
+    27
+   ]
+  },
+  {
+   "kind": "lamp",
+   "at": [
+    4,
+    27
+   ]
+  },
+  {
+   "kind": "lamp",
+   "at": [
+    -6,
+    -25
+   ]
+  },
+  {
+   "kind": "lamp",
+   "at": [
+    6,
+    -25
+   ]
+  },
+  {
+   "kind": "lamp",
+   "at": [
+    -18,
+    12
+   ]
+  },
+  {
+   "kind": "lamp",
+   "at": [
+    18,
+    12
+   ]
+  },
+  {
+   "kind": "lamp",
+   "at": [
+    -18,
+    -6
+   ]
+  },
+  {
+   "kind": "lamp",
+   "at": [
+    18,
+    -6
+   ]
+  },
+  {
+   "kind": "wall",
+   "at": [
+    0,
+    6.5
+   ],
+   "w": 42,
+   "h": 1.6,
+   "color": "#3F8FB5",
+   "hideIf": "flag_t_hall3_01_won",
+   "label": "High water — the first level"
+  },
+  {
+   "kind": "wall",
+   "at": [
+    0,
+    -8.5
+   ],
+   "w": 42,
+   "h": 1.6,
+   "color": "#2E6F95",
+   "hideIf": "flag_t_hall3_02_won",
+   "label": "Middle water — the second level"
+  },
+  {
+   "kind": "wall",
+   "at": [
+    0,
+    -27.5
+   ],
+   "w": 12,
+   "h": 1.2,
+   "color": "#E8E1C9",
+   "label": "Cantor's float"
+  },
+  {
+   "kind": "wall",
+   "at": [
+    -19,
+    6.5
+   ],
+   "w": 3,
+   "h": 3.2,
+   "color": "#E8E1C9",
+   "label": "Tide gauge: three notches, the top one wet"
+  },
+  {
+   "kind": "wall",
+   "at": [
+    19,
+    -8.5
+   ],
+   "w": 3,
+   "h": 2.4,
+   "color": "#E8E1C9",
+   "label": "Tide gauge"
+  },
+  {
+   "kind": "sign",
+   "at": [
+    -3,
+    26
+   ],
+   "yaw": 0,
+   "label": "Mere Hall — Cantor Nerys Tidewell. Each voice you out-sing lowers the water."
+  },
+  {
+   "kind": "crate",
+   "at": [
+    -18,
+    27
+   ]
+  },
+  {
+   "kind": "crate",
+   "at": [
+    -17,
+    28
+   ],
+   "s": 0.7
+  },
+  {
+   "kind": "bridge",
+   "at": [
+    0,
+    -16
+   ],
+   "yaw": 90,
+   "d": 10,
+   "w": 3
+  }
+ ],
+ "scatter": [
+  {
+   "kind": "reeds",
+   "density": 6,
+   "minDist": 0.8,
+   "avoidPaths": true
+  },
+  {
+   "kind": "grass",
+   "density": 3,
+   "minDist": 1.2
+  }
+ ],
+ "npcs": [
+  {
+   "id": "npc_trial_3_attendant",
+   "at": [
+    8,
+    22
+   ],
+   "yaw": 270,
+   "look": "angler",
+   "name": "Hall Attendant Wade",
+   "dialogue": "trial_3_attendant",
+   "role": "villager"
+  }
+ ],
+ "trainers": [
+  {
+   "id": "t_hall3_01",
+   "at": [
+    -8,
+    10
+   ],
+   "yaw": 90,
+   "sight": 6
+  },
+  {
+   "id": "t_hall3_02",
+   "at": [
+    8,
+    0
+   ],
+   "yaw": 270,
+   "sight": 6
+  },
+  {
+   "id": "t_cantor_3",
+   "at": [
+    0,
+    -20
+   ],
+   "yaw": 180,
+   "sight": 0
+  }
+ ],
+ "nodes": [],
+ "pickups": [],
+ "wildRegions": [],
+ "maxWild": 0,
+ "battleStages": [
+  {
+   "at": [
+    0,
+    16
+   ],
+   "yaw": 90
+  },
+  {
+   "at": [
+    0,
+    3
+   ],
+   "yaw": 90
+  },
+  {
+   "at": [
+    0,
+    -14
+   ],
+   "yaw": 90
+  }
+ ]
+}
