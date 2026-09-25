@@ -57,7 +57,8 @@ await page.evaluate(() => window.__game.getState().runActions([{ battle: 't_riva
 await wait(4000);
 check('battle started', (await mode()) === 'battle', await mode());
 await shot('08_battle_intro');
-for (let turn = 0; turn < 150 && (await mode()) === "battle"; turn++) {
+const battleDeadline = Date.now() + 20 * 60 * 1000; // software GL runs the stage at ~1 fps; cue timers advance per frame
+for (let turn = 0; Date.now() < battleDeadline && (await mode()) === "battle"; turn++) {
   const phase = await page.evaluate(() => window.__battle?.getState().phase);
   if (phase === 'command' || phase === 'moves' || phase === 'replace') { await page.keyboard.press('Enter'); await wait(300); }
   else await wait(800);
