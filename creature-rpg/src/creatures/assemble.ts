@@ -589,7 +589,9 @@ export function assemble(v: SpeciesVisual, opts: BuildOpts): CreatureModel {
       if (pred > cap) cell *= Math.sqrt(pred / cap) * 1.04;
       const out = plan.groups.map((g) => meshFieldAt(g.field, cell, { H, ao: opts.quality !== 'mobile' || opts.lod === 0 }));
       const shells: (BodyGeometry | null)[] = plan.groups.map((g) =>
-        g.preset === 'FUR' && opts.quality === 'high' && opts.lod === 0 ? meshFieldAt(g.field, cell * 1.9, { H, ao: false }) : null,
+        g.preset === 'FUR' && opts.quality === 'high' && opts.lod === 0 && g.members.some((m) => (m.pd.fur ?? (m.pd.fluffy ? 1.6 : 0.3)) >= 0.55)
+          ? furOnly(meshFieldAt(g.field, cell * 1.9, { H, ao: false }))
+          : null,
       );
       return { bodies: out, shells };
     });
@@ -629,7 +631,7 @@ export function assemble(v: SpeciesVisual, opts: BuildOpts): CreatureModel {
       draws += 1;
       const sh = bodies.shells[gi];
       if (sh) {
-        const layers = 5;
+        const layers = 4;
         const len = (v.furLen ?? 0.02) * H;
         for (let l = 1; l <= layers; l++) {
           const so: MatOpts = { ...matBase('FUR'), color: '#ffffff', vertexColors: true, attrs: true, shell: { h: l / layers, len, strand: len } };
@@ -838,6 +840,21 @@ export function assemble(v: SpeciesVisual, opts: BuildOpts): CreatureModel {
 }
 
 // ------------------------------------------------------------------------------------------------ mesh cache
+/** keep only shell triangles that touch fluffy regions (aFur ≥ 0.5); the shader discards the rest anyway */
+function furOnly(b: BodyGeometry): BodyGeometry | null {
+  const idx = b.geometry.index!;
+  const fur = b.geometry.attributes.aFur as THREE.BufferAttribute;
+  const keep: number[] = [];
+  for (let i = 0; i < idx.count; i += 3) {
+    const a = idx.getX(i), c = idx.getX(i + 1), d = idx.getX(i + 2);
+    if (Math.max(fur.getX(a), fur.getX(c), fur.getX(d)) >= 0.5) keep.push(a, c, d);
+  }
+  if (!keep.length) { b.geometry.dispose(); return null; }
+  const n = b.geometry.attributes.position.count;
+  b.geometry.setIndex(n > 65535 ? new THREE.Uint32BufferAttribute(keep, 1) : new THREE.Uint16BufferAttribute(keep, 1));
+  return { ...b, tris: keep.length / 3 };
+}
+
 interface BodySet { bodies: BodyGeometry[]; shells: (BodyGeometry | null)[] }
 const bodyCache = new Map<string, BodySet>();
 
