@@ -62,3 +62,13 @@ All imported data is MakeHuman CC0 1.0. The full file list and attribution are i
 - **Cloth simulation:** coats and skirts are skinned rather than simulated, so they stretch slightly with wide strides. There is no secondary motion on hair or scarf tails yet.
 - **Talking** for trainers outside NPC dialogue, and the player's own lines, is not wired: `dialogue.npcId` only covers NPCs.
 - `src/creatures/materials.ts` (creature shader, not part of this work) logs a vertex-shader `dFdx` compile error on the title screen in software GL. This needs follow-up by the creature owner.
+
+## 7. Clothing pass 2 (coordinator review of t26_group)
+
+- **Clean edges:** garment triangles are clipped exactly on the cut iso-line, so hems, necklines, cuffs and jacket fronts are continuous. Every hem gets a rolled/bevelled lip that returns toward the body; the lip depth is smoothed along the hem loop. Roll necks and fur collars are procedural neck tubes with a rolled rim.
+- **No gaps:** base layers close their hem lip all the way to the skin. Shells are stacked in layer order at least 4 mm above the layers below, with a feathered push. Covered inner-layer and body faces are removed.
+- **Volume, no anatomy:** garments sit on a smoothed "cloth base": 48 Laplacian passes on the torso, hips and thighs, plus a torso-front span envelope so fabric bridges the chest, and relaxed base normals. Nipple, nipple-point and breast-point reduction targets (MakeHuman CC0 `breast/*`) are baked into every body. Skirts, coat tails and aprons flare below the waist with vertical folds, and skirts now fall below the knee.
+- **Wardrobe:** Tamsin now wears a sleeved jacket over a tee, with trousers. Tops over skirts and aprons end at the waist. Long hair stays off the face.
+- **Pointing:** the rig adds a separate index-finger chain (37 bones), so `command` points the index finger with the other fingers curled.
+- **Talking:** NPCs and trainers move their mouths while their line is on screen (matched by speaker name). The player talks on their own lines. Battle trainers talk during the intro and send-out.
+- Screenshots: `final_group1..6.png` (all 31 looks plus the player), `final_bust_{tamsin,villagerA,rhea,odile,cass,nerys}.png`, `final_player_face34.png`, `final_player_bust34.png`, `final_point.png`, `w_apron.png`.

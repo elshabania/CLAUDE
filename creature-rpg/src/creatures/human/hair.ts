@@ -266,10 +266,10 @@ export function buildHair(d: HumanData, s: BodyShape, rig: Rig, L: ResolvedLook,
       const sgn = Math.sign(r.p.x - hs.c.x) || 1;
       let dir: THREE.Vector3;
       let len: number;
-      if (isBang) { dir = V(sideA * 0.9 + sgn * 0.3, -0.6, 0.5); len = bob ? 0.075 : 0.1; }
+      if (isBang) { dir = V(sgn * 0.9, -0.5, 0.15); len = bob ? 0.06 : 0.07; }
       else {
         // centre parting: flow away from the part line, over the scalp, then fall
-        dir = V(sgn * (0.7 + 0.2 * Math.abs(sideA)), -0.2, -0.35 - 0.3 * Math.max(0, -front));
+        dir = V(sgn * (0.7 + 0.2 * Math.abs(sideA)), -0.2, -0.35 - 0.3 * Math.max(0, -front) - 0.5 * Math.max(0, front));
         len = bob ? 0.17 + R() * 0.03 - Math.max(0, front) * 0.02 : 0.34 + R() * 0.08 - Math.max(0, front) * 0.07;
       }
       clump(r.p, dir.sub(n.clone().multiplyScalar(dir.dot(n))), { len, w: 0.02 + R() * 0.008, th: 0.004, grav: 0.9, stiff: isBang ? 0.5 : 0.2, noise: 0.06, k: 1.04, seg: bob ? 8 : 12, curl: bob ? -0.35 : 0.0, flat: 0.6, hug: 1 });

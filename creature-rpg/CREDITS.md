@@ -27,9 +27,10 @@ code (AGPL) is used or shipped.
 | MakeHuman file(s) | Used for |
 |---|---|
 | `3dobjs/base.obj` (base mesh hm08: body, eye, eyelash, teeth, tongue, scalp and skirt helpers) | body topology, UVs, helper geometry |
-| `rigs/default.mhskel`, `rigs/default_weights.mhw` | joint positions and skin weights, collapsed onto the 34-bone game skeleton |
+| `rigs/default.mhskel`, `rigs/default_weights.mhw` | joint positions and skin weights, collapsed onto the 37-bone game skeleton |
 | `poseunits/face-poseunits.bvh`, `poseunits/face-poseunits.json` | face expression morphs (blink, brows, smile, jaw, lip units), baked through the full MakeHuman face rig |
 | `targets/macrodetails/*.target` (universal, ethnic mix, `height/`, `proportions/`): 89 files | body presets for age, sex, muscle, weight and height |
+| `targets/breast/nipple-size-decr`, `nipple-point-decr`, `breast-point-decr` | modest clothed silhouette |
 | `targets/eyes/{l,r}-eye-scale-incr`, `{l,r}-eye-height2-incr`, `targets/nose/nose-scale-{horiz,vert,depth}-decr`, `nose-point-width-decr`, `targets/mouth/mouth-scale-horiz-decr`, `mouth-{upper,lower}lip-volume-decr`, `mouth-trans-backward`, `mouth-lowerlip-height-decr`, `mouth-angles-up`, `targets/head/head-age-decr`, `targets/chin/chin-{width,height}-decr`, `chin-prominent-incr`, `targets/cheek/{l,r}-cheek-bones-incr`, `targets/neck/neck-scale-horiz-decr` | the shared stylised face |
 
 The generated build prints the exact file list to `.cache/mh/used-files.json`. Everything else on the humans is

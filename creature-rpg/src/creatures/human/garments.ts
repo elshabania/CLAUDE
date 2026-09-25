@@ -292,7 +292,7 @@ export function buildOutfit(d: HumanData, s: BodyShape, L: ResolvedLook, lod: nu
     layers.push({
       name: 'apronSkirt', source: 'skirt', kind: ex.has('tongs') ? 2 : 1, pattern: 0, color: C(L.accent), color2: shade(L.accent, 0.7), hides: false,
       cut: (o) => Math.max(y(o) - (hipY + 0.05), (hipY - 0.55) - y(o), Math.abs(x(o)) - 0.18, torsoZ - z(o)),
-      offset: (o) => 0.034 + drape(o, hipY, 0.035) * 0.8,
+      offset: (o) => (W.legs === 'skirt' || W.legs === 'longskirt' ? 0.022 + drape(o, waistY + 0.02, 0.07) : 0.034 + drape(o, hipY, 0.035) * 0.8),
       smooth: 3,
     });
   }
