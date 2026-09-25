@@ -409,7 +409,7 @@ The target is a game that **looks and feels like a polished creature-collecting 
 |---|---|
 | **c07 Rippleback → c08 Tidesleek → c09 Floeguard** (otter water-starter line) | A shell on the chest or belly; a detachable shell or shell blade; a blue-and-cream otter with a scallop accessory. Floeguard (D7): **no helmet**, whiskers limited to two short nubs, shell only on the back and the tail fan. The three stages are reviewed together as a line. |
 | **c01 Fizzkit line** (electric gliding lizard; formerly Voltra) | A yellow body with red cheeks; a zig-zag bolt tail; a neck frill or fan; rodent cues; a dragon-wing read. |
-| **c04 Wickwool line** (fire ram calf; formerly Emberhorn) | A flame-tipped tail on a bipedal orange body; a round ball-sheep body; electric-wool cues. Magmouflon: no back crater or hump vent. |
+| **c04 Wickwool line** (ram-horned fire dragon line, D31; formerly Emberhorn) | A flame-tipped tail on a bipedal orange body; an orange body with a cream belly and teal wing lining; a round ball-sheep body; electric-wool cues. Smoulderam (c06): flame only at horn tips and molten fissures, basalt tail club, obsidian/ember palette. |
 | **c11 Lullstalk / c12 Belladrowse** (verdant/toxin bell line) | A bell-shaped head; pitcher-plant anatomy; any "-bell" suffix returning to a name. |
 | **c16 Rimelet** | Prolegs or feelers (Snom). |
 | **c15 Lodestodon** | Faces or noses on its satellites; a moustache or large nose. |

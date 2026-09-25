@@ -931,7 +931,7 @@ Other trainers follow the systems §14.1 legality rules and the §14.4 route-tra
 | c03 | Tempestrel | f01 / 3 | electric·gale | evolve c02 at 34 | — |
 | c04 | Wickwool | f02 / 1 | fire | Starter / leftover / second clutch | ch1 / ch8 / ch9+ |
 | c05 | Kilnhorn | f02 / 2 | fire | evolve 16 | — |
-| c06 | Magmouflon | f02 / 3 | fire·stone | evolve 34 | — |
+| c06 | Smoulderam (D31; was Magmouflon) | f02 / 3 | fire·gale | evolve 34 | — |
 | c07 | Rippleback | f03 / 1 | water | Starter / leftover / second clutch | ch1 / ch8 / ch9+ |
 | c08 | Tidesleek | f03 / 2 | water | evolve 16 | — |
 | c09 | Floeguard | f03 / 3 | water·frost | evolve 34 | — |
