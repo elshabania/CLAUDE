@@ -26,7 +26,7 @@ export function poseFor(state: FaceState, rest: LidPose): LidPose {
   switch (state) {
     case 'half': return { up: Math.max(rest.up, 0.5), lo: rest.lo, tilt: rest.tilt, iris: 1 };
     case 'closed': return { up: 0.6, lo: 0.42, tilt: rest.tilt * 0.3, iris: 1 };
-    case 'happy': return { up: Math.min(rest.up, 0.18), lo: 0.64, tilt: -4, iris: 1 };
+    case 'happy': return { up: 0, lo: 0.74, tilt: 0, iris: 1 };
     case 'hurt': return { up: 0.58, lo: 0.46, tilt: 16, iris: 0.9 };
     case 'faint': return { up: 0.62, lo: 0.4, tilt: -8, iris: 1 };
     case 'determined': return { up: Math.max(rest.up, 0.3), lo: Math.max(rest.lo, 0.2), tilt: -18, iris: 1 };

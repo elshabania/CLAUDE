@@ -67,3 +67,29 @@ Every family keeps its motif across the 3 stages:
 - f10: stripe and pale belly
 
 After the fixes, every stage 3 is clearly larger and more elaborate than its stage 1. I found no clipping, inverted or missing parts, apart from the intentional floating pieces: the c02 spark arc and the orbiting lodestones on c15.
+
+---
+
+# v2 pass: flagship redesigns and the sculpted rendering upgrade (DECISIONS D31)
+
+Date: 2026-09-25. Evidence is in the session scratchpad `creatures2/`: `before_sheet.png`, `before_c01.png`, `before_c06.png`, `before_sil.png`, `after_sheet.png`, `after_sil.png`, `after_c01_az{0,35,90,160}.png`, `after_c06_az{0,35,90,160}.png`, `after_c01_{happy,hurt,determined}.png`, `b_f01.png`, `b_f02.png`, and the in-game shots `ig/{starter,follower,battle,battle2}.png`. Rendering used software GL, so shading only approximates the real renderer.
+
+## Rendering upgrade: all species
+- **Bodies:** 27 of 30 species now use sculpted, skinned bodies. The three f09 paper cut-outs (c25–c27) stay planar by design. The primitive seams, where spheres pierced each other, are gone: necks, limbs and tails now blend smoothly into the torso, and the animator bends the skin as a whole. The meshing cost for one species at High is about 30–210 ms, and each result is cached.
+- **Faces:** eyes are now 3D (cornea specular, gradient iris, lids). Blinks and all 8 states are lid poses. The console shows no shader errors on the title, starter, explore, battle or viewer pages. The dFdx call now runs only in the fragment shader.
+- **Remaining issues:**
+  - The fur shells look speckled in software GL.
+  - At the High budget, some mane shells drop to 2 layers (c06, c12).
+  - c03 and c12 are about 28k tris at High LOD0, just over the ~25k target, because of their accessories.
+  - The `happy` eyes on c01 read slightly sleepy at ¾ view. The lower lid was raised to compensate.
+
+## Originality self-check (release_character_gate.md §4.2)
+| Subject | Watch target | Signature features shared | Result |
+|---|---|---|---|
+| c01 Fizzkit | Pikachu (yellow, red cheek circles, zig-zag tail, black ear tips) | 0: lilac fleece, blue freckle dots, coiled bulb tail, round satin ears with no dark tips | pass. The nearest are Pachirisu and Minun, with 1 generic feature each (a blue cheek accent). |
+| c02 / c03 | Emolga, Pawmot, Zekrom | ≤ 1 generic (a gliding membrane) | pass |
+| c04 / c05 | Charmander, Charmeleon (orange body, tail flame) | 0: charcoal body, no tail flame, flames only on the horn wicks | pass |
+| c06 Smoulderam | Charizard (orange, cream belly, teal wing lining, tail flame, straight horns) | 0 of the 5: obsidian body, dark fissured belly, ember-red membranes, basalt club tail, spiral ram horns | pass. It shares generic "dark scales and lava cracks" with Blazamut and Deathwing (2 non-signature features, a Note). Cover test: its first read is "ram-horned dragon", not a named character. |
+| Names | GC-13 | "Smoulderam" has no near match. Fumaroar, Cindrake, Charwyrm and Blazeram were rejected (creatures.md §1.5). | pass, pending the R-14 trademark check |
+
+Resemblance within each family: f01 shares its ears, rims, freckles, membranes and bulb tail. f02 shares its wick horns, fleece mane, charcoal and ember palette, and basalt knob that grows into a club. Stage-3 grandeur is clear for c03 (a 2.6 m span) and c06 (1.9 m tall with a 4 m span). In the side silhouettes (`after_sil.png`), every one of c01–c06 is distinct from the rest of the roster.
