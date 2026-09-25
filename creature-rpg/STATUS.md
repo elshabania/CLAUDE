@@ -28,14 +28,28 @@
 | `npm run typecheck` | Pass |
 | `npm test` (10 suites, 98 tests: battle maths against spec vectors, persistence and migration, content validation, world cross-references, campaign reachability, balance sim, creatures, audio no-op, day/night) | Pass |
 | Balance simulation: 48 required starter × story-battle pairs | All meet their targets (simulation, not playtest). Tables in `design/reviews/balance_sim.md` §7 |
-| Scripted smoke play-through (`scripts/play-smoke.mjs`, QA build, headless Chromium with SwiftShader) | See "Smoke run" below |
+| Scripted smoke play-through (`scripts/play-smoke.mjs`, QA build, headless Chromium with SwiftShader) | **11/11 pass** (see "Smoke run" below) |
 | Frame rate on real hardware | **Not measured** |
 | Audio listening test | **Not run** |
 | Human playtest | **Not run** |
 
 ## Smoke run
 
-_To be filled in from the final run._
+Final run on 2026-09-25: QA production build (`VITE_QA=1 vite build`), served with `vite preview`, driven by `scripts/play-smoke.mjs` in headless Chromium with SwiftShader software GL. **11/11 checks passed**:
+
+1. New game reaches the intro dialogue.
+2. The intro closes into exploration.
+3. The player walks.
+4. The starter screen opens.
+5. The starter joins the party.
+6. The rival battle starts.
+7. The battle ends and returns to exploration.
+8. The rival flags are set (`flag_rival_1_done`).
+9. The menu opens.
+10. Continue is offered after a reload.
+11. Continue loads the game.
+
+An earlier run failed checks 7–9 only because the battle hadn't finished within the script's fixed turn budget. Software GL renders the stage at about 1 FPS, and battle cue timers advance per frame. The script now waits up to 20 minutes, after which the same flow passes. This is a flow check, not a performance measurement.
 
 ## Deploy
 
