@@ -10,10 +10,10 @@ export function segs(kind: 'sphere' | 'capsule' | 'lathe' | 'tube' | 'cone', lod
   if (sizeM < 0.025) tier = 2;
   else if (sizeM < 0.1) tier = Math.max(tier, 1);
   const T: Record<string, [number, number][]> = {
-    sphere: [[24, 16], [16, 12], [10, 7]],
-    capsule: [[12, 6], [10, 4], [7, 3]],
-    lathe: [[24, 0], [16, 0], [10, 0]],
-    tube: [[12, 24], [8, 16], [6, 10]],
+    sphere: [[18, 12], [14, 10], [10, 7]],
+    capsule: [[12, 5], [10, 4], [7, 3]],
+    lathe: [[20, 0], [16, 0], [10, 0]],
+    tube: [[10, 20], [8, 14], [6, 10]],
     cone: [[16, 1], [12, 1], [8, 1]],
   };
   return T[kind][tier];

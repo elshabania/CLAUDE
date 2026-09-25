@@ -631,7 +631,7 @@ export function assemble(v: SpeciesVisual, opts: BuildOpts): CreatureModel {
       draws += 1;
       const sh = bodies.shells[gi];
       if (sh) {
-        const layers = 4;
+        const layers = Math.max(2, Math.min(4, Math.floor(6500 / Math.max(1, sh.tris))));
         const len = (v.furLen ?? 0.02) * H;
         for (let l = 1; l <= layers; l++) {
           const so: MatOpts = { ...matBase('FUR'), color: '#ffffff', vertexColors: true, attrs: true, shell: { h: l / layers, len, strand: len } };

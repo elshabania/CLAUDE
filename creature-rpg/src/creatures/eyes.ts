@@ -230,7 +230,7 @@ export interface EyeBuildOpts {
 }
 
 export function buildEye(o: EyeBuildOpts): EyeBuild {
-  const seg = o.lod === 2 ? 10 : o.quality === 'mobile' ? 14 : o.lod === 1 ? 18 : 28;
+  const seg = o.lod === 2 ? 10 : o.quality === 'mobile' ? 14 : o.lod === 1 ? 16 : 22;
   const group = new THREE.Group();
   group.name = 'eye3d';
   group.position.copy(o.centre);

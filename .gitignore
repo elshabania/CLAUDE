@@ -9,3 +9,4 @@ out
 tsconfig.tsbuildinfo
 public/play
 creature-rpg/scripts/*.tmp.mjs
+creature-rpg/tests/unit/zz_*
