@@ -263,6 +263,8 @@ interface PartInst {
 const RES: Record<Quality, number> = { high: 66, balanced: 54, mobile: 36 };
 const LODK = [1, 0.62, 0.4];
 const TRI_CAP: Record<Quality, number> = { high: 12500, balanced: 8500, mobile: 4200 };
+/** whole-creature LOD0 target (sculpted body + accessories + fur shells) */
+const BUDGET: Record<Quality, number> = { high: 25000, balanced: 16000, mobile: 8500 };
 const LOD_TRI = [1, 0.42, 0.18];
 
 const specHash = new WeakMap<SpeciesVisual, string>();
@@ -576,83 +578,7 @@ export function assemble(v: SpeciesVisual, opts: BuildOpts): CreatureModel {
   const sculptOn = !opts.legacy && v.sculpt !== false;
   const plan: SculptSet = sculptOn ? planSculpt(insts, v, opts) : { groups: [], accessory: new Set(insts), cell: 0 };
   const fields: SdfField[] = plan.groups.map((g) => g.field);
-  if (plan.groups.length) {
-    const key = `${v.id}|${hashOf(v)}|${opts.lod}|${opts.quality}`;
-    const t0 = typeof performance !== 'undefined' ? performance.now() : 0;
-    let built = false;
-    const bodies = cachedBodies(key, () => {
-      built = true;
-      const cap = TRI_CAP[opts.quality] * LOD_TRI[opts.lod];
-      let cell = plan.cell;
-      // predict the triangle count from a 2x coarser pass (tris scale ~ 1/cell^2) and back off before meshing
-      const pred = plan.groups.reduce((s, g) => s + countTris(g.field, cell * 2), 0) * 4;
-      if (pred > cap) cell *= Math.sqrt(pred / cap) * 1.04;
-      const out = plan.groups.map((g) => meshFieldAt(g.field, cell, { H, ao: opts.quality !== 'mobile' || opts.lod === 0 }));
-      const shells: (BodyGeometry | null)[] = plan.groups.map((g) =>
-        g.preset === 'FUR' && opts.quality === 'high' && opts.lod === 0 && g.members.some((m) => (m.pd.fur ?? (m.pd.fluffy ? 1.6 : 0.3)) >= 0.55)
-          ? furOnly(meshFieldAt(g.field, cell * 1.9, { H, ao: false }))
-          : null,
-      );
-      return { bodies: out, shells };
-    });
-    if (built && typeof performance !== 'undefined') meshMs = performance.now() - t0;
-    plan.groups.forEach((g, gi) => {
-      const bg = bodies.bodies[gi];
-      const pd0 = g.members[0].pd;
-      void pd0;
-      const mo: MatOpts = { ...matBase(g.preset), color: '#ffffff', vertexColors: true, attrs: true };
-      let mat: THREE.MeshStandardMaterial;
-      if (g.glow) {
-        const gi2 = v.fissureGlow ?? 1.3;
-        mo.glowMask = true;
-        mo.emissive = colorOf(v, v.fissureColor ?? 'A');
-        mo.emissiveIntensity = gi2;
-        mat = cloneCreatureMaterial(makeMaterial(mo), mo);
-        ownedMats.add(mat);
-        glowMats.push(mat);
-        glowBase.push(gi2);
-      } else mat = makeMaterial(mo);
-      mats.add(mat);
-      const bones = bg.bones.map((n) => parts[n]) as THREE.Bone[];
-      const mesh = new THREE.SkinnedMesh(bg.geometry, mat);
-      mesh.name = 'body_' + g.preset;
-      mesh.castShadow = true;
-      mesh.receiveShadow = false;
-      pivot.add(mesh);
-      mesh.updateMatrixWorld(true);
-      const skeleton = new THREE.Skeleton(bones);
-      mesh.bind(skeleton, mesh.matrixWorld);
-      if (bg.geometry.boundingSphere) {
-        mesh.boundingSphere = bg.geometry.boundingSphere.clone();
-        mesh.boundingSphere.radius *= 1.35;
-      }
-      tris += bg.tris;
-      sculptedTris += bg.tris;
-      draws += 1;
-      const sh = bodies.shells[gi];
-      if (sh) {
-        const layers = Math.max(2, Math.min(4, Math.floor(6500 / Math.max(1, sh.tris))));
-        const len = (v.furLen ?? 0.02) * H;
-        for (let l = 1; l <= layers; l++) {
-          const so: MatOpts = { ...matBase('FUR'), color: '#ffffff', vertexColors: true, attrs: true, shell: { h: l / layers, len, strand: len } };
-          const sm = makeMaterial(so);
-          mats.add(sm);
-          const shell = new THREE.SkinnedMesh(sh.geometry, sm);
-          shell.name = `fur_shell_${l}`;
-          shell.castShadow = false;
-          shell.userData.furShell = true;
-          pivot.add(shell);
-          shell.updateMatrixWorld(true);
-          shell.bind(skeleton, shell.matrixWorld);
-          if (mesh.boundingSphere) shell.boundingSphere = mesh.boundingSphere.clone();
-          tris += sh.tris;
-          draws += 1;
-        }
-      }
-    });
-  }
-
-  // ---------------- pass 3: accessories (crisp meshes on their nodes)
+  // ---------------- pass 2: accessories (crisp meshes on their nodes)
   const makeMesh = (pd: PartDef, geom: THREE.BufferGeometry, color: string) => {
     let mat: THREE.MeshStandardMaterial;
     if (pd.prim.t === 'eye') {
@@ -776,6 +702,85 @@ export function assemble(v: SpeciesVisual, opts: BuildOpts): CreatureModel {
     const mesh = makeMesh(pd, g, pi.color);
     if (pi.side === '_R' && (pd.prim.t === 'eye' || pd.prim.t === 'mouth')) mesh.scale.x = -1; // mirror UVs
     node.add(mesh);
+  }
+
+  // ---------------- pass 3: sculpted bodies (after the accessories, so the body takes the remaining triangle budget)
+  const accTris = tris;
+  if (plan.groups.length) {
+    const key = `${v.id}|${hashOf(v)}|${opts.lod}|${opts.quality}`;
+    const t0 = typeof performance !== 'undefined' ? performance.now() : 0;
+    let built = false;
+    const bodies = cachedBodies(key, () => {
+      built = true;
+      const cap = Math.max(TRI_CAP[opts.quality] * 0.55, Math.min(TRI_CAP[opts.quality], BUDGET[opts.quality] - accTris / LOD_TRI[opts.lod])) * LOD_TRI[opts.lod];
+      let cell = plan.cell;
+      // predict the triangle count from a 2x coarser pass (tris scale ~ 1/cell^2) and back off before meshing
+      const pred = plan.groups.reduce((s, g) => s + countTris(g.field, cell * 2), 0) * 4;
+      if (pred > cap) cell *= Math.sqrt(pred / cap) * 1.04;
+      const out = plan.groups.map((g) => meshFieldAt(g.field, cell, { H, ao: opts.quality !== 'mobile' || opts.lod === 0 }));
+      const shells: (BodyGeometry | null)[] = plan.groups.map((g) =>
+        g.preset === 'FUR' && opts.quality === 'high' && opts.lod === 0 && g.members.some((m) => (m.pd.fur ?? (m.pd.fluffy ? 1.6 : 0.3)) >= 0.55)
+          ? furOnly(meshFieldAt(g.field, cell * 1.9, { H, ao: false }))
+          : null,
+      );
+      return { bodies: out, shells };
+    });
+    if (built && typeof performance !== 'undefined') meshMs = performance.now() - t0;
+    plan.groups.forEach((g, gi) => {
+      const bg = bodies.bodies[gi];
+      const pd0 = g.members[0].pd;
+      void pd0;
+      const mo: MatOpts = { ...matBase(g.preset), color: '#ffffff', vertexColors: true, attrs: true };
+      let mat: THREE.MeshStandardMaterial;
+      if (g.glow) {
+        const gi2 = v.fissureGlow ?? 1.3;
+        mo.glowMask = true;
+        mo.emissive = colorOf(v, v.fissureColor ?? 'A');
+        mo.emissiveIntensity = gi2;
+        mat = cloneCreatureMaterial(makeMaterial(mo), mo);
+        ownedMats.add(mat);
+        glowMats.push(mat);
+        glowBase.push(gi2);
+      } else mat = makeMaterial(mo);
+      mats.add(mat);
+      const bones = bg.bones.map((n) => parts[n]) as THREE.Bone[];
+      const mesh = new THREE.SkinnedMesh(bg.geometry, mat);
+      mesh.name = 'body_' + g.preset;
+      mesh.castShadow = true;
+      mesh.receiveShadow = false;
+      pivot.add(mesh);
+      mesh.updateMatrixWorld(true);
+      const skeleton = new THREE.Skeleton(bones);
+      mesh.bind(skeleton, mesh.matrixWorld);
+      if (bg.geometry.boundingSphere) {
+        mesh.boundingSphere = bg.geometry.boundingSphere.clone();
+        mesh.boundingSphere.radius *= 1.35;
+      }
+      tris += bg.tris;
+      sculptedTris += bg.tris;
+      draws += 1;
+      const sh = bodies.shells[gi];
+      if (sh) {
+        const room = BUDGET[opts.quality] - tris;
+        const layers = Math.max(2, Math.min(4, Math.floor(room / Math.max(1, sh.tris))));
+        const len = (v.furLen ?? 0.02) * H;
+        for (let l = 1; l <= layers; l++) {
+          const so: MatOpts = { ...matBase('FUR'), color: '#ffffff', vertexColors: true, attrs: true, shell: { h: l / layers, len, strand: len } };
+          const sm = makeMaterial(so);
+          mats.add(sm);
+          const shell = new THREE.SkinnedMesh(sh.geometry, sm);
+          shell.name = `fur_shell_${l}`;
+          shell.castShadow = false;
+          shell.userData.furShell = true;
+          pivot.add(shell);
+          shell.updateMatrixWorld(true);
+          shell.bind(skeleton, shell.matrixWorld);
+          if (mesh.boundingSphere) shell.boundingSphere = mesh.boundingSphere.clone();
+          tris += sh.tris;
+          draws += 1;
+        }
+      }
+    });
   }
 
   const face = new FaceRig(atlas, eyeMats, mouthMat, eyes3d);
