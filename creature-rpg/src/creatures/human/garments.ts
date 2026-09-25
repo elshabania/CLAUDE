@@ -216,7 +216,7 @@ export function buildOutfit(d: HumanData, s: BodyShape, L: ResolvedLook, lod: nu
       default: return neckY - 0.005 - front * 0.025;
     }
   };
-  const innerHem = W.outer === 'none' || W.inner === 'tank' ? hipY - 0.04 : waistY - 0.025;
+  const innerHem = W.legs === 'skirt' || W.legs === 'longskirt' ? waistY - 0.02 : W.outer === 'none' || W.inner === 'tank' ? hipY - 0.04 : waistY - 0.025;
   const iSleeve = W.inner === 'tank' ? -0.02 : W.innerSleeve;
   layers.push({
     name: 'inner', smooth: 40, kind: W.inner === 'sweater' || W.inner === 'turtleneck' ? 3 : 0, pattern: W.stripes ? 1 : W.inner === 'henley' || W.inner === 'shirt' ? 2 : 0, w: 1,
@@ -234,7 +234,8 @@ export function buildOutfit(d: HumanData, s: BodyShape, L: ResolvedLook, lod: nu
   // ---------------- outer layer
   if (W.outer !== 'none') {
     const long = W.outer === 'coat';
-    const hem = long ? hipY - 0.06 : W.outer === 'vest' ? hipY - 0.03 : hipY - 0.07;
+    const overSkirt = W.legs === 'skirt' || W.legs === 'longskirt' || ex.has('apron');
+    const hem = long ? hipY - 0.06 : overSkirt ? waistY + 0.005 : W.outer === 'vest' ? hipY - 0.03 : hipY - 0.07;
     const sleeve = W.outer === 'vest' ? -0.05 : W.outerSleeve;
     const open = W.outer === 'jacket' || W.outer === 'cardigan' || W.outer === 'vest';
     const openW = (o: number) => (open ? (W.outer === 'vest' ? 0.045 : 0.03) + 0.055 * sstep(chestY - 0.16, neckY + 0.02, y(o)) : 0.0);
