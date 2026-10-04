@@ -10,7 +10,8 @@ octet-stream blocks. This script:
      patch is wrapped in /*AI:name*/ ... /*/AI:name*/ markers and replaced
      on re-run; the engine script is replaced wholesale),
   3. splices them into container.html together with ai-shell.css,
-     ai-shell.js and preload-agg.json,
+     ai-shell.js (with ai-schemes.js at its __SCHEMES__ marker) and
+     preload-agg.json,
   4. writes ../index.html.
 
 Run:  python3 rebuild_ai.py
@@ -93,6 +94,9 @@ def patch_assign(t):
     # earlier routing-bound patches if a previous build applied them.
     t = munreplace(t, "rt", "const x=vol[g]/ECAP[g]; ew[e]=EFF[g]*(1+a*Math.pow(x,b));")
     t = munreplace(t, "ls", "const f=x[g]+lam*d; const t=EFF[g]*(1+a*Math.pow(f/ECAP[g],b));")
+    # per-OD demand factor (scheme runs: transit mode shift, destination demand management)
+    t = mreplace(t, "odf", "if(demandMap){ demandMap.forEach((v,nd)=>{ if(nd<acc.length) acc[nd]=v*GROWTH*_ods; }); }",
+                 "if(demandMap){ const _odf=window.__ODFAC; demandMap.forEach((v,nd)=>{ if(nd<acc.length) acc[nd]=v*GROWTH*_ods*(_odf?_odf(src,nd):1); }); }")
     # noise screening in the difference view
     t = mpatch(t, "nz", "if(_adv<1e-6||_hide){",
                "if(window.__NOISEON&&window.__NOISETOLD&&gi&&_adv<window.__NOISETOLD[gi[i]]) _hide=true; ")
@@ -111,6 +115,8 @@ for name, fn in (("src-assign", patch_assign), ("src-viewer", patch_bridge)):
 container = (HERE / "container.html").read_text(encoding="utf-8")
 css = (HERE / "ai-shell.css").read_text(encoding="utf-8")
 js = (HERE / "ai-shell.js").read_text(encoding="utf-8")
+assert js.count("/*__SCHEMES__*/") == 1, "ai-shell.js needs the __SCHEMES__ marker"
+js = js.replace("/*__SCHEMES__*/", (HERE / "ai-schemes.js").read_text(encoding="utf-8"))
 assert "</script" not in js.replace("<\\/script", "").lower(), "ai-shell.js must not close the script tag"
 for tok in ("<!--APP_SOURCES-->", "/*__AI_SHELL_CSS__*/", "/*__AI_SHELL_JS__*/", "var PRELOAD_AGG=null; /*__PRELOAD_AGG__*/"):
     assert container.count(tok) == 1, "container token missing: " + tok

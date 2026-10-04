@@ -58,7 +58,8 @@ var ICON={
  x:'<path d="M6 6l12 12M18 6 6 18"/>', sun:'<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',
  moon:'<path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/>', help:'<circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6v.6M12 17h.01"/>',
  dl:'<path d="M12 3v12M7 10l5 5 5-5M4 20h16"/>', pin:'<path d="M12 21s-6-5.5-6-11a6 6 0 0 1 12 0c0 5.5-6 11-6 11z"/><circle cx="12" cy="10" r="2.2"/>',
- play:'<path d="M7 4l13 8-13 8z"/>'
+ play:'<path d="M7 4l13 8-13 8z"/>',
+ pri:'<circle cx="6" cy="6" r="2.6"/><circle cx="6" cy="18" r="2.6"/><path d="M11 6h10M11 12h7M11 18h4"/><circle cx="6" cy="12" r="2.6"/>'
 };
 function svg(k,cls){ return '<svg viewBox="0 0 24 24" class="'+(cls||"")+'" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+(ICON[k]||"")+'</svg>'; }
 
@@ -68,6 +69,7 @@ var WS={
  diag:{t:"Diagnose", d:"Every finding has a rule, a file and a record behind it. Tap one to fly the map there.", tabs:[["list","Findings"],["lib","Check library"],["rep","Reports"]]},
  cmp:{t:"Compare", d:"Base against scenario. Differences inside the numerical tolerance are screened out by default."},
  stress:{t:"Stress tests", d:"Growth, closure, charging and spike tests run through the assignment engine against a common base."},
+ pri:{t:"Schemes", d:"Programme prioritisation: each scheme coded once, run against the base, scored on KPIs, cost and SPD25 parameters, and banded under the budget envelope.", tabs:[["prog","Programme"],["sch","Schemes"],["est","Estimator"],["meth","Method & settings"]]},
  fc:{t:"Forecast", d:"Emerging congestion 2026 to 2050 from a growth-response surrogate trained on engine runs.", tabs:[["hot","Hotspots"],["vs","AI vs engine"],["csi","Severity index"],["card","Model card"]]},
  brief:{t:"Briefings", d:"Pin findings, hotspots and comparisons into a decision brief. Every block keeps its evidence.", tabs:[["story","Brief"],["reports","Reports"]]},
  data:{t:"Data & Models", d:"What is loaded, how every metric is defined, which models run and what is still open.", tabs:[["inv","Inventory"],["metrics","Metrics"],["models","Models"],["assume","Assumptions"],["api","Integrations"],["audit","Audit"],["gloss","Glossary"],["llm","Copilot LLM"]]}
@@ -125,20 +127,22 @@ function openWS(id){
   if(w.tabs){ if(!S.tab[id]) S.tab[id]=w.tabs[0][0];
     w.tabs.forEach(function(t){ var b=document.createElement("button"); b.textContent=t[1]; b.className=S.tab[id]===t[0]?"on":""; b.setAttribute("role","tab");
       b.addEventListener("click",function(){ S.tab[id]=t[0]; openWS(id); }); tabs.appendChild(b); }); }
-  p.classList.add("show"); p.classList.remove("peek"); closeInspector();
+  p.classList.add("show"); p.classList.remove("peek"); p.classList.toggle("board", id==="pri"); closeInspector();
+  if(id!=="pri"&&Q.mode){ Q.mode=null; ai("draw",{on:false}); }
+  if(id!=="pri") ai("clear",{markers:true});
   document.getElementById("stepBar").classList.remove("show");
   if(id!=="fc") ai("fcoff");
   render(); setCtx(); audit("ui","open "+w.t);
 }
-function hideWS(){ S.ws=null; $("wsPanel").classList.remove("show"); closeInspector(); ai("clear",{markers:true}); ai("pick",{on:false}); ai("fcoff"); }
+function hideWS(){ S.ws=null; Q.mode=null; $("wsPanel").classList.remove("show","board"); closeInspector(); ai("clear",{markers:true}); ai("pick",{on:false}); ai("fcoff"); }
 function body(html){ $("wsBody").innerHTML=html; }
 function render(){
   var id=S.ws; if(!id) return;
   try{
     if(id==="ov") rOverview(); else if(id==="diag") rDiagnose(); else if(id==="cmp") rCompare(); else if(id==="stress") rStress();
-    else if(id==="fc") rForecast(); else if(id==="brief") rBrief(); else if(id==="data") rData();
+    else if(id==="fc") rForecast(); else if(id==="brief") rBrief(); else if(id==="data") rData(); else if(id==="pri") rPri();
   }catch(e){ body('<div class="warnbox">Could not render this workspace: '+h(e.message)+'</div>'); }
-  var pick=(id==="diag"||id==="ov"||id==="fc"||id==="stress"||id==="cmp"); ai("pick",{on:pick});
+  var pick=(id==="diag"||id==="ov"||id==="fc"||id==="stress"||id==="cmp"||id==="pri"); ai("pick",{on:pick});
 }
 function on(sel,ev,fn){ document.querySelectorAll(sel).forEach(function(e){ e.addEventListener(ev,function(x){ fn(e,x); }); }); }
 
@@ -534,7 +538,9 @@ Doc.prototype.h=function(t,l){ return this.p(t,{style:"Heading"+(l||1)}); };
 Doc.prototype.bullet=function(t){ return this.p("• "+t); };
 Doc.prototype.draft=function(t,ref){ return this.runs([{t:"DRAFT  ",b:true,color:"B86E00",sz:16},{t:t},{t:"  ["+ref+"]",color:"6B788B",sz:16}]); };
 Doc.prototype.table=function(rows,head){ var w='<w:tbl><w:tblPr><w:tblStyle w:val="Grid"/><w:tblW w:w="5000" w:type="pct"/><w:tblBorders>'+["top","left","bottom","right","insideH","insideV"].map(function(k){ return '<w:'+k+' w:val="single" w:sz="4" w:color="C8D0DA"/>'; }).join("")+'</w:tblBorders></w:tblPr>';
-  var all=head?[head].concat(rows):rows; all.forEach(function(r,ri){ w+='<w:tr>'+r.map(function(c){ return '<w:tc><w:p><w:r>'+(head&&ri===0?'<w:rPr><w:b/></w:rPr>':'')+'<w:t xml:space="preserve">'+xe(c)+'</w:t></w:r></w:p></w:tc>'; }).join("")+'</w:tr>'; });
+  var all=head?[head].concat(rows):rows, nc=Math.max.apply(null,[1].concat(all.map(function(r){ return r.length; }))), cw=Math.floor(9638/nc);
+  w+='<w:tblGrid>'+new Array(nc+1).join('<w:gridCol w:w="'+cw+'"/>')+'</w:tblGrid>';
+  all.forEach(function(r,ri){ w+='<w:tr>'+r.map(function(c){ return '<w:tc><w:p><w:r>'+(head&&ri===0?'<w:rPr><w:b/></w:rPr>':'')+'<w:t xml:space="preserve">'+xe(c)+'</w:t></w:r></w:p></w:tc>'; }).join("")+'</w:tr>'; });
   this.x.push(w+'</w:tbl>'); this.p(""); return this; };
 Doc.prototype.img=function(dataUrl,wpx,hpx){ if(!dataUrl) return this; var b=atob(dataUrl.split(",")[1]), u=new Uint8Array(b.length); for(var i=0;i<b.length;i++) u[i]=b.charCodeAt(i);
   var n=this.media.length+1; this.media.push(u); var maxW=6.3*914400, cxE=Math.min(maxW,wpx*9525), cyE=Math.round(cxE*hpx/wpx);
@@ -752,6 +758,7 @@ function plan(text){ var t=" "+text.toLowerCase()+" ", m;
     return [["query_links",{cls:cls||undefined, vc_min:th?+th:(/over capacity|congested/.test(t)?1:undefined), sort:/busiest|volume/.test(t)?"vol":"vc", district:dm&&!/network|model|abu dhabi|the map/.test(dm)?dm.trim():undefined, limit:20}]]; }
   if(/health|readiness|what'?s wrong|top issues|findings|diagnos|problems|issues|critical|errors? in (the )?run|run quality|check the run|review (the )?run/.test(t)){ var sv=/critical/.test(t)?"Critical":/\bhigh\b/.test(t)?"High":undefined; return [["get_findings",{severity:sv, limit:8}]]; }
   if(/inventory|how many (links|zones|nodes)|network size|what data|what is loaded/.test(t)) return [["network_inventory",{}]];
+  if(/scheme|programme|program\b|prioriti|cash ?flow|budget|\bbcr\b|priority [123]|\bp[123]\b/.test(t)){ var pr=(t.match(/priority ([123])|\bp([123])\b/)||[]); return [["rank_schemes",{priority:pr[1]?"P"+pr[1]:pr[2]?"P"+pr[2]:undefined}]]; }
   return null; }
 function renderAnswer(name,args,res){
   if(res.err) return '<div>'+h(res.err)+'</div><div class="lim">The data loaded here cannot answer this.</div>';
@@ -768,6 +775,7 @@ function renderAnswer(name,args,res){
     case "build_scenario_spec": var iv=s.interventions[0]; return 'Here is the scenario I would run. Check it, then confirm.<pre class="specbox">'+h(JSON.stringify({type:iv.type, targets:iv.target_entity_ids.length?(iv.target_entity_ids.length+" links"+(S.target&&S.target.links&&S.target.links.length>50?" (of "+S.target.links.length+")":"")):"network-wide", parameter:iv.parameter, new_value:iv.new_value, evaluation:s.evaluation_method},null,1))+'</pre><button class="btn sm pri" data-aiact="runspec" data-arg="'+h(JSON.stringify({type:args.type,pct:args.pct,aed:args.aed}))+'">Run in engine</button> <span class="lim">Target: '+h(S.target?S.target.label:"network-wide")+'</span>';
     case "run_stress_test": return h(s.label)+': vehicle-hours '+sgn(s.vht_change_pct,2)+'%, '+sgn(s.over_change,0)+' links over capacity. '+h(s.method)+'. <span class="lim">'+h(s.note)+'</span>';
     case "draft_section": return '<div class="specbox" style="font-family:inherit">'+h(s.draft)+'</div>';
+    case "rank_schemes": return s.n?(s.assessed+' of '+s.n+' schemes assessed. Priority 1 holds <b>'+s.p1.length+'</b> scheme'+(s.p1.length===1?'':'s')+' costing AED '+Math.round(s.p1.reduce(function(a,x){ return a+x.cost; },0)).toLocaleString()+' m. Ranked by priority band, then score:<ul>'+s.top.map(function(x){ return '<li>#'+x.no+' '+h(x.name)+': score '+x.score+', '+x.pri+'</li>'; }).join("")+'</ul><a href="#" data-aiact="pri">Open the programme board</a>'):'No schemes are coded yet. <a href="#" data-aiact="pri">Open Schemes</a> to generate a demonstration set or code your own.';
     case "network_inventory": return h(s.links.toLocaleString())+' links, '+s.nodes.toLocaleString()+' nodes, '+s.zones.toLocaleString()+' zones'+(s.od?', '+s.od.cells.toLocaleString()+' OD cells ('+s.od.trips.toLocaleString()+' trips/day)':'')+(s.lu?', land use '+s.lu.rows+' rows':'')+'. CRS '+h(s.crs)+'.';
   }
   return h(JSON.stringify(s).slice(0,400)); }
@@ -784,6 +792,7 @@ function followChips(n){ return {get_findings:["Explain F-001","Links over capac
 async function aiAction(k,arg){
   if(k==="finding"){ if(S.ws!=="diag") selectTool("diag"); selectFinding(arg); }
   else if(k==="link"){ ai("focus",{links:[+arg]}); openLink(+arg); }
+  else if(k==="pri"){ if(S.ws!=="pri") selectTool("pri"); }
   else if(k==="runspec"){ var a=JSON.parse(arg); addMsg("cop","Running <b>"+h(a.type)+"</b> through the engine. Progress shows in Stress tests."); var r=await TOOLS_AI.run_stress_test.run(a); var m=addMsg("cop", renderAnswer("run_stress_test",a,r)+chips([chip("run_stress_test",a,r.rows||[],r.summary||r)])); addChips(m,["Compare scenarios","Draft the compare commentary"]); }
 }
 
@@ -818,10 +827,13 @@ async function llmAnswer(text){
   return {html:h(noDash(out)).replace(/\n/g,"<br>")+(calls.length?chips(calls):'<div class="lim">No tool was called, so this answer contains no model numbers.</div>'), chips:["Top issues","Hotspots in 2035"]}; }
 async function runTool(name,args){ var t=TOOLS_AI[name]; if(!t) return {err:"unknown tool "+name}; try{ return await t.run(args); }catch(e){ return {err:String(e.message||e)}; } }
 
+/*__SCHEMES__*/
+
 /* ---------------- events from the engine ---------------- */
 window.addEventListener("message",function(ev){ var m=ev.data; if(!m||m.steam!==1||!m.resp||!m.event) return;
   if(m.event==="aiprog"){ if(S.running){ S.running.pct=m.pct; S.running.label=m.label||S.running.label; var bar=document.querySelector("#wsBody .prog>i"); if(bar) bar.style.width=(m.pct||0)+"%"; } }
-  else if(m.event==="aipick"){ if(S.ws) openLink(m.g); }
+  else if(m.event==="aipick"){ if(priPick(m.g)) return; if(S.ws) openLink(m.g); }
+  else if(m.event==="aipt"){ priPoint(m); }
   else if(m.event==="airun"){ if(S.diag&&!S.running&&!_diagBusy&&m.sig&&S._sig&&m.sig!==S._sig){ if(!S.justStressed){ S.cmp=null; S.stress=null; } S.justStressed=false; runDiagnose(); } S._sig=m.sig; }
 });
 

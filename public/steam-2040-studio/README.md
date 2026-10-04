@@ -154,6 +154,7 @@ embedded in this page. Nothing is uploaded.
 | **Compare** | Base vs scenario with a per-link numerical tolerance from the last two equilibrium iterations; changes inside it are hidden by default. Busier / quieter / inside-tolerance counts, KPI table, districts, SCN-01 unexplained shifts. |
 | **Stress tests** | Demand growth, spike, closure, +1 lane and road-user charging, run through the assignment engine against a cached screening base (Frank-Wolfe, 250 sampled origins, reported travel time bounded at V/C 3). |
 | **Forecast** | Growth-response surrogate fitted from three engine runs and back-tested on a held-out run (beats or does not beat naive scaling, stated). Year slider 2026 to 2050, ranked hotspots with onset year, risk category from the growth range, "earlier than STEAM" and "beyond horizon" flags, driver decomposition, AI vs engine, congestion severity index by district and class, model card. |
+| **Schemes** | Programme prioritisation (TFP). Code roadway, mass-transit and policy schemes (or capture them from the Scenario editor, import them, or generate a demonstration set), run each against the common base through the engine, and rank them on KPIs, BCR and SPD25 parameters. Priority bands under the 2025–2030 budget envelope; a board with numbered schemes on the map, five KPIs and the cost / cash-flow table; package runs, variations and a quick estimator checked against the engine; STEAM batch export and KPI import. See `docs/steam-ai/schemes.md`. |
 | **Briefings** | Pin findings, hotspots, links and stress tests as story blocks (map view, one sentence, evidence, action). Export DOCX, print/PDF, story JSON; issue an immutable snapshot. Diagnostic report, MMR and MFR drafts (DOCX). |
 | **Data & Models** | Inventory and loaded-network import, metric registry, model cards, open items and assumptions, integrations and feeds (JSON / GeoJSON, EPSG:32640), audit log, glossary and tour, Copilot LLM settings (off / Anthropic / Ollama). |
 
@@ -172,5 +173,6 @@ cd build && python3 rebuild_ai.py
 
 Source files: `build/container.html` (shell), `build/ai-shell.js` +
 `build/ai-shell.css` (workspaces, copilot tools, reports) and
-`build/ai-engine.js` (checks, tolerance, stress tests, surrogate, map
-overlay, injected into the Assignment engine).
+`build/ai-engine.js` (checks, tolerance, stress tests, surrogate, scheme
+runs, map overlay, injected into the Assignment engine). `build/ai-schemes.js`
+(Schemes workspace) is spliced into `ai-shell.js` at its `__SCHEMES__` marker.

@@ -1,7 +1,7 @@
 /* STEAM-AI Brain service worker: network-first for the app shell, cache as
    fallback so the latest build (and the last run summary kept in
    localStorage) stays readable offline. */
-const CACHE = "steam-ai-v1";
+const CACHE = "steam-ai-v2";
 const SHELL = ["./", "./index.html", "./manifest.webmanifest", "./icon.svg"];
 self.addEventListener("install", (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)).catch(() => {}));

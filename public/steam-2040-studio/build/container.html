@@ -267,6 +267,8 @@
     <button class="ritem x-mob" data-tool="metro"><span class="ic" data-i="metro"></span>Metro</button>
     <div class="rgrp">Forecast</div>
     <button class="ritem ai" data-tool="fc"><span class="ic" data-i="fc"></span>Forecast</button>
+    <div class="rgrp">Prioritise</div>
+    <button class="ritem ai" data-tool="pri"><span class="ic" data-i="pri"></span>Schemes</button>
     <div class="rgrp">Brief</div>
     <button class="ritem ai" data-tool="brief"><span class="ic" data-i="brief"></span>Briefings</button>
     <div class="rgrp">Data</div>
@@ -1358,7 +1360,7 @@ var TOOLS={
   ana:{app:"assign",section:"analysis"},
   insights:{app:null},
   ov:{app:"assign",ws:true}, diag:{app:"assign",ws:true}, cmp:{app:"assign",ws:true}, stress:{app:"assign",ws:true},
-  fc:{app:"assign",ws:true}, brief:{app:"assign",ws:true}, data:{app:"assign",ws:true},
+  fc:{app:"assign",ws:true}, brief:{app:"assign",ws:true}, data:{app:"assign",ws:true}, pri:{app:"assign",ws:true},
   settings:{app:"assign",section:"settings"}
 };
 /* every step explains itself and carries its key actions — this is what makes
@@ -1944,7 +1946,7 @@ qEl.addEventListener("keydown",function(e){ if(e.key==="Enter"&&!e.shiftKey){ e.
 document.getElementById("send").addEventListener("click",function(){ var v=qEl.value; qEl.value=""; autosize(); submit(v); });
 
 /* quick chips */
-var QUICK=["Top issues","Links over capacity","Hotspots in 2035","What if demand grows 10%?","Severity index by district","What can you do?"];
+var QUICK=["Top issues","Links over capacity","Hotspots in 2035","What if demand grows 10%?","Rank the schemes","What can you do?"];
 var qbox=document.getElementById("quick");
 QUICK.forEach(function(c){ var b=document.createElement("button"); b.className="sg"; b.textContent=c; b.addEventListener("click",function(){ submit(c); }); qbox.appendChild(b); });
 

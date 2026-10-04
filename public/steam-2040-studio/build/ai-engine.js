@@ -54,7 +54,8 @@ function vcOf(vol,g){ return vol[g]/GRAPH.ECAP[g]; }
 function linkTimeFF(g){ return GRAPH.EFF[g]; }
 function linkTimeV(g,vol){ return linkTime(g,vol); }
 /* KPIs over the base links only (safe whatever graph is current) */
-function mets(vol){ var vht=0,vmt=0,over=0,ff=0; for(var g=0;g<GLINK.m;g++){ var v=vol[g]; if(!(v>0)) continue; var t=linkTime(g,vol); vht+=v*t/3600; ff+=v*GRAPH.EFF[g]/3600; vmt+=v*GLINK.len[g]/1000; if(v>GRAPH.ECAP[g]) over++; } return {vht:vht,vmt:vmt,over:over,delay:vht-ff,spd:vht>0?vmt/vht:0}; }
+/* KPIs over every effective link of the current graph (drawn roads included when vol carries them) */
+function mets(vol){ var vht=0,vmt=0,over=0,ff=0,ckm=0, n=Math.min(vol.length,GRAPH.me); for(var g=0;g<n;g++){ var v=vol[g]; if(!(v>0)) continue; var t=linkTime(g,vol), km=GRAPH.ELEN[g]/1000; vht+=v*t/3600; ff+=v*GRAPH.EFF[g]/3600; vmt+=v*km; if(v>GRAPH.ECAP[g]){ over++; ckm+=km; } } return {vht:vht,vmt:vmt,over:over,delay:vht-ff,spd:vht>0?vmt/vht:0,ckm:ckm}; }
 
 /* union-find */
 function UF(n){ var p=new Int32Array(n); for(var i=0;i<n;i++)p[i]=i;
@@ -588,28 +589,35 @@ function engineRun(o){
     if(!ODMAT||!ODMAT.byOrigNode||!ODMAT.byOrigNode.size) return rej(new Error("OD matrix not loaded yet."));
     var ids=["methodSel","sampleSel","growthIn","demandSel"], old={};
     ids.forEach(function(id){ var e=document.getElementById(id); if(e) old[id]=e.value; });
-    var set=function(id,v){ var e=document.getElementById(id); if(e) e.value=v; };
+    var set=function(id,v){ var e=document.getElementById(id); if(!e) return; v=String(v);
+      if(e.tagName==="SELECT"&&![].some.call(e.options,function(op){ return op.value===v; })){ var op=document.createElement("option"); op.value=v; op.textContent=v; e.appendChild(op); }
+      e.value=v; };
     set("methodSel", o.method||SCREEN.method); set("sampleSel", o.sample||SCREEN.sample); set("growthIn", String(o.f||1)); set("demandSel","od");
-    var oldCap=window.__YEARCAPF, oldClamp=window.__APPRCLAMP; window.__APPRCLAMP=(o.clamp!==undefined?o.clamp:SCREEN.clamp)||null;
-    if(o.capf){ var cf=new Float32Array(GLINK.m).fill(1); o.capf.forEach(function(v,g){ cf[g]=v; }); window.__YEARCAPF=cf; }
-    buildGraph(null);
+    var oldCap=window.__YEARCAPF, oldClamp=window.__APPRCLAMP, oldOdf=window.__ODFAC; window.__APPRCLAMP=(o.clamp!==undefined?o.clamp:SCREEN.clamp)||null;
+    if(o.capf&&o.capf.size){ var cf=new Float32Array(GLINK.m).fill(1); o.capf.forEach(function(v,g){ cf[g]=v; }); window.__YEARCAPF=cf; }
+    window.__ODFAC=o.odfac||null;
+    var scn=(o.scn&&(o.scn.upgrades.size||o.scn.extras.length))?o.scn:null, rebuilt=!!(scn||(o.capf&&o.capf.size)||o.penalty);
+    buildGraph(scn);
     if(o.penalty){ o.penalty.forEach(function(sec,g){ GRAPH.EFF[g]+=sec; }); }
     var iv=setInterval(function(){ var pb=document.getElementById("progbar"); if(pb) progress(o.label||"Engine run", parseFloat(pb.style.width)||0); },400);
+    function restore(){ ids.forEach(function(id){ set(id, old[id]); }); window.__YEARCAPF=oldCap||null; window.__APPRCLAMP=oldClamp||null; window.__ODFAC=oldOdf||null; }
     try{
       assignChunked(o.label||"AI engine run", function(vol){
         clearInterval(iv);
-        var v=vol.slice(0,GLINK.m), met=null;
-        if(!o.penalty) met=mets(vol);
-        var delta=window.__LASTDELTA?window.__LASTDELTA.slice(0,GLINK.m):null, gap=window.__LASTGAP;
-        ids.forEach(function(id){ set(id, old[id]); });
-        window.__YEARCAPF=oldCap||null;
-        if(o.capf||o.penalty) buildGraph(null);
+        var full=vol.slice(0,GRAPH.me), v=vol.slice(0,GLINK.m);
         // penalties (closure, charge) steer route choice only: report travel time without them
-        if(o.penalty) met=mets(v);
-        window.__APPRCLAMP=oldClamp||null;
-        res({vol:v, met:met, delta:delta, gap:gap, method:o.method||SCREEN.method});
+        if(o.penalty) buildGraph(scn);
+        var met=mets(full), cap=o.keepCap?GRAPH.ECAP.slice(0,GLINK.m):null;
+        var ex=scn?scn.extras.map(function(e,k){ return {v:r1(full[GLINK.m+3*k]||0), km:r2(GRAPH.ELEN[GLINK.m+3*k]/1000), stub0:r1(GRAPH.ELEN[GLINK.m+3*k+1]), stub1:r1(GRAPH.ELEN[GLINK.m+3*k+2]), sameNode:!!(e._n0&&e._n1&&e._n0[0]===e._n1[0]&&e._n0[1]===e._n1[1])}; }):null;
+        var delta=window.__LASTDELTA?window.__LASTDELTA.slice(0,GLINK.m):null, gap=window.__LASTGAP;
+        // iteration noise in VHT: flow still moving between the last two iterations, at final link times
+        var noise=null; if(delta&&isEquilibrium(o.method||SCREEN.method)){ noise=0; for(var gq=0;gq<GLINK.m;gq++){ if(delta[gq]>0) noise+=delta[gq]*linkTime(gq,full)/3600; } }
+        restore();
+        if(rebuilt) buildGraph(null);
+        res({vol:v, met:met, delta:delta, gap:gap, method:o.method||SCREEN.method, extras:ex, cap:cap, noise:noise});
       });
-    }catch(e){ clearInterval(iv); ids.forEach(function(id){ set(id, old[id]); }); window.__YEARCAPF=oldCap||null; window.__APPRCLAMP=oldClamp||null; rej(e); }
+      if(!ASSIGN.running){ clearInterval(iv); restore(); if(rebuilt) buildGraph(null); rej(new Error("The engine did not start (no OD or no origins).")); }
+    }catch(e){ clearInterval(iv); restore(); if(rebuilt) buildGraph(null); rej(e); }
   });
 }
 /* show a pair of runs as the app's base/scenario so the map + compare work */
@@ -625,10 +633,13 @@ function showPair(base, scn, label){
   MODE="diff"; document.querySelectorAll("#modeSeg button,#miniMode button").forEach(function(x){ x.classList.toggle("on",x.dataset.m==="diff"); });
   try{ updateScnPanel(); }catch(e){} render(); setStatus(label||"Stress test shown as Δ");
 }
-function screenBase(){
+function screenBase(f){
   var sig=SCREEN.method+"|"+SCREEN.sample+"|"+JSON.stringify(PARAMS)+"|"+((document.getElementById("periodSel")||{}).value);
+  f=f||1;
+  if(f!==1){ AI.sbaseF=AI.sbaseF||{}; var k=sig+"|"+f, c=AI.sbaseF[k]; if(c) return Promise.resolve(c);
+    return engineRun({f:f, label:"Screening base run, demand × "+f}).then(function(r){ r.vol=null; AI.sbaseF[k]=r; return r; }); }
   if(AI.sbase && AI.sbase.sig===sig) return Promise.resolve(AI.sbase.run);
-  return engineRun({f:1, label:"Screening base run"}).then(function(r){ AI.sbase={sig:sig, run:r}; return r; });
+  return engineRun({f:1, label:"Screening base run", keepCap:true}).then(function(r){ AI.sbase={sig:sig, run:r}; return r; });
 }
 
 /* ---------------- stress tests ---------------- */
@@ -897,6 +908,183 @@ function hsmExport(o){
 }
 
 /* =====================================================================
+   SCHEME PRIORITISATION (TFP programme)
+   Each scheme is coded once (lanes, new road, transit line, charge,
+   demand management, operations) and compiled into one engine run spec.
+   Schemes run one at a time against the common screening base; packages
+   (the most likely programme and its variants) run with all their schemes
+   together. The quick estimator works from the last package run.
+   ===================================================================== */
+var TRANSIT_DEF={both:25, one:5, catch:800, spacing:1200};
+function polyKm(p){ var s=0; for(var i=1;i<p.length;i++) s+=Math.hypot(p[i][0]-p[i-1][0],p[i][1]-p[i-1][1]); return s/1000; }
+function stationsOf(pts, spacing){ var out=[]; if(!pts||!pts.length) return out; out.push(pts[0]);
+  for(var i=1;i<pts.length;i++){ var a=pts[i-1], b=pts[i], d=Math.hypot(b[0]-a[0],b[1]-a[1]), n=Math.max(1,Math.round(d/spacing));
+    for(var k=1;k<=n;k++) out.push([a[0]+(b[0]-a[0])*k/n, a[1]+(b[1]-a[1])*k/n]); }
+  return out; }
+function zonesNear(pts, r){ var zs=[], r2=r*r; for(var z=0;z<N0;z++){ var x=CENT[z*2], y=CENT[z*2+1];
+    for(var i=0;i<pts.length;i++){ var dx=x-pts[i][0], dy=y-pts[i][1]; if(dx*dx+dy*dy<=r2){ zs.push(z); break; } } } return zs; }
+function nodeMask(zs){ var mx=0; for(var z=0;z<N0;z++) if(GRAPH.znode[z]>mx) mx=GRAPH.znode[z]; var m=new Uint8Array(mx+1);
+  zs.forEach(function(z){ var nd=GRAPH.znode[z]; if(nd>=0) m[nd]=1; }); return m; }
+function areaPts(s){ if(s.pts&&s.pts.length) return s.pts; return (s.links||[]).slice(0,400).map(linkMid); }
+function schemeGeo(s){ var pts=[], links=s.links||[];
+  if(s.pts&&s.pts.length) pts=s.pts.slice(); else pts=links.slice(0,2000).map(linkMid);
+  if(!pts.length) return null;
+  var x0=1e18,y0=1e18,x1=-1e18,y1=-1e18; pts.forEach(function(p){ x0=Math.min(x0,p[0]); x1=Math.max(x1,p[0]); y0=Math.min(y0,p[1]); y1=Math.max(y1,p[1]); });
+  if(links.length&&!(s.pts&&s.pts.length)){ var bb=bboxOf(links); x0=bb[0]; y0=bb[1]; x1=bb[2]; y1=bb[3]; }
+  // marker on the network element nearest the centre
+  var cxm=(x0+x1)/2, cym=(y0+y1)/2, best=pts[0], bd=1e30; pts.forEach(function(p){ var d=(p[0]-cxm)*(p[0]-cxm)+(p[1]-cym)*(p[1]-cym); if(d<bd){ bd=d; best=p; } });
+  var km=0; if(s.pts&&s.pts.length>1) km=polyKm(s.pts); else links.forEach(function(g){ km+=GLINK.len[g]/1000; });
+  var lanekm=0; if(s.type==="widen") links.forEach(function(g){ lanekm+=(s.lanes||1)*GLINK.len[g]/1000; }); if(s.type==="newroad") lanekm=(s.lanesNew||2)*km;
+  var zones=null; if(s.type==="transit") zones=zonesNear(stationsOf(s.pts||[], s.spacing||TRANSIT_DEF.spacing), s.catch||TRANSIT_DEF.catch).length;
+  if(s.type==="demand") zones=zonesNear(areaPts(s), s.radius||2000).length;
+  return {x:best[0], y:best[1], bbox:[x0,y0,x1,y1], km:r2(km), lanekm:r2(lanekm), zones:zones, links:links.length}; }
+function compileSchemes(list){
+  ensureNet(); if(GRAPH.me!==GLINK.m) buildGraph(null);
+  var up=new Map(), extras=[], capf=new Map(), pen=new Map(), tr=[], dm=[], targets=[], global=false, notes=[];
+  list.forEach(function(s){ var links=(s.links||[]).filter(function(g){ return g>=0&&g<GLINK.m; });
+    switch(s.type){
+      case "widen": links.forEach(function(g){ up.set(g,(up.get(g)||0)+(+s.lanes||1)); targets.push(g); }); break;
+      case "newroad": if(s.pts&&s.pts.length>1) extras.push({pts:s.pts, lanes:+s.lanesNew||2, lt:+s.lt||20}); break;
+      case "ops": links.forEach(function(g){ capf.set(g,(capf.get(g)||1)*(1+(+s.capPct||10)/100)); targets.push(g); }); break;
+      case "charge": { var sec=(+s.aed||4)/Math.max(1,PARAMS.vot)*3600, tl=0; links.forEach(function(g){ tl+=GLINK.len[g]; });
+        links.forEach(function(g){ pen.set(g,(pen.get(g)||0)+sec*GLINK.len[g]/Math.max(1,tl)); targets.push(g); }); break; }
+      case "transit": { if(!s.pts||s.pts.length<2) break; var st=stationsOf(s.pts, +s.spacing||TRANSIT_DEF.spacing), zs=zonesNear(st, +s.catch||TRANSIT_DEF.catch);
+        tr.push({m:nodeMask(zs), both:(s.both!=null?+s.both:TRANSIT_DEF.both)/100, one:(s.one!=null?+s.one:TRANSIT_DEF.one)/100}); global=true;
+        notes.push((s.name||"Transit")+": "+zs.length+" zones within "+(+s.catch||TRANSIT_DEF.catch)+" m of "+st.length+" stations"); break; }
+      case "demand": { var zs2=zonesNear(areaPts(s), +s.radius||2000), mk=nodeMask(zs2); dm.push({m:mk, red:(+s.redPct||10)/100}); global=true;
+        var into=0; if(ODMAT&&ODMAT.byOrigNode) ODMAT.byOrigNode.forEach(function(mp){ mp.forEach(function(v,nd){ if(nd<mk.length&&mk[nd]) into+=v; }); });
+        notes.push((s.name||"Demand management")+": "+zs2.length+" destination zones, "+Math.round(into).toLocaleString()+" trips into them in the OD"); break; }
+    } });
+  var odfac=null;
+  if(tr.length||dm.length){ odfac=function(o,d){ var f=1;
+      for(var i=0;i<tr.length;i++){ var t=tr[i], a=o<t.m.length&&t.m[o], b=d<t.m.length&&t.m[d]; if(a&&b) f*=1-t.both; else if(a||b) f*=1-t.one; }
+      for(var j=0;j<dm.length;j++){ var q=dm[j]; if(d<q.m.length&&q.m[d]) f*=1-q.red; }
+      return f; }; }
+  return {scn:{upgrades:up, extras:extras, draft:null}, capf:capf, penalty:pen.size?pen:null, odfac:odfac, targets:targets, global:global, notes:notes}; }
+function dMet(b,s){ return {vht:s.vht-b.vht, vkt:s.vmt-b.vmt, spd:s.spd-b.spd, over:s.over-b.over, ckm:s.ckm-b.ckm, delay:s.delay-b.delay}; }
+function profileText(m){ return methodName(m)+", "+(+SCREEN.sample?SCREEN.sample+" sampled origins (demand-scaled)":"all origins")+(SCREEN.clamp?", reported travel time bounded at V/C "+SCREEN.clamp:""); }
+/* empirical noise band: two negligible perturbations (+0.5% capacity on one
+   ordinary arterial each) run through the same profile; any vehicle-hours
+   change they produce is numerical, not a scheme effect */
+function nullBand(base){
+  var sig=SCREEN.method+"|"+SCREEN.sample+"|"+SCREEN.clamp+"|"+JSON.stringify(PARAMS);
+  AI.nullN=AI.nullN||{}; if(AI.nullN[sig]) return Promise.resolve(AI.nullN[sig]);
+  var v=base.vol, cand=[]; for(var g=0;g<GLINK.m;g++){ if(CLS[GLINK.cls[g]]==="art"&&v[g]>0) cand.push(g); }
+  cand.sort(function(a,b){ return v[a]-v[b]; }); if(cand.length<4) return Promise.resolve({band:0.001*base.met.vht, runs:[]});
+  var picks=[cand[Math.floor(cand.length*0.5)], cand[Math.floor(cand.length*0.75)]], out=[];
+  function one(i){ if(i>=picks.length){ var mx=Math.max.apply(null,out.map(function(x){ return Math.abs(x.dvht); })); var r={band:Math.max(2*mx,0.001*base.met.vht), runs:out, links:picks}; AI.nullN[sig]=r; return Promise.resolve(r); }
+    var cf=new Map(); cf.set(picks[i],1.005);
+    return engineRun({capf:cf, label:"Noise test "+(i+1)+" of 2 (negligible change)"}).then(function(r){ out.push({g:picks[i], dvht:r.met.vht-base.met.vht}); return one(i+1); }); }
+  return one(0); }
+function schemeRun(o){
+  var list=o.schemes||[]; if(!list.length) return Promise.reject(new Error("No schemes to run."));
+  var f=+o.f||1, NB=null;
+  return screenBase(1).then(function(b1){ return o.noNull?null:nullBand(b1); }).then(function(nb){ NB=nb; return screenBase(f); }).then(function(base){
+    var c=compileSchemes(list);
+    var spec={label:o.label||"Scheme run", scn:c.scn, capf:c.capf, penalty:c.penalty, odfac:c.odfac, f:f, keepCap:!!o.keep};
+    return engineRun(spec).then(function(r){
+      AI.stressTargets=c.targets; AI.stressGlobal=c.global;
+      if(o.keep){ AI.pkg={ids:list.map(function(s){return s.id;}), vol:r.vol, cap:r.cap, met:r.met, base:base.met, f:o.f||1, at:new Date().toISOString()}; }
+      if(o.show!==false&&base.vol){ showPair(base, r, spec.label); }
+      var dd=dMet(base.met, r.met); dd.noise=NB?NB.band:null; dd.noiseMethod=NB?("null test: "+NB.runs.map(function(x){ return r1(x.dvht); }).join(", ")+" veh·h from +0.5% capacity on one arterial link; band = 2 × the larger, at least 0.1% of base VHT"):null;
+      return {ok:true, label:spec.label, base:base.met, scn:r.met, d:dd, gap:r.gap, method:r.method, profile:profileText(r.method),
+        extras:r.extras, notes:c.notes, vot:PARAMS.vot, period:periodLabel(), f:f, sig:SCREEN.method+"|"+SCREEN.sample+"|"+SCREEN.clamp};
+    });
+  });
+}
+/* KPIs from volumes with a given capacity set (no reassignment) */
+function metsCap(vol, cap){ var vht=0,vmt=0,over=0,ff=0,ckm=0,a=PARAMS.alpha,b=PARAMS.beta,cl=window.__APPRCLAMP||SCREEN.clamp||0;
+  for(var g=0;g<GLINK.m;g++){ var v=vol[g]; if(!(v>0)) continue; var x=v/cap[g]; if(cl&&x>cl) x=cl; var t0=GRAPH.EFF[g], t=t0*(1+a*Math.pow(x,b)), km=GLINK.len[g]/1000;
+    vht+=v*t/3600; ff+=v*t0/3600; vmt+=v*km; if(v>cap[g]){ over++; ckm+=km; } }
+  return {vht:vht,vmt:vmt,over:over,delay:vht-ff,spd:vht>0?vmt/vht:0,ckm:ckm}; }
+/* quick estimation engine: matrix (demand) adjustment through the per-link
+   growth response, and lane adjustments with fixed volumes on the BPR curve */
+function estimate(o){
+  var P=AI.pkg, B=AI.sbase&&AI.sbase.run; if(!P) return {ok:false, err:"Run the package first: the estimator works from the last package run."};
+  if(!B||!B.cap) return {ok:false, err:"The screening base is not in memory; run the package again."};
+  ensureNet(); if(GRAPH.me!==GLINK.m) buildGraph(null);
+  var f=1+(+o.demandPct||0)/100, s=AI.surrogate, m=GLINK.m, vp=new Float64Array(m), vb=new Float64Array(m), cap=P.cap.slice();
+  for(var g=0;g<m;g++){ var k=s?s.e[g]:1; if(P.vol[g]>0) vp[g]=P.vol[g]*Math.pow(f,k); if(B.vol[g]>0) vb[g]=B.vol[g]*Math.pow(f,k); }
+  var lanes=0; (o.lanes||[]).forEach(function(a){ (a.links||[]).forEach(function(g){ if(g<0||g>=m) return; var l=Math.max(1,GLINK.ln[g]); cap[g]=cap[g]*Math.max(0.25,(l+(+a.add||0))/l); lanes++; }); });
+  var p1=metsCap(P.vol,P.cap), b1=metsCap(B.vol,B.cap), pf=metsCap(vp,cap), bf=metsCap(vb,B.cap);
+  var eff1=dMet(b1,p1), effF=dMet(bf,pf), d={}; Object.keys(eff1).forEach(function(k){ d[k]=effF[k]-eff1[k]; });
+  return {ok:true, d:d, eff:effF, method:(f!==1?("package and base volumes × "+f.toFixed(3)+" through "+(s?"the fitted per-link growth response (v·f^e)":"proportional scaling (no surrogate fitted)")):"no demand change")+(lanes?"; "+lanes+" links re-capacitated with volumes held fixed (BPR)":"")+"; effect = package minus base at the same demand",
+    caveat:"Fixed routes: rerouting and induced demand are not captured. Confirm by assignment before quoting.", surrogate:!!s}; }
+/* capture the Scenario editor's edits as a scheme */
+function scnEdits(){ var up=[], ex=[]; try{ SCN.upgrades.forEach(function(v,g){ up.push([g,v]); }); SCN.extras.forEach(function(e){ ex.push({pts:e.pts, lanes:e.lanes, lt:e.lt}); }); }catch(e){}
+  return {ok:true, upgrades:up, extras:ex}; }
+/* demonstration schemes generated from the screening base: congested
+   corridors get widening / operations / charging, the two worst a relief
+   road; transit lines join the busiest trip-end clusters */
+function seedSchemes(){
+  return screenBase().then(function(b){
+    var v=b.vol, flag=[];
+    for(var g=0;g<GLINK.m;g++){ var cn=CLS[GLINK.cls[g]]; if(cn!=="fwy"&&cn!=="art"&&cn!=="ramp") continue; var vc=v[g]/GRAPH.ECAP[g]; if(vc>1&&vc<3) flag.push(g); }
+    // nodes that carry flow in the base: zones and road ends off the loaded network (NET-06) would show no effect
+    var loaded=new Uint8Array(GRAPH.nn), lx=[], ly=[]; for(var q=0;q<GLINK.m;q++){ if(v[q]>0){ var na=GRAPH.idMap.get(GLINK.A[q]), nb=GRAPH.idMap.get(GLINK.B[q]); if(na!=null&&!loaded[na]){ loaded[na]=1; lx.push(GLINK.ax[q]); ly.push(GLINK.ay[q]); } if(nb!=null&&!loaded[nb]){ loaded[nb]=1; lx.push(GLINK.bx[q]); ly.push(GLINK.by[q]); } } }
+    function nearLoaded(x,y){ var bd=1e18; for(var i=0;i<lx.length;i++){ var dx=lx[i]-x, dy=ly[i]-y, d=dx*dx+dy*dy; if(d<bd) bd=d; } return Math.sqrt(bd); }
+    function zoneLoaded(z){ var nd=GRAPH.znode[z]; return nd>=0&&loaded[nd]; }
+    var cors=corridorsOf(flag, v).filter(function(c){ return c.km>=0.5; }).slice(0,8), out=[];
+    function add(o){ o.id="S"+(out.length+1); o.demo=true; o.start=o.start||(2025+(out.length%4)); o.dur=o.dur||(o.type==="transit"?4:o.type==="newroad"?3:2); out.push(o); }
+    var seen={};
+    cors.forEach(function(c,i){ var nm=c.name.replace(/ corridor near /," near "); seen[nm]=(seen[nm]||0)+1; if(seen[nm]>1) nm+=" (section "+seen[nm]+")";
+      if(i<5) add({type:"widen", name:"Widen "+nm, links:c.links.slice(0,600), lanes:1});
+      if(i===5||i===6) add({type:"ops", name:(/^Freeway/.test(nm)?"Ramp metering & ITS, ":"Signal & ITS upgrade, ")+nm, links:c.links.slice(0,600), capPct:10});
+      if(i<2){ // relief road parallel to the corridor, offset 800 m
+        var pts=c.links.map(linkMid), mx=0,my=0; pts.forEach(function(p){ mx+=p[0]; my+=p[1]; }); mx/=pts.length; my/=pts.length;
+        var sxx=0,sxy=0,syy=0; pts.forEach(function(p){ var dx=p[0]-mx, dy=p[1]-my; sxx+=dx*dx; sxy+=dx*dy; syy+=dy*dy; });
+        var ang=0.5*Math.atan2(2*sxy, sxx-syy), ux=Math.cos(ang), uy=Math.sin(ang), lo=1e18, hi=-1e18; pts.forEach(function(p){ var t=(p[0]-mx)*ux+(p[1]-my)*uy; lo=Math.min(lo,t); hi=Math.max(hi,t); });
+        var L0=Math.max(hi-lo,1500), rr=null;
+        [800,-800,1500,-1500].some(function(off){ var nx=-uy*off, ny=ux*off, P0=[mx+ux*(-L0/2)+nx, my+uy*(-L0/2)+ny], P1=[mx+ux*(L0/2)+nx, my+uy*(L0/2)+ny];
+          if(nearLoaded(P0[0],P0[1])<400&&nearLoaded(P1[0],P1[1])<400){ rr=[P0,P1]; return true; } return false; });
+        if(rr) add({type:"newroad", name:"Relief road parallel to "+nm, pts:rr, lanesNew:2, lt:20}); }
+      if(i===0) add({type:"charge", name:"Road-user charge, "+nm, links:c.links.slice(0,600), aed:4});
+    });
+    // transit: busiest trip-end zones (OD), two lines across the main clusters
+    var tz=odZoneTotals(); if(tz){ var zs=[]; for(var z=0;z<N0;z++){ var t=tz.P[z]+tz.A[z]; if(t>0) zs.push([z,t]); }
+      zs=zs.filter(function(a){ return zoneLoaded(a[0]); });
+      zs.sort(function(a,b){ return b[1]-a[1]; }); var top=zs.slice(0,60).map(function(a){ return [CENT[a[0]*2],CENT[a[0]*2+1]]; });
+      if(top.length>=6){
+        // the densest cluster of busy zones anchors both lines (busy zones also sit in other cities)
+        var ctr=top[0], cn=-1; top.forEach(function(c){ var n=0; top.forEach(function(q){ if(Math.hypot(q[0]-c[0],q[1]-c[1])<5000) n++; }); if(n>cn){ cn=n; ctr=c; } });
+        var cl=zs.slice(0,400).map(function(a){ return [CENT[a[0]*2],CENT[a[0]*2+1]]; }).filter(function(p){ return Math.hypot(p[0]-ctr[0],p[1]-ctr[1])<12000; });
+        var mx2=0,my2=0; cl.forEach(function(p){ mx2+=p[0]; my2+=p[1]; }); mx2/=cl.length; my2/=cl.length;
+        var sx=0,sxy2=0,sy=0; cl.forEach(function(p){ var dx=p[0]-mx2, dy=p[1]-my2; sx+=dx*dx; sxy2+=dx*dy; sy+=dy*dy; });
+        var a2=0.5*Math.atan2(2*sxy2, sx-sy);
+        [[a2,"Light rail, main corridor",9000,1500],[a2+Math.PI/2,"BRT, cross corridor",7000,2000]].forEach(function(L2,k){ var ux2=Math.cos(L2[0]), uy2=Math.sin(L2[0]), half=L2[2], band=L2[3];
+          var on=cl.map(function(p){ return {p:p, a:(p[0]-mx2)*ux2+(p[1]-my2)*uy2, b:(p[0]-mx2)*(-uy2)+(p[1]-my2)*ux2}; }).filter(function(o2){ return Math.abs(o2.a)<=half&&Math.abs(o2.b)<band; });
+          if(on.length<3) return; var ptsT=[], used={};
+          for(var s=0;s<=5;s++){ var t=-half+2*half*s/5, best=-1, bd=1e18; on.forEach(function(o2,j){ var dd=Math.abs(o2.a-t); if(dd<bd&&!used[j]){ bd=dd; best=j; } }); if(best>=0&&bd<2*half/5){ used[best]=1; ptsT.push(on[best].p.slice()); } }
+          ptsT.sort(function(a3,b3){ return ((a3[0]-mx2)*ux2+(a3[1]-my2)*uy2)-((b3[0]-mx2)*ux2+(b3[1]-my2)*uy2); });
+          if(ptsT.length<3||polyKm(ptsT)<3) return;
+          add({type:"transit", mode:k===0?"lrt":"brt", name:L2[1], pts:ptsT, catch:800, spacing:1200, both:k===0?25:15, one:k===0?5:3}); });
+        // parking management at the densest cluster of busy zones
+        var best=top[0], bn=-1; top.forEach(function(c){ var n=0; top.forEach(function(q){ if(Math.hypot(q[0]-c[0],q[1]-c[1])<2500) n++; }); if(n>bn){ bn=n; best=c; } });
+        add({type:"demand", name:"Parking management, busiest centre", pts:[best], radius:2000, redPct:10}); } }
+    out.forEach(function(s){ s.geo=schemeGeo(s); });
+    return {ok:true, schemes:out, corridors:cors.length};
+  });
+}
+function schemeShow(o){
+  var list=o.schemes||[], sel=o.sel;
+  AI.markers=list.filter(function(s){ return s.x!=null; }).map(function(s){ return {x:s.x, y:s.y, num:String(s.num), color:s.color||"#36B7B4", sel:s.id===sel, still:true}; });
+  AI.lines=[]; var hl=[];
+  list.forEach(function(s){ var on=s.id===sel||o.all; if(!on) return;
+    if(s.pts&&s.pts.length>1) AI.lines.push({pts:s.pts, color:s.color||"#36B7B4", dash:s.type==="transit"?[7,5]:null, w:s.id===sel?4:2.5, stations:s.type==="transit"?stationsOf(s.pts, s.spacing||TRANSIT_DEF.spacing):null});
+    if(s.type==="demand"&&s.pts&&s.pts.length===1) AI.lines.push({circle:s.pts[0], r:s.radius||2000, color:s.color||"#36B7B4"});
+    if(s.id===sel&&s.links) hl=hl.concat(s.links); });
+  AI.hl=hl.length?{links:hl.slice(0,4000), color:(list.filter(function(s){return s.id===sel;})[0]||{}).color}:null;
+  var t=list.filter(function(s){ return s.id===sel; })[0], fr=Math.max(0,Math.min(0.7,+o.cover||0));
+  // keep the view inside the part of the map the bottom board does not cover
+  function fitAbove(x0,y0,x1,y1){ var hgt=y1-y0, wid=x1-x0, vis=1-fr, needH=hgt/vis;
+    var asp=W/Math.max(1,H*vis); if(wid/hgt>asp) needH=(wid/asp)/vis; var top=y1+(needH*vis-hgt)/2; animateTo((x0+x1)/2-wid/2,top-needH,(x0+x1)/2+wid/2,top); }
+  if(t&&o.fly&&t.bbox){ var bb=t.bbox, pad=Math.max(900,(bb[2]-bb[0])*0.3,(bb[3]-bb[1])*0.3); fitAbove(bb[0]-pad,bb[1]-pad,bb[2]+pad,bb[3]+pad); }
+  else if(o.fit&&list.length){ var x0=1e18,y0=1e18,x1=-1e18,y1=-1e18; list.forEach(function(s){ if(!s.bbox) return; x0=Math.min(x0,s.bbox[0]); y0=Math.min(y0,s.bbox[1]); x1=Math.max(x1,s.bbox[2]); y1=Math.max(y1,s.bbox[3]); });
+    if(x1>x0) fitAbove(x0-1500,y0-1500,x1+1500,y1+1500); else render(); }
+  else render();
+  return {ok:true}; }
+
+/* =====================================================================
    MAP OVERLAY: highlights + pulsing markers + picking
    ===================================================================== */
 var ov=null, ovx=null, raf=0, reduce=false;
@@ -920,13 +1108,25 @@ function drawOverlay(){
   }
   if(AI.hlZones&&AI.hlZones.length){ t.fillStyle="rgba(54,183,180,.9)"; t.strokeStyle="#04101c"; t.lineWidth=1.5;
     AI.hlZones.forEach(function(z){ var x=(CENT[z*2]-cx)*sc+hw, y=hh-(CENT[z*2+1]-cy)*sc; t.beginPath(); t.arc(x,y,5,0,6.2832); t.fill(); t.stroke(); }); }
+  (AI.lines||[]).forEach(function(ln){ t.save(); var col=ln.color||"#36B7B4";
+    if(ln.circle){ var ccx=(ln.circle[0]-cx)*sc+hw, ccy=hh-(ln.circle[1]-cy)*sc; t.beginPath(); t.arc(ccx,ccy,Math.max(4,ln.r*sc),0,6.2832); t.fillStyle=col; t.globalAlpha=.12; t.fill(); t.globalAlpha=.9; t.setLineDash([5,4]); t.strokeStyle=col; t.lineWidth=1.6; t.stroke(); t.restore(); return; }
+    t.lineCap="round"; t.lineJoin="round";
+    [["rgba(4,10,20,.85)",(ln.w||3)+3.5,null],[col,ln.w||3,ln.dash]].forEach(function(st){ t.setLineDash(st[2]||[]); t.strokeStyle=st[0]; t.lineWidth=st[1]; t.beginPath();
+      ln.pts.forEach(function(p,i){ var x=(p[0]-cx)*sc+hw, y=hh-(p[1]-cy)*sc; if(i) t.lineTo(x,y); else t.moveTo(x,y); }); t.stroke(); });
+    t.setLineDash([]); (ln.stations||[]).forEach(function(p){ var x=(p[0]-cx)*sc+hw, y=hh-(p[1]-cy)*sc; t.beginPath(); t.arc(x,y,3.2,0,6.2832); t.fillStyle="#F4F7FB"; t.fill(); t.lineWidth=1.6; t.strokeStyle=col; t.stroke(); });
+    t.restore(); });
+  if(AI.draft&&AI.draft.pts&&AI.draft.pts.length){ var dp=AI.draft.pts; t.save(); t.setLineDash([6,5]); t.strokeStyle="#F4F7FB"; t.lineWidth=2.5; t.beginPath();
+    dp.forEach(function(p,i){ var x=(p[0]-cx)*sc+hw, y=hh-(p[1]-cy)*sc; if(i) t.lineTo(x,y); else t.moveTo(x,y); }); t.stroke(); t.setLineDash([]);
+    dp.forEach(function(p){ var x=(p[0]-cx)*sc+hw, y=hh-(p[1]-cy)*sc; t.beginPath(); t.arc(x,y,4.5,0,6.2832); t.fillStyle="#36B7B4"; t.fill(); t.lineWidth=2; t.strokeStyle="#0b1220"; t.stroke(); }); t.restore(); }
   var now=performance.now();
-  AI.markers.forEach(function(mk){ var x=(mk.x-cx)*sc+hw, y=hh-(mk.y-cy)*sc; if(x<-30||x>w+30||y<-30||y>h+30) return;
+  AI.markers.forEach(function(mk){ if(mk.num!=null){ var nx=(mk.x-cx)*sc+hw, ny=hh-(mk.y-cy)*sc; if(nx<-30||nx>w+30||ny<-30||ny>h+30) return;
+      var rr=mk.sel?12:9.5; t.beginPath(); t.arc(nx,ny,rr,0,6.2832); t.fillStyle=mk.color||"#36B7B4"; t.fill(); t.lineWidth=mk.sel?3:2; t.strokeStyle=mk.sel?"#F4F7FB":"#0b1220"; t.stroke();
+      t.font="700 "+(mk.sel?12:10.5)+"px system-ui,sans-serif"; t.textAlign="center"; t.textBaseline="middle"; t.fillStyle="#0b1220"; t.fillText(mk.num,nx,ny+.5); t.textAlign="start"; t.textBaseline="alphabetic"; return; } var x=(mk.x-cx)*sc+hw, y=hh-(mk.y-cy)*sc; if(x<-30||x>w+30||y<-30||y>h+30) return;
     var col=SEVCOL[mk.sev]||mk.color||"#36B7B4";
     if(!reduce){ var ph=((now/1400)+(mk.ph||0))%1; t.beginPath(); t.arc(x,y,7+ph*16,0,6.2832); t.strokeStyle=col; t.globalAlpha=1-ph; t.lineWidth=2; t.stroke(); t.globalAlpha=1; }
     t.beginPath(); t.arc(x,y,mk.sel?8:6,0,6.2832); t.fillStyle=col; t.fill(); t.lineWidth=2; t.strokeStyle="#0b1220"; t.stroke();
     if(mk.label&&(mk.sel||sc>0.02)){ t.font="600 11px system-ui,sans-serif"; var tw=t.measureText(mk.label).width; t.fillStyle="rgba(11,18,32,.88)"; t.fillRect(x+10,y-9,tw+10,18); t.fillStyle="#F4F7FB"; t.fillText(mk.label,x+15,y+4); } });
-  if(AI.markers.length&&!reduce&&!raf){ raf=requestAnimationFrame(function(){ raf=0; drawOverlay(); }); }
+  if(AI.markers.some(function(k){ return !k.still; })&&!reduce&&!raf){ raf=requestAnimationFrame(function(){ raf=0; drawOverlay(); }); }
 }
 var _render=window.render;
 if(typeof _render==="function"){ window.render=function(){ var r=_render.apply(this,arguments); try{ drawOverlay(); }catch(e){} return r; }; }
@@ -956,7 +1156,9 @@ function pickAt(px,py){ var best=-1, bd=12, hw=W/2, hh=H/2;
   return best; }
 (function(){ var map=document.getElementById("map"); if(!map) return; var down=null;
   map.addEventListener("pointerdown",function(e){ down=[e.clientX,e.clientY]; },true);
-  map.addEventListener("pointerup",function(e){ if(!AI.pick||!down) return; if(Math.hypot(e.clientX-down[0],e.clientY-down[1])>6) return;
+  map.addEventListener("pointerup",function(e){ if(!down) return; if(Math.hypot(e.clientX-down[0],e.clientY-down[1])>6) return;
+    if(AI.draw){ var rb=map.getBoundingClientRect(), wx=cx+(e.clientX-rb.left-W/2)/sc, wy=cy-(e.clientY-rb.top-H/2)/sc; AI.draft=AI.draft||{pts:[]}; AI.draft.pts.push([Math.round(wx),Math.round(wy)]); drawOverlay(); post({event:"aipt", x:Math.round(wx), y:Math.round(wy), n:AI.draft.pts.length}); return; }
+    if(!AI.pick) return;
     ensureNet(); var r=map.getBoundingClientRect(); var g=pickAt(e.clientX-r.left,e.clientY-r.top); if(g>=0){ AI.hl={links:[g]}; drawOverlay(); post({event:"aipick", g:g}); } },true);
 })();
 function snapshotMap(){ try{ ensureOv(); var map=document.getElementById("map"); var c=document.createElement("canvas"); c.width=map.width; c.height=map.height; var t=c.getContext("2d");
@@ -983,7 +1185,7 @@ window.__AICMD=function(m){
                           return {ok:true, links:l.links?l.links.slice(0,3000):[], zones:l.zones||[], bbox:l.bbox, x:l.x, y:l.y}; }
       case "focus":     return focus(m);
       case "markers":   AI.markers=m.markers||[]; drawOverlay(); return {ok:true};
-      case "clear":     AI.hl=null; AI.hlZones=null; if(m.markers) AI.markers=[]; drawOverlay(); return {ok:true};
+      case "clear":     AI.hl=null; AI.hlZones=null; if(m.markers){ AI.markers=[]; AI.lines=[]; AI.draw=false; AI.draft=null; } drawOverlay(); return {ok:true};
       case "pick":      AI.pick=!!m.on; return {ok:true};
       case "link":      return linkProfile(m.g);
       case "query":     return queryLinks(m.q);
@@ -1003,6 +1205,14 @@ window.__AICMD=function(m){
       case "snapshot":  return snapshotMap();
       case "mode":      MODE=m.mode; document.querySelectorAll("#modeSeg button,#miniMode button").forEach(function(x){ x.classList.toggle("on",x.dataset.m===m.mode); }); render(); return {ok:true};
       case "setscreen": if(m.method) SCREEN.method=m.method; if(m.sample!=null) SCREEN.sample=String(m.sample); if(m.clamp!==undefined) SCREEN.clamp=+m.clamp||0; AI.sbase=null; return {ok:true, screen:SCREEN};
+      case "schemerun": return prepare().then(function(){ return schemeRun(m); });
+      case "schemeinfo": ensureNet(); return {ok:true, geo:(m.schemes||[]).map(function(x){ return schemeGeo(x); })};
+      case "schemeshow": return schemeShow(m);
+      case "seedschemes": return prepare().then(function(){ return seedSchemes(); });
+      case "estimate":  return estimate(m);
+      case "pkg":       return {ok:!!AI.pkg, ids:AI.pkg?AI.pkg.ids:null, at:AI.pkg?AI.pkg.at:null};
+      case "scnedits":  return scnEdits();
+      case "draw":      AI.draw=!!m.on; if(m.clear!==false) AI.draft=null; if(m.pts) AI.draft={pts:m.pts}; drawOverlay(); return {ok:true};
       case "status":    return {ok:true, hasVol:!!baseVol, hasScn:!!scnVol, running:!!ASSIGN.running, od:!!ODMAT, volSource:AI.volSource, surrogate:!!AI.surrogate, method:window.__BASEMETHOD||null, gap:window.__BASEGAP, screen:SCREEN, lastStress:AI.lastStress||null};
       default: return {ok:false, err:"unknown ai command "+c};
     }

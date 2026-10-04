@@ -35,3 +35,8 @@ production system.
 | REQ-25 | 15 | Final v4 integration, reports, presentation | Planned | After STEAM v4 master. |
 | INT-01 | pp.12,39,42 | HSM, reporting, visualisation compatibility | Partial | HSM handoff pack (draft, no gate demand); feeds for Birdseye/FUSION/Llumen unverified. |
 | INT-02 | p.53 | Execution boundary and document QA | Built | No model launch from the browser; documents carry document control and a QA signature block, never invented signatures. |
+| TFP-01 | AI_Tool.pptx s.1 | Programme dashboard: map of numbered schemes, five KPIs, cost, cash flow 2025–2030, score, priority | Built | Schemes workspace, Programme tab (`ai-schemes.js`). |
+| TFP-02 | AI_Tool.pptx s.2 | Code roadway, mass-transit and policy schemes; run each independently and collect KPIs | Partial | Six scheme types run through the in-app engine; STEAM batch spec export and KPI import for the full runs. Transit and parking responses are placeholders; skims come only through the STEAM import. |
+| TFP-03 | AI_Tool.pptx s.2 | Full run of the most likely programme and variations | Built | Estimator: Priority 1 package, P1+P2, demand ±10%. |
+| TFP-04 | AI_Tool.pptx s.2 | Quick estimation engine for minor adjustments | Built | Scheme add/drop via interaction factor, matrix (demand) adjustment via the growth response, ±1 lane via fixed-volume BPR; confirm-by-assignment track record. |
+| TFP-05 | AI_Tool.pptx s.2 | SPD25 prioritisation parameters | Blocked | Placeholder set of four 1–5 parameters and weights until the SPD25 criteria are supplied. |

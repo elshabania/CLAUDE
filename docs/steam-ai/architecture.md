@@ -11,10 +11,11 @@ real STEAM 2040 network, land use and OD that ship inside the page.
 index.html (generated, ~28.5 MB)
 ├── container shell            build/container.html
 │   ├── STEAM-AI shell         build/ai-shell.js + ai-shell.css   (workspaces, copilot tools, reports)
+│   │   └── Schemes            build/ai-schemes.js                (programme prioritisation, spliced in at __SCHEMES__)
 │   └── existing Copilot       intent matcher, optimiser, metro planner, evolution
 ├── iframe: Network Viewer     embedded source (zones, aggregation, 2025/2040 evolution)
 └── iframe: Assignment engine  embedded source + build/ai-engine.js
-                               (checks, tolerance, stress tests, surrogate, overlay)
+                               (checks, tolerance, stress tests, surrogate, scheme runs, overlay)
 ```
 
 The shell talks to each iframe through the existing postMessage bridge. The
