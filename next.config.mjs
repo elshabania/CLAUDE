@@ -9,6 +9,8 @@ const nextConfig = {
     return [
       { source: "/abu-dhabi-streets", destination: "/abu-dhabi-streets/index.html" },
       { source: "/abu-dhabi-streets/", destination: "/abu-dhabi-streets/index.html" },
+      { source: "/steam-2040-studio", destination: "/steam-2040-studio/index.html" },
+      { source: "/steam-2040-studio/", destination: "/steam-2040-studio/index.html" },
     ];
   },
 };
